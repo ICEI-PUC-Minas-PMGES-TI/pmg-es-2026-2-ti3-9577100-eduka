@@ -54,3 +54,29 @@ O backend espera um Postgres em `localhost:5432` com as credenciais definidas em
 npm install
 npm run dev
 ```
+
+### Executando em produção
+
+O ambiente de produção usa um único ponto de entrada (Nginx na porta 80), que serve o frontend compilado como estático e faz proxy das chamadas de API para o backend.
+
+1. Configure as variáveis de ambiente em `.env` (as mesmas do ambiente de desenvolvimento: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`).
+
+2. Suba os serviços com o compose de produção:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml up --build -d
+   ```
+
+3. Acesse:
+
+   * Aplicação (frontend): http://localhost/
+   * Backend, via proxy do Nginx: http://localhost/api/... (ex.: http://localhost/api/health)
+
+Diferenças em relação ao ambiente de desenvolvimento:
+
+* Apenas a porta 80 (Nginx) fica exposta ao host; frontend e backend não publicam portas diretamente.
+* O backend roda com `SPRING_PROFILES_ACTIVE=prod`.
+* O frontend é compilado (`npm run build`) e servido como arquivos estáticos pelo próprio Nginx (`frontend/Dockerfile.prod`).
+* Os serviços têm `restart: always`.
+
+Para parar os serviços, use `docker compose -f docker-compose.prod.yml down` (adicione `-v` para também apagar o volume do banco de dados).
