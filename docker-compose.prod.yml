@@ -31,7 +31,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
 
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}?sslmode=${DB_SSLMODE}
 
       SPRING_DATASOURCE_USERNAME: ${DB_APP_USER}
 
