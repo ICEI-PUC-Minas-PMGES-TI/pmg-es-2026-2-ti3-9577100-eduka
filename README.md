@@ -81,15 +81,3 @@ Diferenças em relação ao ambiente de desenvolvimento:
 
 Para parar os serviços, use `docker compose -f docker-compose.prod.yml down` (adicione `-v` para também apagar o volume do banco de dados).
 
-### Atualizando um ambiente já existente
-
-O script `postgres/init/01-create-app-role.sh` só roda automaticamente quando o volume do Postgres é criado do zero (comportamento padrão do `docker-entrypoint-initdb.d`). Se você está atualizando um ambiente que já tinha um volume do Postgres de antes dessa mudança, o role `eduka_app` não vai ser criado sozinho, e o backend (que agora conecta como `eduka_app`) vai falhar a autenticação.
-
-Nesse caso, conecte manualmente como o superuser de bootstrap (`POSTGRES_USER`) e rode à mão o equivalente do script de init, incluindo o `REASSIGN OWNED BY`, para que tabelas e sequences já existentes (criadas pelo antigo superuser) também transfiram de dono — caso contrário o Flyway pode falhar depois com erro de permissão em objetos ainda pertencentes ao usuário antigo:
-
-```sql
-CREATE ROLE eduka_app LOGIN PASSWORD 'sua-senha-aqui';
-ALTER DATABASE eduka OWNER TO eduka_app;
-ALTER SCHEMA public OWNER TO eduka_app;
-REASSIGN OWNED BY eduka TO eduka_app;
-```
