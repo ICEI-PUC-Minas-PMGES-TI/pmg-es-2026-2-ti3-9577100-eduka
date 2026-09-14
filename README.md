@@ -46,7 +46,7 @@ Para parar os serviços, use `docker compose down` (adicione `-v` para também a
 ./mvnw spring-boot:run
 ```
 
-O backend espera um Postgres em `localhost:5432` com as credenciais definidas em `application.properties` (ou nas variáveis `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`). Você pode subir só o banco via Docker com `docker compose up postgres`.
+O backend espera um Postgres em `localhost:5432` com as credenciais definidas em `application.properties` (ou nas variáveis `POSTGRES_DB`, `DB_APP_USER`, `DB_APP_PASSWORD`). O usuário `POSTGRES_USER` (definido em `.env`) é só o superuser de bootstrap do container Postgres — o backend conecta com o role restrito `DB_APP_USER`, criado automaticamente na primeira subida do container via `postgres/init/`. Você pode subir só o banco via Docker com `docker compose up postgres`.
 
 **Frontend** (Node 20+), a partir de `frontend/`:
 
@@ -59,7 +59,7 @@ npm run dev
 
 O ambiente de produção usa um único ponto de entrada (Nginx na porta 80), que serve o frontend compilado como estático e faz proxy das chamadas de API para o backend.
 
-1. Configure as variáveis de ambiente em `.env` (as mesmas do ambiente de desenvolvimento: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`).
+1. Configure as variáveis de ambiente em `.env` (as mesmas do ambiente de desenvolvimento: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DB_APP_USER`, `DB_APP_PASSWORD`).
 
 2. Suba os serviços com o compose de produção:
 
