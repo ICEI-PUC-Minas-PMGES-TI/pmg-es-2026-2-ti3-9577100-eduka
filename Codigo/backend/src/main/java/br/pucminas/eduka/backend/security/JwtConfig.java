@@ -25,11 +25,26 @@ import com.nimbusds.jose.jwk.source.ImmutableSecret;
 @EnableConfigurationProperties(JwtProperties.class)
 public class JwtConfig {
 
+	private static final int MIN_SECRET_BYTES = 32;
+
 	@Bean
 	public SecretKey jwtSecretKey(JwtProperties jwtProperties) {
-		return new SecretKeySpec(
-				jwtProperties.secret().getBytes(StandardCharsets.UTF_8),
-				"HmacSHA256");
+		String secret = jwtProperties.secret();
+		validateSecret(secret);
+		return new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+	}
+
+	private void validateSecret(String secret) {
+		if (secret == null || secret.isBlank()) {
+			throw new IllegalStateException("JWT_SECRET must not be null or blank");
+		}
+		if (secret.startsWith("${")) {
+			throw new IllegalStateException("JWT_SECRET was not resolved (found unresolved placeholder)");
+		}
+		if (secret.getBytes(StandardCharsets.UTF_8).length < MIN_SECRET_BYTES) {
+			throw new IllegalStateException(
+					"JWT_SECRET must be at least " + MIN_SECRET_BYTES + " bytes long for HS256");
+		}
 	}
 
 	@Bean

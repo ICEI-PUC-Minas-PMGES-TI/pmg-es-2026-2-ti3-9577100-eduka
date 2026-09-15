@@ -56,4 +56,15 @@ class JwtConfigTest {
             assertThat(decoder.decode(token).getSubject()).isEqualTo("round-trip-check");
         });
     }
+
+    @Test
+    void failsToStartWithSecretShorterThan32Bytes() {
+        new ApplicationContextRunner()
+                .withUserConfiguration(JwtConfig.class)
+                .withPropertyValues(
+                        "jwt.secret=short",
+                        "jwt.access-expiration-minutes=60",
+                        "jwt.refresh-expiration-days=30")
+                .run(context -> assertThat(context).hasFailed());
+    }
 }

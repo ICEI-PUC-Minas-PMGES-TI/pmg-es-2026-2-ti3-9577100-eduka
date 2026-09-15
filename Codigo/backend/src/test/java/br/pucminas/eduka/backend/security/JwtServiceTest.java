@@ -77,7 +77,9 @@ class JwtServiceTest {
     @Test
     void rejectsTamperedAccessToken() {
         String token = jwtService.generateAccessToken(UUID.randomUUID(), "ALUNO", UUID.randomUUID());
-        String tampered = token.substring(0, token.length() - 1) + (token.endsWith("A") ? "B" : "A");
+        String[] parts = token.split("\\.");
+        String tampered = parts[0] + "." + parts[1] + "."
+                + (parts[2].startsWith("A") ? "B" : "A") + parts[2].substring(1);
 
         assertThatThrownBy(() -> jwtService.verifyAccessToken(tampered))
                 .isInstanceOf(JwtException.class);
@@ -86,7 +88,9 @@ class JwtServiceTest {
     @Test
     void rejectsTamperedRefreshToken() {
         String token = jwtService.generateRefreshToken(UUID.randomUUID());
-        String tampered = token.substring(0, token.length() - 1) + (token.endsWith("A") ? "B" : "A");
+        String[] parts = token.split("\\.");
+        String tampered = parts[0] + "." + parts[1] + "."
+                + (parts[2].startsWith("A") ? "B" : "A") + parts[2].substring(1);
 
         assertThatThrownBy(() -> jwtService.verifyRefreshToken(tampered))
                 .isInstanceOf(JwtException.class);
