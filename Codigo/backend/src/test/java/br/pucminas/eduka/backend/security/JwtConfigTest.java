@@ -7,10 +7,12 @@ import java.time.Instant;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.security.oauth2.jwt.JwsHeader;
 
 class JwtConfigTest {
 
@@ -48,7 +50,8 @@ class JwtConfigTest {
                     .issuedAt(now)
                     .expiresAt(now.plusSeconds(60))
                     .build();
-            String token = encoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+            JwsHeader jwsHeader = JwsHeader.with(MacAlgorithm.HS256).build();
+            String token = encoder.encode(JwtEncoderParameters.from(jwsHeader, claims)).getTokenValue();
 
             assertThat(decoder.decode(token).getSubject()).isEqualTo("round-trip-check");
         });
