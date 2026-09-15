@@ -73,4 +73,49 @@ class JwtServiceTest {
 
         assertThat(verifiedUserId).isEqualTo(userId);
     }
+
+    @Test
+    void rejectsTamperedAccessToken() {
+        String token = jwtService.generateAccessToken(UUID.randomUUID(), "ALUNO", UUID.randomUUID());
+        String tampered = token.substring(0, token.length() - 1) + (token.endsWith("A") ? "B" : "A");
+
+        assertThatThrownBy(() -> jwtService.verifyAccessToken(tampered))
+                .isInstanceOf(JwtException.class);
+    }
+
+    @Test
+    void rejectsTamperedRefreshToken() {
+        String token = jwtService.generateRefreshToken(UUID.randomUUID());
+        String tampered = token.substring(0, token.length() - 1) + (token.endsWith("A") ? "B" : "A");
+
+        assertThatThrownBy(() -> jwtService.verifyRefreshToken(tampered))
+                .isInstanceOf(JwtException.class);
+    }
+
+    @Test
+    void rejectsExpiredAccessToken() {
+        Clock pastClock = Clock.fixed(clock.instant().minus(2, ChronoUnit.HOURS), ZoneOffset.UTC);
+        JwtService expiredTokenIssuer = new JwtService(jwtEncoder, jwtDecoder, jwtProperties, pastClock);
+        String expiredToken = expiredTokenIssuer.generateAccessToken(
+                UUID.randomUUID(), "ALUNO", UUID.randomUUID());
+
+        assertThatThrownBy(() -> jwtService.verifyAccessToken(expiredToken))
+                .isInstanceOf(JwtException.class);
+    }
+
+    @Test
+    void rejectsAccessTokenPassedAsRefreshToken() {
+        String accessToken = jwtService.generateAccessToken(UUID.randomUUID(), "ALUNO", UUID.randomUUID());
+
+        assertThatThrownBy(() -> jwtService.verifyRefreshToken(accessToken))
+                .isInstanceOf(JwtException.class);
+    }
+
+    @Test
+    void rejectsRefreshTokenPassedAsAccessToken() {
+        String refreshToken = jwtService.generateRefreshToken(UUID.randomUUID());
+
+        assertThatThrownBy(() -> jwtService.verifyAccessToken(refreshToken))
+                .isInstanceOf(JwtException.class);
+    }
 }
