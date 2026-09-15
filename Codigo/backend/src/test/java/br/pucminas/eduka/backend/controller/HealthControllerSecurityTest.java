@@ -1,30 +1,26 @@
 package br.pucminas.eduka.backend.controller;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.web.servlet.MockMvc;
 
 import br.pucminas.eduka.backend.security.JwtConfig;
 
+@WebMvcTest(HealthController.class)
+@Import(JwtConfig.class)
 class HealthControllerSecurityTest {
 
-	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-			.withUserConfiguration(JwtConfig.class)
-			.withPropertyValues(
-					"jwt.secret=test-secret-key-with-at-least-32-bytes!!",
-					"jwt.access-expiration-minutes=60",
-					"jwt.refresh-expiration-days=30");
+    @Autowired
+    private MockMvc mockMvc;
 
-	@Test
-	void securityFilterChainBeanIsConfiguredToPermitAllRequests() {
-		contextRunner.run(context -> {
-			assertThat(context).hasSingleBean(SecurityFilterChain.class);
-			// Verify the bean exists and can be instantiated
-			SecurityFilterChain chain = context.getBean(SecurityFilterChain.class);
-			assertThat(chain).isNotNull();
-		});
-	}
+    @Test
+    void healthEndpointIsReachableWithoutAuthentication() throws Exception {
+        mockMvc.perform(get("/health"))
+                .andExpect(status().isOk());
+    }
 }
