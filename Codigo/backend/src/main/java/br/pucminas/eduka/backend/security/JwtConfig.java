@@ -2,27 +2,43 @@ package br.pucminas.eduka.backend.security;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.util.List;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @EnableConfigurationProperties(JwtProperties.class)
 public class JwtConfig {
 
@@ -66,21 +82,85 @@ public class JwtConfig {
 	}
 
 	/**
-	 * API stateless autenticada por JWT (RNF01/RNF02). Sem sessao nem cookie,
-	 * CSRF nao se aplica. Apenas o health check e as rotas de autenticacao
-	 * (login e futura recuperacao de senha) ficam publicas; todo o resto exige
-	 * um access token valido.
+	 * Decoder usado SO pelo resource server, em cima das rotas protegidas.
+	 * Alem de assinatura e expiracao, exige que o token seja um access token
+	 * com perfil e escola. O bean {@link #jwtDecoder} continua sem essa
+	 * restricao porque {@link JwtService} precisa decodificar refresh tokens.
+	 */
+	private JwtDecoder resourceServerJwtDecoder(SecretKey jwtSecretKey) {
+		NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtSecretKey)
+				.macAlgorithm(MacAlgorithm.HS256)
+				.build();
+		decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+				JwtValidators.createDefault(),
+				new AccessTokenValidator()));
+		return decoder;
+	}
+
+	/**
+	 * Origens que podem chamar a API a partir do browser. Em dev e o Vite
+	 * (localhost:5173); em prod o Nginx serve front e API na mesma origem, entao
+	 * a lista fica vazia e nenhuma origem externa e aceita.
 	 */
 	@Bean
-	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+	public CorsConfigurationSource corsConfigurationSource(
+			@Value("${app.cors.allowed-origins:}") List<String> allowedOrigins) {
+		CorsConfiguration config = new CorsConfiguration();
+		config.setAllowedOrigins(allowedOrigins);
+		config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+		config.setAllowedHeaders(List.of(HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE));
+		config.setMaxAge(3600L);
+
+		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+		source.registerCorsConfiguration("/**", config);
+		return source;
+	}
+
+	/**
+	 * 401 e 403 sao entregues ao {@code ApiExceptionHandler}, para que toda
+	 * resposta de erro da API tenha o mesmo formato (RFC 9457 / ProblemDetail),
+	 * venha de filtro de seguranca ou de controller.
+	 */
+	@Bean
+	public AuthenticationEntryPoint authenticationEntryPoint(
+			@Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver) {
+		return (request, response, ex) -> resolver.resolveException(request, response, null, ex);
+	}
+
+	@Bean
+	public AccessDeniedHandler accessDeniedHandler(
+			@Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver) {
+		return (request, response, ex) -> resolver.resolveException(request, response, null, ex);
+	}
+
+	/**
+	 * API stateless autenticada por JWT (RNF01/RNF02). Sem sessao nem cookie,
+	 * CSRF nao se aplica. Apenas o health check, o preflight de CORS e as rotas
+	 * de autenticacao ficam publicos; todo o resto exige um access token
+	 * valido, cujo perfil vira ROLE_* para {@code @PreAuthorize}.
+	 */
+	@Bean
+	public SecurityFilterChain securityFilterChain(HttpSecurity http, SecretKey jwtSecretKey,
+			AuthenticationEntryPoint authenticationEntryPoint,
+			AccessDeniedHandler accessDeniedHandler) throws Exception {
 		return http
 				.csrf(csrf -> csrf.disable())
+				.cors(Customizer.withDefaults())
 				.sessionManagement(session -> session
 						.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(authorize -> authorize
+						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 						.requestMatchers("/health", "/auth/**").permitAll()
 						.anyRequest().authenticated())
-				.oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> {}))
+				.oauth2ResourceServer(oauth2 -> oauth2
+						.jwt(jwt -> jwt
+								.decoder(resourceServerJwtDecoder(jwtSecretKey))
+								.jwtAuthenticationConverter(new PerfilAuthenticationConverter()))
+						.authenticationEntryPoint(authenticationEntryPoint)
+						.accessDeniedHandler(accessDeniedHandler))
+				.exceptionHandling(handling -> handling
+						.authenticationEntryPoint(authenticationEntryPoint)
+						.accessDeniedHandler(accessDeniedHandler))
 				.build();
 	}
 }

@@ -19,6 +19,22 @@ class ProductionProfileConfigTest {
     private static final String[] VARIAVEIS_OBRIGATORIAS = {
             "POSTGRES_DB", "DB_SSLMODE", "DB_APP_USER", "DB_APP_PASSWORD" };
 
+    /**
+     * O Spring Boot le SPRING_DATASOURCE_* do ambiente por cima de qualquer
+     * properties. Se estiverem exportadas (por exemplo, para rodar o
+     * contextLoads contra um banco local), as asseroes sobre o que vem do
+     * arquivo deixam de fazer sentido.
+     */
+    private static final String[] OVERRIDES_DE_AMBIENTE = {
+            "SPRING_DATASOURCE_URL", "SPRING_DATASOURCE_USERNAME", "SPRING_DATASOURCE_PASSWORD" };
+
+    private static void assumirSemVariaveis(String... variaveis) {
+        for (String variavel : variaveis) {
+            assumeTrue(System.getenv(variavel) == null,
+                    variavel + " esta definida no ambiente; teste nao se aplica");
+        }
+    }
+
     private ApplicationContextRunner runnerComPerfil(String perfil) {
         return new ApplicationContextRunner()
                 .withInitializer(new ConfigDataApplicationContextInitializer())
@@ -38,10 +54,8 @@ class ProductionProfileConfigTest {
     void prodProfileHasNoDefaultForDatabaseCredentials() {
         // Se a maquina de quem roda o teste tiver essas variaveis exportadas, o
         // placeholder resolve e o cenario "variavel faltando" nao existe.
-        for (String variavel : VARIAVEIS_OBRIGATORIAS) {
-            assumeTrue(System.getenv(variavel) == null,
-                    variavel + " esta definida no ambiente; teste nao se aplica");
-        }
+        assumirSemVariaveis(VARIAVEIS_OBRIGATORIAS);
+        assumirSemVariaveis(OVERRIDES_DE_AMBIENTE);
 
         runnerComPerfil("prod").run(context -> {
             Environment env = context.getEnvironment();
@@ -59,6 +73,8 @@ class ProductionProfileConfigTest {
 
     @Test
     void prodProfileResolvesCredentialsWhenVariablesArePresent() {
+        assumirSemVariaveis(OVERRIDES_DE_AMBIENTE);
+
         runnerComPerfil("prod")
                 .withPropertyValues(
                         "POSTGRES_DB=eduka_prod",
