@@ -5,7 +5,7 @@ import java.util.UUID;
 import br.pucminas.eduka.backend.model.PerfilUsuario;
 
 public record CadastroUsuarioRequest(
-        UUID empresaId,
+        UUID escolaId,
         UUID pessoaId,
         String login,
         String senha,
@@ -14,7 +14,7 @@ public record CadastroUsuarioRequest(
     /** Impede que a senha apareca em log ou mensagem de erro. */
     @Override
     public String toString() {
-        return "CadastroUsuarioRequest[empresaId=%s, pessoaId=%s, login=%s, perfil=%s]"
-                .formatted(empresaId, pessoaId, login, perfil);
+        return "CadastroUsuarioRequest[escolaId=%s, pessoaId=%s, login=%s, perfil=%s]"
+                .formatted(escolaId, pessoaId, login, perfil);
     }
 }

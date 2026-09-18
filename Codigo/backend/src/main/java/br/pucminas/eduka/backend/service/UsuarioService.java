@@ -48,7 +48,7 @@ public class UsuarioService {
         }
 
         Usuario usuario = Usuario.builder()
-                .empresaId(request.empresaId())
+                .escolaId(request.escolaId())
                 .pessoaId(request.pessoaId())
                 .login(login)
                 .senhaHash(passwordEncoder.encode(request.senha()))

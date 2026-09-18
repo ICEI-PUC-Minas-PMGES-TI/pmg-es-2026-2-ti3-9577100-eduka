@@ -64,7 +64,7 @@ O backend é uma API stateless autenticada por JWT (HS256). Pontos que afetam qu
 
 * **`JWT_SECRET` é obrigatório** e precisa ter no mínimo 32 bytes; o backend se recusa a subir sem ele. Gere um com `openssl rand -base64 48` e coloque em `.env`. A duração dos tokens é configurável por `JWT_ACCESS_EXPIRATION_MINUTES` (padrão 60) e `JWT_REFRESH_EXPIRATION_DAYS` (padrão 30).
 * **Rotas protegidas por padrão.** Apenas `GET /health` e `/auth/**` são públicas; qualquer outra rota exige o header `Authorization: Bearer <access token>` e responde `401` sem ele. Os endpoints HTTP de login e cadastro ainda não existem — só os serviços internos (`AutenticacaoService`, `UsuarioService`).
-* **Senhas nunca são gravadas em texto puro.** A coluna `USUARIO.SENHA_HASH` recebe um hash BCrypt de custo 12 com prefixo de algoritmo (`{bcrypt}$2a$12$...`). O prefixo permite trocar o algoritmo no futuro sem invalidar senhas existentes: hashes antigos continuam válidos e são regravados no formato atual no próximo login bem-sucedido.
+* **Senhas nunca são gravadas em texto puro.** A coluna `usuarios.senha_hash` recebe um hash BCrypt de custo 12 com prefixo de algoritmo (`{bcrypt}$2a$12$...`). O prefixo permite trocar o algoritmo no futuro sem invalidar senhas existentes: hashes antigos continuam válidos e são regravados no formato atual no próximo login bem-sucedido.
 * **Regras de senha:** mínimo de 8 caracteres e máximo de 72 bytes (limite do BCrypt, que ignora silenciosamente o que passa disso). Logins são normalizados (`trim` + minúsculas) antes de qualquer comparação.
 * Login inexistente, senha errada e usuário inativo respondem com a mesma mensagem, para não revelar quais logins existem.
 

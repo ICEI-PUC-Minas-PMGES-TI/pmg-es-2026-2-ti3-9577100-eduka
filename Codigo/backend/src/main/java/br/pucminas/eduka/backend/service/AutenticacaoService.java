@@ -57,7 +57,7 @@ public class AutenticacaoService {
 
         return new LoginResponse(
                 jwtService.generateAccessToken(usuario.getId(), usuario.getPerfil().name(),
-                        usuario.getEmpresaId()),
+                        usuario.getEscolaId()),
                 jwtService.generateRefreshToken(usuario.getId()),
                 usuario.getId(),
                 usuario.getPerfil());

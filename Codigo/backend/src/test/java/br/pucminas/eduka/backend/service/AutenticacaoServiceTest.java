@@ -49,7 +49,7 @@ class AutenticacaoServiceTest {
         autenticacaoService = new AutenticacaoService(usuarioRepository, passwordEncoder, jwtService);
         usuario = Usuario.builder()
                 .id(UUID.randomUUID())
-                .empresaId(UUID.randomUUID())
+                .escolaId(UUID.randomUUID())
                 .pessoaId(UUID.randomUUID())
                 .login("maria")
                 .senhaHash(passwordEncoder.encode(SENHA))
@@ -61,7 +61,7 @@ class AutenticacaoServiceTest {
     @Test
     void autenticarReturnsTokensWhenPasswordMatches() {
         when(usuarioRepository.findByLogin("maria")).thenReturn(Optional.of(usuario));
-        when(jwtService.generateAccessToken(usuario.getId(), "FINANCEIRO", usuario.getEmpresaId()))
+        when(jwtService.generateAccessToken(usuario.getId(), "FINANCEIRO", usuario.getEscolaId()))
                 .thenReturn("access-token");
         when(jwtService.generateRefreshToken(usuario.getId())).thenReturn("refresh-token");
 

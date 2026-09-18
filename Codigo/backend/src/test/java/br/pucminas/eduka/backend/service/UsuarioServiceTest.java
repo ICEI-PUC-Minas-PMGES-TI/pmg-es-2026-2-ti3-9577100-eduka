@@ -69,7 +69,7 @@ class UsuarioServiceTest {
 
         Usuario salvo = usuarioService.cadastrar(request);
 
-        assertThat(salvo.getEmpresaId()).isEqualTo(request.empresaId());
+        assertThat(salvo.getEscolaId()).isEqualTo(request.escolaId());
         assertThat(salvo.getPessoaId()).isEqualTo(request.pessoaId());
         assertThat(salvo.getLogin()).isEqualTo("maria");
         assertThat(salvo.getPerfil()).isEqualTo(PerfilUsuario.SECRETARIA);
@@ -180,7 +180,7 @@ class UsuarioServiceTest {
     private Usuario usuarioComSenha(String senha) {
         return Usuario.builder()
                 .id(UUID.randomUUID())
-                .empresaId(UUID.randomUUID())
+                .escolaId(UUID.randomUUID())
                 .pessoaId(UUID.randomUUID())
                 .login("maria")
                 .senhaHash(passwordEncoder.encode(senha))

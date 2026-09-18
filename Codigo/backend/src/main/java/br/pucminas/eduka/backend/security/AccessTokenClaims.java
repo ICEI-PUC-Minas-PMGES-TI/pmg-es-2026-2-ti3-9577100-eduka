@@ -6,6 +6,6 @@ import java.util.UUID;
 public record AccessTokenClaims(
         UUID userId,
         String perfil,
-        UUID empresaId,
+        UUID escolaId,
         Instant expiresAt) {
 }

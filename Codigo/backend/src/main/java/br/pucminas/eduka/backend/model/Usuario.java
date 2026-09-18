@@ -1,6 +1,6 @@
 package br.pucminas.eduka.backend.model;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 import org.hibernate.annotations.Generated;
@@ -21,24 +21,24 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Credencial de acesso ao sistema, mapeando a tabela {@code USUARIO} criada na
- * migration V1.
+ * Credencial de acesso ao sistema, mapeando a tabela {@code usuarios}
+ * (criada na V1 como USUARIO e renomeada na V3).
  *
  * <p>
- * Nem toda {@code PESSOA} tem um {@code USUARIO}: apenas quem efetivamente faz
- * login. Os seis perfis do sistema compartilham esta mesma tabela, distinguidos
- * pela coluna {@code PERFIL}.
+ * Nem toda pessoa tem um usuario: apenas quem efetivamente faz login. Os seis
+ * perfis do sistema compartilham esta mesma tabela, distinguidos pela coluna
+ * {@code perfil}.
  * </p>
  *
  * <p>
- * {@code empresaId} e {@code pessoaId} estao mapeados como UUID simples, e nao
- * como {@code @ManyToOne}, porque as entidades Empresa e Pessoa ainda nao
- * existem no codigo. As chaves estrangeiras continuam sendo garantidas pelo
- * banco.
+ * {@code escolaId} e {@code pessoaId} estao mapeados como UUID simples, e nao
+ * como {@code @ManyToOne}, para nao acoplar esta entidade a Escola e Pessoa
+ * antes da hora. O banco garante as chaves estrangeiras, inclusive que a
+ * pessoa pertence a mesma escola do usuario (FK composta na V3).
  * </p>
  */
 @Entity
-@Table(name = "USUARIO")
+@Table(name = "usuarios")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -48,37 +48,37 @@ public class Usuario {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "ID_USUARIO", nullable = false, updatable = false)
+    @Column(name = "id_usuario", nullable = false, updatable = false)
     private UUID id;
 
-    @Column(name = "EMPRESA_ID", nullable = false)
-    private UUID empresaId;
+    @Column(name = "escola_id", nullable = false)
+    private UUID escolaId;
 
-    @Column(name = "PESSOA_ID", nullable = false)
+    @Column(name = "pessoa_id", nullable = false)
     private UUID pessoaId;
 
-    @Column(name = "LOGIN", nullable = false, unique = true, length = 150)
+    @Column(name = "login", nullable = false, unique = true, length = 150)
     private String login;
 
     /**
      * Hash da senha com prefixo do algoritmo. Nunca recebe a senha em texto puro
      * — ver {@link br.pucminas.eduka.backend.service.UsuarioService}.
      */
-    @Column(name = "SENHA_HASH", nullable = false, columnDefinition = "text")
+    @Column(name = "senha_hash", nullable = false, columnDefinition = "text")
     private String senhaHash;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "PERFIL", nullable = false, columnDefinition = "text")
+    @Column(name = "perfil", nullable = false, columnDefinition = "text")
     private PerfilUsuario perfil;
 
     @Builder.Default
-    @Column(name = "ATIVO", nullable = false)
+    @Column(name = "ativo", nullable = false)
     private boolean ativo = true;
 
     /** Preenchido pelo DEFAULT da coluna e relido apos o insert. */
     @Generated(event = EventType.INSERT)
-    @Column(name = "CRIADO_EM", nullable = false, updatable = false)
-    private LocalDateTime criadoEm;
+    @Column(name = "criado_em", nullable = false, updatable = false)
+    private Instant criadoEm;
 
     /**
      * Evita que a senha vaze em log, stack trace ou resposta de erro.
