@@ -21,13 +21,13 @@ Pacote raiz: `br.pucminas.eduka.backend`.
 | Pacote | Conteúdo |
 |---|---|
 | `controller` | Endpoints REST. Hoje apenas `HealthController` (`GET /health`). |
-| `security` | JWT (`JwtConfig`, `JwtService`, `JwtProperties`, `AccessTokenClaims`), hashing de senha (`PasswordEncoderConfig`) e o `SecurityFilterChain`. |
+| `security` | JWT (`JwtConfig`, `JwtService`, `JwtProperties`, `AccessTokenClaims`), hashing de senha (`PasswordEncoderConfig`), o `SecurityFilterChain` com CORS, `AccessTokenValidator` (só access token abre rota), `PerfilAuthenticationConverter` (perfil → `ROLE_*`, principal `UsuarioAutenticado`) e `IsolamentoEscola` (tenant). |
 | `model` | Entidades JPA. `Usuario` mapeia a tabela `usuarios`; `PerfilUsuario` é o enum dos seis perfis do sistema. |
 | `domains/model`, `domains/enums` | `Escola` (tabela `escolas`, o tenant do sistema) e `Status`. `Aluno` e `SuperAdm` ainda são esboços vazios. |
 | `repository` | Interfaces Spring Data (`UsuarioRepository`). |
 | `service` | Regras de negócio. `UsuarioService` (cadastro e troca de senha) e `AutenticacaoService` (login e emissão de tokens). |
 | `dto` | Records de entrada e saída dos serviços (`CadastroUsuarioRequest`, `LoginRequest`, `LoginResponse`). |
-| `exception` | Exceções de domínio (`CredenciaisInvalidasException`, `LoginJaCadastradoException`, `SenhaInvalidaException`). |
+| `exception` | Exceções de domínio (`CredenciaisInvalidasException`, `LoginJaCadastradoException`, `SenhaInvalidaException`) e o `ApiExceptionHandler`, que traduz tudo — inclusive 401/403 vindos dos filtros de segurança — para `ProblemDetail`. |
 
 Convenções:
 
@@ -36,6 +36,7 @@ Convenções:
 * **Senha só existe em texto puro dentro de `UsuarioService` e `AutenticacaoService`.** Tudo que chega ao banco passa por `PasswordEncoder.encode`; toda verificação passa por `PasswordEncoder.matches`. Nunca compare a senha com a coluna diretamente.
 * **Records e entidades que carregam senha sobrescrevem `toString()`** para omiti-la, evitando vazamento em log e stack trace.
 * **Configuração vem de variáveis de ambiente** lidas em `application.properties` (`POSTGRES_DB`, `DB_APP_USER`, `DB_APP_PASSWORD`, `JWT_SECRET`, ...). O `.env.example` na raiz do repositório lista todas. Os defaults de credencial em `application.properties` valem só para dev; `application-prod.properties` (perfil `prod`) os remove, de modo que variável faltando derruba a subida. Ao adicionar um segredo novo, siga o mesmo padrão: sem default em prod, e validação explícita na subida quando houver requisito de formato (como o tamanho mínimo do `JWT_SECRET` em `JwtConfig`).
+* **Todo controller de negócio segue o mesmo padrão**: `@PreAuthorize` no método para o perfil, `IsolamentoEscola.exigirAcesso(...)` antes de devolver um recurso identificado por id, e `IsolamentoEscola.escolaIdAtual()` como filtro de listagem — nunca um `escolaId` vindo do cliente. `AutorizacaoTestController` (em `src/test`) é o exemplo mínimo e a prova de que o filter chain, o `@PreAuthorize` e o isolamento funcionam de ponta a ponta.
 * Testes em `src/test/java` espelham os pacotes de `src/main/java`. Testes de serviço usam Mockito para o repository e o `PasswordEncoder` real, de modo a exercitar o hashing de verdade.
 
 ## Frontend
