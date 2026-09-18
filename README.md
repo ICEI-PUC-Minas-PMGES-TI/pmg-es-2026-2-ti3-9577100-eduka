@@ -1,13 +1,16 @@
-# [Nome do projeto]
+# Eduka
 
-[Escreva um ou dois  parágrafo resumindo o objetivo do seu projeto.]
+Plataforma SaaS de gestão escolar que centraliza informações acadêmicas, administrativas e financeiras de várias instituições de ensino em um único sistema multi-tenant, com dados isolados por escola e acesso controlado por perfil de usuário (SUPER_ADMIN, MASTER, SECRETARIA, FINANCEIRO, PROFESSOR e ALUNO).
+
+O MVP cobre cadastro de escolas, usuários, alunos, professores, cursos, turmas e matrículas, além de cobranças, pagamentos e despesas com registro manual. Emissão de boletos, confirmação automática de pagamentos, relatórios avançados e aplicativo mobile ficam para versões futuras. Os requisitos completos estão em [`Artefatos/visão-requisitos/`](Artefatos/visão-requisitos/).
 
 ## Alunos integrantes da equipe
 
-* [Nome completo do aluno 1]
-* [Nome completo do aluno 2]
-* [Nome completo do aluno 3]
-* [Nome completo do aluno 4]
+* Ítalo Eduardo Carneiro da Silva
+* Guilherme Augusto Martins de Carvalho
+* Vinícius Matos Oliveira Rocha
+* João Victor Vial Leite Soares
+* Gabriel Felício Dias
 
 ## Professores responsáveis
 
@@ -54,6 +57,26 @@ O backend espera um Postgres em `localhost:5432` com as credenciais definidas em
 npm install
 npm run dev
 ```
+
+### Autenticação e senhas
+
+O backend é uma API stateless autenticada por JWT (HS256). Pontos que afetam quem for rodar ou consumir a API:
+
+* **`JWT_SECRET` é obrigatório** e precisa ter no mínimo 32 bytes; o backend se recusa a subir sem ele. Gere um com `openssl rand -base64 48` e coloque em `.env`. A duração dos tokens é configurável por `JWT_ACCESS_EXPIRATION_MINUTES` (padrão 60) e `JWT_REFRESH_EXPIRATION_DAYS` (padrão 30).
+* **Rotas protegidas por padrão.** Apenas `GET /health` e `/auth/**` são públicas; qualquer outra rota exige o header `Authorization: Bearer <access token>` e responde `401` sem ele. Os endpoints HTTP de login e cadastro ainda não existem — só os serviços internos (`AutenticacaoService`, `UsuarioService`).
+* **Senhas nunca são gravadas em texto puro.** A coluna `USUARIO.SENHA_HASH` recebe um hash BCrypt de custo 12 com prefixo de algoritmo (`{bcrypt}$2a$12$...`). O prefixo permite trocar o algoritmo no futuro sem invalidar senhas existentes: hashes antigos continuam válidos e são regravados no formato atual no próximo login bem-sucedido.
+* **Regras de senha:** mínimo de 8 caracteres e máximo de 72 bytes (limite do BCrypt, que ignora silenciosamente o que passa disso). Logins são normalizados (`trim` + minúsculas) antes de qualquer comparação.
+* Login inexistente, senha errada e usuário inativo respondem com a mesma mensagem, para não revelar quais logins existem.
+
+### Executando os testes
+
+A partir de `Codigo/backend/`:
+
+```bash
+./mvnw test
+```
+
+Os testes unitários e de segurança (encoder, serviços de cadastro/login, filter chain) não precisam de banco. Apenas `BackendApplicationTests.contextLoads` sobe o contexto completo e exige um Postgres acessível em `localhost:5432` — sem ele, esse teste falha com `Connection refused` e os demais continuam passando. Para rodá-lo, suba só o banco com `docker compose -f Codigo/docker-compose.yml --env-file .env up postgres`.
 
 ### Executando em produção
 
