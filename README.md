@@ -82,7 +82,7 @@ Os testes unitários e de segurança (encoder, serviços de cadastro/login, filt
 
 O ambiente de produção usa um único ponto de entrada (Nginx na porta 80), que serve o frontend compilado como estático e faz proxy das chamadas de API para o backend.
 
-1. Configure as variáveis de ambiente em `.env` (as mesmas do ambiente de desenvolvimento: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DB_APP_USER`, `DB_APP_PASSWORD`, `JWT_SECRET`).
+1. Configure as variáveis de ambiente em `.env` (as mesmas do ambiente de desenvolvimento: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DB_APP_USER`, `DB_APP_PASSWORD`, `DB_SSLMODE`, `JWT_SECRET`). **Troque todos os valores `changeme`** — em produção nenhuma credencial tem default, então uma variável faltando derruba o backend na subida com `Could not resolve placeholder` em vez de subir com senha conhecida.
 
 2. Suba os serviços com o compose de produção:
 
@@ -98,7 +98,7 @@ O ambiente de produção usa um único ponto de entrada (Nginx na porta 80), que
 Diferenças em relação ao ambiente de desenvolvimento:
 
 * Apenas a porta 80 (Nginx) fica exposta ao host; frontend e backend não publicam portas diretamente.
-* O backend roda com `SPRING_PROFILES_ACTIVE=prod`.
+* O backend roda com `SPRING_PROFILES_ACTIVE=prod`, que carrega `application-prod.properties` por cima da configuração padrão: credenciais sem default, log de SQL desligado e respostas de erro sem stack trace, mensagem interna ou nome de exceção.
 * O frontend é compilado (`npm run build`) e servido como arquivos estáticos pelo próprio Nginx (`Codigo/frontend/Dockerfile.prod`).
 * Os serviços têm `restart: always`.
 
