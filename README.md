@@ -27,7 +27,7 @@ O MVP cobre cadastro de escolas, usuários, alunos, professores, cursos, turmas 
    cp .env.example .env
    ```
 
-2. Suba os serviços (Postgres, backend e frontend):
+2. Suba os serviços (Postgres, pgAdmin, backend e frontend):
 
    ```bash
    docker compose -f Codigo/docker-compose.yml --env-file .env up --build
@@ -38,8 +38,9 @@ O MVP cobre cadastro de escolas, usuários, alunos, professores, cursos, turmas 
    * Frontend: http://localhost:5173
    * Backend (health check): http://localhost:8080/health
    * Postgres: `localhost:5432` (credenciais definidas em `.env`)
+   * pgAdmin: http://localhost:5050 (login com `PGADMIN_EMAIL` / `PGADMIN_PASSWORD` do `.env`). O servidor **eduka (docker)** já aparece cadastrado; na primeira vez que abrir, informe a senha `POSTGRES_PASSWORD` do `.env`. Só existe no ambiente de dev.
 
-Para parar os serviços, use `docker compose -f Codigo/docker-compose.yml down` (adicione `-v` para também apagar o volume do banco de dados).
+Para parar os serviços, use `docker compose -f Codigo/docker-compose.yml down` (adicione `-v` para também apagar os volumes do banco e do pgAdmin).
 
 ### Executando localmente sem Docker
 

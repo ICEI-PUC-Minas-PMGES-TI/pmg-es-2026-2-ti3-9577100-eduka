@@ -10,7 +10,8 @@ Codigo/
 ├── frontend/           SPA em React 19 + TypeScript + Vite
 ├── postgres/init/      Scripts executados na primeira subida do container Postgres
 │                       (cria o role restrito DB_APP_USER usado pelo backend)
-├── docker-compose.yml       Ambiente de desenvolvimento (Postgres + backend + frontend)
+├── pgadmin/            servers.json com o Postgres de dev pré-cadastrado no pgAdmin
+├── docker-compose.yml       Ambiente de desenvolvimento (Postgres + pgAdmin + backend + frontend)
 └── docker-compose.prod.yml  Ambiente de produção (Nginx na porta 80 como único ponto de entrada)
 ```
 
