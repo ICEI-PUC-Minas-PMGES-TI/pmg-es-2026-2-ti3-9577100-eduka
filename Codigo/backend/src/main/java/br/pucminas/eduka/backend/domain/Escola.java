@@ -7,6 +7,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -44,6 +45,10 @@ public class Escola {
 
     @Column(name = "CRIADO_EM", nullable = false)
     private Instant criadoEm;
+
+    @Version
+    @Column(name = "VERSAO", nullable = false)
+    private long versao;
 
     public void atualizarDados(String nome, String cnpjCpf, String endereco, String email, String telefone) {
         this.nome = nome;

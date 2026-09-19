@@ -30,7 +30,7 @@ class EscolaServiceTest {
 
     private Escola escola(UUID id, String nome) {
         return new Escola(id, nome, "12.345.678/0001-90", "Rua das Escolas, 100",
-                "contato@escola.com", "(31) 4000-0000", true, Instant.now());
+                "contato@escola.com", "(31) 4000-0000", true, Instant.now(), 0L);
     }
 
     @Test
@@ -141,7 +141,7 @@ class EscolaServiceTest {
         escolaService = new EscolaService(escolaRepository);
         UUID id = UUID.randomUUID();
         Escola escola = new Escola(id, "Escola A", "12.345.678/0001-90", "Rua das Escolas, 100",
-                "contato@escola.com", "(31) 4000-0000", false, Instant.now());
+                "contato@escola.com", "(31) 4000-0000", false, Instant.now(), 0L);
         when(escolaRepository.findById(id)).thenReturn(Optional.of(escola));
         when(escolaRepository.save(escola)).thenReturn(escola);
 
