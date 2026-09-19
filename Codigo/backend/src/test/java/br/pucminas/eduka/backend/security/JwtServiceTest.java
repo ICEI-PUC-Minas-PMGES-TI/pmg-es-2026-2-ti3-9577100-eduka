@@ -65,6 +65,18 @@ class JwtServiceTest {
     }
 
     @Test
+    void generatesAndVerifiesAccessTokenForSuperAdminSemEscola() {
+        UUID userId = UUID.randomUUID();
+
+        String token = jwtService.generateAccessToken(userId, "SUPER_ADMIN", null);
+        AccessTokenClaims claims = jwtService.verifyAccessToken(token);
+
+        assertThat(claims.userId()).isEqualTo(userId);
+        assertThat(claims.perfil()).isEqualTo("SUPER_ADMIN");
+        assertThat(claims.escolaId()).isNull();
+    }
+
+    @Test
     void generatesAndVerifiesRefreshToken() {
         UUID userId = UUID.randomUUID();
 

@@ -41,14 +41,16 @@ public class JwtService {
 
     public String generateAccessToken(UUID userId, String perfil, UUID escolaId) {
         Instant now = clock.instant();
-        JwtClaimsSet claims = JwtClaimsSet.builder()
+        JwtClaimsSet.Builder claimsBuilder = JwtClaimsSet.builder()
                 .subject(userId.toString())
                 .issuedAt(now)
                 .expiresAt(now.plus(jwtProperties.accessExpirationMinutes(), ChronoUnit.MINUTES))
                 .claim(CLAIM_TOKEN_TYPE, TOKEN_TYPE_ACCESS)
-                .claim(CLAIM_PERFIL, perfil)
-                .claim(CLAIM_ESCOLA_ID, escolaId.toString())
-                .build();
+                .claim(CLAIM_PERFIL, perfil);
+        if (escolaId != null) {
+            claimsBuilder.claim(CLAIM_ESCOLA_ID, escolaId.toString());
+        }
+        JwtClaimsSet claims = claimsBuilder.build();
         return jwtEncoder.encode(JwtEncoderParameters.from(HS256_HEADER, claims)).getTokenValue();
     }
 
@@ -66,10 +68,11 @@ public class JwtService {
     public AccessTokenClaims verifyAccessToken(String token) {
         Jwt jwt = jwtDecoder.decode(token);
         requireTokenType(jwt, TOKEN_TYPE_ACCESS);
+        String escolaId = jwt.getClaimAsString(CLAIM_ESCOLA_ID);
         return new AccessTokenClaims(
                 UUID.fromString(jwt.getSubject()),
                 jwt.getClaimAsString(CLAIM_PERFIL),
-                UUID.fromString(jwt.getClaimAsString(CLAIM_ESCOLA_ID)),
+                escolaId != null ? UUID.fromString(escolaId) : null,
                 jwt.getExpiresAt());
     }
 

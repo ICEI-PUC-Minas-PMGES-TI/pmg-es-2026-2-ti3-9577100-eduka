@@ -24,7 +24,7 @@ public class Usuario {
     @Column(name = "ID_USUARIO")
     private UUID id;
 
-    @Column(name = "ESCOLA_ID", nullable = false)
+    @Column(name = "ESCOLA_ID")
     private UUID escolaId;
 
     @Column(name = "PESSOA_ID", nullable = false)
