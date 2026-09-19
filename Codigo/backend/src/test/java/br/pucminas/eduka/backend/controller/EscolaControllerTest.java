@@ -1,7 +1,11 @@
 package br.pucminas.eduka.backend.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -16,6 +20,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -123,6 +128,142 @@ class EscolaControllerTest {
         UUID id = UUID.randomUUID();
 
         mockMvc.perform(get("/escolas/{id}", id)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenComPerfil("PROFESSOR")))
+                .andExpect(status().isForbidden());
+    }
+
+    private static final String ESCOLA_UPDATE_JSON = """
+            {
+                "nome": "Escola A Renomeada",
+                "cnpjCpf": "98.765.432/0001-10",
+                "endereco": "Av. Nova, 200",
+                "email": "novo@escola.com",
+                "telefone": "(31) 5000-0000"
+            }
+            """;
+
+    @Test
+    void atualizaDadosDeUmaEscola() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(escolaService.atualizar(eq(id), any())).thenReturn(escolaResponse(id, "Escola A Renomeada"));
+
+        mockMvc.perform(put("/escolas/{id}", id)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenComPerfil("SUPER_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ESCOLA_UPDATE_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Escola A Renomeada"));
+    }
+
+    @Test
+    void retorna404AoAtualizarEscolaInexistente() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(escolaService.atualizar(eq(id), any()))
+                .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "escola não encontrada"));
+
+        mockMvc.perform(put("/escolas/{id}", id)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenComPerfil("SUPER_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ESCOLA_UPDATE_JSON))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void retorna400AoAtualizarComNomeEmBranco() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mockMvc.perform(put("/escolas/{id}", id)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenComPerfil("SUPER_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                    "nome": ""
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void retorna401AoAtualizarSemToken() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mockMvc.perform(put("/escolas/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ESCOLA_UPDATE_JSON))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void retorna403AoAtualizarComPerfilNaoAutorizado() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mockMvc.perform(put("/escolas/{id}", id)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenComPerfil("PROFESSOR"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ESCOLA_UPDATE_JSON))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void ativaUmaEscola() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(escolaService.ativar(id)).thenReturn(escolaResponse(id, "Escola A"));
+
+        mockMvc.perform(patch("/escolas/{id}/ativar", id)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenComPerfil("SUPER_ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ativo").value(true));
+    }
+
+    @Test
+    void retorna404AoAtivarEscolaInexistente() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(escolaService.ativar(id))
+                .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "escola não encontrada"));
+
+        mockMvc.perform(patch("/escolas/{id}/ativar", id)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenComPerfil("SUPER_ADMIN")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void retorna403AoAtivarComPerfilNaoAutorizado() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mockMvc.perform(patch("/escolas/{id}/ativar", id)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenComPerfil("PROFESSOR")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void suspendeUmaEscola() throws Exception {
+        UUID id = UUID.randomUUID();
+        EscolaResponse suspensa = new EscolaResponse(id, "Escola A", "12.345.678/0001-90", "Rua das Escolas, 100",
+                "contato@escola.com", "(31) 4000-0000", false, Instant.now());
+        when(escolaService.suspender(id)).thenReturn(suspensa);
+
+        mockMvc.perform(patch("/escolas/{id}/suspender", id)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenComPerfil("SUPER_ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ativo").value(false));
+    }
+
+    @Test
+    void retorna404AoSuspenderEscolaInexistente() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(escolaService.suspender(id))
+                .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "escola não encontrada"));
+
+        mockMvc.perform(patch("/escolas/{id}/suspender", id)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenComPerfil("SUPER_ADMIN")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void retorna403AoSuspenderComPerfilNaoAutorizado() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mockMvc.perform(patch("/escolas/{id}/suspender", id)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenComPerfil("PROFESSOR")))
                 .andExpect(status().isForbidden());
     }

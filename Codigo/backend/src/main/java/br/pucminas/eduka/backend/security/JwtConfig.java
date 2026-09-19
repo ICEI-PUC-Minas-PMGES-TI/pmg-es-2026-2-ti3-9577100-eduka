@@ -96,6 +96,8 @@ public class JwtConfig {
 				.csrf(csrf -> csrf.disable())
 				.authorizeHttpRequests(authorize -> authorize
 						.requestMatchers(HttpMethod.GET, "/escolas/**").hasAuthority("ROLE_SUPER_ADMIN")
+						.requestMatchers(HttpMethod.PUT, "/escolas/**").hasAuthority("ROLE_SUPER_ADMIN")
+						.requestMatchers(HttpMethod.PATCH, "/escolas/**").hasAuthority("ROLE_SUPER_ADMIN")
 						.anyRequest().permitAll())
 				.oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))
 				.build();
