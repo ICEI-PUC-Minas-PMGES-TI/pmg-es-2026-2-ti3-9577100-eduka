@@ -44,4 +44,20 @@ public class Escola {
 
     @Column(name = "CRIADO_EM", nullable = false)
     private Instant criadoEm;
+
+    public void atualizarDados(String nome, String cnpjCpf, String endereco, String email, String telefone) {
+        this.nome = nome;
+        this.cnpjCpf = cnpjCpf;
+        this.endereco = endereco;
+        this.email = email;
+        this.telefone = telefone;
+    }
+
+    public void ativar() {
+        this.ativo = true;
+    }
+
+    public void suspender() {
+        this.ativo = false;
+    }
 }
