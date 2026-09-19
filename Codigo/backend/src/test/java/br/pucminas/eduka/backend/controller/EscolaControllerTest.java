@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -166,6 +167,19 @@ class EscolaControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ESCOLA_UPDATE_JSON))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void retorna400QuandoAtualizacaoViolaIntegridadeDoBanco() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(escolaService.atualizar(eq(id), any()))
+                .thenThrow(new DataIntegrityViolationException("valor excede o tamanho da coluna"));
+
+        mockMvc.perform(put("/escolas/{id}", id)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenComPerfil("SUPER_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ESCOLA_UPDATE_JSON))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
