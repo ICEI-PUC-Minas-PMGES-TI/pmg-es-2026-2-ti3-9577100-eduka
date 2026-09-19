@@ -52,6 +52,12 @@ public class ApiExceptionHandler {
                 .body(problema(HttpStatus.FORBIDDEN, "Acesso negado"));
     }
 
+    @ExceptionHandler(RecursoNaoEncontradoException.class)
+    public ResponseEntity<ProblemDetail> naoEncontrado(RecursoNaoEncontradoException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(problema(HttpStatus.NOT_FOUND, ex.getMessage()));
+    }
+
     @ExceptionHandler(LoginJaCadastradoException.class)
     public ResponseEntity<ProblemDetail> loginDuplicado(LoginJaCadastradoException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
