@@ -32,6 +32,7 @@ import com.nimbusds.jose.jwk.source.ImmutableSecret;
 public class JwtConfig {
 
 	private static final int MIN_SECRET_BYTES = 32;
+	private static final String CLAIM_PERFIL = "perfil";
 
 	@Bean
 	public SecretKey jwtSecretKey(JwtProperties jwtProperties) {
@@ -74,8 +75,6 @@ public class JwtConfig {
 	public PasswordEncoder passwordEncoder() {
 		return new BCryptPasswordEncoder();
 	}
-
-	private static final String CLAIM_PERFIL = "perfil";
 
 	@Bean
 	public JwtAuthenticationConverter jwtAuthenticationConverter() {
