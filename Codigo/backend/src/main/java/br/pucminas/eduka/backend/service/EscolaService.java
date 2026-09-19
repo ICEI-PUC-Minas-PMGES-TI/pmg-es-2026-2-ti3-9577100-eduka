@@ -28,9 +28,7 @@ public class EscolaService {
     }
 
     public EscolaResponse buscarPorId(UUID id) {
-        return escolaRepository.findById(id)
-                .map(EscolaResponse::from)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "escola não encontrada"));
+        return EscolaResponse.from(buscarOuFalhar(id));
     }
 
     public EscolaResponse atualizar(UUID id, EscolaUpdateRequest request) {
