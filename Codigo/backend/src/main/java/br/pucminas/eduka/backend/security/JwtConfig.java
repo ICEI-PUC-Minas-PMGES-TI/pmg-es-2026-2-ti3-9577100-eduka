@@ -2,6 +2,7 @@ package br.pucminas.eduka.backend.security;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.util.List;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -9,6 +10,8 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -18,6 +21,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
@@ -71,11 +75,30 @@ public class JwtConfig {
 		return new BCryptPasswordEncoder();
 	}
 
+	private static final String CLAIM_PERFIL = "perfil";
+
 	@Bean
-	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+	public JwtAuthenticationConverter jwtAuthenticationConverter() {
+		JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+		converter.setJwtGrantedAuthoritiesConverter(jwt -> {
+			String perfil = jwt.getClaimAsString(CLAIM_PERFIL);
+			if (perfil == null) {
+				return List.of();
+			}
+			return List.of(new SimpleGrantedAuthority("ROLE_" + perfil));
+		});
+		return converter;
+	}
+
+	@Bean
+	public SecurityFilterChain securityFilterChain(HttpSecurity http,
+			JwtAuthenticationConverter jwtAuthenticationConverter) throws Exception {
 		return http
 				.csrf(csrf -> csrf.disable())
-				.authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
+				.authorizeHttpRequests(authorize -> authorize
+						.requestMatchers(HttpMethod.GET, "/escolas/**").hasAuthority("ROLE_SUPER_ADMIN")
+						.anyRequest().permitAll())
+				.oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))
 				.build();
 	}
 }
