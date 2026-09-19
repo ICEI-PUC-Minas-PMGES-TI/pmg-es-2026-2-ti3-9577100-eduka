@@ -50,18 +50,30 @@ class JwtServiceTest {
     @Test
     void generatesAndVerifiesAccessToken() {
         UUID userId = UUID.randomUUID();
-        UUID empresaId = UUID.randomUUID();
+        UUID escolaId = UUID.randomUUID();
 
-        String token = jwtService.generateAccessToken(userId, "PROFESSOR", empresaId);
+        String token = jwtService.generateAccessToken(userId, "PROFESSOR", escolaId);
         AccessTokenClaims claims = jwtService.verifyAccessToken(token);
 
         assertThat(claims.userId()).isEqualTo(userId);
         assertThat(claims.perfil()).isEqualTo("PROFESSOR");
-        assertThat(claims.empresaId()).isEqualTo(empresaId);
+        assertThat(claims.escolaId()).isEqualTo(escolaId);
         // JWT tokens preserve only second precision for exp claim
         Instant expectedExpiry = clock.instant().plus(60, ChronoUnit.MINUTES)
                 .with(ChronoField.NANO_OF_SECOND, 0);
         assertThat(claims.expiresAt()).isEqualTo(expectedExpiry);
+    }
+
+    @Test
+    void generatesAndVerifiesAccessTokenForSuperAdminSemEscola() {
+        UUID userId = UUID.randomUUID();
+
+        String token = jwtService.generateAccessToken(userId, "SUPER_ADMIN", null);
+        AccessTokenClaims claims = jwtService.verifyAccessToken(token);
+
+        assertThat(claims.userId()).isEqualTo(userId);
+        assertThat(claims.perfil()).isEqualTo("SUPER_ADMIN");
+        assertThat(claims.escolaId()).isNull();
     }
 
     @Test
