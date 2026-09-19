@@ -47,10 +47,18 @@ public class Escola {
 
     public void atualizarDados(String nome, String cnpjCpf, String endereco, String email, String telefone) {
         this.nome = nome;
-        this.cnpjCpf = cnpjCpf;
-        this.endereco = endereco;
-        this.email = email;
-        this.telefone = telefone;
+        if (cnpjCpf != null) {
+            this.cnpjCpf = cnpjCpf;
+        }
+        if (endereco != null) {
+            this.endereco = endereco;
+        }
+        if (email != null) {
+            this.email = email;
+        }
+        if (telefone != null) {
+            this.telefone = telefone;
+        }
     }
 
     public void ativar() {

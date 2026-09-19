@@ -104,6 +104,24 @@ class EscolaServiceTest {
     }
 
     @Test
+    void mantemCamposOpcionaisQuandoAtualizacaoParcialNaoOsInforma() {
+        escolaService = new EscolaService(escolaRepository);
+        UUID id = UUID.randomUUID();
+        Escola escola = escola(id, "Escola A");
+        EscolaUpdateRequest request = new EscolaUpdateRequest("Escola A Renomeada", null, null, null, null);
+        when(escolaRepository.findById(id)).thenReturn(Optional.of(escola));
+        when(escolaRepository.save(escola)).thenReturn(escola);
+
+        EscolaResponse resultado = escolaService.atualizar(id, request);
+
+        assertThat(resultado.nome()).isEqualTo("Escola A Renomeada");
+        assertThat(resultado.cnpjCpf()).isEqualTo("12.345.678/0001-90");
+        assertThat(resultado.endereco()).isEqualTo("Rua das Escolas, 100");
+        assertThat(resultado.email()).isEqualTo("contato@escola.com");
+        assertThat(resultado.telefone()).isEqualTo("(31) 4000-0000");
+    }
+
+    @Test
     void rejeitaAtualizacaoDeEscolaInexistenteComNaoEncontrado() {
         escolaService = new EscolaService(escolaRepository);
         UUID id = UUID.randomUUID();
