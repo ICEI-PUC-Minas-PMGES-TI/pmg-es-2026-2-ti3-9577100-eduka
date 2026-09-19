@@ -1,41 +1,69 @@
 package br.pucminas.eduka.backend.domains.model;
 
-import jakarta.persistence.*;
+import java.time.Instant;
+import java.util.UUID;
 
-import java.time.LocalDateTime;
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+/**
+ * Aluno matriculado numa escola. Mapeia a tabela {@code alunos} (V4).
+ *
+ * <p>
+ * {@code escolaId} e o tenant: nunca vem do cliente, e sempre copiado do
+ * token do usuario autenticado no momento do cadastro e usado como filtro em
+ * toda consulta (ver {@link br.pucminas.eduka.backend.service.AlunoService}).
+ * </p>
+ */
 @Entity
 @Table(name = "alunos")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Aluno {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_aluno")
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id_aluno", nullable = false, updatable = false)
+    private UUID id;
 
-    @Column(name = "nome_aluno")
-    private String nomeAluno;
+    @Column(name = "escola_id", nullable = false, updatable = false)
+    private UUID escolaId;
 
-    @Column(name = "numero_matricula")
-    private String matriculaAluno;
+    @Column(name = "nome_aluno", nullable = false, length = 150)
+    private String nome;
 
-    @Column(name = "email_responsavel")
-    private String emailAluno;
+    @Column(name = "numero_matricula", nullable = false, length = 50)
+    private String matricula;
 
-    @Column(name = "telefone_responsavel")
-    private String telefoneAluno;
+    @Column(name = "email_responsavel", length = 150)
+    private String emailResponsavel;
 
-    @Column(name = "genero_aluno")
-    private String generoAluno;
+    @Column(name = "telefone_responsavel", length = 20)
+    private String telefoneResponsavel;
 
-    @Column(name = "criado_em")
-    private LocalDateTime alunoCriadoEm;
+    @Column(name = "genero_aluno", length = 30)
+    private String genero;
+
+    /** Preenchido pelo DEFAULT da coluna e relido apos o insert. */
+    @Generated(event = EventType.INSERT)
+    @Column(name = "criado_em", nullable = false, updatable = false)
+    private Instant criadoEm;
 
     @Column(name = "atualizado_em")
-    private LocalDateTime alunoAtualizadoEm;
-
-    public Aluno() {
-
-    }
-
+    private Instant atualizadoEm;
 }
