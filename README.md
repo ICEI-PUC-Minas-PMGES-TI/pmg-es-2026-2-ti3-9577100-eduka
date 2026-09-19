@@ -14,8 +14,8 @@ O MVP cobre cadastro de escolas, usuários, alunos, professores, cursos, turmas 
 
 ## Professores responsáveis
 
-* [Nome completo do professor 1]
-* [Nome completo do professor 2]
+* Ian Guelman
+* Rafael Henriques Nogueira Diniz
 
 ## Instruções de utilização
 
