@@ -34,7 +34,7 @@ public class AuthService {
         }
 
         String accessToken = jwtService.generateAccessToken(usuario.getId(), usuario.getPerfil(),
-                usuario.getEmpresaId());
+                usuario.getEscolaId());
         String refreshToken = jwtService.generateRefreshToken(usuario.getId());
         return new LoginResponse(accessToken, refreshToken);
     }

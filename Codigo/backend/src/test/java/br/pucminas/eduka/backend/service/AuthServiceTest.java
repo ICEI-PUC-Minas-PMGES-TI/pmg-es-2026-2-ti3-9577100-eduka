@@ -42,18 +42,18 @@ class AuthServiceTest {
         authService = new AuthService(usuarioRepository, passwordEncoder, jwtService);
     }
 
-    private Usuario usuarioAtivo(UUID id, UUID empresaId, String perfil) {
-        return new Usuario(id, empresaId, UUID.randomUUID(), "usuario@escola.com",
+    private Usuario usuarioAtivo(UUID id, UUID escolaId, String perfil) {
+        return new Usuario(id, escolaId, UUID.randomUUID(), "usuario@escola.com",
                 passwordEncoder.encode(SENHA_CORRETA), perfil, true, Instant.now());
     }
 
     @Test
     void efetuaLoginComCredenciaisValidas() {
         UUID userId = UUID.randomUUID();
-        UUID empresaId = UUID.randomUUID();
-        Usuario usuario = usuarioAtivo(userId, empresaId, "PROFESSOR");
+        UUID escolaId = UUID.randomUUID();
+        Usuario usuario = usuarioAtivo(userId, escolaId, "PROFESSOR");
         when(usuarioRepository.findByLogin("usuario@escola.com")).thenReturn(Optional.of(usuario));
-        when(jwtService.generateAccessToken(userId, "PROFESSOR", empresaId)).thenReturn("access-token");
+        when(jwtService.generateAccessToken(userId, "PROFESSOR", escolaId)).thenReturn("access-token");
         when(jwtService.generateRefreshToken(userId)).thenReturn("refresh-token");
 
         LoginResponse response = authService.login("usuario@escola.com", SENHA_CORRETA);
