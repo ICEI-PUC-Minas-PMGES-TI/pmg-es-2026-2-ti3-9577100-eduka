@@ -58,8 +58,8 @@ public class ApiExceptionHandler {
                 .body(problema(HttpStatus.NOT_FOUND, ex.getMessage()));
     }
 
-    @ExceptionHandler(LoginJaCadastradoException.class)
-    public ResponseEntity<ProblemDetail> loginDuplicado(LoginJaCadastradoException ex) {
+    @ExceptionHandler({ LoginJaCadastradoException.class, CnpjJaCadastradoException.class })
+    public ResponseEntity<ProblemDetail> recursoDuplicado(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(problema(HttpStatus.CONFLICT, ex.getMessage()));
     }
