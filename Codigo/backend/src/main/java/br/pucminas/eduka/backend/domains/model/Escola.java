@@ -15,6 +15,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Escola contratante: o tenant do sistema. Toda pessoa, usuario e dado de
@@ -28,6 +33,11 @@ import jakarta.persistence.Table;
  */
 @Entity
 @Table(name = "escolas")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Escola {
 
     @Id
@@ -50,6 +60,7 @@ public class Escola {
     @Column(name = "telefone", length = 20)
     private String telefone;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private Status status = Status.ATIVO;
