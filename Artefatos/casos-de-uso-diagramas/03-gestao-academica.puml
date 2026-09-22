@@ -1,0 +1,48 @@
+@startuml 03-gestao-academica
+!include _estilo.puml
+title Eduka — Casos de Uso: Gestão Acadêmica (UC05 a UC08)
+
+left to right direction
+
+actor "SECRETARIA" as SECRETARIA
+actor "MASTER" as MASTER
+
+rectangle "Eduka — Gestão acadêmica" {
+  usecase "UC05\nGerenciar Alunos" as UC05
+  usecase "Inativar Aluno" as UC05A
+  usecase "UC06\nGerenciar Professores" as UC06
+  usecase "Associar Professor\na Turmas e Disciplinas" as UC06A
+  usecase "Inativar Professor" as UC06B
+  usecase "UC07\nGerenciar Cursos,\nDisciplinas e Turmas" as UC07
+  usecase "Associar Turma a Período Letivo,\nCurso e Professor(es)" as UC07A
+  usecase "UC08\nRealizar Matrícula de Aluno" as UC08
+}
+
+SECRETARIA --> UC05
+SECRETARIA --> UC06
+SECRETARIA --> UC07
+SECRETARIA --> UC08
+
+MASTER --> UC06
+MASTER --> UC07
+
+UC05A ..> UC05 : <<extend>>
+UC06 ..> UC06A : <<include>>
+UC06B ..> UC06 : <<extend>>
+UC07 ..> UC07A : <<include>>
+
+UC08 ..> UC05 : pré-condição
+UC08 ..> UC07 : pré-condição
+
+note bottom of UC08
+  Pré-condições: aluno previamente cadastrado (UC05)
+  e curso/turma disponíveis (UC07).
+  Fluxos alternativos: turma sem vagas;
+  aluno já matriculado na turma.
+end note
+
+note bottom of UC05
+  A inativação preserva o histórico do aluno.
+end note
+
+@enduml

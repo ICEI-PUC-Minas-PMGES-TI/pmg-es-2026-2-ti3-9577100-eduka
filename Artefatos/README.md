@@ -9,6 +9,8 @@ Este diretório mantém os artefatos do projeto.
 	* **Ata-Reuniao-14-09-26.pdf**: Ata de reunião do dia 14 de setembro de 2026.
 * `/casos-de-uso-descritivo`
 	* **Casos_de_Uso_Descritivos_Eduka.docx / .pdf**: Casos de uso descritivos do sistema.
+* `/casos-de-uso-diagramas`
+	* **Diagramas de casos de uso UML** (PlantUML + PNG) equivalentes aos casos de uso descritivos: visão geral, administração da plataforma, acesso e perfis, gestão acadêmica, gestão financeira e portal do aluno. Ver `README.md` do diretório.
 * `/der`
 	* **der_multitenant_escola.jpeg**: Diagrama de entidades e relacionamentos (DER) do modelo multi-tenant.
 * `/juridico-institucional`

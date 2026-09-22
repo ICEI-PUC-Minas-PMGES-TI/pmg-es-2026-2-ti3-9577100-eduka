@@ -1,0 +1,56 @@
+@startuml 04-gestao-financeira
+!include _estilo.puml
+title Eduka — Casos de Uso: Gestão Financeira (UC09 a UC15)
+
+left to right direction
+
+actor "FINANCEIRO" as FINANCEIRO
+actor "MASTER" as MASTER
+actor "ALUNO" as ALUNO
+
+rectangle "Eduka — Gestão financeira" {
+  usecase "UC09\nGerenciar Cobranças" as UC09
+  usecase "Cancelar Cobrança" as UC09A
+  usecase "UC10\nAnexar Boleto à Cobrança" as UC10
+  usecase "Substituir Boleto Existente" as UC10A
+  usecase "UC11\nConsultar e Filtrar Cobranças" as UC11
+  usecase "UC12\nRegistrar Pagamento" as UC12
+  usecase "UC13\nConsultar Histórico\nFinanceiro do Aluno" as UC13
+  usecase "UC14\nGerenciar Despesas" as UC14
+  usecase "UC15\nConsultar Relatórios Financeiros" as UC15
+}
+
+FINANCEIRO --> UC09
+FINANCEIRO --> UC10
+FINANCEIRO --> UC11
+FINANCEIRO --> UC12
+FINANCEIRO --> UC14
+FINANCEIRO --> UC15
+
+MASTER --> UC15
+ALUNO --> UC13
+FINANCEIRO --> UC13
+
+UC09A ..> UC09 : <<extend>>
+UC10 ..> UC09 : <<extend>>
+UC10A ..> UC10 : <<extend>>
+UC12 ..> UC09 : pré-condição
+
+note bottom of UC12
+  Pré-condição: cobrança com status Pendente ou Em atraso.
+  Ao confirmar, o status passa para Paga.
+end note
+
+note bottom of UC13
+  Ator primário ALUNO, ator secundário FINANCEIRO.
+  O acesso é bloqueado quando o aluno consultado
+  não pertence à escola ou à permissão do usuário.
+end note
+
+note bottom of UC15
+  Disponível aos perfis FINANCEIRO e MASTER:
+  receitas, despesas, pendências, inadimplência
+  e fluxo de caixa por período.
+end note
+
+@enduml

@@ -1,0 +1,33 @@
+@startuml 01-administracao-plataforma
+!include _estilo.puml
+title Eduka — Casos de Uso: Administração da Plataforma (UC01, UC02)
+
+left to right direction
+
+actor "SUPER_ADMIN" as SUPERADMIN
+
+rectangle "Eduka — Administração da plataforma" {
+  usecase "UC01\nCadastrar Escola" as UC01
+  usecase "UC02\nGerenciar Escolas Cadastradas" as UC02
+  usecase "Ativar / Suspender Escola" as UC02A
+  usecase "Editar Dados da Escola" as UC02B
+}
+
+SUPERADMIN --> UC01
+SUPERADMIN --> UC02
+
+UC02A ..> UC02 : <<extend>>
+UC02B ..> UC02 : <<extend>>
+
+note bottom of UC01
+  Pré-condição: SUPER_ADMIN autenticado (UC03).
+  Fluxos alternativos: CNPJ já cadastrado;
+  dados obrigatórios ausentes.
+end note
+
+note bottom of UC02
+  Pré-condição: existir ao menos uma escola cadastrada.
+  A suspensão restringe o acesso conforme RF24.
+end note
+
+@enduml
