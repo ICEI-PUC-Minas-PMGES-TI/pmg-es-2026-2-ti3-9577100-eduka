@@ -1,0 +1,103 @@
+package br.pucminas.eduka.backend.exception;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+/**
+ * Traduz excecoes em respostas HTTP no formato ProblemDetail (RFC 9457).
+ *
+ * <p>
+ * Os erros de seguranca chegam aqui tanto de {@code @PreAuthorize} e servicos
+ * (via DispatcherServlet) quanto dos filtros do Spring Security (via
+ * {@code HandlerExceptionResolver}, configurado em {@code JwtConfig}). Assim
+ * 401 e 403 tem sempre o mesmo corpo, venham de onde vierem.
+ * </p>
+ *
+ * <p>
+ * As mensagens sao deliberadamente genericas: nao dizem se o login existe,
+ * se o recurso existe em outra escola, nem qual validacao interna falhou.
+ * </p>
+ */
+@RestControllerAdvice
+public class ApiExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ProblemDetail> naoAutenticado(AuthenticationException ex) {
+        ProblemDetail problem = problema(HttpStatus.UNAUTHORIZED, "Autenticacao necessaria");
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+                .body(problem);
+    }
+
+    @ExceptionHandler(CredenciaisInvalidasException.class)
+    public ResponseEntity<ProblemDetail> credenciaisInvalidas(CredenciaisInvalidasException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(problema(HttpStatus.UNAUTHORIZED, ex.getMessage()));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ProblemDetail> acessoNegado(AccessDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(problema(HttpStatus.FORBIDDEN, "Acesso negado"));
+    }
+
+    @ExceptionHandler(RecursoNaoEncontradoException.class)
+    public ResponseEntity<ProblemDetail> naoEncontrado(RecursoNaoEncontradoException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(problema(HttpStatus.NOT_FOUND, ex.getMessage()));
+    }
+
+    @ExceptionHandler({ LoginJaCadastradoException.class, CnpjJaCadastradoException.class })
+    public ResponseEntity<ProblemDetail> recursoDuplicado(RuntimeException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage()));
+    }
+
+    @ExceptionHandler({ SenhaInvalidaException.class, IllegalArgumentException.class })
+    public ResponseEntity<ProblemDetail> requisicaoInvalida(RuntimeException ex) {
+        return ResponseEntity.badRequest()
+                .body(problema(HttpStatus.BAD_REQUEST, ex.getMessage()));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ProblemDetail> violacaoDeIntegridade(DataIntegrityViolationException ex) {
+        return ResponseEntity.badRequest()
+                .body(problema(HttpStatus.BAD_REQUEST, "dados inválidos"));
+    }
+
+    /**
+     * Ultimo recurso. Excecoes do proprio Spring MVC que ja sabem seu status
+     * (404 de rota inexistente, 405 de metodo errado, 415 de content-type...)
+     * passam com o status delas. Qualquer outra vira 500: o detalhe fica no
+     * log e o cliente recebe so o status, para nao expor classe, mensagem ou
+     * stack de excecao interna.
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ProblemDetail> erroInterno(Exception ex) {
+        if (ex instanceof ErrorResponse comStatus) {
+            return ResponseEntity.status(comStatus.getStatusCode()).body(comStatus.getBody());
+        }
+        log.error("Erro nao tratado", ex);
+        return ResponseEntity.internalServerError()
+                .body(problema(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno"));
+    }
+
+    private static ProblemDetail problema(HttpStatus status, String detalhe) {
+        ProblemDetail problem = ProblemDetail.forStatus(status);
+        problem.setTitle(status.getReasonPhrase());
+        problem.setDetail(detalhe);
+        return problem;
+    }
+}

@@ -2,9 +2,11 @@ package br.pucminas.eduka.backend.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -15,17 +17,19 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.server.ResponseStatusException;
 
+import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.LoginResponse;
+import br.pucminas.eduka.backend.exception.CredenciaisInvalidasException;
 import br.pucminas.eduka.backend.repository.UsuarioRepository;
 import br.pucminas.eduka.backend.security.JwtService;
+import br.pucminas.eduka.backend.security.PasswordEncoderConfig;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
 
-    private static final String SENHA_CORRETA = "senha-correta";
+    private static final String SENHA = "senha-forte-123";
 
     @Mock
     private UsuarioRepository usuarioRepository;
@@ -33,79 +37,133 @@ class AuthServiceTest {
     @Mock
     private JwtService jwtService;
 
-    private PasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder = new PasswordEncoderConfig().passwordEncoder();
+
     private AuthService authService;
+
+    private Usuario usuario;
 
     @BeforeEach
     void setUp() {
-        passwordEncoder = new BCryptPasswordEncoder();
         authService = new AuthService(usuarioRepository, passwordEncoder, jwtService);
-    }
-
-    private Usuario usuarioAtivo(UUID id, UUID escolaId, String perfil) {
-        return new Usuario(id, escolaId, UUID.randomUUID(), "usuario@escola.com",
-                passwordEncoder.encode(SENHA_CORRETA), perfil, true, Instant.now());
+        usuario = Usuario.builder()
+                .id(UUID.randomUUID())
+                .escolaId(UUID.randomUUID())
+                .pessoaId(UUID.randomUUID())
+                .login("maria")
+                .senhaHash(passwordEncoder.encode(SENHA))
+                .perfil(PerfilUsuario.FINANCEIRO)
+                .ativo(true)
+                .build();
     }
 
     @Test
-    void efetuaLoginComCredenciaisValidas() {
-        UUID userId = UUID.randomUUID();
-        UUID escolaId = UUID.randomUUID();
-        Usuario usuario = usuarioAtivo(userId, escolaId, "PROFESSOR");
-        when(usuarioRepository.findByLogin("usuario@escola.com")).thenReturn(Optional.of(usuario));
-        when(jwtService.generateAccessToken(userId, "PROFESSOR", escolaId)).thenReturn("access-token");
-        when(jwtService.generateRefreshToken(userId)).thenReturn("refresh-token");
+    void loginReturnsTokensWhenPasswordMatches() {
+        when(usuarioRepository.findByLogin("maria")).thenReturn(Optional.of(usuario));
+        when(jwtService.generateAccessToken(usuario.getId(), "FINANCEIRO", usuario.getEscolaId()))
+                .thenReturn("access-token");
+        when(jwtService.generateRefreshToken(usuario.getId())).thenReturn("refresh-token");
 
-        LoginResponse response = authService.login("usuario@escola.com", SENHA_CORRETA);
+        LoginResponse response = authService.login("maria", SENHA);
+
+        assertThat(response.accessToken()).isEqualTo("access-token");
+        assertThat(response.refreshToken()).isEqualTo("refresh-token");
+        assertThat(response.usuarioId()).isEqualTo(usuario.getId());
+        assertThat(response.perfil()).isEqualTo(PerfilUsuario.FINANCEIRO);
+    }
+
+    @Test
+    void loginComSuperAdminSemEscolaAssociada() {
+        Usuario superAdmin = Usuario.builder()
+                .id(UUID.randomUUID())
+                .escolaId(null)
+                .pessoaId(UUID.randomUUID())
+                .login("admin")
+                .senhaHash(passwordEncoder.encode(SENHA))
+                .perfil(PerfilUsuario.SUPER_ADMIN)
+                .ativo(true)
+                .build();
+        when(usuarioRepository.findByLogin("admin")).thenReturn(Optional.of(superAdmin));
+        when(jwtService.generateAccessToken(superAdmin.getId(), "SUPER_ADMIN", null)).thenReturn("access-token");
+        when(jwtService.generateRefreshToken(superAdmin.getId())).thenReturn("refresh-token");
+
+        LoginResponse response = authService.login("admin", SENHA);
 
         assertThat(response.accessToken()).isEqualTo("access-token");
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
     }
 
     @Test
-    void efetuaLoginComSuperAdminSemEscolaAssociada() {
-        UUID userId = UUID.randomUUID();
-        Usuario usuario = usuarioAtivo(userId, null, "SUPER_ADMIN");
-        when(usuarioRepository.findByLogin("usuario@escola.com")).thenReturn(Optional.of(usuario));
-        when(jwtService.generateAccessToken(userId, "SUPER_ADMIN", null)).thenReturn("access-token");
-        when(jwtService.generateRefreshToken(userId)).thenReturn("refresh-token");
+    void loginNormalizesLoginBeforeLookup() {
+        when(usuarioRepository.findByLogin("maria")).thenReturn(Optional.of(usuario));
 
-        LoginResponse response = authService.login("usuario@escola.com", SENHA_CORRETA);
+        authService.login("  MARIA ", SENHA);
 
-        assertThat(response.accessToken()).isEqualTo("access-token");
-        assertThat(response.refreshToken()).isEqualTo("refresh-token");
+        verify(usuarioRepository).findByLogin("maria");
     }
 
     @Test
-    void rejeitaLoginInexistenteComCredenciaisInvalidas() {
-        when(usuarioRepository.findByLogin("desconhecido@escola.com")).thenReturn(Optional.empty());
+    void loginRejectsWrongPassword() {
+        when(usuarioRepository.findByLogin("maria")).thenReturn(Optional.of(usuario));
 
-        assertThatThrownBy(() -> authService.login("desconhecido@escola.com", SENHA_CORRETA))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("401")
-                .hasMessageContaining("credenciais inválidas");
+        assertThatThrownBy(() -> authService.login("maria", "errada"))
+                .isInstanceOf(CredenciaisInvalidasException.class);
+
+        verify(jwtService, never()).generateAccessToken(any(), any(), any());
     }
 
     @Test
-    void rejeitaSenhaIncorretaComCredenciaisInvalidas() {
-        Usuario usuario = usuarioAtivo(UUID.randomUUID(), UUID.randomUUID(), "ALUNO");
-        when(usuarioRepository.findByLogin("usuario@escola.com")).thenReturn(Optional.of(usuario));
+    void loginRejectsPlainHashAsPassword() {
+        // Garante que a comparacao nao e "senha == coluna": enviar o proprio hash
+        // como senha nao pode funcionar.
+        when(usuarioRepository.findByLogin("maria")).thenReturn(Optional.of(usuario));
 
-        assertThatThrownBy(() -> authService.login("usuario@escola.com", "senha-errada"))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("401")
-                .hasMessageContaining("credenciais inválidas");
+        assertThatThrownBy(() -> authService.login("maria", usuario.getSenhaHash()))
+                .isInstanceOf(CredenciaisInvalidasException.class);
     }
 
     @Test
-    void rejeitaUsuarioInativoComProibido() {
-        Usuario usuario = new Usuario(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                "usuario@escola.com", passwordEncoder.encode(SENHA_CORRETA), "ALUNO", false, Instant.now());
-        when(usuarioRepository.findByLogin("usuario@escola.com")).thenReturn(Optional.of(usuario));
+    void loginRejectsUnknownLoginWithSameException() {
+        when(usuarioRepository.findByLogin("ninguem")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.login("usuario@escola.com", SENHA_CORRETA))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("403")
-                .hasMessageContaining("usuário inativo");
+        assertThatThrownBy(() -> authService.login("ninguem", SENHA))
+                .isInstanceOf(CredenciaisInvalidasException.class)
+                .hasMessage(new CredenciaisInvalidasException().getMessage());
+    }
+
+    @Test
+    void loginRejectsInactiveUserEvenWithCorrectPassword() {
+        usuario.setAtivo(false);
+        when(usuarioRepository.findByLogin("maria")).thenReturn(Optional.of(usuario));
+
+        assertThatThrownBy(() -> authService.login("maria", SENHA))
+                .isInstanceOf(CredenciaisInvalidasException.class)
+                .hasMessage(new CredenciaisInvalidasException().getMessage());
+
+        verify(jwtService, never()).generateAccessToken(any(), any(), any());
+    }
+
+    @Test
+    void loginDoesNotRewriteHashWhenAlreadyCurrent() {
+        when(usuarioRepository.findByLogin("maria")).thenReturn(Optional.of(usuario));
+
+        authService.login("maria", SENHA);
+
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void loginUpgradesLegacyHashOnSuccessfulLogin() {
+        // Senha gravada com custo 10: login deve funcionar e o hash ser regravado com 12.
+        String hashAntigo = "{bcrypt}" + new BCryptPasswordEncoder(10).encode(SENHA);
+        usuario.setSenhaHash(hashAntigo);
+        when(usuarioRepository.findByLogin("maria")).thenReturn(Optional.of(usuario));
+
+        authService.login("maria", SENHA);
+
+        assertThat(usuario.getSenhaHash()).isNotEqualTo(hashAntigo);
+        assertThat(usuario.getSenhaHash()).startsWith("{bcrypt}$2a$12$");
+        assertThat(passwordEncoder.matches(SENHA, usuario.getSenhaHash())).isTrue();
+        verify(usuarioRepository).save(usuario);
     }
 }

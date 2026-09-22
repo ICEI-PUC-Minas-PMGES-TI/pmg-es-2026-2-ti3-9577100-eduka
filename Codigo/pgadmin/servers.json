@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "eduka (docker)",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "eduka",
+      "Username": "eduka",
+      "SSLMode": "prefer",
+      "Comment": "Postgres do docker-compose.yml de dev. Usuario e banco batem com os defaults de POSTGRES_USER/POSTGRES_DB no .env.example; a senha (POSTGRES_PASSWORD) e pedida na primeira conexao."
+    }
+  }
+}

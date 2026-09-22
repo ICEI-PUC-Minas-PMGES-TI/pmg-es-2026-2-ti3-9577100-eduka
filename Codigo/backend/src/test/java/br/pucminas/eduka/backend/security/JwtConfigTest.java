@@ -13,10 +13,18 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.JwsHeader;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 
 class JwtConfigTest {
 
+    /**
+     * JwtConfig entrega 401/403 ao HandlerExceptionResolver do MVC, que nao
+     * existe fora de um contexto web. Aqui basta um stub com o nome esperado.
+     */
+    private static final HandlerExceptionResolver RESOLVER_STUB = (request, response, handler, ex) -> null;
+
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
+            .withBean("handlerExceptionResolver", HandlerExceptionResolver.class, () -> RESOLVER_STUB)
             .withUserConfiguration(JwtConfig.class)
             .withPropertyValues(
                     "jwt.secret=test-secret-key-with-at-least-32-bytes!!",
@@ -60,6 +68,7 @@ class JwtConfigTest {
     @Test
     void failsToStartWithSecretShorterThan32Bytes() {
         new ApplicationContextRunner()
+                .withBean("handlerExceptionResolver", HandlerExceptionResolver.class, () -> RESOLVER_STUB)
                 .withUserConfiguration(JwtConfig.class)
                 .withPropertyValues(
                         "jwt.secret=short",

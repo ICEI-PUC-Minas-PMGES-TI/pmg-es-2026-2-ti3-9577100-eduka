@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import br.pucminas.eduka.backend.domain.Escola;
 
 public interface EscolaRepository extends JpaRepository<Escola, UUID> {
+
+    boolean existsByCnpjCpf(String cnpjCpf);
 }

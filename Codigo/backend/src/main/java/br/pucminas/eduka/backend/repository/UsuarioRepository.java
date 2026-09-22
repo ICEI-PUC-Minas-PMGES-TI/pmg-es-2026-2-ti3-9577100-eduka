@@ -10,4 +10,6 @@ import br.pucminas.eduka.backend.domain.Usuario;
 public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
 
     Optional<Usuario> findByLogin(String login);
+
+    boolean existsByLogin(String login);
 }

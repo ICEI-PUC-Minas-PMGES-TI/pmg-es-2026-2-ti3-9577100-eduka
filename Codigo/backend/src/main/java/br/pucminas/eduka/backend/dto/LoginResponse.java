@@ -1,4 +1,12 @@
 package br.pucminas.eduka.backend.dto;
 
-public record LoginResponse(String accessToken, String refreshToken) {
+import java.util.UUID;
+
+import br.pucminas.eduka.backend.domain.PerfilUsuario;
+
+public record LoginResponse(
+        String accessToken,
+        String refreshToken,
+        UUID usuarioId,
+        PerfilUsuario perfil) {
 }

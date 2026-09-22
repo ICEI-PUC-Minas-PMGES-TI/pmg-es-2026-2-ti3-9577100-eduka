@@ -17,13 +17,43 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d
 
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Interface web para o banco, so em dev (nao existe no compose de prod).
+  # O servidor "eduka (docker)" ja vem cadastrado via pgadmin/servers.json;
+  # na primeira conexao o pgAdmin pede a senha de POSTGRES_PASSWORD.
+  pgadmin:
+    image: dpage/pgadmin4:9
+
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+      PGADMIN_SERVER_JSON_FILE: /pgadmin4/servers.json
+      # Fica so em localhost; sem necessidade de HTTPS nem de senha master extra.
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+
+    ports:
+      - "${PGADMIN_PORT}:80"
+
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   backend:
     build:
       context: ./backend
 
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}?sslmode=${DB_SSLMODE}
@@ -46,3 +76,4 @@ services:
 
 volumes:
   postgres_data:
+  pgadmin_data:
