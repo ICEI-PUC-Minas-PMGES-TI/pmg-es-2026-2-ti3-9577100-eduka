@@ -1,0 +1,56 @@
+// Em dev o Vite (5173) chama o backend direto na 8080, já liberada no CORS.
+// Em prod o Nginx serve front e API na mesma origem, com a API em /api.
+const API_URL =
+  import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:8080' : '/api')
+
+// Chave onde o fluxo de login deve gravar o accessToken retornado por POST /login.
+export const ACCESS_TOKEN_KEY = 'eduka.accessToken'
+
+export class ApiError extends Error {
+  readonly status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
+function lerToken(): string | null {
+  try {
+    return localStorage.getItem(ACCESS_TOKEN_KEY)
+  } catch {
+    return null
+  }
+}
+
+function mensagemPadrao(status: number): string {
+  if (status === 401) return 'Sua sessão expirou ou você não está autenticado.'
+  if (status === 403) return 'Você não tem permissão para acessar este recurso.'
+  if (status === 404) return 'Recurso não encontrado.'
+  return 'Não foi possível completar a requisição.'
+}
+
+export async function apiRequest<T>(caminho: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers)
+  headers.set('Accept', 'application/json')
+  if (init.body !== undefined && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
+  }
+  const token = lerToken()
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+
+  let resposta: Response
+  try {
+    resposta = await fetch(`${API_URL}${caminho}`, { ...init, headers })
+  } catch {
+    throw new ApiError(0, 'Não foi possível conectar ao servidor.')
+  }
+
+  if (!resposta.ok) {
+    throw new ApiError(resposta.status, mensagemPadrao(resposta.status))
+  }
+
+  if (resposta.status === 204) return undefined as T
+  return (await resposta.json()) as T
+}
