@@ -18,11 +18,13 @@ import org.springframework.stereotype.Service;
 @Service
 public class JwtService {
 
-    private static final String CLAIM_TOKEN_TYPE = "token_type";
-    private static final String CLAIM_PERFIL = "perfil";
-    private static final String CLAIM_ESCOLA_ID = "escolaId";
-    private static final String TOKEN_TYPE_ACCESS = "access";
-    private static final String TOKEN_TYPE_REFRESH = "refresh";
+    // Package-private: AccessTokenValidator e PerfilAuthenticationConverter leem
+    // as mesmas claims que este servico escreve.
+    static final String CLAIM_TOKEN_TYPE = "token_type";
+    static final String CLAIM_PERFIL = "perfil";
+    static final String CLAIM_ESCOLA_ID = "escolaId";
+    static final String TOKEN_TYPE_ACCESS = "access";
+    static final String TOKEN_TYPE_REFRESH = "refresh";
 
     private static final JwsHeader HS256_HEADER = JwsHeader.with(MacAlgorithm.HS256).build();
 
@@ -39,6 +41,10 @@ public class JwtService {
         this.clock = clock;
     }
 
+    /**
+     * {@code escolaId} nulo (hoje, so {@code SUPER_ADMIN}) simplesmente nao
+     * entra no token: nao ha "escola vazia" que faca sentido carregar.
+     */
     public String generateAccessToken(UUID userId, String perfil, UUID escolaId) {
         Instant now = clock.instant();
         JwtClaimsSet.Builder claimsBuilder = JwtClaimsSet.builder()

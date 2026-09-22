@@ -10,7 +10,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,28 +21,24 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-import org.springframework.security.oauth2.jwt.JwsHeader;
-import org.springframework.security.oauth2.jwt.JwtClaimsSet;
-import org.springframework.security.oauth2.jwt.JwtEncoder;
-import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 
 import br.pucminas.eduka.backend.dto.EscolaResponse;
 import br.pucminas.eduka.backend.security.JwtConfig;
+import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.EscolaService;
 
 @WebMvcTest(EscolaController.class)
-@Import(JwtConfig.class)
+@Import({ JwtConfig.class, JwtService.class })
 class EscolaControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
     @Autowired
-    private JwtEncoder jwtEncoder;
+    private JwtService jwtService;
 
     @MockitoBean
     private EscolaService escolaService;
@@ -54,15 +49,7 @@ class EscolaControllerTest {
     }
 
     private String tokenComPerfil(String perfil) {
-        Instant now = Instant.now();
-        JwtClaimsSet claims = JwtClaimsSet.builder()
-                .subject(UUID.randomUUID().toString())
-                .issuedAt(now)
-                .expiresAt(now.plus(60, ChronoUnit.MINUTES))
-                .claim("perfil", perfil)
-                .build();
-        return jwtEncoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
-                .getTokenValue();
+        return jwtService.generateAccessToken(UUID.randomUUID(), perfil, UUID.randomUUID());
     }
 
     @Test
