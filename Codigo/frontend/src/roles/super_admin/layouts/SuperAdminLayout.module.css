@@ -1,0 +1,19 @@
+.shell {
+  max-width: 1120px;
+  margin: 0 auto;
+  /* espaço extra embaixo para a navegação flutuante não cobrir o conteúdo */
+  padding: 24px 24px 120px;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 28px;
+}
+
+@media (max-width: 720px) {
+  .shell {
+    padding: 16px 16px 100px;
+  }
+}
