@@ -2,7 +2,13 @@ import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } fr
 import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
 import { ApiError } from '../../../../services/api'
-import { PLANOS_ESCOLA, type Escola, type EscolaRequest, type PlanoEscola } from '../../../../types/escola'
+import {
+  PLANOS_ESCOLA,
+  ROTULOS_PLANO,
+  type Escola,
+  type EscolaRequest,
+  type PlanoEscola,
+} from '../../../../types/escola'
 import {
   cnpjValido,
   mascararCep,
@@ -73,7 +79,8 @@ function paraRequest(campos: Campos): EscolaRequest {
     telefone: campos.telefone || undefined,
     cep: somenteDigitos(campos.cep) || undefined,
     endereco: campos.endereco.trim() || undefined,
-    plano: campos.plano || undefined,
+    // validar() já garante que um plano foi escolhido.
+    plano: campos.plano as PlanoEscola,
     ativo: campos.ativo,
   }
 }
@@ -266,7 +273,7 @@ export function CadastroEscolaModal({ onFechar, onSalvar, onCadastrada }: Cadast
                   </option>
                   {PLANOS_ESCOLA.map((plano) => (
                     <option key={plano} value={plano}>
-                      {plano}
+                      {ROTULOS_PLANO[plano]}
                     </option>
                   ))}
                 </select>

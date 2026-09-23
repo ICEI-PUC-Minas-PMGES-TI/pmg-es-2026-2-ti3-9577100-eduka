@@ -103,6 +103,30 @@
   color: var(--color-text-muted);
 }
 
+.sair {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.sair:hover {
+  background: var(--color-border);
+  color: var(--color-text);
+}
+
+.sair:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 @media (max-width: 720px) {
   .header {
     grid-template-columns: 1fr auto;

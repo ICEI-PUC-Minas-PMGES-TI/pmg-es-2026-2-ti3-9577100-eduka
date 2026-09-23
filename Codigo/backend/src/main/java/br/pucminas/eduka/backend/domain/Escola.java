@@ -8,6 +8,8 @@ import org.hibernate.generator.EventType;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -46,6 +48,10 @@ public class Escola {
     @Column(name = "TELEFONE")
     private String telefone;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "PLANO")
+    private PlanoEscola plano;
+
     @Column(name = "ATIVO", nullable = false)
     private boolean ativo;
 
@@ -63,11 +69,12 @@ public class Escola {
      * {@code versao} sao geridos pelo banco/Hibernate.
      */
     public static Escola cadastrar(String nome, String cnpjCpf, String endereco, String email, String telefone,
-            boolean ativo) {
-        return new Escola(null, nome, cnpjCpf, endereco, email, telefone, ativo, null, 0L);
+            PlanoEscola plano, boolean ativo) {
+        return new Escola(null, nome, cnpjCpf, endereco, email, telefone, plano, ativo, null, 0L);
     }
 
-    public void atualizarDados(String nome, String cnpjCpf, String endereco, String email, String telefone) {
+    public void atualizarDados(String nome, String cnpjCpf, String endereco, String email, String telefone,
+            PlanoEscola plano) {
         this.nome = nome;
         if (cnpjCpf != null) {
             this.cnpjCpf = cnpjCpf;
@@ -80,6 +87,9 @@ public class Escola {
         }
         if (telefone != null) {
             this.telefone = telefone;
+        }
+        if (plano != null) {
+            this.plano = plano;
         }
     }
 

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Badge } from '../../../../components/Badge/Badge'
 import { Button } from '../../../../components/Button/Button'
-import type { Escola } from '../../../../types/escola'
+import { ROTULOS_PLANO, type Escola } from '../../../../types/escola'
 import { formatarCnpjCpf } from '../../../../utils/formatters'
 import styles from './EscolasTable.module.css'
 
@@ -76,7 +76,7 @@ export function EscolasTable({
               <tr key={escola.id}>
                 <td className={styles.nome}>{escola.nome}</td>
                 <td className={styles.cnpj}>{formatarCnpjCpf(escola.cnpjCpf)}</td>
-                <td>{escola.plano ?? '—'}</td>
+                <td>{escola.plano ? ROTULOS_PLANO[escola.plano] : '—'}</td>
                 <td>
                   {escola.ativo ? (
                     <Badge tone="success" icon="check">

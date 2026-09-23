@@ -87,7 +87,8 @@ class EscolaControllerSecurityTest {
                   "cnpjCpf": "12345678000190",
                   "endereco": "Rua A, 10",
                   "email": "contato@eduka.com",
-                  "telefone": "3133334444"
+                  "telefone": "3133334444",
+                  "plano": "AVANCADO"
                 }
                 """))
                 .andExpect(status().isCreated())
@@ -97,7 +98,22 @@ class EscolaControllerSecurityTest {
                 .andExpect(jsonPath("$.endereco").value("Rua A, 10"))
                 .andExpect(jsonPath("$.email").value("contato@eduka.com"))
                 .andExpect(jsonPath("$.telefone").value("3133334444"))
+                .andExpect(jsonPath("$.plano").value("AVANCADO"))
                 .andExpect(jsonPath("$.ativo").value(true));
+    }
+
+    @Test
+    void superAdminSemPlanoResponde400() throws Exception {
+        mockMvc.perform(postCom(accessToken("SUPER_ADMIN"), "{\"nome\":\"Colégio Eduka\"}"))
+                .andExpect(status().isBadRequest());
+        verify(escolaRepository, never()).save(any());
+    }
+
+    @Test
+    void superAdminComPlanoInexistenteResponde400() throws Exception {
+        mockMvc.perform(postCom(accessToken("SUPER_ADMIN"), "{\"nome\":\"Colégio Eduka\",\"plano\":\"OURO\"}"))
+                .andExpect(status().isBadRequest());
+        verify(escolaRepository, never()).save(any());
     }
 
     @Test
@@ -112,7 +128,7 @@ class EscolaControllerSecurityTest {
         when(escolaRepository.existsByCnpjCpf("12345678000190")).thenReturn(true);
 
         mockMvc.perform(postCom(accessToken("SUPER_ADMIN"),
-                "{\"nome\":\"Colégio Eduka\",\"cnpjCpf\":\"12345678000190\"}"))
+                "{\"nome\":\"Colégio Eduka\",\"cnpjCpf\":\"12345678000190\",\"plano\":\"BASICO\"}"))
                 .andExpect(status().isConflict());
         verify(escolaRepository, never()).save(any());
     }

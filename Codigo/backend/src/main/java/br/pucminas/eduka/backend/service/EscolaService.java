@@ -43,6 +43,9 @@ public class EscolaService {
         if (request.nome() == null || request.nome().isBlank()) {
             throw new IllegalArgumentException("Nome da escola e obrigatorio");
         }
+        if (request.plano() == null) {
+            throw new IllegalArgumentException("Plano da escola e obrigatorio");
+        }
 
         String cnpjCpf = vazioParaNulo(request.cnpjCpf());
         if (cnpjCpf != null && escolaRepository.existsByCnpjCpf(cnpjCpf)) {
@@ -55,6 +58,7 @@ public class EscolaService {
                 vazioParaNulo(request.endereco()),
                 vazioParaNulo(request.email()),
                 vazioParaNulo(request.telefone()),
+                request.plano(),
                 request.ativo() == null || request.ativo());
         return escolaRepository.save(escola);
     }
@@ -62,7 +66,7 @@ public class EscolaService {
     public EscolaResponse atualizar(UUID id, EscolaUpdateRequest request) {
         Escola escola = buscarOuFalhar(id);
         escola.atualizarDados(request.nome(), request.cnpjCpf(), request.endereco(), request.email(),
-                request.telefone());
+                request.telefone(), request.plano());
         return EscolaResponse.from(escolaRepository.save(escola));
     }
 

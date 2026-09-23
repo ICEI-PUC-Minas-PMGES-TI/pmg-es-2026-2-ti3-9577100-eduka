@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
-import logoEduka from '../../../../assets/eduka-logo.png'
+import logoEduka from '../../../../assets/eduka-icone.svg'
 import { Icon } from '../../../../components/Icon/Icon'
 import { paths } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
