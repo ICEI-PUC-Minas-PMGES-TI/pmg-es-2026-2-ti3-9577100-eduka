@@ -3,7 +3,6 @@ package br.pucminas.eduka.backend.security;
 import java.util.UUID;
 
 import org.hibernate.context.spi.CurrentTenantIdentifierResolver;
-import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -24,29 +23,29 @@ import org.springframework.stereotype.Component;
  * </p>
  *
  * <p>
- * {@code SUPER_ADMIN} nao pertence a nenhuma escola e, por design
- * ({@link RotasPorPerfil}), nunca acessa entidades particionadas por tenant —
- * por isso {@link #resolveCurrentTenantIdentifier()} falha explicitamente
- * (em vez de devolver {@code null} e vazar/ocultar dados de forma silenciosa)
- * se for chamado sem uma escola no contexto.
+ * O Hibernate resolve o tenant ao abrir <em>qualquer</em> sessao — inclusive
+ * na subida da aplicacao, no login (ainda sem usuario autenticado) e nas
+ * requisicoes do {@code SUPER_ADMIN}, que nao pertence a nenhuma escola.
+ * Nesses casos devolvemos {@link #SEM_ESCOLA}, um id que nao corresponde a
+ * nenhuma escola: consultas a entidades particionadas voltam vazias e inserts
+ * falham na FK. O isolamento continua fechado por padrao, sem impedir o uso
+ * de entidades nao particionadas (escola, usuario).
  * </p>
  */
 @Component
 public class EscolaTenantIdentifierResolver implements CurrentTenantIdentifierResolver<UUID> {
 
+    /** Tenant de quem nao tem escola no contexto; nao casa com nenhuma linha. */
+    public static final UUID SEM_ESCOLA = new UUID(0L, 0L);
+
     @Override
     public UUID resolveCurrentTenantIdentifier() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !(authentication.getPrincipal() instanceof UsuarioAutenticado usuario)) {
-            throw new AuthenticationCredentialsNotFoundException(
-                    "Nenhum usuario autenticado no contexto da requisicao");
+        if (authentication != null && authentication.getPrincipal() instanceof UsuarioAutenticado usuario
+                && usuario.escolaId() != null) {
+            return usuario.escolaId();
         }
-        UUID escolaId = usuario.escolaId();
-        if (escolaId == null) {
-            throw new IllegalStateException(
-                    "Usuario sem escola (ex.: SUPER_ADMIN) nao pode acessar entidade particionada por escola");
-        }
-        return escolaId;
+        return SEM_ESCOLA;
     }
 
     @Override
