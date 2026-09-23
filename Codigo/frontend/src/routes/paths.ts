@@ -9,6 +9,8 @@ export const paths = {
     raiz: '/super-admin',
     login: '/super-admin/login',
     escolas: '/super-admin/escolas',
+    /** Use com generatePath(paths.superAdmin.editarEscola, { id }). */
+    editarEscola: '/super-admin/escolas/:id/editar',
   },
   master: {
     raiz: '/master',

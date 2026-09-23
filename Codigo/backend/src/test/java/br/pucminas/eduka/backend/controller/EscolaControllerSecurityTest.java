@@ -85,7 +85,7 @@ class EscolaControllerSecurityTest {
                 {
                   "nome": "Colégio Eduka",
                   "cnpjCpf": "12345678000190",
-                  "endereco": "Rua A, 10",
+                  "endereco": { "logradouro": "Rua A", "numero": "10", "cidade": "Belo Horizonte", "estado": "MG" },
                   "email": "contato@eduka.com",
                   "telefone": "3133334444",
                   "plano": "AVANCADO"
@@ -95,7 +95,9 @@ class EscolaControllerSecurityTest {
                 .andExpect(header().exists(HttpHeaders.LOCATION))
                 .andExpect(jsonPath("$.nome").value("Colégio Eduka"))
                 .andExpect(jsonPath("$.cnpjCpf").value("12345678000190"))
-                .andExpect(jsonPath("$.endereco").value("Rua A, 10"))
+                .andExpect(jsonPath("$.endereco.logradouro").value("Rua A"))
+                .andExpect(jsonPath("$.endereco.numero").value("10"))
+                .andExpect(jsonPath("$.endereco.estado").value("MG"))
                 .andExpect(jsonPath("$.email").value("contato@eduka.com"))
                 .andExpect(jsonPath("$.telefone").value("3133334444"))
                 .andExpect(jsonPath("$.plano").value("AVANCADO"))

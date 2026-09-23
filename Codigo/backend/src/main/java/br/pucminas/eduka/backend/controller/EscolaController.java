@@ -50,7 +50,7 @@ public class EscolaController {
     }
 
     @PostMapping
-    public ResponseEntity<EscolaResponse> cadastrar(@RequestBody EscolaRequest request) {
+    public ResponseEntity<EscolaResponse> cadastrar(@Valid @RequestBody EscolaRequest request) {
         Escola escola = escolaService.cadastrar(request);
         return ResponseEntity.created(URI.create("/escolas/" + escola.getId()))
                 .body(EscolaResponse.from(escola));

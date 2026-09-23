@@ -6,11 +6,13 @@ import styles from './SuperAdminHeader.module.css'
 type SuperAdminHeaderProps = {
   busca: string
   onBuscaChange: (valor: string) => void
+  /** Chamado com Enter no campo de busca. */
+  onBuscaEnviar?: () => void
   usuario: { nome: string; perfil: string }
   onSair: () => void
 }
 
-export function SuperAdminHeader({ busca, onBuscaChange, usuario, onSair }: SuperAdminHeaderProps) {
+export function SuperAdminHeader({ busca, onBuscaChange, onBuscaEnviar, usuario, onSair }: SuperAdminHeaderProps) {
   return (
     <header className={styles.header}>
       <div className={styles.brand}>
@@ -27,6 +29,9 @@ export function SuperAdminHeader({ busca, onBuscaChange, usuario, onSair }: Supe
           aria-label="Buscar escola, CNPJ ou responsável"
           value={busca}
           onChange={(e) => onBuscaChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') onBuscaEnviar?.()
+          }}
         />
       </label>
 

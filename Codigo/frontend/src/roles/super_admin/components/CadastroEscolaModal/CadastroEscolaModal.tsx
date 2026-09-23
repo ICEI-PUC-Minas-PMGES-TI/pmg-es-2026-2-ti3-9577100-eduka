@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Button } from '../../../../components/Button/Button'
+import { Campo } from '../../../../components/Campo/Campo'
 import { Icon } from '../../../../components/Icon/Icon'
+import { Switch } from '../../../../components/Switch/Switch'
 import { ApiError } from '../../../../services/api'
 import {
   PLANOS_ESCOLA,
@@ -9,22 +11,21 @@ import {
   type EscolaRequest,
   type PlanoEscola,
 } from '../../../../types/escola'
+import { cnpjValido, mascararCnpj, mascararTelefone, somenteDigitos } from '../../../../utils/formatters'
+import { CamposEndereco } from '../CamposEndereco/CamposEndereco'
 import {
-  cnpjValido,
-  mascararCep,
-  mascararCnpj,
-  mascararTelefone,
-  somenteDigitos,
-} from '../../../../utils/formatters'
+  ENDERECO_VAZIO,
+  enderecoDosValores,
+  validarEndereco,
+  type ValoresEndereco,
+} from '../CamposEndereco/endereco'
 import styles from './CadastroEscolaModal.module.css'
 
-type Campos = {
+type Campos = ValoresEndereco & {
   nome: string
   cnpj: string
   email: string
   telefone: string
-  cep: string
-  endereco: string
   plano: PlanoEscola | ''
   ativo: boolean
 }
@@ -32,12 +33,11 @@ type Campos = {
 type Erros = Partial<Record<keyof Campos, string>>
 
 const CAMPOS_INICIAIS: Campos = {
+  ...ENDERECO_VAZIO,
   nome: '',
   cnpj: '',
   email: '',
   telefone: '',
-  cep: '',
-  endereco: '',
   plano: '',
   ativo: true,
 }
@@ -45,11 +45,11 @@ const CAMPOS_INICIAIS: Campos = {
 // Limites das colunas de ESCOLA no banco.
 const MAX_NOME = 150
 const MAX_EMAIL = 150
-const MAX_ENDERECO = 200
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function validar(campos: Campos): Erros {
+  // Na ordem da tela, para o foco ir ao primeiro campo inválido.
   const erros: Erros = {}
 
   if (!campos.nome.trim()) erros.nome = 'Informe a razão social.'
@@ -63,8 +63,7 @@ function validar(campos: Campos): Erros {
   const telefone = somenteDigitos(campos.telefone)
   if (telefone && telefone.length < 10) erros.telefone = 'Telefone incompleto.'
 
-  const cep = somenteDigitos(campos.cep)
-  if (cep && cep.length !== 8) erros.cep = 'CEP deve ter 8 dígitos.'
+  Object.assign(erros, validarEndereco(campos))
 
   if (!campos.plano) erros.plano = 'Selecione o plano contratado.'
 
@@ -77,8 +76,8 @@ function paraRequest(campos: Campos): EscolaRequest {
     cnpjCpf: somenteDigitos(campos.cnpj),
     email: campos.email.trim(),
     telefone: campos.telefone || undefined,
-    cep: somenteDigitos(campos.cep) || undefined,
-    endereco: campos.endereco.trim() || undefined,
+    // O backend descarta campos vazios (e o endereço inteiro, se todos forem).
+    endereco: enderecoDosValores(campos),
     // validar() já garante que um plano foi escolhido.
     plano: campos.plano as PlanoEscola,
     ativo: campos.ativo,
@@ -176,7 +175,7 @@ export function CadastroEscolaModal({ onFechar, onSalvar, onCadastrada }: Cadast
 
         <div className={styles.body}>
           <Secao titulo="Dados básicos">
-            <Campo label="Razão social" erro={erros.nome} obrigatorio largo>
+            <Campo label="Razão social" erro={erros.nome} obrigatorio>
               {(props) => (
                 <input
                   {...props}
@@ -215,9 +214,6 @@ export function CadastroEscolaModal({ onFechar, onSalvar, onCadastrada }: Cadast
                 />
               )}
             </Campo>
-          </Secao>
-
-          <Secao titulo="Contato e endereço">
             <Campo label="Telefone" erro={erros.telefone}>
               {(props) => (
                 <input
@@ -231,32 +227,10 @@ export function CadastroEscolaModal({ onFechar, onSalvar, onCadastrada }: Cadast
                 />
               )}
             </Campo>
-            <Campo label="CEP" erro={erros.cep}>
-              {(props) => (
-                <input
-                  {...props}
-                  name="cep"
-                  inputMode="numeric"
-                  autoComplete="postal-code"
-                  placeholder="00000-000"
-                  value={campos.cep}
-                  onChange={(e) => alterar('cep', mascararCep(e.target.value))}
-                />
-              )}
-            </Campo>
-            <Campo label="Endereço" erro={erros.endereco} largo>
-              {(props) => (
-                <input
-                  {...props}
-                  name="endereco"
-                  maxLength={MAX_ENDERECO}
-                  autoComplete="street-address"
-                  placeholder="Rua, número, bairro, cidade - UF"
-                  value={campos.endereco}
-                  onChange={(e) => alterar('endereco', e.target.value)}
-                />
-              )}
-            </Campo>
+          </Secao>
+
+          <Secao titulo="Endereço">
+            <CamposEndereco valores={campos} erros={erros} onAlterar={alterar} />
           </Secao>
 
           <Secao titulo="Assinatura">
@@ -283,20 +257,14 @@ export function CadastroEscolaModal({ onFechar, onSalvar, onCadastrada }: Cadast
               <span className={styles.label} id={`${tituloId}-status`}>
                 Status inicial
               </span>
-              <label className={styles.switch}>
-                <input
-                  type="checkbox"
-                  role="switch"
-                  name="ativo"
-                  aria-labelledby={`${tituloId}-status`}
-                  checked={campos.ativo}
-                  onChange={(e) => alterar('ativo', e.target.checked)}
-                />
-                <span className={styles.track} aria-hidden="true" />
-                <span className={campos.ativo ? styles.statusAtivo : styles.statusInativo}>
-                  {campos.ativo ? 'Ativo' : 'Inativo'}
-                </span>
-              </label>
+              <Switch
+                name="ativo"
+                aria-labelledby={`${tituloId}-status`}
+                checked={campos.ativo}
+                onChange={(ativo) => alterar('ativo', ativo)}
+                rotuloLigado="Ativo"
+                rotuloDesligado="Inativo"
+              />
             </div>
           </Secao>
 
@@ -326,52 +294,5 @@ function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
       <legend className={styles.sectionTag}>{titulo}</legend>
       <div className={styles.grid}>{children}</div>
     </fieldset>
-  )
-}
-
-type PropsControle = {
-  id: string
-  className: string
-  required: boolean
-  'aria-invalid': boolean
-  'aria-describedby': string | undefined
-}
-
-type CampoProps = {
-  label: string
-  erro?: string
-  obrigatorio?: boolean
-  /** Ocupa a linha inteira do grid. */
-  largo?: boolean
-  children: (props: PropsControle) => ReactNode
-}
-
-function Campo({ label, erro, obrigatorio = false, largo = false, children }: CampoProps) {
-  const id = useId()
-  const erroId = `${id}-erro`
-
-  return (
-    <div className={`${styles.field} ${largo ? styles.fieldWide : ''}`}>
-      <label className={styles.label} htmlFor={id}>
-        {label}
-        {obrigatorio && (
-          <span className={styles.required} aria-hidden="true">
-            *
-          </span>
-        )}
-      </label>
-      {children({
-        id,
-        className: styles.control,
-        required: obrigatorio,
-        'aria-invalid': Boolean(erro),
-        'aria-describedby': erro ? erroId : undefined,
-      })}
-      {erro && (
-        <span id={erroId} className={styles.error}>
-          {erro}
-        </span>
-      )}
-    </div>
   )
 }

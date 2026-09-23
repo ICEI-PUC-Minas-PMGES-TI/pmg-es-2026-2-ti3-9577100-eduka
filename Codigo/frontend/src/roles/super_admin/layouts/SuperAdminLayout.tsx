@@ -9,10 +9,11 @@ import styles from './SuperAdminLayout.module.css'
 type SuperAdminLayoutProps = {
   busca: string
   onBuscaChange: (valor: string) => void
+  onBuscaEnviar?: () => void
   children: ReactNode
 }
 
-export function SuperAdminLayout({ busca, onBuscaChange, children }: SuperAdminLayoutProps) {
+export function SuperAdminLayout({ busca, onBuscaChange, onBuscaEnviar, children }: SuperAdminLayoutProps) {
   const navigate = useNavigate()
   const sessao = obterUsuarioLogado()
 
@@ -28,7 +29,13 @@ export function SuperAdminLayout({ busca, onBuscaChange, children }: SuperAdminL
     : { nome: 'Lucas Silva', perfil: 'Super Admin' }
   return (
     <div className={styles.shell}>
-      <SuperAdminHeader busca={busca} onBuscaChange={onBuscaChange} usuario={usuarioLogado} onSair={sair} />
+      <SuperAdminHeader
+        busca={busca}
+        onBuscaChange={onBuscaChange}
+        onBuscaEnviar={onBuscaEnviar}
+        usuario={usuarioLogado}
+        onSair={sair}
+      />
       <main className={styles.main}>{children}</main>
       <SuperAdminNav />
     </div>

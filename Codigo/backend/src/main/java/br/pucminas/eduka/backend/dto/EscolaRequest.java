@@ -1,6 +1,7 @@
 package br.pucminas.eduka.backend.dto;
 
 import br.pucminas.eduka.backend.domain.PlanoEscola;
+import jakarta.validation.Valid;
 
 /**
  * Dados de cadastro de escola. {@code id}, {@code criadoEm} e {@code versao}
@@ -13,7 +14,7 @@ import br.pucminas.eduka.backend.domain.PlanoEscola;
 public record EscolaRequest(
         String nome,
         String cnpjCpf,
-        String endereco,
+        @Valid EnderecoDto endereco,
         String email,
         String telefone,
         PlanoEscola plano,

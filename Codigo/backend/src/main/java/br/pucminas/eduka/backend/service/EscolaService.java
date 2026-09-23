@@ -8,7 +8,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import br.pucminas.eduka.backend.domain.Endereco;
 import br.pucminas.eduka.backend.domain.Escola;
+import br.pucminas.eduka.backend.dto.EnderecoDto;
 import br.pucminas.eduka.backend.dto.EscolaRequest;
 import br.pucminas.eduka.backend.dto.EscolaResponse;
 import br.pucminas.eduka.backend.dto.EscolaUpdateRequest;
@@ -55,7 +57,7 @@ public class EscolaService {
         Escola escola = Escola.cadastrar(
                 request.nome().trim(),
                 cnpjCpf,
-                vazioParaNulo(request.endereco()),
+                paraEndereco(request.endereco()),
                 vazioParaNulo(request.email()),
                 vazioParaNulo(request.telefone()),
                 request.plano(),
@@ -63,10 +65,27 @@ public class EscolaService {
         return escolaRepository.save(escola);
     }
 
+    /** Edicao de escola (IU03). CNPJ nao pode colidir com o de outra escola. */
+    @Transactional
     public EscolaResponse atualizar(UUID id, EscolaUpdateRequest request) {
         Escola escola = buscarOuFalhar(id);
-        escola.atualizarDados(request.nome(), request.cnpjCpf(), request.endereco(), request.email(),
-                request.telefone(), request.plano());
+
+        String cnpjCpf = vazioParaNulo(request.cnpjCpf());
+        if (cnpjCpf != null && escolaRepository.existsByCnpjCpfAndIdNot(cnpjCpf, id)) {
+            throw new CnpjJaCadastradoException(cnpjCpf);
+        }
+
+        escola.atualizarDados(request.nome(), request.cnpjCpf(),
+                request.endereco() == null ? null : request.endereco().paraDominio(),
+                request.email(), request.telefone(), request.plano());
+        escola.atualizarAssinatura(request.fimVigencia(), request.limiteUsuarios(), request.modulos());
+        if (request.ativo() != null) {
+            if (request.ativo()) {
+                escola.ativar();
+            } else {
+                escola.suspender();
+            }
+        }
         return EscolaResponse.from(escolaRepository.save(escola));
     }
 
@@ -80,6 +99,14 @@ public class EscolaService {
         Escola escola = buscarOuFalhar(id);
         escola.suspender();
         return EscolaResponse.from(escolaRepository.save(escola));
+    }
+
+    private static Endereco paraEndereco(EnderecoDto dto) {
+        if (dto == null) {
+            return null;
+        }
+        return Endereco.normalizado(dto.logradouro(), dto.numero(), dto.bairro(), dto.cidade(), dto.estado(),
+                dto.cep());
     }
 
     private static String vazioParaNulo(String valor) {
