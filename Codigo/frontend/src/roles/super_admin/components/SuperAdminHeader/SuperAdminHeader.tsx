@@ -1,4 +1,4 @@
-import logoEduka from '../../../../assets/eduka-logo.png'
+import iconeEduka from '../../../../assets/eduka-icone.svg'
 import { Icon } from '../../../../components/Icon/Icon'
 import { iniciais } from '../../../../utils/formatters'
 import styles from './SuperAdminHeader.module.css'
@@ -13,7 +13,7 @@ export function SuperAdminHeader({ busca, onBuscaChange, usuario }: SuperAdminHe
   return (
     <header className={styles.header}>
       <div className={styles.brand}>
-        <img src={logoEduka} alt="" className={styles.logoIcon} width={32} height={32} />
+        <img src={iconeEduka} alt="" className={styles.logoIcon} width={32} height={32} />
         <span className={styles.logo}>eduka</span>
         <span className={styles.tag}>Super Admin</span>
       </div>

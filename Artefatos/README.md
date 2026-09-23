@@ -13,6 +13,8 @@ Este diretório mantém os artefatos do projeto.
 	* **Diagramas de casos de uso UML** (PlantUML + PNG) equivalentes aos casos de uso descritivos: visão geral, administração da plataforma, acesso e perfis, gestão acadêmica, gestão financeira e portal do aluno. Ver `README.md` do diretório.
 * `/der`
 	* **der_multitenant_escola.jpeg**: Diagrama de entidades e relacionamentos (DER) do modelo multi-tenant.
+* `/identidade-visual`
+	* **Kit da marca Eduka**: logo completa (fundo claro e escuro), ícone, favicons e demonstrações de aplicação. Ver `README.md` do diretório.
 * `/juridico-institucional`
 	* **AtaAcordo-ComClienteExterno.pdf**: Ata de acordo firmada com o cliente externo.
 	* **PROCURACAO_NIT_PUC_MINAS.pdf**: Procuração do NIT PUC Minas.
