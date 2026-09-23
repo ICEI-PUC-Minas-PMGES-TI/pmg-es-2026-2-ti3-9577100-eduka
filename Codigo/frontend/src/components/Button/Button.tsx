@@ -3,7 +3,7 @@ import { Icon, type IconName } from '../Icon/Icon'
 import styles from './Button.module.css'
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'primary' | 'outline'
+  variant?: 'primary' | 'accent' | 'outline'
   size?: 'sm' | 'md'
   icon?: IconName
 }

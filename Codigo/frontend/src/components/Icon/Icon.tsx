@@ -23,6 +23,7 @@ const paths = {
     </>
   ),
   check: <path d="M20 6 9 17l-5-5" />,
+  close: <path d="M18 6 6 18M6 6l12 12" />,
   home: (
     <>
       <path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1Z" />
