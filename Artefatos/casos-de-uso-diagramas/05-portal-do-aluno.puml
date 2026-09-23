@@ -1,0 +1,28 @@
+@startuml 05-portal-do-aluno
+!include _estilo.puml
+title Eduka — Casos de Uso: Portal do Aluno (UC17)
+
+left to right direction
+
+actor "ALUNO" as ALUNO
+
+rectangle "Eduka — Portal do aluno" {
+  usecase "UC17\nConsultar Informações Acadêmicas\ne Financeiras Próprias" as UC17
+  usecase "UC13\nConsultar Histórico\nFinanceiro do Aluno" as UC13
+  usecase "UC16\nVisualizar Dashboard" as UC16
+  usecase "UC03\nAutenticar Usuário" as UC03
+}
+
+ALUNO --> UC17
+ALUNO --> UC16
+ALUNO --> UC03
+
+UC17 ..> UC13 : <<include>>
+
+note bottom of UC17
+  Abrange matrículas, turmas, cobranças,
+  boletos e histórico de pagamentos do próprio aluno.
+  Tentativa de acesso a dados de outro aluno é bloqueada.
+end note
+
+@enduml

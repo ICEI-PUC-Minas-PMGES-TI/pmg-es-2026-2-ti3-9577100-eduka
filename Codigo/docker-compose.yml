@@ -47,6 +47,31 @@ services:
       postgres:
         condition: service_healthy
 
+  # Carrega postgres/mock/mock.sql depois que o backend aplica as migrations,
+  # e encerra. So em dev (nao existe no compose de prod). O mock.sql nao duplica
+  # nada, entao rodar a cada "up" e seguro.
+  mock:
+    image: postgres:16-alpine
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    volumes:
+      - ./postgres/mock:/mock:ro
+      - ./backend/src/main/resources/db/migration:/migrations:ro
+
+    entrypoint: ["sh", "/mock/load-mock.sh"]
+
+    restart: "no"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_started
+
   backend:
     build:
       context: ./backend

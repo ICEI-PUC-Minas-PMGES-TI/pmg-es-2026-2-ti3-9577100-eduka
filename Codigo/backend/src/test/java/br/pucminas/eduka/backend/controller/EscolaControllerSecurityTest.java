@@ -85,19 +85,37 @@ class EscolaControllerSecurityTest {
                 {
                   "nome": "Colégio Eduka",
                   "cnpjCpf": "12345678000190",
-                  "endereco": "Rua A, 10",
+                  "endereco": { "logradouro": "Rua A", "numero": "10", "cidade": "Belo Horizonte", "estado": "MG" },
                   "email": "contato@eduka.com",
-                  "telefone": "3133334444"
+                  "telefone": "3133334444",
+                  "plano": "AVANCADO"
                 }
                 """))
                 .andExpect(status().isCreated())
                 .andExpect(header().exists(HttpHeaders.LOCATION))
                 .andExpect(jsonPath("$.nome").value("Colégio Eduka"))
                 .andExpect(jsonPath("$.cnpjCpf").value("12345678000190"))
-                .andExpect(jsonPath("$.endereco").value("Rua A, 10"))
+                .andExpect(jsonPath("$.endereco.logradouro").value("Rua A"))
+                .andExpect(jsonPath("$.endereco.numero").value("10"))
+                .andExpect(jsonPath("$.endereco.estado").value("MG"))
                 .andExpect(jsonPath("$.email").value("contato@eduka.com"))
                 .andExpect(jsonPath("$.telefone").value("3133334444"))
+                .andExpect(jsonPath("$.plano").value("AVANCADO"))
                 .andExpect(jsonPath("$.ativo").value(true));
+    }
+
+    @Test
+    void superAdminSemPlanoResponde400() throws Exception {
+        mockMvc.perform(postCom(accessToken("SUPER_ADMIN"), "{\"nome\":\"Colégio Eduka\"}"))
+                .andExpect(status().isBadRequest());
+        verify(escolaRepository, never()).save(any());
+    }
+
+    @Test
+    void superAdminComPlanoInexistenteResponde400() throws Exception {
+        mockMvc.perform(postCom(accessToken("SUPER_ADMIN"), "{\"nome\":\"Colégio Eduka\",\"plano\":\"OURO\"}"))
+                .andExpect(status().isBadRequest());
+        verify(escolaRepository, never()).save(any());
     }
 
     @Test
@@ -112,7 +130,7 @@ class EscolaControllerSecurityTest {
         when(escolaRepository.existsByCnpjCpf("12345678000190")).thenReturn(true);
 
         mockMvc.perform(postCom(accessToken("SUPER_ADMIN"),
-                "{\"nome\":\"Colégio Eduka\",\"cnpjCpf\":\"12345678000190\"}"))
+                "{\"nome\":\"Colégio Eduka\",\"cnpjCpf\":\"12345678000190\",\"plano\":\"BASICO\"}"))
                 .andExpect(status().isConflict());
         verify(escolaRepository, never()).save(any());
     }

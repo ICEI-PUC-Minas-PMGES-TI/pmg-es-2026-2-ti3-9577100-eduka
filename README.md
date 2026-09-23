@@ -40,6 +40,8 @@ O MVP cobre cadastro de escolas, usuários, alunos, professores, cursos, turmas 
    * Postgres: `localhost:5432` (credenciais definidas em `.env`)
    * pgAdmin: http://localhost:5050 (login com `PGADMIN_EMAIL` / `PGADMIN_PASSWORD` do `.env`). O servidor **eduka (docker)** já aparece cadastrado; na primeira vez que abrir, informe a senha `POSTGRES_PASSWORD` do `.env`. Só existe no ambiente de dev.
 
+   Os dados mockados (`Codigo/postgres/mock/mock.sql`) são carregados automaticamente pelo serviço `mock`, que espera o backend aplicar as migrations, roda o script e encerra. Login do super admin: `admin@eduka.com.br` / `Eduka-admin123`. Acompanhe com `docker compose -f Codigo/docker-compose.yml logs mock`. Só existe no ambiente de dev.
+
 Para parar os serviços, use `docker compose -f Codigo/docker-compose.yml down` (adicione `-v` para também apagar os volumes do banco e do pgAdmin).
 
 ### Executando localmente sem Docker

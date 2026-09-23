@@ -1,0 +1,34 @@
+' Estilo compartilhado pelos diagramas de casos de uso do Eduka.
+' Incluído pelos demais arquivos via !include _estilo.puml
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 13
+
+skinparam actor {
+  BackgroundColor #FFFFFF
+  BorderColor #1F3864
+  FontColor #1F3864
+}
+
+skinparam usecase {
+  BackgroundColor #EEF3FB
+  BorderColor #2E5C9A
+  FontColor #14243D
+  BorderThickness 1
+}
+
+skinparam rectangle {
+  BackgroundColor #FAFBFD
+  BorderColor #8A9AB0
+  FontColor #14243D
+  FontStyle bold
+}
+
+skinparam ArrowColor #4A5A70
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #C8A94E
+  FontSize 11
+}

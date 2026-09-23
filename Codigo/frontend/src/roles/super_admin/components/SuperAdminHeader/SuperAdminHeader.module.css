@@ -1,0 +1,149 @@
+.header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logoIcon {
+  display: block;
+  width: 32px;
+  height: 32px;
+}
+
+.logo {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--color-text);
+}
+
+.tag {
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--color-dark);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-self: end;
+  width: 100%;
+  max-width: 440px;
+  padding: 10px 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text-subtle);
+}
+
+.search:focus-within {
+  border-color: var(--color-primary);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+}
+
+.search input::placeholder {
+  color: var(--color-text-subtle);
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 6px 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.userInfo strong {
+  font-size: 13px;
+}
+
+.userInfo span {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.sair {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.sair:hover {
+  background: var(--color-border);
+  color: var(--color-text);
+}
+
+.sair:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+  .header {
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+  }
+
+  .search {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    max-width: none;
+  }
+
+  .userInfo {
+    display: none;
+  }
+
+  .user {
+    padding: 4px;
+  }
+}
