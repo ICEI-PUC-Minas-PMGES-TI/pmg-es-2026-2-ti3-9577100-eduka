@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import org.hibernate.annotations.Generated;
 import org.hibernate.generator.EventType;
+import org.hibernate.annotations.TenantId;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -40,7 +41,8 @@ public class Aluno {
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id_aluno", nullable = false, updatable = false)
     private UUID id;
-
+    
+    @TenantId
     @Column(name = "escola_id", nullable = false, updatable = false)
     private UUID escolaId;
 
