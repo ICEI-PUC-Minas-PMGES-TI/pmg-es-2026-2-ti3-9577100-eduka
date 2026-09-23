@@ -19,9 +19,9 @@ package br.pucminas.eduka.backend.security;
  * </p>
  *
  * <p>
- * SUPER_ADMIN aparece nos grupos de escola porque administra a plataforma e
- * pode dar suporte a qualquer escola (RF06). Os portais do professor e do
- * aluno sao de uso pessoal e ficam de fora.
+ * SUPER_ADMIN nao aparece nos grupos de escola: administra a plataforma
+ * (cadastro de escolas e seus usuarios), nao os dados de negocio de uma
+ * escola.
  * </p>
  */
 public final class Perfis {
@@ -29,21 +29,21 @@ public final class Perfis {
     /** Plataforma: escolas, planos. */
     public static final String SUPER_ADMIN = "hasRole('SUPER_ADMIN')";
 
-    /** Gestao da escola: usuarios, configuracoes, auditoria. */
-    public static final String GESTAO = "hasAnyRole('SUPER_ADMIN', 'MASTER')";
+    /** Gestao da escola: configuracoes, auditoria. */
+    public static final String GESTAO = "hasRole('MASTER')";
 
     /** Escrita no cadastro academico: alunos, turmas, matriculas... */
-    public static final String CADASTRO_ACADEMICO = "hasAnyRole('SUPER_ADMIN', 'MASTER', 'SECRETARIA')";
+    public static final String CADASTRO_ACADEMICO = "hasAnyRole('MASTER', 'SECRETARIA')";
 
     /** Leitura do cadastro academico por quem trabalha na escola. */
     public static final String LEITURA_ACADEMICA =
-            "hasAnyRole('SUPER_ADMIN', 'MASTER', 'SECRETARIA', 'FINANCEIRO', 'PROFESSOR')";
+            "hasAnyRole('MASTER', 'SECRETARIA', 'FINANCEIRO', 'PROFESSOR')";
 
     /** Cobrancas, pagamentos, despesas. */
-    public static final String FINANCEIRO = "hasAnyRole('SUPER_ADMIN', 'MASTER', 'FINANCEIRO')";
+    public static final String FINANCEIRO = "hasAnyRole('MASTER', 'FINANCEIRO')";
 
     /** Dashboards e relatorios (RF19, RF20). */
-    public static final String RELATORIOS = "hasAnyRole('SUPER_ADMIN', 'MASTER', 'SECRETARIA', 'FINANCEIRO')";
+    public static final String RELATORIOS = "hasAnyRole('MASTER', 'SECRETARIA', 'FINANCEIRO')";
 
     /** Portal do professor: as proprias turmas. */
     public static final String PROFESSOR = "hasRole('PROFESSOR')";

@@ -84,17 +84,6 @@ class AlunoServiceTest {
     }
 
     @Test
-    void superAdminListaTodasAsEscolas() {
-        autenticarComo("SUPER_ADMIN", ESCOLA_A);
-        when(alunoRepository.findAll()).thenReturn(List.of(aluno(ESCOLA_A), aluno(ESCOLA_B)));
-
-        List<Aluno> resultado = alunoService.listar();
-
-        assertThat(resultado).hasSize(2);
-        verify(alunoRepository, never()).findAllByEscolaId(any());
-    }
-
-    @Test
     void buscarPorIdConsultaSempreComEscolaDoToken() {
         autenticarComo("MASTER", ESCOLA_A);
         Aluno esperado = aluno(ESCOLA_A);
@@ -114,15 +103,6 @@ class AlunoServiceTest {
 
         assertThatThrownBy(() -> alunoService.buscarPorId(daEscolaB.getId()))
                 .isInstanceOf(RecursoNaoEncontradoException.class);
-    }
-
-    @Test
-    void superAdminBuscaAlunoDeQualquerEscola() {
-        autenticarComo("SUPER_ADMIN", ESCOLA_A);
-        Aluno daEscolaB = aluno(ESCOLA_B);
-        when(alunoRepository.findById(daEscolaB.getId())).thenReturn(Optional.of(daEscolaB));
-
-        assertThat(alunoService.buscarPorId(daEscolaB.getId())).isSameAs(daEscolaB);
     }
 
     @Test

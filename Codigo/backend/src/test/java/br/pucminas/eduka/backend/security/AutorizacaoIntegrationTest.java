@@ -197,7 +197,7 @@ class AutorizacaoIntegrationTest {
 
         @Test
         void superAdminAcessaQualquerEscola() throws Exception {
-            mockMvc.perform(getCom("/teste/escolas/" + ESCOLA_B + "/recurso", accessToken("SUPER_ADMIN", ESCOLA_A)))
+            mockMvc.perform(getCom("/teste/escolas/" + ESCOLA_B + "/recurso", accessToken("SUPER_ADMIN", null)))
                     .andExpect(status().isOk());
         }
     }

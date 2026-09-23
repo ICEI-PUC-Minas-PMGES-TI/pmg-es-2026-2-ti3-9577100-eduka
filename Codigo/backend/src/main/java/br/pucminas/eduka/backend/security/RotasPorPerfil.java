@@ -29,6 +29,12 @@ import br.pucminas.eduka.backend.domain.PerfilUsuario;
  * </p>
  *
  * <p>
+ * {@code SUPER_ADMIN} administra a plataforma: enxerga o cadastro das escolas
+ * e os usuarios vinculados a elas, mas nao entra nos dados de negocio de
+ * nenhuma escola (academico, financeiro, relatorios).
+ * </p>
+ *
+ * <p>
  * Prefixos sem controller ainda ja estao aqui de proposito: quando o endpoint
  * surgir, nasce protegido. Para abrir um modulo novo, acrescente uma linha.
  * </p>
@@ -39,7 +45,7 @@ public enum RotasPorPerfil {
             SUPER_ADMIN),
 
     GESTAO_ESCOLA(List.of("/config-pagamento", "/auditoria"),
-            SUPER_ADMIN, MASTER),
+            MASTER),
 
     /** Secretaria entra para criar login de professor e aluno (ver {@link HierarquiaPerfis}). */
     USUARIOS(List.of("/usuarios"),
@@ -47,14 +53,14 @@ public enum RotasPorPerfil {
 
     ACADEMICO(List.of("/alunos", "/responsaveis", "/professores", "/cursos", "/disciplinas",
             "/periodos-letivos", "/turmas", "/matriculas"),
-            SUPER_ADMIN, MASTER, SECRETARIA, FINANCEIRO, PROFESSOR),
+            MASTER, SECRETARIA, FINANCEIRO, PROFESSOR),
 
     FINANCEIRO_ESCOLA(List.of("/cobrancas", "/boletos", "/pagamentos", "/transacoes-pagamento",
             "/despesas", "/categorias-despesa"),
-            SUPER_ADMIN, MASTER, FINANCEIRO),
+            MASTER, FINANCEIRO),
 
     RELATORIOS(List.of("/dashboard", "/relatorios"),
-            SUPER_ADMIN, MASTER, SECRETARIA, FINANCEIRO),
+            MASTER, SECRETARIA, FINANCEIRO),
 
     /** Area pessoal: "minhas turmas", "meus diarios". */
     PORTAL_PROFESSOR(List.of("/portal/professor"),

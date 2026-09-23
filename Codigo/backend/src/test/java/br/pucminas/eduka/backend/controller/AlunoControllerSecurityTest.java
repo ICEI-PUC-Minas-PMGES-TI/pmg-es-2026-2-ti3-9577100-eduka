@@ -124,6 +124,23 @@ class AlunoControllerSecurityTest {
         }
 
         @Test
+        void superAdminNaoAcessaAlunos() throws Exception {
+            // Token real do super admin: sem escola.
+            String token = accessToken("SUPER_ADMIN", null);
+
+            mockMvc.perform(getCom("/alunos", token))
+                    .andExpect(status().isForbidden());
+            mockMvc.perform(getCom("/alunos/" + UUID.randomUUID(), token))
+                    .andExpect(status().isForbidden());
+            mockMvc.perform(postCom("/alunos", token, "{\"nome\":\"Ana\",\"matricula\":\"2026-001\"}"))
+                    .andExpect(status().isForbidden());
+
+            verify(alunoRepository, never()).findAll();
+            verify(alunoRepository, never()).findById(any());
+            verify(alunoRepository, never()).save(any());
+        }
+
+        @Test
         void secretariaCadastra() throws Exception {
             when(alunoRepository.save(any(Aluno.class))).thenAnswer(inv -> {
                 Aluno a = inv.getArgument(0);
@@ -177,16 +194,6 @@ class AlunoControllerSecurityTest {
             mockMvc.perform(getCom("/alunos/" + daEscolaA.getId(), accessToken("SECRETARIA", ESCOLA_A)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(daEscolaA.getId().toString()));
-        }
-
-        @Test
-        void superAdminAcessaAlunoDeQualquerEscola() throws Exception {
-            Aluno daEscolaB = aluno(ESCOLA_B);
-            when(alunoRepository.findById(daEscolaB.getId())).thenReturn(Optional.of(daEscolaB));
-
-            mockMvc.perform(getCom("/alunos/" + daEscolaB.getId(), accessToken("SUPER_ADMIN", ESCOLA_A)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.escolaId").value(ESCOLA_B.toString()));
         }
 
         @Test
