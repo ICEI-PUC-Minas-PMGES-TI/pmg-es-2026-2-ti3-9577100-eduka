@@ -28,7 +28,7 @@ export function LoginAdmin() {
     setAviso(null)
 
     if (!email.trim() || !senha) {
-      setErro('Informe o e-mail administrativo e a senha mestra.')
+      setErro('Informe o e-mail administrativo e a senha.')
       return
     }
 
@@ -39,7 +39,7 @@ export function LoginAdmin() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
-          setErro('Credenciais inválidas. Verifique o e-mail e a senha mestra informados.')
+          setErro('Credenciais inválidas. Verifique o e-mail e a senha informados.')
         } else if (err.status === 0) {
           setErro('Não foi possível conectar ao servidor. Verifique sua conexão ou se a API está online.')
         } else {
@@ -54,12 +54,7 @@ export function LoginAdmin() {
   }
 
   function handleEsqueciSenha() {
-    setAviso('Para recuperar a senha mestra, consulte o operador de infraestrutura ou use a chave mestra configurada no ambiente.')
-    setErro(null)
-  }
-
-  function handleEntrarComoEscola() {
-    setAviso('O portal de login para escolas e gestores escolares estará disponível em breve.')
+    setAviso('Para recuperar a senha, consulte o operador de infraestrutura.')
     setErro(null)
   }
 
@@ -125,14 +120,14 @@ export function LoginAdmin() {
 
             <div className={styles.fieldGroup}>
               <label htmlFor="master-password" className={styles.label}>
-                Senha mestra
+                Senha
               </label>
               <div className={styles.passwordRow}>
                 <input
                   id="master-password"
                   type={mostrarSenha ? 'text' : 'password'}
                   className={styles.input}
-                  placeholder="Digite a senha mestra"
+                  placeholder="Digite a senha"
                   value={senha}
                   onChange={(e) => setSenha(e.target.value)}
                   autoComplete="current-password"
@@ -143,7 +138,7 @@ export function LoginAdmin() {
                   type="button"
                   className={styles.togglePasswordBtn}
                   onClick={() => setMostrarSenha((prev) => !prev)}
-                  aria-label={mostrarSenha ? 'Ocultar senha mestra' : 'Mostrar senha mestra'}
+                  aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
                 >
                   {mostrarSenha ? 'Ocultar' : 'Mostrar'}
                 </button>
@@ -172,15 +167,7 @@ export function LoginAdmin() {
                 className={styles.forgotLink}
                 onClick={handleEsqueciSenha}
               >
-                Esqueci a senha mestra
-              </button>
-
-              <button
-                type="button"
-                className={styles.schoolLink}
-                onClick={handleEntrarComoEscola}
-              >
-                Entrar como escola →
+                Esqueci a senha
               </button>
             </div>
           </form>
