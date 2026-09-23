@@ -7,6 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.ErrorResponse;
@@ -69,6 +70,16 @@ public class ApiExceptionHandler {
     public ResponseEntity<ProblemDetail> requisicaoInvalida(RuntimeException ex) {
         return ResponseEntity.badRequest()
                 .body(problema(HttpStatus.BAD_REQUEST, ex.getMessage()));
+    }
+
+    /**
+     * JSON malformado ou valor fora de um enum (ex.: plano inexistente). Sem
+     * isto cairia no {@link #erroInterno} e viraria 500.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ProblemDetail> corpoIlegivel(HttpMessageNotReadableException ex) {
+        return ResponseEntity.badRequest()
+                .body(problema(HttpStatus.BAD_REQUEST, "corpo da requisição inválido"));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

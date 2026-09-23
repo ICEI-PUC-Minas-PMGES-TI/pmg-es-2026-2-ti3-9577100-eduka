@@ -7,9 +7,10 @@ type SuperAdminHeaderProps = {
   busca: string
   onBuscaChange: (valor: string) => void
   usuario: { nome: string; perfil: string }
+  onSair: () => void
 }
 
-export function SuperAdminHeader({ busca, onBuscaChange, usuario }: SuperAdminHeaderProps) {
+export function SuperAdminHeader({ busca, onBuscaChange, usuario, onSair }: SuperAdminHeaderProps) {
   return (
     <header className={styles.header}>
       <div className={styles.brand}>
@@ -37,6 +38,9 @@ export function SuperAdminHeader({ busca, onBuscaChange, usuario }: SuperAdminHe
           <strong>{usuario.nome}</strong>
           <span>{usuario.perfil}</span>
         </div>
+        <button type="button" className={styles.sair} onClick={onSair} aria-label="Sair" title="Sair">
+          <Icon name="logout" size={16} />
+        </button>
       </div>
     </header>
   )

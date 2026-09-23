@@ -1,6 +1,13 @@
-export const PLANOS_ESCOLA = ['Básico', 'Avançado', 'Enterprise'] as const
+// Valores do enum PlanoEscola do backend.
+export const PLANOS_ESCOLA = ['BASICO', 'AVANCADO', 'ENTERPRISE'] as const
 
 export type PlanoEscola = (typeof PLANOS_ESCOLA)[number]
+
+export const ROTULOS_PLANO: Record<PlanoEscola, string> = {
+  BASICO: 'Básico',
+  AVANCADO: 'Avançado',
+  ENTERPRISE: 'Enterprise',
+}
 
 // Espelha o EscolaResponse do backend.
 export type Escola = {
@@ -12,8 +19,8 @@ export type Escola = {
   telefone: string
   ativo: boolean
   criadoEm: string
-  // Ainda não existe na API; entra quando o módulo de assinaturas chegar.
-  plano?: PlanoEscola
+  // Nulo em escolas cadastradas antes do plano existir.
+  plano: PlanoEscola | null
 }
 
 // Espelha o EscolaRequest do backend (POST /escolas).
@@ -25,8 +32,8 @@ export type EscolaRequest = {
   email: string
   telefone?: string
   ativo: boolean
-  // Previstos no DER (ESCOLA.cep e ESCOLA.plano_id), mas a API ainda não
-  // persiste: são ignorados pelo backend até as colunas existirem.
+  plano: PlanoEscola
+  // Previsto no DER (ESCOLA.cep), mas a API ainda não persiste: é ignorado
+  // pelo backend até a coluna existir.
   cep?: string
-  plano?: PlanoEscola
 }

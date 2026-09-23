@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
 
 import br.pucminas.eduka.backend.domain.Escola;
+import br.pucminas.eduka.backend.domain.PlanoEscola;
 import br.pucminas.eduka.backend.dto.EscolaRequest;
 import br.pucminas.eduka.backend.dto.EscolaResponse;
 import br.pucminas.eduka.backend.dto.EscolaUpdateRequest;
@@ -42,7 +43,7 @@ class EscolaServiceTest {
 
     private Escola escola(UUID id, String nome) {
         return new Escola(id, nome, "12.345.678/0001-90", "Rua das Escolas, 100",
-                "contato@escola.com", "(31) 4000-0000", true, Instant.now(), 0L);
+                "contato@escola.com", "(31) 4000-0000", PlanoEscola.BASICO, true, Instant.now(), 0L);
     }
 
     @Test
@@ -97,7 +98,7 @@ class EscolaServiceTest {
         Escola escola = escola(id, "Escola A");
         EscolaUpdateRequest request = new EscolaUpdateRequest(
                 "Escola A Renomeada", "98.765.432/0001-10", "Av. Nova, 200",
-                "novo@escola.com", "(31) 5000-0000");
+                "novo@escola.com", "(31) 5000-0000", PlanoEscola.ENTERPRISE);
         when(escolaRepository.findById(id)).thenReturn(Optional.of(escola));
         when(escolaRepository.save(escola)).thenReturn(escola);
 
@@ -108,13 +109,14 @@ class EscolaServiceTest {
         assertThat(resultado.endereco()).isEqualTo("Av. Nova, 200");
         assertThat(resultado.email()).isEqualTo("novo@escola.com");
         assertThat(resultado.telefone()).isEqualTo("(31) 5000-0000");
+        assertThat(resultado.plano()).isEqualTo(PlanoEscola.ENTERPRISE);
     }
 
     @Test
     void mantemCamposOpcionaisQuandoAtualizacaoParcialNaoOsInforma() {
         UUID id = UUID.randomUUID();
         Escola escola = escola(id, "Escola A");
-        EscolaUpdateRequest request = new EscolaUpdateRequest("Escola A Renomeada", null, null, null, null);
+        EscolaUpdateRequest request = new EscolaUpdateRequest("Escola A Renomeada", null, null, null, null, null);
         when(escolaRepository.findById(id)).thenReturn(Optional.of(escola));
         when(escolaRepository.save(escola)).thenReturn(escola);
 
@@ -125,6 +127,7 @@ class EscolaServiceTest {
         assertThat(resultado.endereco()).isEqualTo("Rua das Escolas, 100");
         assertThat(resultado.email()).isEqualTo("contato@escola.com");
         assertThat(resultado.telefone()).isEqualTo("(31) 4000-0000");
+        assertThat(resultado.plano()).isEqualTo(PlanoEscola.BASICO);
     }
 
     @Test
@@ -132,7 +135,7 @@ class EscolaServiceTest {
         UUID id = UUID.randomUUID();
         EscolaUpdateRequest request = new EscolaUpdateRequest(
                 "Escola A", "12.345.678/0001-90", "Rua das Escolas, 100",
-                "contato@escola.com", "(31) 4000-0000");
+                "contato@escola.com", "(31) 4000-0000", null);
         when(escolaRepository.findById(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> escolaService.atualizar(id, request))
@@ -145,7 +148,7 @@ class EscolaServiceTest {
     void ativaUmaEscolaSuspensa() {
         UUID id = UUID.randomUUID();
         Escola escola = new Escola(id, "Escola A", "12.345.678/0001-90", "Rua das Escolas, 100",
-                "contato@escola.com", "(31) 4000-0000", false, Instant.now(), 0L);
+                "contato@escola.com", "(31) 4000-0000", PlanoEscola.BASICO, false, Instant.now(), 0L);
         when(escolaRepository.findById(id)).thenReturn(Optional.of(escola));
         when(escolaRepository.save(escola)).thenReturn(escola);
 
@@ -198,6 +201,7 @@ class EscolaServiceTest {
                 " Rua A, 10 ",
                 " contato@eduka.com ",
                 " 3133334444 ",
+                PlanoEscola.AVANCADO,
                 null));
 
         ArgumentCaptor<Escola> captor = ArgumentCaptor.forClass(Escola.class);
@@ -208,14 +212,24 @@ class EscolaServiceTest {
         assertThat(salva.getEndereco()).isEqualTo("Rua A, 10");
         assertThat(salva.getEmail()).isEqualTo("contato@eduka.com");
         assertThat(salva.getTelefone()).isEqualTo("3133334444");
+        assertThat(salva.getPlano()).isEqualTo(PlanoEscola.AVANCADO);
         assertThat(salva.isAtivo()).isTrue();
+    }
+
+    @Test
+    void cadastrarSemPlanoEhRejeitado() {
+        assertThatThrownBy(() -> escolaService.cadastrar(
+                new EscolaRequest("Colégio Eduka", null, null, null, null, null, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Plano");
+        verify(escolaRepository, never()).save(any());
     }
 
     @Test
     void cadastrarRespeitaAtivoInformado() {
         when(escolaRepository.save(any(Escola.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        escolaService.cadastrar(new EscolaRequest("Colégio Eduka", null, null, null, null, false));
+        escolaService.cadastrar(new EscolaRequest("Colégio Eduka", null, null, null, null, PlanoEscola.BASICO, false));
 
         ArgumentCaptor<Escola> captor = ArgumentCaptor.forClass(Escola.class);
         verify(escolaRepository).save(captor.capture());
@@ -226,7 +240,7 @@ class EscolaServiceTest {
     @Test
     void cadastrarSemNomeEhRejeitado() {
         assertThatThrownBy(() -> escolaService.cadastrar(
-                new EscolaRequest(" ", "123", null, null, null, null)))
+                new EscolaRequest(" ", "123", null, null, null, PlanoEscola.BASICO, null)))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(escolaRepository, never()).save(any());
     }
@@ -236,7 +250,7 @@ class EscolaServiceTest {
         when(escolaRepository.existsByCnpjCpf("12345678000190")).thenReturn(true);
 
         assertThatThrownBy(() -> escolaService.cadastrar(
-                new EscolaRequest("Colégio Eduka", "12345678000190", null, null, null, null)))
+                new EscolaRequest("Colégio Eduka", "12345678000190", null, null, null, PlanoEscola.BASICO, null)))
                 .isInstanceOf(CnpjJaCadastradoException.class);
         verify(escolaRepository, never()).save(any());
     }

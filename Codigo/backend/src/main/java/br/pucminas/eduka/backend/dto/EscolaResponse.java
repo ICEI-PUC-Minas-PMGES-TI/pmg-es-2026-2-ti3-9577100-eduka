@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import br.pucminas.eduka.backend.domain.Escola;
+import br.pucminas.eduka.backend.domain.PlanoEscola;
 
 public record EscolaResponse(
         UUID id,
@@ -12,6 +13,7 @@ public record EscolaResponse(
         String endereco,
         String email,
         String telefone,
+        PlanoEscola plano,
         boolean ativo,
         Instant criadoEm) {
 
@@ -23,6 +25,7 @@ public record EscolaResponse(
                 escola.getEndereco(),
                 escola.getEmail(),
                 escola.getTelefone(),
+                escola.getPlano(),
                 escola.isAtivo(),
                 escola.getCriadoEm());
     }

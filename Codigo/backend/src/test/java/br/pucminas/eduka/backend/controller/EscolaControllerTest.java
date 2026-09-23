@@ -25,6 +25,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 
+import br.pucminas.eduka.backend.domain.PlanoEscola;
 import br.pucminas.eduka.backend.dto.EscolaResponse;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
@@ -45,7 +46,7 @@ class EscolaControllerTest {
 
     private EscolaResponse escolaResponse(UUID id, String nome) {
         return new EscolaResponse(id, nome, "12.345.678/0001-90", "Rua das Escolas, 100",
-                "contato@escola.com", "(31) 4000-0000", true, Instant.now());
+                "contato@escola.com", "(31) 4000-0000", PlanoEscola.BASICO, true, Instant.now());
     }
 
     private String tokenComPerfil(String perfil) {
@@ -240,7 +241,7 @@ class EscolaControllerTest {
     void suspendeUmaEscola() throws Exception {
         UUID id = UUID.randomUUID();
         EscolaResponse suspensa = new EscolaResponse(id, "Escola A", "12.345.678/0001-90", "Rua das Escolas, 100",
-                "contato@escola.com", "(31) 4000-0000", false, Instant.now());
+                "contato@escola.com", "(31) 4000-0000", PlanoEscola.BASICO, false, Instant.now());
         when(escolaService.suspender(id)).thenReturn(suspensa);
 
         mockMvc.perform(patch("/escolas/{id}/suspender", id)
