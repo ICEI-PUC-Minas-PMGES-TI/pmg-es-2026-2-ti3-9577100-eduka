@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { generatePath, useLocation, useNavigate } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
+import { paths } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
 import type { Escola } from '../../../../types/escola'
 import { somenteDigitos } from '../../../../utils/formatters'
@@ -8,6 +10,7 @@ import { EscolasStats } from '../../components/EscolasStats/EscolasStats'
 import { EscolasTable } from '../../components/EscolasTable/EscolasTable'
 import { useEscolas } from '../../hooks/useEscolas'
 import { SuperAdminLayout } from '../../layouts/SuperAdminLayout'
+import type { EstadoPainelEscolas } from '../EditarEscola/EditarEscola'
 import styles from './PainelEscolas.module.css'
 
 function correspondeBusca(escola: Escola, busca: string): boolean {
@@ -24,11 +27,20 @@ function correspondeBusca(escola: Escola, busca: string): boolean {
 
 export function PainelEscolas() {
   const { escolas, carregando, erro, recarregar, alternarSituacao, cadastrar } = useEscolas()
-  const [busca, setBusca] = useState('')
+  const navigate = useNavigate()
+  const location = useLocation()
+  // Mensagem de sucesso ou busca vindas da tela de edição.
+  const estadoRecebido = location.state as EstadoPainelEscolas | null
+  const [busca, setBusca] = useState(estadoRecebido?.busca ?? '')
   const [alternandoId, setAlternandoId] = useState<string | null>(null)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
   const [cadastroAberto, setCadastroAberto] = useState(false)
-  const [sucesso, setSucesso] = useState<string | null>(null)
+  const [sucesso, setSucesso] = useState<string | null>(estadoRecebido?.sucesso ?? null)
+
+  // Descarta o estado já lido, para a mensagem não voltar ao recarregar a página.
+  useEffect(() => {
+    if (location.state) navigate(location.pathname, { replace: true, state: null })
+  }, [location.state, location.pathname, navigate])
 
   const escolasFiltradas = escolas.filter((e) => correspondeBusca(e, busca))
 
@@ -47,8 +59,9 @@ export function PainelEscolas() {
     }
   }
 
-  // TODO: abrir o formulário de edição (PUT /escolas/{id}).
-  function editar(_escola: Escola) {}
+  function editar(escola: Escola) {
+    navigate(generatePath(paths.superAdmin.editarEscola, { id: escola.id }))
+  }
 
   function abrirCadastro() {
     setSucesso(null)

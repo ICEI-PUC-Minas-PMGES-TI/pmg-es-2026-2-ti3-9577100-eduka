@@ -66,3 +66,9 @@ export function cnpjValido(valor: string): boolean {
   const segundo = digitoVerificador(digitos.slice(0, 12) + primeiro)
   return digitos.endsWith(`${primeiro}${segundo}`)
 }
+
+/** Máscara de inteiro com separador de milhar: "1500" -> "1.500". */
+export function mascararInteiro(valor: string, maxDigitos: number): string {
+  const digitos = somenteDigitos(valor).replace(/^0+/, '').slice(0, maxDigitos)
+  return digitos.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}
