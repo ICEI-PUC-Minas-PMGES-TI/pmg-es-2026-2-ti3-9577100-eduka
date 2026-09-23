@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { SuperAdminHeader } from '../components/SuperAdminHeader/SuperAdminHeader'
 import { SuperAdminNav } from '../components/SuperAdminNav/SuperAdminNav'
+import { obterUsuarioLogado } from '../../../services/authService'
 import styles from './SuperAdminLayout.module.css'
 
 type SuperAdminLayoutProps = {
@@ -9,10 +10,11 @@ type SuperAdminLayoutProps = {
   children: ReactNode
 }
 
-// TODO: vir do usuário autenticado quando o login estiver integrado.
-const usuarioLogado = { nome: 'Lucas Silva', perfil: 'Super Admin' }
-
 export function SuperAdminLayout({ busca, onBuscaChange, children }: SuperAdminLayoutProps) {
+  const sessao = obterUsuarioLogado()
+  const usuarioLogado = sessao
+    ? { nome: sessao.login, perfil: 'Super Admin' }
+    : { nome: 'Lucas Silva', perfil: 'Super Admin' }
   return (
     <div className={styles.shell}>
       <SuperAdminHeader busca={busca} onBuscaChange={onBuscaChange} usuario={usuarioLogado} />

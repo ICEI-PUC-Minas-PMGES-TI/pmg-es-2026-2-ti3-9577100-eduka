@@ -6,6 +6,7 @@ export const superAdminRoutes: RouteObject = {
   path: paths.superAdmin.raiz,
   children: [
     { index: true, element: <Navigate to={paths.superAdmin.escolas} replace /> },
+    { path: paths.superAdmin.login, element: <Navigate to={paths.login} replace /> },
     { path: paths.superAdmin.escolas, element: <PainelEscolas /> },
   ],
 }
