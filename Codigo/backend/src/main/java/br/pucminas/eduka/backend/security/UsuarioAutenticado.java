@@ -16,4 +16,8 @@ public record UsuarioAutenticado(
     public boolean isSuperAdmin() {
         return PerfilUsuario.SUPER_ADMIN.name().equals(perfil);
     }
+
+    public PerfilUsuario perfilUsuario() {
+        return PerfilUsuario.valueOf(perfil);
+    }
 }

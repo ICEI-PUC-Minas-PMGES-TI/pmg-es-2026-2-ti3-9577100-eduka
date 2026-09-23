@@ -10,12 +10,18 @@ import static org.mockito.Mockito.when;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import br.pucminas.eduka.backend.dto.CadastroUsuarioRequest;
@@ -25,12 +31,16 @@ import br.pucminas.eduka.backend.exception.SenhaInvalidaException;
 import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.repository.UsuarioRepository;
+import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.PasswordEncoderConfig;
+import br.pucminas.eduka.backend.security.PerfilNaoPermitidoException;
+import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 
 @ExtendWith(MockitoExtension.class)
 class UsuarioServiceTest {
 
     private static final String SENHA = "senha-forte-123";
+    private static final UUID ESCOLA_DO_TOKEN = UUID.randomUUID();
 
     @Mock
     private UsuarioRepository usuarioRepository;
@@ -42,7 +52,20 @@ class UsuarioServiceTest {
 
     @BeforeEach
     void setUp() {
-        usuarioService = new UsuarioService(usuarioRepository, passwordEncoder);
+        usuarioService = new UsuarioService(usuarioRepository, passwordEncoder, new IsolamentoEscola());
+        // Padrao dos testes de senha/login: um MASTER cadastrando uma secretaria.
+        autenticarComo("MASTER", ESCOLA_DO_TOKEN);
+    }
+
+    @AfterEach
+    void limparContexto() {
+        SecurityContextHolder.clearContext();
+    }
+
+    private static void autenticarComo(String perfil, UUID escolaId) {
+        UsuarioAutenticado usuario = new UsuarioAutenticado(UUID.randomUUID(), perfil, escolaId);
+        SecurityContextHolder.getContext().setAuthentication(
+                new TestingAuthenticationToken(usuario, null, "ROLE_" + perfil));
     }
 
     @Test
@@ -69,7 +92,7 @@ class UsuarioServiceTest {
 
         Usuario salvo = usuarioService.cadastrar(request);
 
-        assertThat(salvo.getEscolaId()).isEqualTo(request.escolaId());
+        assertThat(salvo.getEscolaId()).isEqualTo(ESCOLA_DO_TOKEN);
         assertThat(salvo.getPessoaId()).isEqualTo(request.pessoaId());
         assertThat(salvo.getLogin()).isEqualTo("maria");
         assertThat(salvo.getPerfil()).isEqualTo(PerfilUsuario.SECRETARIA);
@@ -172,9 +195,99 @@ class UsuarioServiceTest {
         verify(usuarioRepository, never()).save(any());
     }
 
+    @Nested
+    class HierarquiaDePerfis {
+
+        @ParameterizedTest(name = "{0} cria {1}")
+        @CsvSource({
+                "SUPER_ADMIN, MASTER",
+                "SUPER_ADMIN, ALUNO",
+                "MASTER, SECRETARIA",
+                "MASTER, FINANCEIRO",
+                "MASTER, PROFESSOR",
+                "MASTER, ALUNO",
+                "SECRETARIA, PROFESSOR",
+                "SECRETARIA, ALUNO" })
+        void perfilPermitido(String criador, PerfilUsuario novo) {
+            autenticarComo(criador, ESCOLA_DO_TOKEN);
+            when(usuarioRepository.existsByLogin("maria")).thenReturn(false);
+            when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            Usuario salvo = usuarioService.cadastrar(request("maria", SENHA, novo));
+
+            assertThat(salvo.getPerfil()).isEqualTo(novo);
+        }
+
+        @ParameterizedTest(name = "{0} nao cria {1}")
+        @CsvSource({
+                "SUPER_ADMIN, SUPER_ADMIN",
+                "MASTER, SUPER_ADMIN",
+                "MASTER, MASTER",
+                "SECRETARIA, MASTER",
+                "SECRETARIA, SECRETARIA",
+                "SECRETARIA, FINANCEIRO",
+                "FINANCEIRO, ALUNO",
+                "PROFESSOR, ALUNO",
+                "ALUNO, ALUNO" })
+        void perfilNegado(String criador, PerfilUsuario novo) {
+            autenticarComo(criador, ESCOLA_DO_TOKEN);
+
+            assertThatThrownBy(() -> usuarioService.cadastrar(request("maria", SENHA, novo)))
+                    .isInstanceOf(PerfilNaoPermitidoException.class);
+
+            verify(usuarioRepository, never()).save(any());
+        }
+
+        @Test
+        void naoSuperAdminSempreCadastraNaPropriaEscola() {
+            autenticarComo("SECRETARIA", ESCOLA_DO_TOKEN);
+            when(usuarioRepository.existsByLogin("maria")).thenReturn(false);
+            when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+            UUID outraEscola = UUID.randomUUID();
+
+            Usuario salvo = usuarioService.cadastrar(new CadastroUsuarioRequest(
+                    outraEscola, UUID.randomUUID(), "maria", SENHA, PerfilUsuario.ALUNO));
+
+            assertThat(salvo.getEscolaId()).isEqualTo(ESCOLA_DO_TOKEN);
+        }
+
+        @Test
+        void superAdminCadastraNaEscolaDoRequest() {
+            autenticarComo("SUPER_ADMIN", null);
+            when(usuarioRepository.existsByLogin("maria")).thenReturn(false);
+            when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+            UUID escolaNova = UUID.randomUUID();
+
+            Usuario salvo = usuarioService.cadastrar(new CadastroUsuarioRequest(
+                    escolaNova, UUID.randomUUID(), "maria", SENHA, PerfilUsuario.MASTER));
+
+            assertThat(salvo.getEscolaId()).isEqualTo(escolaNova);
+        }
+
+        @Test
+        void superAdminPrecisaInformarEscola() {
+            autenticarComo("SUPER_ADMIN", null);
+
+            assertThatThrownBy(() -> usuarioService.cadastrar(new CadastroUsuarioRequest(
+                    null, UUID.randomUUID(), "maria", SENHA, PerfilUsuario.MASTER)))
+                    .isInstanceOf(IllegalArgumentException.class);
+
+            verify(usuarioRepository, never()).save(any());
+        }
+
+        @Test
+        void perfilObrigatorio() {
+            assertThatThrownBy(() -> usuarioService.cadastrar(request("maria", SENHA, null)))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
     private static CadastroUsuarioRequest request(String login, String senha) {
-        return new CadastroUsuarioRequest(
-                UUID.randomUUID(), UUID.randomUUID(), login, senha, PerfilUsuario.SECRETARIA);
+        return request(login, senha, PerfilUsuario.SECRETARIA);
+    }
+
+    private static CadastroUsuarioRequest request(String login, String senha, PerfilUsuario perfil) {
+        return new CadastroUsuarioRequest(UUID.randomUUID(), UUID.randomUUID(), login, senha, perfil);
     }
 
     private Usuario usuarioComSenha(String senha) {

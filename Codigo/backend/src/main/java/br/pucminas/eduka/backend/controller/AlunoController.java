@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.dto.AlunoRequest;
 import br.pucminas.eduka.backend.dto.AlunoResponse;
+import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.AlunoService;
 
 /**
@@ -38,19 +39,19 @@ public class AlunoController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'MASTER', 'SECRETARIA', 'FINANCEIRO', 'PROFESSOR')")
+    @PreAuthorize(Perfis.LEITURA_ACADEMICA)
     public List<AlunoResponse> listar() {
         return alunoService.listar().stream().map(AlunoResponse::de).toList();
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'MASTER', 'SECRETARIA', 'FINANCEIRO', 'PROFESSOR')")
+    @PreAuthorize(Perfis.LEITURA_ACADEMICA)
     public AlunoResponse buscarPorId(@PathVariable UUID id) {
         return AlunoResponse.de(alunoService.buscarPorId(id));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'MASTER', 'SECRETARIA')")
+    @PreAuthorize(Perfis.CADASTRO_ACADEMICO)
     public ResponseEntity<AlunoResponse> cadastrar(@RequestBody AlunoRequest request) {
         Aluno aluno = alunoService.cadastrar(request);
         return ResponseEntity.created(URI.create("/alunos/" + aluno.getId()))
