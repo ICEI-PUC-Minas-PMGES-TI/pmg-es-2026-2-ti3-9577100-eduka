@@ -193,8 +193,8 @@ flowchart TB
 | `POST` | `/escolas` | `SUPER_ADMIN` |
 | `PUT` | `/escolas/{id}` | `SUPER_ADMIN` |
 | `PATCH` | `/escolas/{id}/ativar` · `/suspender` | `SUPER_ADMIN` |
-| `GET` | `/alunos` · `/alunos/{id}` | `SUPER_ADMIN`, `MASTER`, `SECRETARIA`, `FINANCEIRO`, `PROFESSOR` |
-| `POST` | `/alunos` | `SUPER_ADMIN`, `MASTER`, `SECRETARIA` |
+| `GET` | `/alunos` · `/alunos/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO`, `PROFESSOR` |
+| `POST` | `/alunos` | `MASTER`, `SECRETARIA` |
 
 Qualquer rota não listada como pública exige `Authorization: Bearer <access token>` e responde
 `401` sem ele. Perfil sem permissão recebe `403`.
@@ -238,7 +238,9 @@ sequenceDiagram
 
 Em listagens, o service filtra por `IsolamentoEscola.escolaIdAtual()` em vez de aceitar um
 `escolaId` do cliente. `SUPER_ADMIN` é o único perfil que atravessa qualquer escola — ele
-administra a plataforma, não uma instituição.
+administra a plataforma, não uma instituição. Por isso só acessa o cadastro das escolas
+(`/escolas`, `/planos`) e os usuários vinculados a elas (`/usuarios`); os módulos de negócio
+(acadêmico, financeiro, relatórios) o barram com `403`.
 
 **Perfis de acesso** (`PerfilUsuario`): `SUPER_ADMIN`, `MASTER`, `SECRETARIA`, `FINANCEIRO`,
 `PROFESSOR`, `ALUNO`.

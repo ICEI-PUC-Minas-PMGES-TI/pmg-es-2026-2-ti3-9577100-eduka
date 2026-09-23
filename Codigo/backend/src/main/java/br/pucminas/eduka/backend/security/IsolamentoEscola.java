@@ -27,9 +27,11 @@ import org.springframework.stereotype.Component;
  * </p>
  *
  * <p>
- * {@code SUPER_ADMIN} administra a plataforma (RF06) e passa em qualquer
- * escola. O {@code escolaId} que ele carrega no token existe so porque a
- * coluna e NOT NULL; nao tem significado de acesso.
+ * {@code SUPER_ADMIN} administra a plataforma (RF06), nao pertence a
+ * nenhuma escola (token sem {@code escolaId}) e passa em qualquer uma. Os
+ * modulos de negocio (academico, financeiro...) ja o barram em
+ * {@link RotasPorPerfil}; a excecao aqui serve aos recursos de plataforma,
+ * como os usuarios de cada escola.
  * </p>
  */
 @Component
@@ -54,8 +56,8 @@ public class IsolamentoEscola {
 
     /**
      * Escola do usuario autenticado, para filtrar consultas. Para super admin
-     * devolve a escola gravada no token; quem precisar de "todas as escolas"
-     * deve testar {@link UsuarioAutenticado#isSuperAdmin()} antes.
+     * devolve {@code null}; quem precisar de "todas as escolas" deve testar
+     * {@link UsuarioAutenticado#isSuperAdmin()} antes.
      */
     public UUID escolaIdAtual() {
         return usuarioAtual().escolaId();

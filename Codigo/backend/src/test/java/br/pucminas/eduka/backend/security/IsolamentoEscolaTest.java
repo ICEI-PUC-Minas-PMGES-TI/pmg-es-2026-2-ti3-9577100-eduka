@@ -55,14 +55,22 @@ class IsolamentoEscolaTest {
 
     @Test
     void superAdminPassaEmQualquerEscola() {
-        autenticarComo("SUPER_ADMIN", ESCOLA_A);
+        autenticarComo("SUPER_ADMIN", null);
 
+        assertThatCode(() -> isolamento.exigirAcesso(ESCOLA_A)).doesNotThrowAnyException();
         assertThatCode(() -> isolamento.exigirAcesso(ESCOLA_B)).doesNotThrowAnyException();
     }
 
     @Test
+    void superAdminNaoTemEscolaAtual() {
+        autenticarComo("SUPER_ADMIN", null);
+
+        assertThat(isolamento.escolaIdAtual()).isNull();
+    }
+
+    @Test
     void recursoSemEscolaEhErroDeProgramacao() {
-        autenticarComo("SUPER_ADMIN", ESCOLA_A);
+        autenticarComo("SUPER_ADMIN", null);
 
         // Nem o super admin passa: escolaId nulo indica entidade mal montada,
         // nao um recurso "global".

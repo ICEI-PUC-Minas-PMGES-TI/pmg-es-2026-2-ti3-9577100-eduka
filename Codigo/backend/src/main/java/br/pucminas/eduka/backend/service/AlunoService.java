@@ -18,7 +18,7 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
  * A escola nunca e parametro: sai de {@link IsolamentoEscola#escolaIdAtual()}
  * e entra em toda consulta como filtro. Um aluno de outra escola e, para o
  * usuario atual, indistinguivel de um aluno inexistente (404 nos dois casos).
- * {@code SUPER_ADMIN} e a unica excecao e enxerga todas as escolas.
+ * {@code SUPER_ADMIN} nem chega aqui: e barrado em {@code RotasPorPerfil}.
  * </p>
  */
 @Service
@@ -33,16 +33,10 @@ public class AlunoService {
     }
 
     public List<Aluno> listar() {
-        if (isolamentoEscola.usuarioAtual().isSuperAdmin()) {
-            return alunoRepository.findAll();
-        }
         return alunoRepository.findAllByEscolaId(isolamentoEscola.escolaIdAtual());
     }
 
     public Aluno buscarPorId(UUID id) {
-        if (isolamentoEscola.usuarioAtual().isSuperAdmin()) {
-            return alunoRepository.findById(id).orElseThrow(AlunoService::naoEncontrado);
-        }
         return alunoRepository.findByIdAndEscolaId(id, isolamentoEscola.escolaIdAtual())
                 .orElseThrow(AlunoService::naoEncontrado);
     }
