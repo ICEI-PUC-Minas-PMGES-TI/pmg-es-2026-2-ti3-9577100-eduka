@@ -138,6 +138,12 @@ public class JwtConfig {
 	 * CSRF nao se aplica. Apenas o health check, o preflight de CORS e o login
 	 * ficam publicos; todo o resto exige um access token valido, cujo perfil
 	 * vira ROLE_* para {@code @PreAuthorize}.
+	 *
+	 * <p>
+	 * Os modulos de {@link RotasPorPerfil} sao barrados aqui por perfil. Rotas
+	 * fora deles so exigem autenticacao, e o controller precisa de
+	 * {@code @PreAuthorize}.
+	 * </p>
 	 */
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http, SecretKey jwtSecretKey,
@@ -148,10 +154,13 @@ public class JwtConfig {
 				.cors(Customizer.withDefaults())
 				.sessionManagement(session -> session
 						.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-				.authorizeHttpRequests(authorize -> authorize
-						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-						.requestMatchers("/health", "/login").permitAll()
-						.anyRequest().authenticated())
+				.authorizeHttpRequests(authorize -> {
+					authorize
+							.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+							.requestMatchers("/health", "/login").permitAll();
+					RotasPorPerfil.aplicar(authorize);
+					authorize.anyRequest().authenticated();
+				})
 				.oauth2ResourceServer(oauth2 -> oauth2
 						.jwt(jwt -> jwt
 								.decoder(resourceServerJwtDecoder(jwtSecretKey))

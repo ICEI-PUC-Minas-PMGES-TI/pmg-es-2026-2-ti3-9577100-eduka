@@ -14,6 +14,10 @@ import br.pucminas.eduka.backend.exception.LoginJaCadastradoException;
 import br.pucminas.eduka.backend.exception.SenhaInvalidaException;
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.repository.UsuarioRepository;
+import br.pucminas.eduka.backend.security.HierarquiaPerfis;
+import br.pucminas.eduka.backend.security.IsolamentoEscola;
+import br.pucminas.eduka.backend.security.PerfilNaoPermitidoException;
+import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 
 /**
  * Cadastro e troca de senha. A senha em texto puro so existe dentro destes
@@ -32,14 +36,33 @@ public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
+    private final IsolamentoEscola isolamentoEscola;
 
-    public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
+    public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
+            IsolamentoEscola isolamentoEscola) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
+        this.isolamentoEscola = isolamentoEscola;
     }
 
+    /**
+     * Cadastra em nome do usuario autenticado, respeitando
+     * {@link HierarquiaPerfis}. So o SUPER_ADMIN escolhe a escola; para os
+     * demais o novo usuario vai para a escola do token e o {@code escolaId}
+     * do request e ignorado.
+     */
     @Transactional
     public Usuario cadastrar(CadastroUsuarioRequest request) {
+        UsuarioAutenticado criador = isolamentoEscola.usuarioAtual();
+        if (request.perfil() == null) {
+            throw new IllegalArgumentException("Perfil e obrigatorio");
+        }
+        if (!HierarquiaPerfis.podeCriar(criador.perfilUsuario(), request.perfil())) {
+            throw new PerfilNaoPermitidoException(
+                    "%s nao pode criar usuario %s".formatted(criador.perfil(), request.perfil()));
+        }
+        UUID escolaId = escolaDoNovoUsuario(criador, request);
+
         String login = normalizarLogin(request.login());
         validarSenha(request.senha());
 
@@ -48,7 +71,7 @@ public class UsuarioService {
         }
 
         Usuario usuario = Usuario.builder()
-                .escolaId(request.escolaId())
+                .escolaId(escolaId)
                 .pessoaId(request.pessoaId())
                 .login(login)
                 .senhaHash(passwordEncoder.encode(request.senha()))
@@ -82,6 +105,17 @@ public class UsuarioService {
             throw new IllegalArgumentException("Login nao pode ser vazio");
         }
         return login.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static UUID escolaDoNovoUsuario(UsuarioAutenticado criador, CadastroUsuarioRequest request) {
+        if (!criador.isSuperAdmin()) {
+            return criador.escolaId();
+        }
+        // Todo perfil que o SUPER_ADMIN pode criar pertence a uma escola.
+        if (request.escolaId() == null) {
+            throw new IllegalArgumentException("Escola e obrigatoria");
+        }
+        return request.escolaId();
     }
 
     private void validarSenha(String senha) {

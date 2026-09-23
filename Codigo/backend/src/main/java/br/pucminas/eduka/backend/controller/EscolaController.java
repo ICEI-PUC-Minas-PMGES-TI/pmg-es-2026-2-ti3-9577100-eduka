@@ -19,6 +19,7 @@ import br.pucminas.eduka.backend.domain.Escola;
 import br.pucminas.eduka.backend.dto.EscolaRequest;
 import br.pucminas.eduka.backend.dto.EscolaResponse;
 import br.pucminas.eduka.backend.dto.EscolaUpdateRequest;
+import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.EscolaService;
 import jakarta.validation.Valid;
 
@@ -29,7 +30,7 @@ import jakarta.validation.Valid;
  */
 @RestController
 @RequestMapping("/escolas")
-@PreAuthorize("hasRole('SUPER_ADMIN')")
+@PreAuthorize(Perfis.SUPER_ADMIN)
 public class EscolaController {
 
     private final EscolaService escolaService;
