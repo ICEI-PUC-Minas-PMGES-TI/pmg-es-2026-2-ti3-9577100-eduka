@@ -1,10 +1,11 @@
 -- Dados mockados para desenvolvimento/testes locais. NUNCA rodar em producao.
 --
 -- Nao fica em postgres/init/ de proposito: aqueles scripts rodam na criacao do
--- container, antes do Flyway criar as tabelas. Rode este DEPOIS que o backend
--- subir pelo menos uma vez (a partir de Codigo/):
+-- container, antes do Flyway criar as tabelas. No docker-compose.yml de dev o
+-- servico "mock" (load-mock.sh) espera o backend aplicar as migrations e roda
+-- este arquivo sozinho a cada "up". Para rodar na mao (a partir da raiz do repo):
 --
---   docker compose exec -T postgres psql -U eduka -d eduka < postgres/mock/mock.sql
+--   docker compose -f Codigo/docker-compose.yml --env-file .env exec -T postgres psql -U eduka -d eduka < Codigo/postgres/mock/mock.sql
 --
 -- Pode rodar mais de uma vez: nada e duplicado.
 --
