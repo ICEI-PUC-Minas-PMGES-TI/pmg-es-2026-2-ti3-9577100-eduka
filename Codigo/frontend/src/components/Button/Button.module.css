@@ -32,6 +32,15 @@
   background: #2c2937;
 }
 
+.accent {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.accent:hover {
+  background: #5a3cc9;
+}
+
 .outline {
   background: var(--color-surface);
   border-color: var(--color-border-strong);

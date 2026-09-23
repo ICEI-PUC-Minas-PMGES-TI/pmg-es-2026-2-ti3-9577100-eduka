@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '../../../services/api'
-import { ativarEscola, listarEscolas, suspenderEscola } from '../../../services/escolaService'
-import type { Escola } from '../../../types/escola'
+import {
+  ativarEscola,
+  cadastrarEscola,
+  listarEscolas,
+  suspenderEscola,
+} from '../../../services/escolaService'
+import type { Escola, EscolaRequest } from '../../../types/escola'
 
 function mensagemDeErro(erro: unknown): string {
   return erro instanceof ApiError ? erro.message : 'Erro inesperado ao carregar as escolas.'
@@ -44,5 +49,12 @@ export function useEscolas() {
     setEscolas((atuais) => atuais.map((e) => (e.id === atualizada.id ? atualizada : e)))
   }, [])
 
-  return { escolas, carregando, erro, recarregar, alternarSituacao }
+  /** Cadastra uma escola e a coloca no topo da lista; lança ApiError se falhar. */
+  const cadastrar = useCallback(async (dados: EscolaRequest) => {
+    const criada = await cadastrarEscola(dados)
+    setEscolas((atuais) => [criada, ...atuais])
+    return criada
+  }, [])
+
+  return { escolas, carregando, erro, recarregar, alternarSituacao, cadastrar }
 }
