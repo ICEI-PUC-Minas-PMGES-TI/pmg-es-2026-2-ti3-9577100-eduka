@@ -2,9 +2,9 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import logoEduka from '../../../../assets/eduka-icone.svg'
 import { Icon } from '../../../../components/Icon/Icon'
-import { paths } from '../../../../routes/paths'
+import { rotaInicialPorPerfil } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
-import { autenticar, estaAutenticado } from '../../../../services/authService'
+import { autenticar, estaAutenticado, obterUsuarioLogado } from '../../../../services/authService'
 import styles from './LoginAdmin.module.css'
 
 export function LoginAdmin() {
@@ -17,8 +17,10 @@ export function LoginAdmin() {
   const [aviso, setAviso] = useState<string | null>(null)
 
   useEffect(() => {
-    if (estaAutenticado()) {
-      navigate(paths.superAdmin.escolas, { replace: true })
+    const usuario = obterUsuarioLogado()
+    const destino = usuario && rotaInicialPorPerfil[usuario.perfil]
+    if (estaAutenticado() && destino) {
+      navigate(destino, { replace: true })
     }
   }, [navigate])
 
@@ -34,8 +36,8 @@ export function LoginAdmin() {
 
     setCarregando(true)
     try {
-      await autenticar(email, senha)
-      navigate(paths.superAdmin.escolas)
+      const { perfil } = await autenticar(email, senha)
+      navigate(rotaInicialPorPerfil[perfil])
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
