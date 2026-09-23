@@ -36,3 +36,12 @@
   font-size: 14px;
   font-weight: 500;
 }
+
+.sucesso {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  font-size: 14px;
+  font-weight: 500;
+}
