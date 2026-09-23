@@ -1,0 +1,373 @@
+.viewport {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  background-color: var(--color-bg);
+}
+
+.container {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 64px;
+  width: 100%;
+  max-width: 1080px;
+}
+
+/* ==========================================================================
+   Painel Esquerdo (Identidade do Super Console)
+   ========================================================================== */
+
+.heroCard {
+  flex: 1;
+  max-width: 490px;
+  min-height: 610px;
+  background-color: #15131c;
+  border-radius: 28px;
+  padding: 44px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 16px 36px rgba(21, 19, 28, 0.18);
+  position: relative;
+  overflow: hidden;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brandLogo {
+  display: block;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.brandName {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #ffffff;
+}
+
+.superBadge {
+  margin-left: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+  color: #dfdbed;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.heroContent {
+  margin: auto 0;
+  padding: 36px 0;
+}
+
+.heroTitle {
+  font-size: 42px;
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.8px;
+  color: #ffffff;
+}
+
+.heroText {
+  margin-top: 18px;
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: #9a93aa;
+  max-width: 380px;
+}
+
+.heroSecurity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #7f7992;
+}
+
+.heroSecurity svg {
+  flex-shrink: 0;
+  color: #7f7992;
+}
+
+/* ==========================================================================
+   Painel Direito (Formulário)
+   ========================================================================== */
+
+.formCard {
+  flex: 1;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 24px 0;
+}
+
+.adminTag {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 5px 11px;
+  border-radius: 6px;
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.formTitle {
+  margin-top: 14px;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.18;
+  letter-spacing: -0.6px;
+  color: var(--color-text);
+}
+
+.formSubtitle {
+  margin-top: 8px;
+  margin-bottom: 28px;
+  font-size: 14.5px;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fieldGroup + .fieldGroup {
+  margin-top: 18px;
+}
+
+.label {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.input {
+  width: 100%;
+  height: 48px;
+  padding: 0 16px;
+  background-color: var(--color-surface);
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  color: var(--color-text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input::placeholder {
+  color: var(--color-text-subtle);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(108, 76, 224, 0.12);
+}
+
+.passwordRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.passwordRow .input {
+  flex: 1;
+}
+
+.togglePasswordBtn {
+  height: 48px;
+  padding: 0 18px;
+  background-color: var(--color-surface);
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--color-text);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.togglePasswordBtn:hover {
+  background-color: #faf9fd;
+  border-color: var(--color-primary);
+}
+
+.submitBtn {
+  margin-top: 24px;
+  width: 100%;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  border-radius: var(--radius-md);
+  background-color: var(--color-primary);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.08s ease;
+}
+
+.submitBtn:hover:not(:disabled) {
+  background-color: #5c3bd4;
+}
+
+.submitBtn:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.submitBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.errorMessage {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-danger-bg);
+  border: 1px solid rgba(201, 52, 74, 0.25);
+  color: var(--color-danger);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.infoBanner {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-primary-soft);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.footerLinks {
+  margin-top: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.forgotLink {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-primary);
+  font-size: 13.5px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  text-align: left;
+}
+
+.forgotLink:hover {
+  color: #5534cc;
+}
+
+.schoolLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-primary);
+  font-size: 13.5px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.schoolLink:hover {
+  text-decoration: underline;
+}
+
+/* ==========================================================================
+   Responsividade
+   ========================================================================== */
+
+@media (max-width: 900px) {
+  .container {
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+  }
+
+  .heroCard {
+    width: 100%;
+    max-width: 500px;
+    min-height: auto;
+    padding: 32px 28px;
+  }
+
+  .heroTitle {
+    font-size: 32px;
+  }
+
+  .heroContent {
+    padding: 24px 0;
+  }
+
+  .formCard {
+    width: 100%;
+    max-width: 500px;
+    padding: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .viewport {
+    padding: 16px;
+  }
+
+  .heroCard {
+    border-radius: 20px;
+    padding: 24px 20px;
+  }
+
+  .heroTitle {
+    font-size: 26px;
+  }
+
+  .formTitle {
+    font-size: 26px;
+  }
+
+  .footerLinks {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+}
+
