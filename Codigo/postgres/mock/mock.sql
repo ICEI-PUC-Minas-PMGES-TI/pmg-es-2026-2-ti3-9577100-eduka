@@ -9,28 +9,13 @@
 --
 -- Pode rodar mais de uma vez: nada e duplicado.
 --
--- Login do super admin:  admin@eduka.com.br / Eduka-admin123
+-- Super admin (admin@eduka.com.br / Eduka-admin123) e criado pelo
+-- DevDataSeeder (perfil "dev" do backend), nao por este script: PESSOA
+-- agora e cifrada pela aplicacao, e SQL puro nao produz um valor cifravel
+-- do jeito que o PessoaCryptoConverter espera (nonce aleatorio, chave so
+-- existe na JVM).
 
 BEGIN;
-
--- Super admin -----------------------------------------------------------------
--- SUPER_ADMIN nao pertence a nenhuma escola (ESCOLA_ID nulo).
--- SENHA_HASH precisa do prefixo {bcrypt}: e o formato esperado pelo
--- DelegatingPasswordEncoder (PasswordEncoderConfig). crypt/gen_salt vem do
--- pgcrypto (habilitado na V1) e geram um hash $2a$ compativel com o BCrypt do Spring.
--- LOGIN em minusculas, como o UsuarioService.normalizarLogin grava.
-WITH nova_pessoa AS (
-    INSERT INTO PESSOA (NOME, EMAIL)
-    SELECT convert_to('Super Admin', 'UTF8'), convert_to('admin@eduka.com.br', 'UTF8')
-    WHERE NOT EXISTS (SELECT 1 FROM USUARIO WHERE LOGIN = 'admin@eduka.com.br')
-    RETURNING ID_PESSOA
-)
-INSERT INTO USUARIO (PESSOA_ID, LOGIN, SENHA_HASH, PERFIL)
-SELECT ID_PESSOA,
-       'admin@eduka.com.br',
-       '{bcrypt}' || crypt('Eduka-admin123', gen_salt('bf', 12)),
-       'SUPER_ADMIN'
-FROM nova_pessoa;
 
 -- Escolas ---------------------------------------------------------------------
 -- CNPJ so com digitos e com digitos verificadores validos (o front valida).
