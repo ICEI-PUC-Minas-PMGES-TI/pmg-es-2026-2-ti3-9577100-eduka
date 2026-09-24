@@ -20,7 +20,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Aluno matriculado numa escola. Mapeia a tabela {@code alunos} (V5).
+ * Aluno matriculado numa escola. Mapeia a tabela {@code alunos} (V5, V10).
+ * Dado pessoal (nome, cpf, data de nascimento, endereco) fica em
+ * {@link Pessoa}, referenciada por {@code pessoaId} - aqui so o que e
+ * intrinseco ao contexto academico (matricula, genero).
  *
  * <p>
  * {@code escolaId} e o tenant: nunca vem do cliente, e sempre copiado do
@@ -41,22 +44,16 @@ public class Aluno {
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id_aluno", nullable = false, updatable = false)
     private UUID id;
-    
+
     @TenantId
     @Column(name = "escola_id", nullable = false, updatable = false)
     private UUID escolaId;
 
-    @Column(name = "nome_aluno", nullable = false, length = 150)
-    private String nome;
+    @Column(name = "pessoa_id", nullable = false, updatable = false)
+    private UUID pessoaId;
 
     @Column(name = "numero_matricula", nullable = false, length = 50)
     private String matricula;
-
-    @Column(name = "email_responsavel", length = 150)
-    private String emailResponsavel;
-
-    @Column(name = "telefone_responsavel", length = 20)
-    private String telefoneResponsavel;
 
     @Column(name = "genero_aluno", length = 30)
     private String genero;
