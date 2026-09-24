@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -24,10 +25,14 @@ import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import br.pucminas.eduka.backend.domain.Aluno;
+import br.pucminas.eduka.backend.domain.AlunoResponsavel;
+import br.pucminas.eduka.backend.domain.PapelPessoa;
 import br.pucminas.eduka.backend.domain.Pessoa;
+import br.pucminas.eduka.backend.domain.PessoaPapel;
 import br.pucminas.eduka.backend.dto.AlunoRequest;
 import br.pucminas.eduka.backend.dto.AlunoResponse;
 import br.pucminas.eduka.backend.dto.EnderecoRequest;
+import br.pucminas.eduka.backend.dto.ResponsavelRequest;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
@@ -114,7 +119,7 @@ class AlunoServiceTest {
         when(alunoRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of(alunoAna, alunoCarlos));
         when(pessoaRepository.findAllById(any())).thenReturn(List.of(pessoaAna, pessoaCarlos));
 
-        List<AlunoResponse> resultado = alunoService.listar(" AN ".trim());
+        List<AlunoResponse> resultado = alunoService.listar(" AN ");
 
         assertThat(resultado).extracting(AlunoResponse::nome).containsExactly("Ana Silva");
     }
@@ -172,6 +177,52 @@ class AlunoServiceTest {
 
         assertThat(resultado.responsaveis()).isEmpty();
         verify(alunoResponsavelRepository, never()).save(any());
+    }
+
+    @Test
+    void cadastrarComResponsavelCriaPessoaEVinculo() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(inv -> {
+            Pessoa pessoa = inv.getArgument(0);
+            pessoa.setId(UUID.randomUUID());
+            return pessoa;
+        });
+        when(alunoRepository.save(any(Aluno.class))).thenAnswer(inv -> {
+            Aluno aluno = inv.getArgument(0);
+            aluno.setId(UUID.randomUUID());
+            return aluno;
+        });
+
+        AlunoResponse resultado = alunoService.cadastrar(new AlunoRequest("Ana", null, null, null, "2026-001", null,
+                List.of(new ResponsavelRequest("Maria Silva", null, "maria@example.com", "31999998888", "MAE"))));
+
+        assertThat(resultado.responsaveis()).hasSize(1);
+        assertThat(resultado.responsaveis().get(0).nome()).isEqualTo("Maria Silva");
+        assertThat(resultado.responsaveis().get(0).email()).isEqualTo("maria@example.com");
+        assertThat(resultado.responsaveis().get(0).telefone()).isEqualTo("31999998888");
+        assertThat(resultado.responsaveis().get(0).parentesco()).isEqualTo("MAE");
+
+        ArgumentCaptor<Pessoa> pessoaCaptor = ArgumentCaptor.forClass(Pessoa.class);
+        verify(pessoaRepository, times(2)).save(pessoaCaptor.capture());
+        UUID pessoaAlunoId = pessoaCaptor.getAllValues().get(0).getId();
+        UUID pessoaResponsavelId = pessoaCaptor.getAllValues().get(1).getId();
+
+        ArgumentCaptor<Aluno> alunoCaptor = ArgumentCaptor.forClass(Aluno.class);
+        verify(alunoRepository).save(alunoCaptor.capture());
+        UUID alunoId = alunoCaptor.getValue().getId();
+
+        ArgumentCaptor<PessoaPapel> papelCaptor = ArgumentCaptor.forClass(PessoaPapel.class);
+        verify(pessoaPapelRepository, times(2)).save(papelCaptor.capture());
+        assertThat(papelCaptor.getAllValues()).extracting(PessoaPapel::getPapel)
+                .containsExactlyInAnyOrder(PapelPessoa.ALUNO, PapelPessoa.RESPONSAVEL);
+
+        ArgumentCaptor<AlunoResponsavel> vinculoCaptor = ArgumentCaptor.forClass(AlunoResponsavel.class);
+        verify(alunoResponsavelRepository).save(vinculoCaptor.capture());
+        AlunoResponsavel vinculo = vinculoCaptor.getValue();
+        assertThat(vinculo.getId().alunoId()).isEqualTo(alunoId);
+        assertThat(vinculo.getId().pessoaId()).isEqualTo(pessoaResponsavelId);
+        assertThat(vinculo.getId().pessoaId()).isNotEqualTo(pessoaAlunoId);
+        assertThat(vinculo.getParentesco()).isEqualTo("MAE");
     }
 
     @Test
