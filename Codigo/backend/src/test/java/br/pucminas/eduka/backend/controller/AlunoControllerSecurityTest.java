@@ -1,3 +1,4 @@
+// Codigo/backend/src/test/java/br/pucminas/eduka/backend/controller/AlunoControllerSecurityTest.java
 package br.pucminas.eduka.backend.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,8 +29,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import br.pucminas.eduka.backend.domain.Aluno;
+import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
+import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
+import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
+import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
@@ -37,8 +42,9 @@ import br.pucminas.eduka.backend.service.AlunoService;
 
 /**
  * Contrato de seguranca do primeiro recurso de negocio, ponta a ponta: filter
- * chain real, tokens reais, {@code @PreAuthorize} real e servico real. So o
- * repositorio e mock, para provar que o filtro de escola chega ate a consulta.
+ * chain real, tokens reais, {@code @PreAuthorize} real e servico real. Os
+ * repositorios sao mock, para provar que o filtro de escola chega ate a
+ * consulta.
  */
 @WebMvcTest(AlunoController.class)
 @Import({ JwtConfig.class, JwtService.class, IsolamentoEscola.class, ApiExceptionHandler.class,
@@ -56,6 +62,12 @@ class AlunoControllerSecurityTest {
 
     @MockitoBean
     private AlunoRepository alunoRepository;
+    @MockitoBean
+    private PessoaRepository pessoaRepository;
+    @MockitoBean
+    private PessoaPapelRepository pessoaPapelRepository;
+    @MockitoBean
+    private AlunoResponsavelRepository alunoResponsavelRepository;
 
     private String accessToken(String perfil, UUID escolaId) {
         return jwtService.generateAccessToken(UUID.randomUUID(), perfil, escolaId);
@@ -72,13 +84,26 @@ class AlunoControllerSecurityTest {
                 .content(json);
     }
 
-    private static Aluno aluno(UUID escolaId) {
-        return Aluno.builder()
-                .id(UUID.randomUUID())
-                .escolaId(escolaId)
-                .nome("Ana")
-                .matricula("2026-001")
-                .build();
+    private static Aluno aluno(UUID escolaId, UUID pessoaId) {
+        return Aluno.builder().id(UUID.randomUUID()).escolaId(escolaId).pessoaId(pessoaId)
+                .matricula("2026-001").build();
+    }
+
+    private static Pessoa pessoa(String nome) {
+        return Pessoa.builder().id(UUID.randomUUID()).nome(nome).ativo(true).build();
+    }
+
+    private void stubSavePessoaEAluno() {
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(inv -> {
+            Pessoa pessoa = inv.getArgument(0);
+            pessoa.setId(UUID.randomUUID());
+            return pessoa;
+        });
+        when(alunoRepository.save(any(Aluno.class))).thenAnswer(inv -> {
+            Aluno aluno = inv.getArgument(0);
+            aluno.setId(UUID.randomUUID());
+            return aluno;
+        });
     }
 
     @Nested
@@ -142,11 +167,7 @@ class AlunoControllerSecurityTest {
 
         @Test
         void secretariaCadastra() throws Exception {
-            when(alunoRepository.save(any(Aluno.class))).thenAnswer(inv -> {
-                Aluno a = inv.getArgument(0);
-                a.setId(UUID.randomUUID());
-                return a;
-            });
+            stubSavePessoaEAluno();
 
             mockMvc.perform(postCom("/alunos", accessToken("SECRETARIA", ESCOLA_A),
                     "{\"nome\":\"Ana\",\"matricula\":\"2026-001\"}"))
@@ -160,13 +181,16 @@ class AlunoControllerSecurityTest {
     class IsolamentoEntreEscolas {
 
         @Test
-        void listagemUsaEscolaDoToken() throws Exception {
-            when(alunoRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of(aluno(ESCOLA_A)));
+        void listagemUsaEscolaDoTokenEAceitaFiltroDeNome() throws Exception {
+            Pessoa pessoaAna = pessoa("Ana");
+            when(alunoRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of(aluno(ESCOLA_A, pessoaAna.getId())));
+            when(pessoaRepository.findAllById(any())).thenReturn(List.of(pessoaAna));
 
-            mockMvc.perform(getCom("/alunos", accessToken("MASTER", ESCOLA_A)))
+            mockMvc.perform(getCom("/alunos?nome=an", accessToken("MASTER", ESCOLA_A)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.length()").value(1))
-                    .andExpect(jsonPath("$[0].escolaId").value(ESCOLA_A.toString()));
+                    .andExpect(jsonPath("$[0].escolaId").value(ESCOLA_A.toString()))
+                    .andExpect(jsonPath("$[0].nome").value("Ana"));
 
             verify(alunoRepository).findAllByEscolaId(ESCOLA_A);
             verify(alunoRepository, never()).findAll();
@@ -174,7 +198,7 @@ class AlunoControllerSecurityTest {
 
         @Test
         void alunoDeOutraEscolaResponde404SemRevelarExistencia() throws Exception {
-            Aluno daEscolaB = aluno(ESCOLA_B);
+            Aluno daEscolaB = aluno(ESCOLA_B, UUID.randomUUID());
             // O registro existe no banco, mas nao para a escola A.
             when(alunoRepository.findById(daEscolaB.getId())).thenReturn(Optional.of(daEscolaB));
             when(alunoRepository.findByIdAndEscolaId(daEscolaB.getId(), ESCOLA_A)).thenReturn(Optional.empty());
@@ -188,8 +212,11 @@ class AlunoControllerSecurityTest {
 
         @Test
         void alunoDaPropriaEscolaResponde200() throws Exception {
-            Aluno daEscolaA = aluno(ESCOLA_A);
+            Pessoa pessoaAna = pessoa("Ana");
+            Aluno daEscolaA = aluno(ESCOLA_A, pessoaAna.getId());
             when(alunoRepository.findByIdAndEscolaId(daEscolaA.getId(), ESCOLA_A)).thenReturn(Optional.of(daEscolaA));
+            when(pessoaRepository.findById(pessoaAna.getId())).thenReturn(Optional.of(pessoaAna));
+            when(alunoResponsavelRepository.findAllById_AlunoId(daEscolaA.getId())).thenReturn(List.of());
 
             mockMvc.perform(getCom("/alunos/" + daEscolaA.getId(), accessToken("SECRETARIA", ESCOLA_A)))
                     .andExpect(status().isOk())
@@ -198,11 +225,7 @@ class AlunoControllerSecurityTest {
 
         @Test
         void escolaIdNoBodyEhIgnoradoNoCadastro() throws Exception {
-            when(alunoRepository.save(any(Aluno.class))).thenAnswer(inv -> {
-                Aluno a = inv.getArgument(0);
-                a.setId(UUID.randomUUID());
-                return a;
-            });
+            stubSavePessoaEAluno();
 
             mockMvc.perform(postCom("/alunos", accessToken("MASTER", ESCOLA_A),
                     "{\"nome\":\"Ana\",\"matricula\":\"2026-001\",\"escolaId\":\"" + ESCOLA_B + "\"}"))
