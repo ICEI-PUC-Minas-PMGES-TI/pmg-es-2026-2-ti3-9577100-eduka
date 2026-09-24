@@ -39,6 +39,8 @@ services:
 
       JWT_SECRET: ${JWT_SECRET}
 
+      PII_ENCRYPTION_KEY: ${PII_ENCRYPTION_KEY}
+
 
   frontend:
 
