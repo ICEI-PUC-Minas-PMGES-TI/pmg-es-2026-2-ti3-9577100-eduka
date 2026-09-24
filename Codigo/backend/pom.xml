@@ -95,6 +95,7 @@
 				<configuration>
 					<environmentVariables>
 						<JWT_SECRET>test-secret-key-with-at-least-32-bytes!!</JWT_SECRET>
+						<PII_ENCRYPTION_KEY>u28qCTox5pjdroT6PVuzUItNOUfd1K0ySdEX/Rk7gXU=</PII_ENCRYPTION_KEY>
 					</environmentVariables>
 				</configuration>
 			</plugin>
