@@ -1,4 +1,5 @@
 import { Campo } from '../../../../components/Campo/Campo'
+import { Select, type OpcaoSelect } from '../../../../components/Select/Select'
 import { mascararCep } from '../../../../utils/formatters'
 import {
   MAX_BAIRRO,
@@ -10,6 +11,12 @@ import {
   type ValoresEndereco,
 } from './endereco'
 import styles from './CamposEndereco.module.css'
+
+// "UF" é a opção vazia (sem estado), como no <select> antigo.
+const OPCOES_UF: OpcaoSelect<string>[] = [
+  { valor: '', rotulo: 'UF' },
+  ...UFS.map((uf) => ({ valor: uf, rotulo: uf })),
+]
 
 type CamposEnderecoProps = {
   valores: ValoresEndereco
@@ -25,7 +32,7 @@ type CamposEnderecoProps = {
 export function CamposEndereco({ valores, erros, onAlterar }: CamposEnderecoProps) {
   return (
     <div className={styles.grid}>
-      <Campo label="Logradouro" erro={erros.logradouro} className={styles.principal}>
+      <Campo label="Logradouro" erro={erros.logradouro} obrigatorio className={styles.principal}>
         {(props) => (
           <input
             {...props}
@@ -38,7 +45,7 @@ export function CamposEndereco({ valores, erros, onAlterar }: CamposEnderecoProp
           />
         )}
       </Campo>
-      <Campo label="Número" erro={erros.numero}>
+      <Campo label="Número" erro={erros.numero} obrigatorio>
         {(props) => (
           <input
             {...props}
@@ -50,7 +57,7 @@ export function CamposEndereco({ valores, erros, onAlterar }: CamposEnderecoProp
           />
         )}
       </Campo>
-      <Campo label="Bairro" erro={erros.bairro}>
+      <Campo label="Bairro" erro={erros.bairro} obrigatorio>
         {(props) => (
           <input
             {...props}
@@ -63,7 +70,7 @@ export function CamposEndereco({ valores, erros, onAlterar }: CamposEnderecoProp
           />
         )}
       </Campo>
-      <Campo label="Cidade" erro={erros.cidade} className={styles.principal}>
+      <Campo label="Cidade" erro={erros.cidade} obrigatorio className={styles.principal}>
         {(props) => (
           <input
             {...props}
@@ -76,25 +83,19 @@ export function CamposEndereco({ valores, erros, onAlterar }: CamposEnderecoProp
           />
         )}
       </Campo>
-      <Campo label="Estado" erro={erros.estado}>
+      <Campo label="Estado" erro={erros.estado} obrigatorio>
         {(props) => (
-          <select
+          <Select
             {...props}
             name="estado"
-            autoComplete="address-level1"
-            value={valores.estado}
-            onChange={(e) => onAlterar('estado', e.target.value)}
-          >
-            <option value="">UF</option>
-            {UFS.map((uf) => (
-              <option key={uf} value={uf}>
-                {uf}
-              </option>
-            ))}
-          </select>
+            placeholder="UF"
+            opcoes={OPCOES_UF}
+            valor={valores.estado}
+            onChange={(uf) => onAlterar('estado', uf)}
+          />
         )}
       </Campo>
-      <Campo label="CEP" erro={erros.cep}>
+      <Campo label="CEP" erro={erros.cep} obrigatorio>
         {(props) => (
           <input
             {...props}

@@ -1,0 +1,71 @@
+/* Só o layout interno; borda, altura e fonte vêm da classe de quem usa (ex.: Campo). */
+.gatilho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.valor,
+.placeholder {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.placeholder {
+  color: var(--color-text-subtle);
+}
+
+.seta {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform 0.15s;
+}
+
+.setaAberta {
+  transform: rotate(180deg);
+}
+
+/* Fixo na tela (coordenadas calculadas no componente) para não ser cortado por overflow. */
+.menu {
+  position: fixed;
+  z-index: 100;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  color: var(--color-text);
+}
+
+.menu:focus {
+  outline: none;
+}
+
+.opcao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.opcaoDestacada {
+  background: var(--color-bg);
+}
+
+.opcaoSelecionada {
+  color: var(--color-primary);
+  font-weight: 600;
+}

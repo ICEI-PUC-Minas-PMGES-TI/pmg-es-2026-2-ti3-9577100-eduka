@@ -41,14 +41,14 @@
   box-shadow: 0 0 0 3px var(--color-primary-soft);
 }
 
-.control:read-only:not(select) {
+.control:is(input, textarea):read-only {
   border-color: var(--color-border);
   background: var(--color-bg);
   color: var(--color-text-muted);
   cursor: not-allowed;
 }
 
-.control:read-only:not(select):focus {
+.control:is(input, textarea):read-only:focus {
   border-color: var(--color-border-strong);
   box-shadow: none;
 }

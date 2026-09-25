@@ -9,6 +9,9 @@ export const ROTULOS_PLANO: Record<PlanoEscola, string> = {
   ENTERPRISE: 'Enterprise',
 }
 
+// Opções prontas para o componente Select.
+export const OPCOES_PLANO = PLANOS_ESCOLA.map((plano) => ({ valor: plano, rotulo: ROTULOS_PLANO[plano] }))
+
 // Valores do enum ModuloEscola do backend, na ordem em que aparecem na tela.
 export const MODULOS_ESCOLA = [
   'PORTAL_ALUNO',

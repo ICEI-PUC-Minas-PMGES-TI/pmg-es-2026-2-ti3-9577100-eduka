@@ -44,7 +44,7 @@ export function valoresDoEndereco(endereco: Endereco | null): ValoresEndereco {
   }
 }
 
-/** Monta o endereço da API. Campos vazios vão como "" para o backend limpá-los. */
+/** Monta o endereço da API. validarEndereco() garante que nenhum campo vai vazio. */
 export function enderecoDosValores(valores: ValoresEndereco): Endereco {
   return {
     logradouro: valores.logradouro.trim(),
@@ -56,9 +56,20 @@ export function enderecoDosValores(valores: ValoresEndereco): Endereco {
   }
 }
 
+/**
+ * Todos os campos são obrigatórios, no cadastro e na edição — escolas antigas
+ * sem endereço completo precisam completá-lo para salvar.
+ */
 export function validarEndereco(valores: ValoresEndereco): ErrosEndereco {
+  // Na ordem da tela, para o foco ir ao primeiro campo inválido.
   const erros: ErrosEndereco = {}
+  if (!valores.logradouro.trim()) erros.logradouro = 'Informe o logradouro.'
+  if (!valores.numero.trim()) erros.numero = 'Informe o número.'
+  if (!valores.bairro.trim()) erros.bairro = 'Informe o bairro.'
+  if (!valores.cidade.trim()) erros.cidade = 'Informe a cidade.'
+  if (!valores.estado) erros.estado = 'Selecione o estado.'
   const cep = somenteDigitos(valores.cep)
-  if (cep && cep.length !== 8) erros.cep = 'CEP deve ter 8 dígitos.'
+  if (!cep) erros.cep = 'Informe o CEP.'
+  else if (cep.length !== 8) erros.cep = 'CEP deve ter 8 dígitos.'
   return erros
 }

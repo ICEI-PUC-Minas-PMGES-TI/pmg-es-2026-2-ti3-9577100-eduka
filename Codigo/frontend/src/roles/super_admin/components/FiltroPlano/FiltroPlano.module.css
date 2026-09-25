@@ -1,0 +1,29 @@
+/* Mesmas medidas dos botões "Todas" / "Ativas" ao lado. */
+.gatilho {
+  padding: 6px 10px 6px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+}
+
+.gatilho:hover {
+  border-color: var(--color-primary);
+}
+
+/* Destaca quando há um plano filtrado, para o filtro não passar despercebido. */
+.filtrando {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.filtrando svg {
+  color: var(--color-primary);
+}
