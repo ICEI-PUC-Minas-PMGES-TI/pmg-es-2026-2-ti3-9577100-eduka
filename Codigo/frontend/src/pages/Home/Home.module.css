@@ -1,56 +1,19 @@
+/* Camada de baixo: roxo da marca, aparece como colunas dos dois lados do
+   painel branco (camada de cima, com o conteudo de hoje) - só esquerda e
+   direita, sem faixa em cima/embaixo. */
 .page {
+  min-height: 100vh;
+  padding: 0 28px;
+  background-color: var(--color-primary);
+}
+
+.content {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   background-color: var(--color-bg);
-}
-
-/* ==========================================================================
-   Barra superior
-   ========================================================================== */
-
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 32px;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.brandLogo {
-  display: block;
-}
-
-.brandName {
-  font-family: var(--font-display);
-  font-weight: 900;
-  font-size: 20px;
-  letter-spacing: -0.4px;
-  color: var(--color-text);
-}
-
-.topbarBtn {
-  padding: 10px 22px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-primary);
-  color: var(--color-on-primary);
-  font-weight: 700;
-  font-size: 14px;
-  text-decoration: none;
-  transition: background-color 0.15s ease, transform 0.08s ease;
-}
-
-.topbarBtn:hover {
-  background-color: var(--color-primary-hover);
-}
-
-.topbarBtn:active {
-  transform: scale(0.97);
+  overflow: hidden;
 }
 
 /* ==========================================================================
@@ -62,7 +25,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 24px 24px 56px;
+  padding: 56px 24px;
   animation: var(--animacao-entrar);
 }
 
@@ -123,19 +86,16 @@
 }
 
 /* ==========================================================================
-   Carrossel de fotos - painel de vidro, rolagem continua
+   Carrossel de fotos - rolagem continua
    ========================================================================== */
 
 .carouselPanel {
-  margin: 0 auto 48px;
+  margin: 0 auto 56px;
   width: min(100% - 48px, 1080px);
   padding: 20px;
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.55);
+  background-color: var(--color-surface);
   border: 1px solid var(--color-border);
-  box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(18px) saturate(180%);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
   overflow: hidden;
   /* Esmaece as bordas da faixa em vez de cortar as fotos de forma seca. */
   mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
@@ -183,8 +143,8 @@
    ========================================================================== */
 
 @media (max-width: 640px) {
-  .topbar {
-    padding: 16px 20px;
+  .page {
+    padding: 0 14px;
   }
 
   .heroLogo {
