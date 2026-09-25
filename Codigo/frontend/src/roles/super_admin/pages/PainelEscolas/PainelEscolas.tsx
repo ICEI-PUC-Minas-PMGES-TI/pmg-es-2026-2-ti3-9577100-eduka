@@ -4,7 +4,6 @@ import { Button } from '../../../../components/Button/Button'
 import { paths } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
 import type { Escola } from '../../../../types/escola'
-import { somenteDigitos } from '../../../../utils/formatters'
 import { CadastroEscolaModal } from '../../components/CadastroEscolaModal/CadastroEscolaModal'
 import { EscolasStats } from '../../components/EscolasStats/EscolasStats'
 import { EscolasTable } from '../../components/EscolasTable/EscolasTable'
@@ -13,25 +12,12 @@ import { SuperAdminLayout } from '../../layouts/SuperAdminLayout'
 import type { EstadoPainelEscolas } from '../EditarEscola/EditarEscola'
 import styles from './PainelEscolas.module.css'
 
-function correspondeBusca(escola: Escola, busca: string): boolean {
-  const termo = busca.trim().toLowerCase()
-  if (!termo) return true
-
-  const digitos = somenteDigitos(termo)
-  return (
-    escola.nome.toLowerCase().includes(termo) ||
-    (escola.email?.toLowerCase().includes(termo) ?? false) ||
-    (digitos.length > 0 && (escola.cnpjCpf?.includes(digitos) ?? false))
-  )
-}
-
 export function PainelEscolas() {
   const { escolas, carregando, erro, recarregar, alternarSituacao, cadastrar } = useEscolas()
   const navigate = useNavigate()
   const location = useLocation()
-  // Mensagem de sucesso ou busca vindas da tela de edição.
+  // Mensagem de sucesso vinda da tela de edição.
   const estadoRecebido = location.state as EstadoPainelEscolas | null
-  const [busca, setBusca] = useState(estadoRecebido?.busca ?? '')
   const [alternandoId, setAlternandoId] = useState<string | null>(null)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
   const [cadastroAberto, setCadastroAberto] = useState(false)
@@ -41,8 +27,6 @@ export function PainelEscolas() {
   useEffect(() => {
     if (location.state) navigate(location.pathname, { replace: true, state: null })
   }, [location.state, location.pathname, navigate])
-
-  const escolasFiltradas = escolas.filter((e) => correspondeBusca(e, busca))
 
   async function handleAlternarSituacao(escola: Escola) {
     setAlternandoId(escola.id)
@@ -74,7 +58,7 @@ export function PainelEscolas() {
   }
 
   return (
-    <SuperAdminLayout busca={busca} onBuscaChange={setBusca}>
+    <SuperAdminLayout>
       <div className={styles.heading}>
         <div>
           <h1 className={styles.title}>Painel de Escolas</h1>
@@ -100,12 +84,9 @@ export function PainelEscolas() {
       )}
 
       <EscolasTable
-        escolas={escolasFiltradas}
+        escolas={escolas}
         carregando={carregando}
         erro={erro}
-        mensagemVazia={
-          busca.trim() ? 'Nenhuma escola encontrada para a busca.' : 'Nenhuma escola cadastrada ainda.'
-        }
         alternandoId={alternandoId}
         onTentarNovamente={recarregar}
         onEditar={editar}

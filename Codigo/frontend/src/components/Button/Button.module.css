@@ -8,7 +8,12 @@
   white-space: nowrap;
   transition:
     background-color 0.15s,
-    border-color 0.15s;
+    border-color 0.15s,
+    transform 0.08s;
+}
+
+.button:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 .md {
@@ -29,16 +34,16 @@
 }
 
 .primary:hover {
-  background: #2c2937;
+  background: var(--color-dark-hover);
 }
 
 .accent {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .accent:hover {
-  background: #5a3cc9;
+  background: var(--color-primary-hover);
 }
 
 .outline {

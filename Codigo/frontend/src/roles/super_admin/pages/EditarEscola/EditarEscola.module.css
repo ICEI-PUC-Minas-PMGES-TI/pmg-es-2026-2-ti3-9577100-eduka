@@ -42,6 +42,7 @@
   color: var(--color-danger);
   font-size: 14px;
   font-weight: 400;
+  animation: var(--animacao-surgir);
 }
 
 /* Desktop: dados + ações à esquerda, assinatura e acesso à direita. */
@@ -174,7 +175,7 @@
 .modulo input:checked + .caixa {
   border-color: var(--color-primary);
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .modulo input:focus-visible + .caixa {
@@ -202,6 +203,7 @@
   color: var(--color-danger);
   font-size: 14px;
   font-weight: 400;
+  animation: var(--animacao-surgir);
 }
 
 @media (max-width: 880px) {

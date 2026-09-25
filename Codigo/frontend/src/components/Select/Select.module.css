@@ -42,6 +42,7 @@
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   color: var(--color-text);
+  animation: var(--animacao-surgir);
 }
 
 .menu:focus {

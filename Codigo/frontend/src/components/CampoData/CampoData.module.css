@@ -27,6 +27,7 @@
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   color: var(--color-text);
+  animation: var(--animacao-surgir);
 }
 
 /* :global(.rdp-root) só para ganhar do style.css da biblioteca, que define as variáveis ali. */
@@ -103,5 +104,5 @@
 .calendario :global(.rdp-selected .rdp-day_button),
 .calendario :global(.rdp-selected .rdp-day_button:hover) {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }

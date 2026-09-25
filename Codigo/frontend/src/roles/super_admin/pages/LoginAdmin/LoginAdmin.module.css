@@ -14,6 +14,7 @@
   gap: 64px;
   width: 100%;
   max-width: 1080px;
+  animation: var(--animacao-entrar);
 }
 
 /* ==========================================================================
@@ -24,13 +25,13 @@
   flex: 1;
   max-width: 490px;
   min-height: 610px;
-  background-color: #15131c;
+  background-color: var(--color-dark);
   border-radius: 28px;
   padding: 44px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  box-shadow: 0 16px 36px rgba(21, 19, 28, 0.18);
+  box-shadow: var(--shadow-lg);
   position: relative;
   overflow: hidden;
 }
@@ -190,7 +191,7 @@
 .input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(108, 76, 224, 0.12);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
 }
 
 .passwordRow {
@@ -218,7 +219,7 @@
 }
 
 .togglePasswordBtn:hover {
-  background-color: #faf9fd;
+  background-color: var(--color-bg);
   border-color: var(--color-primary);
 }
 
@@ -233,7 +234,7 @@
   border: none;
   border-radius: var(--radius-md);
   background-color: var(--color-primary);
-  color: #ffffff;
+  color: var(--color-on-primary);
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
@@ -241,7 +242,7 @@
 }
 
 .submitBtn:hover:not(:disabled) {
-  background-color: #5c3bd4;
+  background-color: var(--color-primary-hover);
 }
 
 .submitBtn:active:not(:disabled) {
@@ -263,6 +264,7 @@
   font-size: 13.5px;
   font-weight: 700;
   line-height: 1.4;
+  animation: var(--animacao-surgir);
 }
 
 .infoBanner {
@@ -275,6 +277,7 @@
   font-size: 13px;
   font-weight: 700;
   line-height: 1.4;
+  animation: var(--animacao-surgir);
 }
 
 .footerLinks {
@@ -298,7 +301,7 @@
 }
 
 .forgotLink:hover {
-  color: #5534cc;
+  color: var(--color-primary-hover);
 }
 
 /* ==========================================================================
