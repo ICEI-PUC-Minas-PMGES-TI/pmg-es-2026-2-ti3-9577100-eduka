@@ -68,7 +68,7 @@ public class AlunoService {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         List<Aluno> alunos = alunoRepository.findAllByEscolaId(escolaId);
         Map<UUID, Pessoa> pessoasPorId = pessoaRepository
-                .findAllById(alunos.stream().map(Aluno::getPessoaId).toList())
+                .findAllByIdInAndEscolaId(alunos.stream().map(Aluno::getPessoaId).toList(), escolaId)
                 .stream().collect(Collectors.toMap(Pessoa::getId, pessoa -> pessoa));
 
         String filtro = nome == null || nome.isBlank() ? null : nome.trim().toLowerCase(Locale.ROOT);
@@ -80,10 +80,11 @@ public class AlunoService {
     }
 
     public AlunoResponse buscarPorId(UUID id) {
-        Aluno aluno = alunoRepository.findByIdAndEscolaId(id, isolamentoEscola.escolaIdAtual())
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        Aluno aluno = alunoRepository.findByIdAndEscolaId(id, escolaId).orElseThrow(AlunoService::naoEncontrado);
+        Pessoa pessoa = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
                 .orElseThrow(AlunoService::naoEncontrado);
-        Pessoa pessoa = pessoaRepository.findById(aluno.getPessoaId()).orElseThrow(AlunoService::naoEncontrado);
-        return AlunoResponse.de(aluno, pessoa, responsaveisDe(aluno.getId()));
+        return AlunoResponse.de(aluno, pessoa, responsaveisDe(aluno.getId(), escolaId));
     }
 
     /**
@@ -146,13 +147,14 @@ public class AlunoService {
                 .build());
     }
 
-    private List<ResponsavelResponse> responsaveisDe(UUID alunoId) {
+    private List<ResponsavelResponse> responsaveisDe(UUID alunoId, UUID escolaId) {
         List<AlunoResponsavel> vinculos = alunoResponsavelRepository.findAllById_AlunoId(alunoId);
         if (vinculos.isEmpty()) {
             return List.of();
         }
         Map<UUID, Pessoa> pessoasPorId = pessoaRepository
-                .findAllById(vinculos.stream().map(vinculo -> vinculo.getId().pessoaId()).toList())
+                .findAllByIdInAndEscolaId(vinculos.stream().map(vinculo -> vinculo.getId().pessoaId()).toList(),
+                        escolaId)
                 .stream().collect(Collectors.toMap(Pessoa::getId, pessoa -> pessoa));
         return vinculos.stream()
                 .map(vinculo -> {

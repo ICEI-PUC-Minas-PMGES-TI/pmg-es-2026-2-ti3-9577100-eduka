@@ -4,6 +4,7 @@ package br.pucminas.eduka.backend.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -98,7 +99,7 @@ class AlunoServiceTest {
         Pessoa pessoaAna = pessoa("Ana");
         Aluno daEscolaA = aluno(ESCOLA_A, pessoaAna.getId());
         when(alunoRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of(daEscolaA));
-        when(pessoaRepository.findAllById(any())).thenReturn(List.of(pessoaAna));
+        when(pessoaRepository.findAllByIdInAndEscolaId(any(), eq(ESCOLA_A))).thenReturn(List.of(pessoaAna));
 
         List<AlunoResponse> resultado = alunoService.listar(null);
 
@@ -107,6 +108,7 @@ class AlunoServiceTest {
         assertThat(resultado.get(0).cpf()).isNull();
         assertThat(resultado.get(0).dataNascimento()).isNull();
         verify(alunoRepository, never()).findAll();
+        verify(pessoaRepository, never()).findAllById(any());
     }
 
     @Test
@@ -117,7 +119,7 @@ class AlunoServiceTest {
         Aluno alunoAna = aluno(ESCOLA_A, pessoaAna.getId());
         Aluno alunoCarlos = aluno(ESCOLA_A, pessoaCarlos.getId());
         when(alunoRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of(alunoAna, alunoCarlos));
-        when(pessoaRepository.findAllById(any())).thenReturn(List.of(pessoaAna, pessoaCarlos));
+        when(pessoaRepository.findAllByIdInAndEscolaId(any(), eq(ESCOLA_A))).thenReturn(List.of(pessoaAna, pessoaCarlos));
 
         List<AlunoResponse> resultado = alunoService.listar(" AN ");
 
@@ -131,7 +133,7 @@ class AlunoServiceTest {
         pessoaAna.setCidade("Belo Horizonte");
         Aluno esperado = aluno(ESCOLA_A, pessoaAna.getId());
         when(alunoRepository.findByIdAndEscolaId(esperado.getId(), ESCOLA_A)).thenReturn(Optional.of(esperado));
-        when(pessoaRepository.findById(pessoaAna.getId())).thenReturn(Optional.of(pessoaAna));
+        when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
         when(alunoResponsavelRepository.findAllById_AlunoId(esperado.getId())).thenReturn(List.of());
 
         AlunoResponse resultado = alunoService.buscarPorId(esperado.getId());
@@ -142,6 +144,7 @@ class AlunoServiceTest {
         assertThat(resultado.endereco().cidade()).isEqualTo("Belo Horizonte");
         assertThat(resultado.endereco().logradouro()).isNull();
         verify(alunoRepository, never()).findById(any());
+        verify(pessoaRepository, never()).findById(any());
     }
 
     @Test
@@ -151,6 +154,19 @@ class AlunoServiceTest {
         when(alunoRepository.findByIdAndEscolaId(daEscolaB.getId(), ESCOLA_A)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> alunoService.buscarPorId(daEscolaB.getId()))
+                .isInstanceOf(RecursoNaoEncontradoException.class);
+    }
+
+    @Test
+    void buscarPorIdNaoVazaPessoaDeOutraEscolaMesmoComAlunoDaEscolaCerta() {
+        // Defesa em profundidade: mesmo que o aluno bata com a escola do token, a
+        // busca da Pessoa tambem tem que ser filtrada por escola - nunca so por id.
+        autenticarComo("MASTER", ESCOLA_A);
+        Aluno esperado = aluno(ESCOLA_A, UUID.randomUUID());
+        when(alunoRepository.findByIdAndEscolaId(esperado.getId(), ESCOLA_A)).thenReturn(Optional.of(esperado));
+        when(pessoaRepository.findByIdAndEscolaId(esperado.getPessoaId(), ESCOLA_A)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> alunoService.buscarPorId(esperado.getId()))
                 .isInstanceOf(RecursoNaoEncontradoException.class);
     }
 
