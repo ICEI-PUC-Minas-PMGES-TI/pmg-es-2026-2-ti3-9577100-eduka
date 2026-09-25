@@ -66,4 +66,5 @@
   color: var(--color-danger);
   font-size: 12px;
   font-weight: 400;
+  animation: var(--animacao-aparecer);
 }

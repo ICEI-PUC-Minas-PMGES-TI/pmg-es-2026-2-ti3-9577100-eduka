@@ -41,7 +41,7 @@
 .active,
 .active:hover {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 @media (max-width: 560px) {
