@@ -1,154 +1,163 @@
 .viewport {
   min-height: 100vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 24px;
-  background-color: var(--color-bg);
+  padding: 32px;
 }
 
 .container {
   display: flex;
   align-items: stretch;
-  justify-content: center;
-  gap: 64px;
+  gap: 32px;
   width: 100%;
-  max-width: 1080px;
   animation: var(--animacao-entrar);
 }
 
 /* ==========================================================================
-   Painel Esquerdo (Identidade do Super Console)
+   Painel esquerdo: card de vidro lavanda com a identidade do Super Console
    ========================================================================== */
 
 .heroCard {
-  flex: 1;
-  max-width: 490px;
-  min-height: 610px;
-  background-color: var(--color-dark);
-  border-radius: 28px;
-  padding: 44px;
+  position: relative;
+  flex: 1 1 50%;
+  max-width: 662px;
+  min-height: calc(100vh - 64px);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  box-shadow: var(--shadow-lg);
-  position: relative;
+  padding: 60px 60px 56px;
   overflow: hidden;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  border-radius: 40px;
+  background:
+    radial-gradient(28rem 22rem at 20% 10%, rgba(255, 255, 255, 0.45), transparent 70%),
+    radial-gradient(30rem 26rem at 80% 85%, rgba(212, 187, 252, 0.7), transparent 70%),
+    linear-gradient(160deg, #e5cffc 0%, #efe4fd 45%, #dcc3fb 100%);
+  box-shadow:
+    0 24px 60px rgba(150, 103, 224, 0.22),
+    inset 0 2px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -30px 60px rgba(255, 255, 255, 0.18);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .brandLogo {
   display: block;
-  width: 32px;
-  height: 32px;
+  width: 54px;
+  height: 54px;
   object-fit: contain;
+  filter: drop-shadow(0 6px 12px rgba(150, 103, 224, 0.3));
 }
 
 .brandName {
-  font-size: 24px;
   font-family: var(--font-display);
+  font-size: 40px;
   font-weight: 900;
-  letter-spacing: -0.5px;
-  color: #ffffff;
+  letter-spacing: -1px;
+  line-height: 1;
+  color: var(--color-text);
 }
 
 .superBadge {
-  margin-left: 6px;
-  padding: 4px 10px;
+  margin-left: 10px;
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.95);
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.04);
-  color: #dfdbed;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.6px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(242, 235, 251, 0.6));
+  box-shadow: 0 4px 12px rgba(150, 103, 224, 0.15), inset 0 1px 0 #fff;
+  color: var(--color-primary-text);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 900;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
   line-height: 1;
 }
 
 .heroContent {
   margin: auto 0;
-  padding: 36px 0;
+  padding: 48px 0;
 }
 
 .heroTitle {
-  font-size: 42px;
   font-family: var(--font-display);
+  font-size: 66px;
   font-weight: 900;
-  line-height: 1.12;
-  letter-spacing: -0.8px;
-  color: #ffffff;
+  line-height: 1.05;
+  letter-spacing: -1.8px;
+  color: var(--color-text);
 }
 
 .heroText {
-  margin-top: 18px;
-  font-size: 15.5px;
-  line-height: 1.5;
-  color: #9a93aa;
-  max-width: 380px;
+  max-width: 440px;
+  margin-top: 22px;
+  color: #3d3550;
+  font-size: 20px;
+  line-height: 1.6;
 }
 
 .heroSecurity {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  color: #7f7992;
+  gap: 12px;
+  color: #3d3550;
+  font-size: 15px;
 }
 
 .heroSecurity svg {
   flex-shrink: 0;
-  color: #7f7992;
 }
 
 /* ==========================================================================
-   Painel Direito (Formulário)
+   Painel direito: formulário
    ========================================================================== */
 
 .formCard {
-  flex: 1;
-  max-width: 460px;
+  flex: 1 1 50%;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  width: 100%;
+  max-width: 477px;
+  margin: 0 auto;
   padding: 24px 0;
 }
 
 .adminTag {
-  display: inline-block;
   align-self: flex-start;
-  padding: 5px 11px;
-  border-radius: 6px;
-  background-color: var(--color-primary-soft);
-  color: var(--color-primary);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  background: var(--color-veil);
+  color: var(--color-primary-text);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 900;
+  letter-spacing: 1.2px;
   line-height: 1.2;
+  text-transform: uppercase;
 }
 
 .formTitle {
-  margin-top: 14px;
-  font-size: 34px;
+  margin-top: 16px;
   font-family: var(--font-display);
+  font-size: 46px;
   font-weight: 900;
-  line-height: 1.18;
-  letter-spacing: -0.6px;
+  line-height: 1.1;
+  letter-spacing: -1.2px;
   color: var(--color-text);
 }
 
 .formSubtitle {
-  margin-top: 8px;
-  margin-bottom: 28px;
-  font-size: 14.5px;
-  line-height: 1.45;
+  margin-top: 10px;
+  margin-bottom: 26px;
   color: var(--color-text-muted);
+  font-size: 16px;
+  line-height: 1.45;
 }
 
 .form {
@@ -159,44 +168,52 @@
 .fieldGroup {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .fieldGroup + .fieldGroup {
-  margin-top: 18px;
+  margin-top: 22px;
 }
 
 .label {
-  font-size: 13.5px;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 800;
   color: var(--color-text);
 }
 
 .input {
   width: 100%;
-  height: 48px;
-  padding: 0 16px;
-  background-color: var(--color-surface);
+  height: 60px;
+  padding: 0 20px;
   border: 1.5px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  font-size: 15px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 1px 2px rgba(106, 63, 196, 0.05);
   color: var(--color-text);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  font-size: 17px;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .input::placeholder {
   color: var(--color-text-subtle);
 }
 
+.input:hover {
+  border-color: var(--color-mauve);
+}
+
 .input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-soft);
+  box-shadow: 0 0 0 4px rgba(212, 187, 252, 0.5);
 }
 
 .passwordRow {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
 }
 
@@ -204,45 +221,54 @@
   flex: 1;
 }
 
+/* "Mostrar": pílula de vidro branca ao lado do campo. */
 .togglePasswordBtn {
-  height: 48px;
-  padding: 0 18px;
-  background-color: var(--color-surface);
-  border: 1.5px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  font-size: 13.5px;
-  font-weight: 700;
+  height: 60px;
+  padding: 0 22px;
+  border: var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   color: var(--color-text);
-  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 800;
   white-space: nowrap;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .togglePasswordBtn:hover {
-  background-color: var(--color-bg);
-  border-color: var(--color-primary);
+  border-color: var(--color-mauve);
+  color: var(--color-primary-text);
 }
 
 .submitBtn {
-  margin-top: 24px;
-  width: 100%;
-  height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: none;
-  border-radius: var(--radius-md);
-  background-color: var(--color-primary);
+  width: 100%;
+  height: 60px;
+  margin-top: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--radius-pill);
+  background: var(--button-primary-bg);
+  box-shadow: var(--button-primary-shadow);
   color: var(--color-on-primary);
-  font-size: 16px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background-color 0.15s ease, transform 0.08s ease;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 800;
+  transition:
+    filter 0.15s ease,
+    transform 0.08s ease;
 }
 
 .submitBtn:hover:not(:disabled) {
-  background-color: var(--color-primary-hover);
+  filter: brightness(1.05) saturate(1.05);
 }
 
 .submitBtn:active:not(:disabled) {
@@ -254,61 +280,73 @@
   cursor: not-allowed;
 }
 
-.errorMessage {
-  margin-top: 14px;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  background-color: var(--color-danger-bg);
-  border: 1px solid rgba(201, 52, 74, 0.25);
-  color: var(--color-danger);
-  font-size: 13.5px;
-  font-weight: 700;
+.errorMessage,
+.infoBanner {
+  margin-top: 16px;
+  padding: 12px 18px;
+  border: var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--glass-shadow-sm);
+  font-size: 14px;
+  font-weight: 600;
   line-height: 1.4;
   animation: var(--animacao-surgir);
+}
+
+.errorMessage {
+  background: linear-gradient(145deg, rgba(253, 227, 234, 0.95), rgba(253, 227, 234, 0.7));
+  color: var(--color-danger);
 }
 
 .infoBanner {
-  margin-top: 14px;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  background-color: var(--color-primary-soft);
-  border: 1px solid var(--color-border-strong);
-  color: var(--color-primary);
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.4;
-  animation: var(--animacao-surgir);
+  background: var(--glass-bg-tint);
+  color: var(--color-primary-text);
 }
 
 .footerLinks {
-  margin-top: 22px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  margin-top: 26px;
 }
 
 .forgotLink {
-  background: none;
-  border: none;
   padding: 0;
-  color: var(--color-primary);
-  font-size: 13.5px;
-  font-weight: 700;
-  text-decoration: underline;
-  cursor: pointer;
+  border: none;
+  background: none;
+  color: var(--color-primary-text);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 800;
   text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .forgotLink:hover {
-  color: var(--color-primary-hover);
+  color: var(--color-primary);
 }
 
 /* ==========================================================================
    Responsividade
    ========================================================================== */
 
+@media (max-width: 1100px) {
+  .heroCard {
+    padding: 48px 44px;
+  }
+
+  .heroTitle {
+    font-size: 52px;
+  }
+}
+
 @media (max-width: 900px) {
+  .viewport {
+    padding: 20px;
+  }
+
   .container {
     flex-direction: column;
     align-items: center;
@@ -317,23 +355,29 @@
 
   .heroCard {
     width: 100%;
-    max-width: 500px;
+    max-width: 560px;
     min-height: auto;
-    padding: 32px 28px;
-  }
-
-  .heroTitle {
-    font-size: 32px;
+    flex: none;
+    padding: 36px 32px;
+    border-radius: 32px;
   }
 
   .heroContent {
-    padding: 24px 0;
+    padding: 32px 0;
+  }
+
+  .heroTitle {
+    font-size: 40px;
+  }
+
+  .heroText {
+    font-size: 17px;
   }
 
   .formCard {
-    width: 100%;
-    max-width: 500px;
-    padding: 0;
+    flex: none;
+    max-width: 560px;
+    padding: 0 0 24px;
   }
 }
 
@@ -343,22 +387,31 @@
   }
 
   .heroCard {
-    border-radius: 20px;
-    padding: 24px 20px;
+    padding: 26px 22px;
+    border-radius: 26px;
+  }
+
+  .brandName {
+    font-size: 32px;
+  }
+
+  .brandLogo {
+    width: 44px;
+    height: 44px;
   }
 
   .heroTitle {
-    font-size: 26px;
+    font-size: 32px;
+    letter-spacing: -1px;
   }
 
   .formTitle {
-    font-size: 26px;
+    font-size: 34px;
   }
 
-  .footerLinks {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 14px;
+  .input,
+  .togglePasswordBtn,
+  .submitBtn {
+    height: 54px;
   }
 }
-

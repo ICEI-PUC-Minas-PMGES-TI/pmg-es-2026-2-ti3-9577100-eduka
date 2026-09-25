@@ -1,4 +1,6 @@
 import { useNavigate } from 'react-router'
+import iconeEduka from '../../assets/eduka-icone.svg'
+import { Icon } from '../../components/Icon/Icon'
 import { paths } from '../../routes/paths'
 import { limparSessao, obterUsuarioLogado } from '../../services/authService'
 import styles from './AreaEmConstrucao.module.css'
@@ -20,15 +22,19 @@ export function AreaEmConstrucao({ area }: AreaEmConstrucaoProps) {
 
   return (
     <main className={styles.page}>
-      <span className={styles.badge}>{area}</span>
-      <h1 className={styles.title}>Área em construção</h1>
-      <p className={styles.text}>
-        {sessao ? `Você entrou como ${sessao.login}. ` : ''}
-        As telas deste perfil ainda estão sendo desenvolvidas.
-      </p>
-      <button type="button" className={styles.sair} onClick={sair}>
-        Sair
-      </button>
+      <div className={styles.card}>
+        <img src={iconeEduka} alt="" className={styles.logo} width={56} height={56} />
+        <span className={styles.badge}>{area}</span>
+        <h1 className={styles.title}>Área em construção</h1>
+        <p className={styles.text}>
+          {sessao ? `Você entrou como ${sessao.login}. ` : ''}
+          As telas deste perfil ainda estão sendo desenvolvidas.
+        </p>
+        <button type="button" className={styles.sair} onClick={sair}>
+          <Icon name="logout" size={17} />
+          Sair
+        </button>
+      </div>
     </main>
   )
 }

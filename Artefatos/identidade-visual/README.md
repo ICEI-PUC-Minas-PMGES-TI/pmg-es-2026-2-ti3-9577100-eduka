@@ -35,14 +35,25 @@ Os `.png` servem para onde SVG não é aceito (documentos, apresentações, rede
 
 | Fonte | Uso | Token no frontend |
 |---|---|---|
-| **Nunito** (peso 900) | Títulos, números grandes e a palavra "eduka" da logo | `--font-display` |
-| **Atkinson Hyperlegible** (400 e 700) | Texto da interface | `--font-sans` |
+| **Nunito** (pesos 700 a 900) | Títulos, números, botões e a palavra "eduka" da logo | `--font-display` |
+| **Figtree** (400 a 700) | Textos, legendas e campos de formulário | `--font-sans` |
 
 As duas vêm do Google Fonts, carregadas em `Codigo/frontend/index.html`. A interface usa apenas
 tema claro.
 
 ## Cor da marca
 
-O roxo dos arquivos de logo é **`#6D3FD6`**. O token `--color-primary` do frontend
-(`Codigo/frontend/src/styles/global.css`) é **`#6c4ce0`** — próximo, mas não idêntico.
-Vale alinhar os dois antes de fechar a identidade visual.
+Paleta do protótipo, espelhada nos tokens de `Codigo/frontend/src/styles/global.css`:
+
+| Cor | Hex | Uso |
+|---|---|---|
+| Lavender Purple | `#9667E0` | Botões e ações principais (`--color-primary`) |
+| Mauve | `#D4BBFC` | Gráficos, bordas e realces |
+| Lavender Veil | `#EBD9FC` | Vidro de cards e seletores ativos |
+| Lavender Mist | `#F2EBFB` | Superfícies suaves e rodapés |
+| Branco | `#FFFFFF` | Fundo de todas as telas |
+| Tinta | `#221A33` | Textos e títulos |
+
+O ícone usado no frontend (`src/assets/eduka-icone.svg` e `eduka-logo.svg`) já segue a paleta
+nova, com o brilho de vidro no topo. Os PNG e SVG desta pasta ainda usam o roxo antigo
+(`#6D3FD6`) e precisam ser exportados de novo.

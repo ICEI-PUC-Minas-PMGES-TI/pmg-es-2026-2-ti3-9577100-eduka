@@ -7,10 +7,16 @@ import { limparSessao, obterUsuarioLogado } from '../../../services/authService'
 import styles from './SuperAdminLayout.module.css'
 
 type SuperAdminLayoutProps = {
+  titulo: string
+  subtitulo?: ReactNode
+  /** Botão principal da tela, ao lado do "Sair". */
+  acao?: ReactNode
+  /** Link de volta, exibido no lugar da linha da marca. */
+  voltar?: ReactNode
   children: ReactNode
 }
 
-export function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
+export function SuperAdminLayout({ titulo, subtitulo, acao, voltar, children }: SuperAdminLayoutProps) {
   const navigate = useNavigate()
   const sessao = obterUsuarioLogado()
 
@@ -21,12 +27,16 @@ export function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
     navigate(paths.login, { replace: true })
   }
 
-  const usuarioLogado = sessao
-    ? { nome: sessao.login, perfil: 'Super Admin' }
-    : { nome: 'Lucas Silva', perfil: 'Super Admin' }
   return (
     <div className={styles.shell}>
-      <SuperAdminHeader usuario={usuarioLogado} onSair={sair} />
+      <SuperAdminHeader
+        titulo={titulo}
+        subtitulo={subtitulo}
+        acao={acao}
+        voltar={voltar}
+        usuario={sessao?.login}
+        onSair={sair}
+      />
       <main className={styles.main}>{children}</main>
       <SuperAdminNav />
     </div>

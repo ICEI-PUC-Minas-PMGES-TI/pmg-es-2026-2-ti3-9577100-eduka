@@ -22,23 +22,25 @@
   position: fixed;
   z-index: 100;
   padding: 12px 14px 10px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
+  /* Opaco: abre sobre campos e textos, e qualquer transparência deixa o texto
+     de baixo aparecer. O vidro fica na borda clara, no brilho e na sombra. */
+  background: linear-gradient(160deg, #ffffff, #f8f2ff);
+  border: var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.95);
   color: var(--color-text);
   animation: var(--animacao-surgir);
 }
 
 /* :global(.rdp-root) só para ganhar do style.css da biblioteca, que define as variáveis ali. */
 .calendario:global(.rdp-root) {
-  --rdp-accent-color: var(--color-primary);
+  --rdp-accent-color: var(--color-primary-text);
   --rdp-accent-background-color: var(--color-primary-soft);
   --rdp-day-height: 38px;
   --rdp-day-width: 38px;
   --rdp-day_button-height: 34px;
   --rdp-day_button-width: 34px;
-  --rdp-day_button-border-radius: var(--radius-sm);
+  --rdp-day_button-border-radius: var(--radius-pill);
   --rdp-day_button-border: 0;
   --rdp-selected-border: 0;
   --rdp-nav-height: 36px;
@@ -57,13 +59,14 @@
 
 /* Mês e ano: botões compactos no estilo dos filtros da tabela. */
 .dropdown {
-  padding: 5px 8px 5px 10px;
+  padding: 5px 10px 5px 12px;
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.85);
   color: var(--color-text);
+  font-family: var(--font-display);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .dropdown:hover {
@@ -78,8 +81,8 @@
 
 .calendario :global(.rdp-button_previous:hover:not(:disabled)),
 .calendario :global(.rdp-button_next:hover:not(:disabled)) {
-  background: var(--color-bg);
-  color: var(--color-primary);
+  background: var(--color-mist);
+  color: var(--color-primary-text);
 }
 
 .calendario :global(.rdp-weekday) {
@@ -90,7 +93,7 @@
 }
 
 .calendario :global(.rdp-day_button:hover:not(:disabled)) {
-  background: var(--color-bg);
+  background: var(--color-mist);
 }
 
 .calendario :global(.rdp-today:not(.rdp-outside)) {

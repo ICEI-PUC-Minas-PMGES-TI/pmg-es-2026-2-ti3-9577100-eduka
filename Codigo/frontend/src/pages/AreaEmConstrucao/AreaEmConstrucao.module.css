@@ -1,44 +1,85 @@
 .page {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
   min-height: 100vh;
   padding: 24px 16px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 520px;
+  padding: 44px 40px 40px;
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  border-radius: 36px;
+  background: var(--glass-bg);
+  box-shadow: 0 24px 60px rgba(150, 103, 224, 0.16), inset 0 2px 0 rgba(255, 255, 255, 0.95);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   text-align: center;
+  animation: var(--animacao-entrar);
+}
+
+.logo {
+  display: block;
+  margin-bottom: 10px;
+  filter: drop-shadow(0 6px 12px rgba(150, 103, 224, 0.3));
 }
 
 .badge {
-  padding: 4px 12px;
+  padding: 6px 16px;
   border-radius: var(--radius-pill);
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
+  background: var(--color-veil);
+  color: var(--color-primary-text);
+  font-family: var(--font-display);
   font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-weight: 900;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
 }
 
 .title {
-  font-size: 24px;
+  margin-top: 6px;
   font-family: var(--font-display);
+  font-size: 34px;
   font-weight: 900;
+  letter-spacing: -0.8px;
 }
 
 .text {
-  max-width: 420px;
+  max-width: 400px;
   color: var(--color-text-muted);
+  font-size: 16px;
 }
 
 .sair {
-  margin-top: 12px;
-  padding: 12px 20px;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: var(--color-dark);
-  color: #fff;
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 50px;
+  margin-top: 16px;
+  padding: 12px 30px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--radius-pill);
+  background: var(--button-primary-bg);
+  box-shadow: var(--button-primary-shadow);
+  color: var(--color-on-primary);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 800;
+  transition:
+    filter 0.15s ease,
+    transform 0.08s ease;
+}
+
+.sair:hover {
+  filter: brightness(1.05) saturate(1.05);
+}
+
+.sair:active {
+  transform: scale(0.98);
 }
