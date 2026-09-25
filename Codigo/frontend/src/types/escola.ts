@@ -9,6 +9,9 @@ export const ROTULOS_PLANO: Record<PlanoEscola, string> = {
   ENTERPRISE: 'Enterprise',
 }
 
+// Opções prontas para o componente Select.
+export const OPCOES_PLANO = PLANOS_ESCOLA.map((plano) => ({ valor: plano, rotulo: ROTULOS_PLANO[plano] }))
+
 // Valores do enum ModuloEscola do backend, na ordem em que aparecem na tela.
 export const MODULOS_ESCOLA = [
   'PORTAL_ALUNO',
@@ -46,11 +49,12 @@ export type Endereco = {
 export type Escola = {
   id: string
   nome: string
-  cnpjCpf: string
+  // Opcionais no banco: escolas antigas ou do mock podem vir sem eles.
+  cnpjCpf: string | null
   // Nulo quando nenhum campo do endereço foi preenchido.
   endereco: Endereco | null
-  email: string
-  telefone: string
+  email: string | null
+  telefone: string | null
   ativo: boolean
   criadoEm: string
   // Nulo em escolas cadastradas antes do plano existir.

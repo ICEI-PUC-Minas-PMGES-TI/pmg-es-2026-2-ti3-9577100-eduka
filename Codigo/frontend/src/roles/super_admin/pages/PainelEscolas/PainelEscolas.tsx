@@ -20,8 +20,8 @@ function correspondeBusca(escola: Escola, busca: string): boolean {
   const digitos = somenteDigitos(termo)
   return (
     escola.nome.toLowerCase().includes(termo) ||
-    escola.email.toLowerCase().includes(termo) ||
-    (digitos.length > 0 && escola.cnpjCpf.includes(digitos))
+    (escola.email?.toLowerCase().includes(termo) ?? false) ||
+    (digitos.length > 0 && (escola.cnpjCpf?.includes(digitos) ?? false))
   )
 }
 

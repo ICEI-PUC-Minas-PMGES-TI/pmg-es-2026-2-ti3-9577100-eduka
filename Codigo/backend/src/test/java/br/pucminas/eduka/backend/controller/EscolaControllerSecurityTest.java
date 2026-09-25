@@ -85,12 +85,12 @@ class EscolaControllerSecurityTest {
                 {
                   "nome": "Colégio Eduka",
                   "cnpjCpf": "12345678000190",
-                  "endereco": { "logradouro": "Rua A", "numero": "10", "cidade": "Belo Horizonte", "estado": "MG" },
+                  "endereco": %s,
                   "email": "contato@eduka.com",
                   "telefone": "3133334444",
                   "plano": "AVANCADO"
                 }
-                """))
+                """.formatted(ENDERECO_COMPLETO)))
                 .andExpect(status().isCreated())
                 .andExpect(header().exists(HttpHeaders.LOCATION))
                 .andExpect(jsonPath("$.nome").value("Colégio Eduka"))
@@ -129,9 +129,55 @@ class EscolaControllerSecurityTest {
     void superAdminComCnpjDuplicadoResponde409() throws Exception {
         when(escolaRepository.existsByCnpjCpf("12345678000190")).thenReturn(true);
 
-        mockMvc.perform(postCom(accessToken("SUPER_ADMIN"),
-                "{\"nome\":\"Colégio Eduka\",\"cnpjCpf\":\"12345678000190\",\"plano\":\"BASICO\"}"))
+        mockMvc.perform(postCom(accessToken("SUPER_ADMIN"), escolaJson("3133334444")))
                 .andExpect(status().isConflict());
         verify(escolaRepository, never()).save(any());
+    }
+
+    @Test
+    void superAdminSemTelefoneResponde400() throws Exception {
+        mockMvc.perform(postCom(accessToken("SUPER_ADMIN"), escolaJson(" ")))
+                .andExpect(status().isBadRequest());
+        verify(escolaRepository, never()).save(any());
+    }
+
+    @Test
+    void superAdminSemEnderecoResponde400() throws Exception {
+        mockMvc.perform(postCom(accessToken("SUPER_ADMIN"), """
+                {
+                  "nome": "Colégio Eduka",
+                  "cnpjCpf": "12345678000190",
+                  "email": "contato@eduka.com",
+                  "telefone": "3133334444",
+                  "plano": "BASICO"
+                }
+                """))
+                .andExpect(status().isBadRequest());
+        verify(escolaRepository, never()).save(any());
+    }
+
+    @Test
+    void superAdminSemEstadoResponde400() throws Exception {
+        mockMvc.perform(postCom(accessToken("SUPER_ADMIN"),
+                escolaJson("3133334444").replace("\"estado\": \"MG\"", "\"estado\": \"\"")))
+                .andExpect(status().isBadRequest());
+        verify(escolaRepository, never()).save(any());
+    }
+
+    private static final String ENDERECO_COMPLETO = "{ \"logradouro\": \"Rua A\", \"numero\": \"10\", "
+            + "\"bairro\": \"Centro\", \"cidade\": \"Belo Horizonte\", \"estado\": \"MG\", \"cep\": \"30110008\" }";
+
+    /** Cadastro completo e valido, com o telefone informado. */
+    private static String escolaJson(String telefone) {
+        return """
+                {
+                  "nome": "Colégio Eduka",
+                  "cnpjCpf": "12345678000190",
+                  "endereco": %s,
+                  "email": "contato@eduka.com",
+                  "telefone": "%s",
+                  "plano": "BASICO"
+                }
+                """.formatted(ENDERECO_COMPLETO, telefone);
     }
 }

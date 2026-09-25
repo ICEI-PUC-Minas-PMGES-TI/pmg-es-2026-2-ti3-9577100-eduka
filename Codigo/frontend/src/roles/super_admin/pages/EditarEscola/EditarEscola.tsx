@@ -3,15 +3,15 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { Campo } from '../../../../components/Campo/Campo'
 import { Icon } from '../../../../components/Icon/Icon'
+import { Select } from '../../../../components/Select/Select'
 import { Switch } from '../../../../components/Switch/Switch'
 import { paths } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
 import { atualizarEscola, buscarEscola } from '../../../../services/escolaService'
 import {
   MODULOS_ESCOLA,
-  PLANOS_ESCOLA,
+  OPCOES_PLANO,
   ROTULOS_MODULO,
-  ROTULOS_PLANO,
   type Escola,
   type EscolaUpdateRequest,
   type ModuloEscola,
@@ -166,7 +166,8 @@ function validar(campos: Campos, escola: Escola): Erros {
   else if (!EMAIL_REGEX.test(campos.email.trim())) erros.email = 'E-mail inválido.'
 
   const telefone = somenteDigitos(campos.telefone)
-  if (telefone && telefone.length < 10) erros.telefone = 'Telefone incompleto.'
+  if (!telefone) erros.telefone = 'Informe o telefone.'
+  else if (telefone.length < 10) erros.telefone = 'Telefone incompleto.'
 
   Object.assign(erros, validarEndereco(campos))
 
@@ -193,7 +194,6 @@ function paraRequest(campos: Campos): EscolaUpdateRequest {
     nome: campos.nome.trim(),
     cnpjCpf: somenteDigitos(campos.cnpj),
     email: campos.email.trim(),
-    // Texto vazio limpa o telefone no backend.
     telefone: campos.telefone,
     endereco: enderecoDosValores(campos),
     // validar() já garante que um plano foi escolhido.
@@ -305,7 +305,7 @@ function FormularioEdicao({ escola, onCancelar, onSalva }: FormularioEdicaoProps
               />
             )}
           </Campo>
-          <Campo label="Telefone" erro={erros.telefone}>
+          <Campo label="Telefone" erro={erros.telefone} obrigatorio>
             {(props) => (
               <input
                 {...props}
@@ -327,21 +327,13 @@ function FormularioEdicao({ escola, onCancelar, onSalva }: FormularioEdicaoProps
           <div className={styles.grid}>
             <Campo label="Plano contratado" erro={erros.plano} obrigatorio>
               {(props) => (
-                <select
+                <Select<PlanoEscola | ''>
                   {...props}
                   name="plano"
-                  value={campos.plano}
-                  onChange={(e) => alterar('plano', e.target.value as PlanoEscola | '')}
-                >
-                  <option value="" disabled>
-                    Selecione…
-                  </option>
-                  {PLANOS_ESCOLA.map((plano) => (
-                    <option key={plano} value={plano}>
-                      {ROTULOS_PLANO[plano]}
-                    </option>
-                  ))}
-                </select>
+                  opcoes={OPCOES_PLANO}
+                  valor={campos.plano}
+                  onChange={(plano) => alterar('plano', plano)}
+                />
               )}
             </Campo>
             <div className={styles.status}>

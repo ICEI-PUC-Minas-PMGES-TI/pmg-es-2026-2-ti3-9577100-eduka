@@ -3,9 +3,16 @@ import { Badge } from '../../../../components/Badge/Badge'
 import { Button } from '../../../../components/Button/Button'
 import { ROTULOS_PLANO, type Escola } from '../../../../types/escola'
 import { formatarCnpjCpf } from '../../../../utils/formatters'
+import { FiltroPlano, type ValorFiltroPlano } from '../FiltroPlano/FiltroPlano'
 import styles from './EscolasTable.module.css'
 
 type Filtro = 'todas' | 'ativas'
+
+function correspondePlano(escola: Escola, filtro: ValorFiltroPlano): boolean {
+  if (filtro === 'todos') return true
+  if (filtro === 'sem-plano') return escola.plano === null
+  return escola.plano === filtro
+}
 
 type EscolasTableProps = {
   escolas: Escola[]
@@ -30,17 +37,23 @@ export function EscolasTable({
   onAlternarSituacao,
 }: EscolasTableProps) {
   const [filtro, setFiltro] = useState<Filtro>('todas')
+  const [filtroPlano, setFiltroPlano] = useState<ValorFiltroPlano>('todos')
 
-  const ativas = escolas.filter((e) => e.ativo)
-  const visiveis = filtro === 'ativas' ? ativas : escolas
+  // Os contadores de "Todas" e "Ativas" já refletem o plano escolhido.
+  const doPlano = escolas.filter((e) => correspondePlano(e, filtroPlano))
+  const ativas = doPlano.filter((e) => e.ativo)
+  const visiveis = filtro === 'ativas' ? ativas : doPlano
+  // Há escolas, mas os filtros da tabela esconderam todas.
+  const vazioPorFiltro = escolas.length > 0 && (filtro !== 'todas' || filtroPlano !== 'todos')
 
   return (
     <section className={styles.card}>
       <div className={styles.toolbar}>
         <h2 className={styles.title}>Escolas cadastradas</h2>
         <div className={styles.filters} role="group" aria-label="Filtrar escolas">
+          <FiltroPlano valor={filtroPlano} onChange={setFiltroPlano} />
           <FiltroBotao ativo={filtro === 'todas'} onClick={() => setFiltro('todas')}>
-            Todas ({escolas.length})
+            Todas ({doPlano.length})
           </FiltroBotao>
           <FiltroBotao ativo={filtro === 'ativas'} onClick={() => setFiltro('ativas')}>
             Ativas ({ativas.length})
@@ -70,12 +83,14 @@ export function EscolasTable({
               </LinhaMensagem>
             )}
             {!carregando && !erro && visiveis.length === 0 && (
-              <LinhaMensagem>{mensagemVazia}</LinhaMensagem>
+              <LinhaMensagem>
+                {vazioPorFiltro ? 'Nenhuma escola com os filtros selecionados.' : mensagemVazia}
+              </LinhaMensagem>
             )}
             {!carregando && !erro && visiveis.map((escola) => (
               <tr key={escola.id}>
                 <td className={styles.nome}>{escola.nome}</td>
-                <td className={styles.cnpj}>{formatarCnpjCpf(escola.cnpjCpf)}</td>
+                <td className={styles.cnpj}>{escola.cnpjCpf ? formatarCnpjCpf(escola.cnpjCpf) : '—'}</td>
                 <td>{escola.plano ? ROTULOS_PLANO[escola.plano] : '—'}</td>
                 <td>
                   {escola.ativo ? (
@@ -93,6 +108,7 @@ export function EscolasTable({
                     </Button>
                     <Button
                       size="sm"
+                      className={styles.alternar}
                       icon={escola.ativo ? 'pause' : 'check'}
                       disabled={alternandoId === escola.id}
                       onClick={() => onAlternarSituacao(escola)}

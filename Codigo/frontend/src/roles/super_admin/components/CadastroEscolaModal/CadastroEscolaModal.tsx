@@ -2,11 +2,11 @@ import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } fr
 import { Button } from '../../../../components/Button/Button'
 import { Campo } from '../../../../components/Campo/Campo'
 import { Icon } from '../../../../components/Icon/Icon'
+import { Select } from '../../../../components/Select/Select'
 import { Switch } from '../../../../components/Switch/Switch'
 import { ApiError } from '../../../../services/api'
 import {
-  PLANOS_ESCOLA,
-  ROTULOS_PLANO,
+  OPCOES_PLANO,
   type Escola,
   type EscolaRequest,
   type PlanoEscola,
@@ -61,7 +61,8 @@ function validar(campos: Campos): Erros {
   else if (!EMAIL_REGEX.test(campos.email.trim())) erros.email = 'E-mail inválido.'
 
   const telefone = somenteDigitos(campos.telefone)
-  if (telefone && telefone.length < 10) erros.telefone = 'Telefone incompleto.'
+  if (!telefone) erros.telefone = 'Informe o telefone.'
+  else if (telefone.length < 10) erros.telefone = 'Telefone incompleto.'
 
   Object.assign(erros, validarEndereco(campos))
 
@@ -75,8 +76,8 @@ function paraRequest(campos: Campos): EscolaRequest {
     nome: campos.nome.trim(),
     cnpjCpf: somenteDigitos(campos.cnpj),
     email: campos.email.trim(),
-    telefone: campos.telefone || undefined,
-    // O backend descarta campos vazios (e o endereço inteiro, se todos forem).
+    telefone: campos.telefone,
+    // validar() já garante que todos os campos do endereço foram preenchidos.
     endereco: enderecoDosValores(campos),
     // validar() já garante que um plano foi escolhido.
     plano: campos.plano as PlanoEscola,
@@ -214,7 +215,7 @@ export function CadastroEscolaModal({ onFechar, onSalvar, onCadastrada }: Cadast
                 />
               )}
             </Campo>
-            <Campo label="Telefone" erro={erros.telefone}>
+            <Campo label="Telefone" erro={erros.telefone} obrigatorio>
               {(props) => (
                 <input
                   {...props}
@@ -236,21 +237,13 @@ export function CadastroEscolaModal({ onFechar, onSalvar, onCadastrada }: Cadast
           <Secao titulo="Assinatura">
             <Campo label="Plano contratado" erro={erros.plano} obrigatorio>
               {(props) => (
-                <select
+                <Select<PlanoEscola | ''>
                   {...props}
                   name="plano"
-                  value={campos.plano}
-                  onChange={(e) => alterar('plano', e.target.value as PlanoEscola | '')}
-                >
-                  <option value="" disabled>
-                    Selecione…
-                  </option>
-                  {PLANOS_ESCOLA.map((plano) => (
-                    <option key={plano} value={plano}>
-                      {ROTULOS_PLANO[plano]}
-                    </option>
-                  ))}
-                </select>
+                  opcoes={OPCOES_PLANO}
+                  valor={campos.plano}
+                  onChange={(plano) => alterar('plano', plano)}
+                />
               )}
             </Campo>
             <div className={styles.field}>
