@@ -27,20 +27,22 @@ export function Home() {
     <main className={styles.page}>
       <div className={styles.content}>
         <section className={styles.hero}>
-          <img src={logoEduka} alt="eduka" className={styles.heroLogo} />
-          <span className={styles.tag}>Gestão escolar multi-escola</span>
-          <h1 className={styles.title}>
-            Sua escola,
-            <br />
-            organizada em um só lugar.
-          </h1>
-          <p className={styles.text}>
-            Acadêmico, administrativo e financeiro reunidos numa plataforma só, com acesso
-            separado para cada perfil: direção, secretaria, financeiro, professores e alunos.
-          </p>
-          <Link to={paths.login} className={styles.ctaBtn}>
-            Entrar na plataforma
-          </Link>
+          <div className={styles.glassCard}>
+            <img src={logoEduka} alt="eduka" className={styles.heroLogo} />
+            <span className={styles.tag}>Gestão escolar multi-escola</span>
+            <h1 className={styles.title}>
+              Sua escola,
+              <br />
+              organizada em um só lugar.
+            </h1>
+            <p className={styles.text}>
+              Acadêmico, administrativo e financeiro reunidos numa plataforma só, com acesso
+              separado para cada perfil: direção, secretaria, financeiro, professores e alunos.
+            </p>
+            <Link to={paths.login} className={styles.ctaBtn}>
+              Entrar na plataforma
+            </Link>
+          </div>
         </section>
 
         <section className={styles.carouselPanel} aria-hidden="true">
