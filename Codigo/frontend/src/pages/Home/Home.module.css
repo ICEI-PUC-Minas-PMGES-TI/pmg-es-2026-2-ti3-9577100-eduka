@@ -1,0 +1,202 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg);
+}
+
+/* ==========================================================================
+   Barra superior
+   ========================================================================== */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 32px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brandLogo {
+  display: block;
+}
+
+.brandName {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 20px;
+  letter-spacing: -0.4px;
+  color: var(--color-text);
+}
+
+.topbarBtn {
+  padding: 10px 22px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+  transition: background-color 0.15s ease, transform 0.08s ease;
+}
+
+.topbarBtn:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.topbarBtn:active {
+  transform: scale(0.97);
+}
+
+/* ==========================================================================
+   Hero
+   ========================================================================== */
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 24px 24px 56px;
+  animation: var(--animacao-entrar);
+}
+
+.heroLogo {
+  width: 220px;
+  height: auto;
+}
+
+.tag {
+  margin-top: 28px;
+  padding: 5px 14px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.title {
+  margin-top: 20px;
+  max-width: 640px;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 44px;
+  line-height: 1.14;
+  letter-spacing: -0.9px;
+  color: var(--color-text);
+}
+
+.text {
+  margin-top: 18px;
+  max-width: 480px;
+  font-size: 15.5px;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+}
+
+.ctaBtn {
+  margin-top: 28px;
+  padding: 14px 32px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: 700;
+  font-size: 15.5px;
+  text-decoration: none;
+  transition: background-color 0.15s ease, transform 0.08s ease;
+}
+
+.ctaBtn:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.ctaBtn:active {
+  transform: scale(0.98);
+}
+
+/* ==========================================================================
+   Carrossel de fotos - painel de vidro, rolagem continua
+   ========================================================================== */
+
+.carouselPanel {
+  margin: 0 auto 48px;
+  width: min(100% - 48px, 1080px);
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  overflow: hidden;
+  /* Esmaece as bordas da faixa em vez de cortar as fotos de forma seca. */
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+.carouselTrack {
+  display: flex;
+  gap: 16px;
+  width: max-content;
+  animation: rolarCarrossel 32s linear infinite;
+}
+
+.carouselPanel:hover .carouselTrack {
+  animation-play-state: paused;
+}
+
+@keyframes rolarCarrossel {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    /* Metade da faixa = uma volta completa da sequência (que está duplicada). */
+    transform: translateX(-50%);
+  }
+}
+
+.carouselImg {
+  flex-shrink: 0;
+  width: 300px;
+  height: 200px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carouselTrack {
+    animation-play-state: paused;
+  }
+}
+
+/* ==========================================================================
+   Responsividade
+   ========================================================================== */
+
+@media (max-width: 640px) {
+  .topbar {
+    padding: 16px 20px;
+  }
+
+  .heroLogo {
+    width: 160px;
+  }
+
+  .title {
+    font-size: 30px;
+  }
+
+  .carouselImg {
+    width: 220px;
+    height: 150px;
+  }
+}

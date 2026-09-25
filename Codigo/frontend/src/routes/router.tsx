@@ -1,4 +1,5 @@
-import { createBrowserRouter, Navigate } from 'react-router'
+import { createBrowserRouter } from 'react-router'
+import { Home } from '../pages/Home/Home'
 import { PaginaNaoEncontrada } from '../pages/PaginaNaoEncontrada/PaginaNaoEncontrada'
 import { alunoRoutes } from '../roles/aluno/routes'
 import { financeiroRoutes } from '../roles/financeiro/routes'
@@ -10,7 +11,7 @@ import { superAdminRoutes } from '../roles/super_admin/routes'
 import { paths } from './paths'
 
 export const router = createBrowserRouter([
-  { path: '/', element: <Navigate to={paths.login} replace /> },
+  { path: '/', element: <Home /> },
   { path: paths.login, element: <LoginAdmin /> },
   superAdminRoutes,
   masterRoutes,
