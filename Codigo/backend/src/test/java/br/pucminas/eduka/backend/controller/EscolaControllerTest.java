@@ -3,6 +3,7 @@ package br.pucminas.eduka.backend.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -198,10 +199,41 @@ class EscolaControllerTest {
                         .content("""
                                 {
                                     "nome": "Escola A",
-                                    "endereco": { "cep": "301-40" }
+                                    "endereco": {
+                                        "logradouro": "Av. Nova",
+                                        "numero": "200",
+                                        "bairro": "Savassi",
+                                        "cidade": "Belo Horizonte",
+                                        "estado": "MG",
+                                        "cep": "301-40"
+                                    }
                                 }
                                 """))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void retorna400AoAtualizarComEnderecoIncompleto() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mockMvc.perform(put("/escolas/{id}", id)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenComPerfil("SUPER_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ESCOLA_UPDATE_JSON.replace("\"estado\": \"MG\"", "\"estado\": \"\"")))
+                .andExpect(status().isBadRequest());
+        verify(escolaService, never()).atualizar(any(), any());
+    }
+
+    @Test
+    void retorna400AoApagarTelefoneNaAtualizacao() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mockMvc.perform(put("/escolas/{id}", id)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenComPerfil("SUPER_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ESCOLA_UPDATE_JSON.replace("\"(31) 5000-0000\"", "\" \"")))
+                .andExpect(status().isBadRequest());
+        verify(escolaService, never()).atualizar(any(), any());
     }
 
     @Test
