@@ -36,7 +36,7 @@ import { SuperAdminLayout } from '../../layouts/SuperAdminLayout'
 import styles from './EditarEscola.module.css'
 
 /** Estado de navegação lido pelo PainelEscolas ao voltar desta tela. */
-export type EstadoPainelEscolas = { sucesso?: string; busca?: string }
+export type EstadoPainelEscolas = { sucesso?: string }
 
 /**
  * Edição de escola (IU03), exclusiva do SUPER_ADMIN. Carrega a escola pelo id
@@ -48,7 +48,6 @@ export function EditarEscola() {
   const [escola, setEscola] = useState<Escola | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [tentativa, setTentativa] = useState(0)
-  const [busca, setBusca] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -77,11 +76,7 @@ export function EditarEscola() {
   }
 
   return (
-    <SuperAdminLayout
-      busca={busca}
-      onBuscaChange={setBusca}
-      onBuscaEnviar={() => voltarAoPainel({ busca })}
-    >
+    <SuperAdminLayout>
       <div>
         <Link to={paths.superAdmin.escolas} className={styles.voltar}>
           <Icon name="arrowLeft" size={14} />

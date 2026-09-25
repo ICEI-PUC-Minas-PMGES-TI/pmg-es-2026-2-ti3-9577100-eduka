@@ -21,24 +21,58 @@
   font-weight: 900;
 }
 
+.controles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Mesma altura dos filtros ao lado. */
+.busca {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 260px;
+  max-width: 100%;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-subtle);
+  transition: border-color 0.15s;
+}
+
+.busca:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+.busca input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.busca input::placeholder {
+  color: var(--color-text-subtle);
+}
+
 .filters {
   display: flex;
   gap: 6px;
 }
 
-.filter {
-  padding: 6px 12px;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.filterActive {
-  background: var(--color-dark);
-  border-color: var(--color-dark);
-  color: #fff;
+@media (max-width: 720px) {
+  .controles,
+  .busca {
+    width: 100%;
+  }
 }
 
 .scroll {
@@ -67,6 +101,15 @@
   padding: 12px;
   border-bottom: 1px solid var(--color-border);
   vertical-align: middle;
+}
+
+/* Destaque da linha sob o mouse; as linhas de mensagem (carregando, vazio) ficam de fora. */
+.table tbody td {
+  transition: background-color 0.15s;
+}
+
+.table tbody tr:hover td:not(.empty) {
+  background: var(--color-bg);
 }
 
 .table tbody tr:last-child td {

@@ -7,13 +7,10 @@ import { limparSessao, obterUsuarioLogado } from '../../../services/authService'
 import styles from './SuperAdminLayout.module.css'
 
 type SuperAdminLayoutProps = {
-  busca: string
-  onBuscaChange: (valor: string) => void
-  onBuscaEnviar?: () => void
   children: ReactNode
 }
 
-export function SuperAdminLayout({ busca, onBuscaChange, onBuscaEnviar, children }: SuperAdminLayoutProps) {
+export function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
   const navigate = useNavigate()
   const sessao = obterUsuarioLogado()
 
@@ -29,13 +26,7 @@ export function SuperAdminLayout({ busca, onBuscaChange, onBuscaEnviar, children
     : { nome: 'Lucas Silva', perfil: 'Super Admin' }
   return (
     <div className={styles.shell}>
-      <SuperAdminHeader
-        busca={busca}
-        onBuscaChange={onBuscaChange}
-        onBuscaEnviar={onBuscaEnviar}
-        usuario={usuarioLogado}
-        onSair={sair}
-      />
+      <SuperAdminHeader usuario={usuarioLogado} onSair={sair} />
       <main className={styles.main}>{children}</main>
       <SuperAdminNav />
     </div>

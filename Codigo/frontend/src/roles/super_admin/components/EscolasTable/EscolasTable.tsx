@@ -1,14 +1,37 @@
 import { useState, type ReactNode } from 'react'
 import { Badge } from '../../../../components/Badge/Badge'
 import { Button } from '../../../../components/Button/Button'
-import { ROTULOS_PLANO, type Escola } from '../../../../types/escola'
-import { formatarCnpjCpf } from '../../../../utils/formatters'
-import { FiltroPlano, type ValorFiltroPlano } from '../FiltroPlano/FiltroPlano'
+import { Icon } from '../../../../components/Icon/Icon'
+import type { OpcaoSelect } from '../../../../components/Select/Select'
+import { OPCOES_PLANO, ROTULOS_PLANO, type Escola, type PlanoEscola } from '../../../../types/escola'
+import { formatarCnpjCpf, somenteDigitos } from '../../../../utils/formatters'
+import { FiltroDropdown } from '../FiltroDropdown/FiltroDropdown'
 import styles from './EscolasTable.module.css'
 
-type Filtro = 'todas' | 'ativas'
+type FiltroSituacao = 'todas' | 'ativas' | 'suspensas'
 
-function correspondePlano(escola: Escola, filtro: ValorFiltroPlano): boolean {
+// 'sem-plano' pega escolas cadastradas antes do plano existir.
+type FiltroPlano = 'todos' | PlanoEscola | 'sem-plano'
+
+const OPCOES_FILTRO_PLANO: OpcaoSelect<FiltroPlano>[] = [
+  { valor: 'todos', rotulo: 'Todos os planos' },
+  ...OPCOES_PLANO,
+  { valor: 'sem-plano', rotulo: 'Sem plano' },
+]
+
+function correspondeBusca(escola: Escola, busca: string): boolean {
+  const termo = busca.trim().toLowerCase()
+  if (!termo) return true
+
+  const digitos = somenteDigitos(termo)
+  return (
+    escola.nome.toLowerCase().includes(termo) ||
+    (escola.email?.toLowerCase().includes(termo) ?? false) ||
+    (digitos.length > 0 && (escola.cnpjCpf?.includes(digitos) ?? false))
+  )
+}
+
+function correspondePlano(escola: Escola, filtro: FiltroPlano): boolean {
   if (filtro === 'todos') return true
   if (filtro === 'sem-plano') return escola.plano === null
   return escola.plano === filtro
@@ -18,7 +41,6 @@ type EscolasTableProps = {
   escolas: Escola[]
   carregando: boolean
   erro: string | null
-  mensagemVazia: string
   /** Escola com PATCH em andamento, para travar os botões da linha. */
   alternandoId: string | null
   onTentarNovamente: () => void
@@ -30,34 +52,62 @@ export function EscolasTable({
   escolas,
   carregando,
   erro,
-  mensagemVazia,
   alternandoId,
   onTentarNovamente,
   onEditar,
   onAlternarSituacao,
 }: EscolasTableProps) {
-  const [filtro, setFiltro] = useState<Filtro>('todas')
-  const [filtroPlano, setFiltroPlano] = useState<ValorFiltroPlano>('todos')
+  const [busca, setBusca] = useState('')
+  const [filtroPlano, setFiltroPlano] = useState<FiltroPlano>('todos')
+  const [filtroSituacao, setFiltroSituacao] = useState<FiltroSituacao>('todas')
 
-  // Os contadores de "Todas" e "Ativas" já refletem o plano escolhido.
-  const doPlano = escolas.filter((e) => correspondePlano(e, filtroPlano))
-  const ativas = doPlano.filter((e) => e.ativo)
-  const visiveis = filtro === 'ativas' ? ativas : doPlano
-  // Há escolas, mas os filtros da tabela esconderam todas.
-  const vazioPorFiltro = escolas.length > 0 && (filtro !== 'todas' || filtroPlano !== 'todos')
+  // Busca e plano primeiro, para os contadores de situação refletirem os dois.
+  const filtradas = escolas.filter((e) => correspondeBusca(e, busca) && correspondePlano(e, filtroPlano))
+  const ativas = filtradas.filter((e) => e.ativo)
+  const suspensas = filtradas.filter((e) => !e.ativo)
+  const visiveis = filtroSituacao === 'ativas' ? ativas : filtroSituacao === 'suspensas' ? suspensas : filtradas
+
+  const opcoesSituacao: OpcaoSelect<FiltroSituacao>[] = [
+    { valor: 'todas', rotulo: `Todas as situações (${filtradas.length})` },
+    { valor: 'ativas', rotulo: `Ativas (${ativas.length})` },
+    { valor: 'suspensas', rotulo: `Suspensas (${suspensas.length})` },
+  ]
+
+  let mensagemVazia = 'Nenhuma escola com os filtros selecionados.'
+  if (escolas.length === 0) mensagemVazia = 'Nenhuma escola cadastrada ainda.'
+  else if (busca.trim()) mensagemVazia = 'Nenhuma escola encontrada para a busca.'
 
   return (
     <section className={styles.card}>
       <div className={styles.toolbar}>
         <h2 className={styles.title}>Escolas cadastradas</h2>
-        <div className={styles.filters} role="group" aria-label="Filtrar escolas">
-          <FiltroPlano valor={filtroPlano} onChange={setFiltroPlano} />
-          <FiltroBotao ativo={filtro === 'todas'} onClick={() => setFiltro('todas')}>
-            Todas ({doPlano.length})
-          </FiltroBotao>
-          <FiltroBotao ativo={filtro === 'ativas'} onClick={() => setFiltro('ativas')}>
-            Ativas ({ativas.length})
-          </FiltroBotao>
+        <div className={styles.controles}>
+          <label className={styles.busca}>
+            <Icon name="search" size={15} />
+            <input
+              type="search"
+              placeholder="Buscar por nome, CNPJ ou e-mail"
+              aria-label="Buscar escola por nome, CNPJ ou e-mail"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </label>
+          <div className={styles.filters} role="group" aria-label="Filtrar escolas">
+            <FiltroDropdown
+              aria-label="Filtrar por plano"
+              opcoes={OPCOES_FILTRO_PLANO}
+              valor={filtroPlano}
+              valorPadrao="todos"
+              onChange={setFiltroPlano}
+            />
+            <FiltroDropdown
+              aria-label="Filtrar por situação"
+              opcoes={opcoesSituacao}
+              valor={filtroSituacao}
+              valorPadrao="todas"
+              onChange={setFiltroSituacao}
+            />
+          </div>
         </div>
       </div>
 
@@ -83,9 +133,7 @@ export function EscolasTable({
               </LinhaMensagem>
             )}
             {!carregando && !erro && visiveis.length === 0 && (
-              <LinhaMensagem>
-                {vazioPorFiltro ? 'Nenhuma escola com os filtros selecionados.' : mensagemVazia}
-              </LinhaMensagem>
+              <LinhaMensagem>{mensagemVazia}</LinhaMensagem>
             )}
             {!carregando && !erro && visiveis.map((escola) => (
               <tr key={escola.id}>
@@ -133,24 +181,5 @@ function LinhaMensagem({ children }: { children: ReactNode }) {
         <div className={styles.emptyContent}>{children}</div>
       </td>
     </tr>
-  )
-}
-
-type FiltroBotaoProps = {
-  ativo: boolean
-  onClick: () => void
-  children: ReactNode
-}
-
-function FiltroBotao({ ativo, onClick, children }: FiltroBotaoProps) {
-  return (
-    <button
-      type="button"
-      className={`${styles.filter} ${ativo ? styles.filterActive : ''}`}
-      aria-pressed={ativo}
-      onClick={onClick}
-    >
-      {children}
-    </button>
   )
 }
