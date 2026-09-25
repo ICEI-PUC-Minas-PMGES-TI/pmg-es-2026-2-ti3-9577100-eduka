@@ -31,6 +31,16 @@ Os `.png` servem para onde SVG não é aceito (documentos, apresentações, rede
 | `favicon-180.png` | `Codigo/frontend/public/favicon-180.png` | `<link rel="apple-touch-icon">` |
 | `eduka-icone-512.png` | `Codigo/frontend/public/eduka-icone-512.png` | Ícone de aplicativo / prévia |
 
+## Tipografia
+
+| Fonte | Uso | Token no frontend |
+|---|---|---|
+| **Nunito** (peso 900) | Títulos, números grandes e a palavra "eduka" da logo | `--font-display` |
+| **Atkinson Hyperlegible** (400 e 700) | Texto da interface | `--font-sans` |
+
+As duas vêm do Google Fonts, carregadas em `Codigo/frontend/index.html`. A interface usa apenas
+tema claro.
+
 ## Cor da marca
 
 O roxo dos arquivos de logo é **`#6D3FD6`**. O token `--color-primary` do frontend

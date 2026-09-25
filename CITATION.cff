@@ -1,31 +1,36 @@
-cff-version: 1.0.1
+cff-version: 1.2.0
 message: Please cite this software using these metadata.
-title: 
+title: "Eduka: plataforma SaaS de gestão escolar"
+abstract: >-
+  Plataforma SaaS multi-tenant de gestão escolar que centraliza informações
+  acadêmicas, administrativas e financeiras de várias instituições de ensino,
+  com dados isolados por escola e acesso controlado por perfil de usuário.
 authors:
-  - family-names: Sobrenome do aluno 1
-    given-names: Nome do aluno 1
-  - family-names: Sobrenome do aluno 2
-    given-names: Nome do aluno 2
-  - family-names: Sobrenome do aluno 3
-    given-names: Nome do aluno 3
-  - family-names: Sobrenome do aluno 4
-    given-names: Nome do aluno 4
-  - family-names: Sobrenome do aluno 5
-    given-names: Nome do aluno 5
-  - family-names: Sobrenome do aluno 6
-    given-names: Nome do aluno 6
-  - name-suffix: Professora
+  - given-names: Ítalo Eduardo
+    family-names: Carneiro da Silva
     affiliation: PUC Minas
-    family-names: Alonso Veloso
-    given-names: Eveline
-  - name-suffix: Professora
+  - given-names: Guilherme Augusto
+    family-names: Martins de Carvalho
     affiliation: PUC Minas
-    family-names: Amaral Baroni de Carvalho
-    given-names: Juliana
+  - given-names: Vinícius
+    family-names: Matos Oliveira Rocha
+    affiliation: PUC Minas
+  - given-names: João Victor
+    family-names: Vial Leite Soares
+    affiliation: PUC Minas
+  - given-names: Gabriel
+    family-names: Felício Dias
+    affiliation: PUC Minas
+  - given-names: Ian
+    family-names: Guelman
+    affiliation: PUC Minas
+  - given-names: Rafael Henriques
+    family-names: Nogueira Diniz
+    affiliation: PUC Minas
 keywords:
-  - 
-  - 
-repository-code: 
+  - gestão escolar
+  - SaaS
+  - multi-tenant
+repository-code: "https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti3-9577100-eduka"
 license: CC-BY-4.0
 version: 1.0.0
-date-released:

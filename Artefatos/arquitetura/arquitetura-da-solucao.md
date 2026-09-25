@@ -16,7 +16,7 @@ O Eduka é uma aplicação web de três camadas físicas, empacotada em containe
 | Camada | Tecnologia | Onde fica |
 |---|---|---|
 | Cliente | SPA React 19 + TypeScript, build com Vite | `Codigo/frontend/` |
-| Aplicação | API REST stateless, Spring Boot 3 / Java 21 | `Codigo/backend/` |
+| Aplicação | API REST stateless, Spring Boot 4 / Java 21 | `Codigo/backend/` |
 | Dados | PostgreSQL 16, migrações versionadas com Flyway | `Codigo/backend/src/main/resources/db/migration/` |
 
 Duas características definem a arquitetura:
@@ -130,6 +130,11 @@ flowchart TB
 O container Postgres executa `Codigo/postgres/init/01-create-app-role.sh` na primeira subida,
 criando o role restrito `DB_APP_USER` — o backend **nunca** conecta como superuser.
 
+Também só em dev, o serviço `mock` espera o backend aplicar as migrations, carrega as escolas de
+exemplo de `Codigo/postgres/mock/mock.sql` e encerra. O super admin de dev é criado pelo
+`DevDataSeeder` do backend (perfil `dev`), via JPA, para que os dados pessoais passem pela
+criptografia.
+
 ---
 
 ## 4. Componentes do backend (C4 — Nível 3)
@@ -145,7 +150,10 @@ flowchart TB
         CHAIN["<b>SecurityFilterChain</b><br/>stateless · CSRF off · CORS<br/>público: <code>/health</code>, <code>/login</code>, <code>OPTIONS</code>"]
         VALID["<b>AccessTokenValidator</b><br/>exige access token (recusa refresh)"]
         CONV["<b>PerfilAuthenticationConverter</b><br/>perfil do token → <code>ROLE_*</code>"]
+        ROTAS["<b>RotasPorPerfil</b><br/>quais perfis entram em cada módulo"]
         ISO["<b>IsolamentoEscola</b><br/><code>exigirAcesso()</code> · <code>escolaIdAtual()</code>"]
+        TEN["<b>EscolaTenantIdentifierResolver</b><br/>filtro <code>@TenantId</code> do Hibernate"]
+        PII["<b>PiiCryptoService</b><br/>AES-256-GCM dos dados pessoais"]
     end
 
     subgraph ctrl["controller — @RestController"]
@@ -165,16 +173,19 @@ flowchart TB
     subgraph repo["repository — Spring Data JPA"]
         UR["UsuarioRepository"]
         ER["EscolaRepository"]
-        AR["AlunoRepository"]
+        PER["PessoaRepository · PessoaPapelRepository"]
+        AR["AlunoRepository · AlunoResponsavelRepository"]
     end
 
     DB[("PostgreSQL<br/>schema versionado por Flyway")]
     ERR["<b>ApiExceptionHandler</b><br/>RFC 9457 · <code>application/problem+json</code><br/>401 · 403 · 404 · 409 · 400 · 500"]
 
-    REQ --> CHAIN --> VALID --> CONV --> ctrl
+    REQ --> CHAIN --> VALID --> CONV --> ROTAS --> ctrl
     ctrl --> svc
     svc --> ISO
     svc --> repo --> DB
+    repo -.-> TEN
+    repo -.-> PII
     ctrl -.-> ERR
     sec -.-> ERR
 
@@ -198,6 +209,12 @@ flowchart TB
 
 Qualquer rota não listada como pública exige `Authorization: Bearer <access token>` e responde
 `401` sem ele. Perfil sem permissão recebe `403`.
+
+A autorização tem duas camadas. `RotasPorPerfil`, aplicada no filter chain, define quais perfis
+entram em cada módulo pelo prefixo da rota (`/escolas`, `/alunos`, `/cobrancas`...). Módulos que
+ainda não têm controller já estão na lista, de modo que o endpoint nasce protegido. Dentro do
+módulo, o controller refina por ação com `@PreAuthorize` e as constantes de `Perfis`
+(ex.: `/alunos` é lido por quatro perfis, mas só `MASTER` e `SECRETARIA` cadastram).
 
 ---
 
@@ -224,23 +241,39 @@ sequenceDiagram
     F->>C: requisição autenticada
     C->>C: @PreAuthorize(hasAnyRole(...))
     C->>S: buscarPorId(id)
-    S->>D: SELECT ... WHERE id = ?
-    D-->>S: Aluno (com escola_id)
-    S->>I: exigirAcesso(aluno.escolaId)
-    alt escola do recurso ≠ escola do token
-        I-->>U: 403 · problem+json
-    else mesma escola, ou SUPER_ADMIN
-        I-->>S: ok
+    S->>I: escolaIdAtual()
+    I-->>S: escola do token
+    S->>D: SELECT ... WHERE id = ? AND escola_id = ?
+    alt aluno de outra escola (ou inexistente)
+        D-->>S: nenhuma linha
+        S-->>U: 404 · problem+json
+    else mesma escola
+        D-->>S: Aluno + Pessoa (decifrada pelo PessoaCryptoConverter ao carregar)
         S-->>C: AlunoResponse
         C-->>U: 200 · JSON
     end
 ```
 
-Em listagens, o service filtra por `IsolamentoEscola.escolaIdAtual()` em vez de aceitar um
-`escolaId` do cliente. `SUPER_ADMIN` é o único perfil que atravessa qualquer escola — ele
-administra a plataforma, não uma instituição. Por isso só acessa o cadastro das escolas
-(`/escolas`, `/planos`) e os usuários vinculados a elas (`/usuarios`); os módulos de negócio
-(acadêmico, financeiro, relatórios) o barram com `403`.
+O isolamento tem duas camadas:
+
+1. **Services.** Consultas filtram por `IsolamentoEscola.escolaIdAtual()` em vez de aceitar um
+   `escolaId` do cliente. Quando o recurso é carregado por outro caminho,
+   `IsolamentoEscola.exigirAcesso(escolaIdDoRecurso)` responde `403` se ele for de outra escola.
+2. **Persistência.** Entidades com o campo de escola anotado com `@TenantId` (hoje `Aluno`)
+   recebem `escola_id = <escola do token>` automaticamente do Hibernate em toda consulta, e o
+   campo é preenchido sozinho no insert. O tenant vem do `EscolaTenantIdentifierResolver`. Sem
+   escola no contexto (login, subida da aplicação, `SUPER_ADMIN`), ele devolve um id que não
+   corresponde a nenhuma escola, então as consultas voltam vazias: o isolamento é fechado por
+   padrão.
+
+`SUPER_ADMIN` administra a plataforma, não uma instituição: não pertence a nenhuma escola.
+Por isso só acessa o cadastro das escolas (`/escolas`, `/planos`) e os usuários vinculados a
+elas (`/usuarios`); os módulos de negócio (acadêmico, financeiro, relatórios) o barram com `403`.
+
+**Dados pessoais.** Nome, CPF, data de nascimento, e-mail, telefone e endereço ficam na tabela
+`PESSOA`, em colunas `BYTEA` cifradas com AES-256-GCM pela aplicação (`PessoaCryptoConverter` e
+`PiiCryptoService`). A chave `PII_ENCRYPTION_KEY` fica só na JVM: o Postgres nunca vê texto puro
+nem a chave. Alunos e seus responsáveis apontam para registros de `PESSOA`.
 
 **Perfis de acesso** (`PerfilUsuario`): `SUPER_ADMIN`, `MASTER`, `SECRETARIA`, `FINANCEIRO`,
 `PROFESSOR`, `ALUNO`.
@@ -258,20 +291,27 @@ flowchart TB
     MAIN["<b>main.tsx</b> → <b>App.tsx</b>"]
     ROUTER["<b>routes/router.tsx</b><br/>createBrowserRouter · react-router"]
 
+    GUARD["<b>RotaProtegida</b><br/>sem sessão → /login<br/>outro perfil → área do próprio perfil"]
+
     subgraph roles["roles/ — um módulo por perfil"]
-        SAD["<b>super_admin/</b><br/>routes · layouts · pages · hooks · components"]
-        NEXT["<i>master, secretaria, financeiro,<br/>professor, aluno — planejados</i>"]
+        SAD["<b>super_admin/</b><br/>painel e edição de escolas<br/>routes · layouts · pages · hooks · components"]
+        NEXT["<i>master, secretaria, financeiro,<br/>professor, aluno — só a rota-mãe,<br/>com a tela Área em construção</i>"]
     end
 
+    LOGIN["<b>LoginAdmin</b><br/>/login"]
+
     subgraph shared["Compartilhado"]
-        COMP["<b>components/</b><br/>Button · Badge · StatCard · Icon"]
-        SRV["<b>services/</b><br/>api.ts · escolaService.ts"]
-        TYPES["<b>types/</b> · <b>utils/</b> · <b>styles/</b>"]
+        COMP["<b>components/</b><br/>Button · Badge · Campo · CampoData<br/>Select · StatCard · Switch · Icon"]
+        SRV["<b>services/</b><br/>api.ts · authService.ts · escolaService.ts"]
+        TYPES["<b>types/</b> · <b>utils/</b> · <b>hooks/</b> · <b>styles/</b>"]
     end
 
     API["<b>services/api.ts</b><br/>injeta <code>Bearer</code> do localStorage<br/>traduz erro HTTP → <code>ApiError</code><br/>base: <code>:8080</code> em dev, <code>/api</code> em prod"]
 
-    MAIN --> ROUTER --> roles
+    MAIN --> ROUTER
+    ROUTER --> LOGIN
+    ROUTER --> GUARD --> roles
+    LOGIN -->|"authService.autenticar"| SRV
     SAD --> COMP
     SAD -->|"useEscolas → escolaService"| SRV
     SRV --> API
@@ -283,7 +323,15 @@ flowchart TB
 ```
 
 O `apiRequest` centraliza autenticação, headers e tratamento de erro — nenhuma tela chama `fetch`
-diretamente. O access token é lido de `localStorage` sob a chave `eduka.accessToken`.
+diretamente. Após o `POST /login`, o `authService` grava o access token no `localStorage` (chave
+`eduka.accessToken`) e leva o usuário para a área do próprio perfil. O id e o perfil do usuário
+são sempre lidos das claims do token, e não de um valor salvo à parte; só o login (e-mail) fica
+guardado separadamente. O `RotaProtegida` é só conveniência de navegação: quem garante o acesso é o
+backend.
+
+A interface usa apenas tema claro, com cores, fontes (Nunito nos títulos, Atkinson Hyperlegible
+no texto) e animações definidas como variáveis em `styles/global.css`. Detalhes em
+[`Codigo/frontend/README.md`](../../Codigo/frontend/README.md).
 
 ---
 
@@ -302,6 +350,11 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | `V3__tornar_escola_id_opcional.sql` | Torna `escola_id` opcional para `SUPER_ADMIN` |
 | `V4__adiciona_versao_escola.sql` | Coluna de versão (bloqueio otimista em Escola) |
 | `V5__criar_alunos.sql` | Tabela de alunos |
+| `V6__adiciona_plano_escola.sql` | Plano da escola (`BASICO`, `AVANCADO`, `ENTERPRISE`) |
+| `V7__detalha_endereco_e_assinatura_escola.sql` | Endereço em campos, vigência da assinatura, limite de usuários e módulos habilitados (`ESCOLA_MODULO`) |
+| `V8__descarta_pessoa_antiga.sql` | Remove a tabela `PESSOA` original, que não cifrava os dados |
+| `V9__recria_pessoa_cifrada.sql` | Recria `PESSOA` com os dados pessoais em `BYTEA` cifrado |
+| `V10__liga_alunos_a_pessoa.sql` | Aluno passa a apontar para `PESSOA`; responsáveis em `ALUNO_RESPONSAVEL` |
 
 ---
 
@@ -319,6 +372,9 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | 8 | **Senhas em BCrypt (custo 12) com prefixo de algoritmo** | O prefixo `{bcrypt}` permite trocar o algoritmo no futuro sem invalidar senhas existentes — hashes antigos são regravados no próximo login. |
 | 9 | **Erros em formato único (RFC 9457)** | Todo erro — de filtro de segurança ou de controller — tem o mesmo corpo `{status, title, detail}`; em prod, sem stack trace ou nome de exceção. |
 | 10 | **Frontend organizado por papel de usuário** | Cada perfil evolui de forma independente, sem acoplar telas de contextos diferentes. |
+| 11 | **Dados pessoais cifrados na aplicação (AES-256-GCM)** | Atende à LGPD mesmo com acesso indevido ao banco ou a um backup: sem a `PII_ENCRYPTION_KEY`, que nunca sai da JVM, os dados pessoais são ilegíveis. Custo: não dá para filtrar por esses campos no SQL. |
+| 12 | **Isolamento também no Hibernate (`@TenantId`)** | O filtro por escola deixa de depender de cada service lembrar dele; sem escola no contexto, a consulta volta vazia. |
+| 13 | **Autorização por módulo (`RotasPorPerfil`) antes do controller** | Um endpoint novo dentro de um prefixo existente já nasce protegido pelo perfil do módulo. |
 
 ---
 
@@ -328,8 +384,9 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 |---|---|
 | Autenticação | JWT HS256, rotas protegidas por padrão; só `/health` e `/login` são públicas |
 | Autorização por perfil | `@PreAuthorize` sobre `ROLE_*` derivado do claim de perfil |
-| Isolamento entre escolas | `IsolamentoEscola` em todo acesso a dado de negócio; escola vem do token |
+| Isolamento entre escolas | `IsolamentoEscola` nos services e `@TenantId` no Hibernate; escola vem do token |
 | Confidencialidade de senha | BCrypt custo 12; a coluna `senha_hash` nunca recebe texto puro |
+| Confidencialidade de dados pessoais | `PESSOA` cifrada com AES-256-GCM pela aplicação; o banco nunca vê a chave |
 | Não vazamento de informação | Login inexistente, senha errada e usuário inativo devolvem a mesma mensagem |
 | Portabilidade de ambiente | Todo o stack sobe por Docker Compose, em dev e em prod |
 
@@ -341,10 +398,15 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
   para HTTPS ainda não estão configurados.
 * **TLS no banco.** `DB_SSLMODE` está preparado como parâmetro, mas o padrão é `disable`;
   o alvo em produção é `verify-full`.
-* **Fluxo de login no frontend.** A rota `/` redireciona direto para o painel do super admin;
-  a tela de login e a proteção de rotas por perfil no cliente ainda não existem
-  (`TODO` em `routes/router.tsx`).
 * **Refresh token.** O backend emite e sabe validar refresh tokens, mas ainda não há endpoint
-  HTTP de renovação.
+  HTTP de renovação. Quando o access token expira, o usuário precisa fazer login de novo.
+* **Painéis dos demais perfis no frontend.** Só o Super Admin tem telas; `MASTER`,
+  `SECRETARIA`, `FINANCEIRO`, `PROFESSOR` e `ALUNO` já têm rota-mãe protegida, mas mostram
+  "Área em construção".
+* **`@TenantId` nas demais entidades.** Hoje só `Aluno` tem o filtro automático do Hibernate;
+  as próximas entidades de negócio devem seguir o mesmo padrão. `Pessoa` é exceção proposital:
+  o `SUPER_ADMIN` cria pessoas em nome de outras escolas, o que o filtro não expressa. Por isso
+  toda leitura de `Pessoa` passa pelos métodos escopados por escola do `PessoaRepository`
+  (`findByIdAndEscolaId`, `findAllByIdInAndEscolaId`), nunca por `findById` puro.
 * **Demais módulos do MVP.** Professores, cursos, turmas, matrículas, cobranças, pagamentos e
   despesas seguem o mesmo padrão de camadas já estabelecido por Escola e Aluno.
