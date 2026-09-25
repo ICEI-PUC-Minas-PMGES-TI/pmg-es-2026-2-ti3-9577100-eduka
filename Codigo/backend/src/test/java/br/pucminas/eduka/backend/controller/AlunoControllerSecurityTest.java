@@ -3,6 +3,7 @@ package br.pucminas.eduka.backend.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -184,7 +185,7 @@ class AlunoControllerSecurityTest {
         void listagemUsaEscolaDoTokenEAceitaFiltroDeNome() throws Exception {
             Pessoa pessoaAna = pessoa("Ana");
             when(alunoRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of(aluno(ESCOLA_A, pessoaAna.getId())));
-            when(pessoaRepository.findAllById(any())).thenReturn(List.of(pessoaAna));
+            when(pessoaRepository.findAllByIdInAndEscolaId(any(), eq(ESCOLA_A))).thenReturn(List.of(pessoaAna));
 
             mockMvc.perform(getCom("/alunos?nome=an", accessToken("MASTER", ESCOLA_A)))
                     .andExpect(status().isOk())
@@ -215,7 +216,7 @@ class AlunoControllerSecurityTest {
             Pessoa pessoaAna = pessoa("Ana");
             Aluno daEscolaA = aluno(ESCOLA_A, pessoaAna.getId());
             when(alunoRepository.findByIdAndEscolaId(daEscolaA.getId(), ESCOLA_A)).thenReturn(Optional.of(daEscolaA));
-            when(pessoaRepository.findById(pessoaAna.getId())).thenReturn(Optional.of(pessoaAna));
+            when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
             when(alunoResponsavelRepository.findAllById_AlunoId(daEscolaA.getId())).thenReturn(List.of());
 
             mockMvc.perform(getCom("/alunos/" + daEscolaA.getId(), accessToken("SECRETARIA", ESCOLA_A)))

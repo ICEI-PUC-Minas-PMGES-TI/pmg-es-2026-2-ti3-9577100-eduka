@@ -25,6 +25,20 @@ import lombok.Setter;
  * professor, funcionario, usuario). Nome, CPF, data de nascimento, e-mail,
  * telefone e endereco ficam cifrados com AES-256-GCM antes de chegar ao
  * Postgres (ver PessoaCryptoConverter).
+ *
+ * <p>
+ * Diferente de {@link Aluno}, esta entidade nao usa
+ * {@link org.hibernate.annotations.TenantId @TenantId}: o
+ * {@code SUPER_ADMIN} nao pertence a nenhuma escola e ainda assim cria
+ * pessoas/usuarios em nome de escolas alheias (ver
+ * {@code HierarquiaPerfis}), o que o filtro automatico de tenant do
+ * Hibernate nao consegue expressar (ele sempre usa a escola de quem esta
+ * fazendo a chamada, nunca uma escola-alvo arbitraria). Por isso toda leitura
+ * de {@code Pessoa} tem que passar pelos metodos escopados por escola de
+ * {@link br.pucminas.eduka.backend.repository.PessoaRepository} (nunca
+ * {@code findById}/{@code findAllById} puros) - nao ha rede de seguranca do
+ * Hibernate aqui.
+ * </p>
  */
 @Entity
 @Table(name = "PESSOA")

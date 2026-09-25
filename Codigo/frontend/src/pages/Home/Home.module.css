@@ -1,0 +1,175 @@
+/* Camada de baixo: roxo da marca, aparece como colunas dos dois lados do
+   painel branco (camada de cima, com o conteudo de hoje) - só esquerda e
+   direita, sem faixa em cima/embaixo. */
+.page {
+  min-height: 100vh;
+  padding: 0 28px;
+  background-color: var(--color-primary);
+}
+
+.content {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background-color: var(--color-bg);
+  overflow: hidden;
+}
+
+/* ==========================================================================
+   Hero
+   ========================================================================== */
+
+.hero {
+  display: flex;
+  justify-content: center;
+  padding: 56px 24px;
+}
+
+.glassCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 640px;
+  padding: 48px 44px;
+  border-radius: 28px;
+  background-color: rgba(242, 235, 251, 0.55);
+  border: 1px solid rgba(242, 235, 251, 0.7);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  animation: var(--animacao-entrar);
+}
+
+.heroLogo {
+  width: 220px;
+  height: auto;
+}
+
+.tag {
+  margin-top: 28px;
+  padding: 5px 14px;
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.6);
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.title {
+  margin-top: 20px;
+  max-width: 640px;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 44px;
+  line-height: 1.14;
+  letter-spacing: -0.9px;
+  color: var(--color-text);
+}
+
+.text {
+  margin-top: 18px;
+  max-width: 480px;
+  font-size: 15.5px;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+}
+
+.ctaBtn {
+  margin-top: 28px;
+  padding: 14px 32px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: 700;
+  font-size: 15.5px;
+  text-decoration: none;
+  transition: background-color 0.15s ease, transform 0.08s ease;
+}
+
+.ctaBtn:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.ctaBtn:active {
+  transform: scale(0.98);
+}
+
+/* ==========================================================================
+   Carrossel de fotos - rolagem continua
+   ========================================================================== */
+
+.carouselPanel {
+  width: 100%;
+  padding: 20px 0;
+  background-color: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  overflow: hidden;
+  /* Esmaece as bordas da faixa em vez de cortar as fotos de forma seca. */
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+.carouselTrack {
+  display: flex;
+  gap: 16px;
+  width: max-content;
+  animation: rolarCarrossel 32s linear infinite;
+}
+
+@keyframes rolarCarrossel {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    /* Metade da faixa = uma volta completa da sequência (que está duplicada). */
+    transform: translateX(-50%);
+  }
+}
+
+.carouselImg {
+  flex-shrink: 0;
+  width: 300px;
+  height: 200px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carouselTrack {
+    animation-play-state: paused;
+  }
+}
+
+/* ==========================================================================
+   Responsividade
+   ========================================================================== */
+
+@media (max-width: 640px) {
+  .page {
+    padding: 0 14px;
+  }
+
+  .glassCard {
+    padding: 32px 24px;
+    border-radius: 22px;
+  }
+
+  .heroLogo {
+    width: 160px;
+  }
+
+  .title {
+    font-size: 30px;
+  }
+
+  .carouselImg {
+    width: 220px;
+    height: 150px;
+  }
+}
