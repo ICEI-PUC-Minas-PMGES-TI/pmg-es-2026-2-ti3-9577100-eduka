@@ -102,6 +102,11 @@
   gap: 8px;
 }
 
+/* Mesma largura para "Suspender" e "Reativar", para o "Editar" não desalinhar entre as linhas. */
+.alternar {
+  min-width: 120px;
+}
+
 .empty {
   padding: 32px 0 !important;
   color: var(--color-text-muted);

@@ -75,7 +75,7 @@ export function EscolasTable({
             {!carregando && !erro && visiveis.map((escola) => (
               <tr key={escola.id}>
                 <td className={styles.nome}>{escola.nome}</td>
-                <td className={styles.cnpj}>{formatarCnpjCpf(escola.cnpjCpf)}</td>
+                <td className={styles.cnpj}>{escola.cnpjCpf ? formatarCnpjCpf(escola.cnpjCpf) : '—'}</td>
                 <td>{escola.plano ? ROTULOS_PLANO[escola.plano] : '—'}</td>
                 <td>
                   {escola.ativo ? (
@@ -93,6 +93,7 @@ export function EscolasTable({
                     </Button>
                     <Button
                       size="sm"
+                      className={styles.alternar}
                       icon={escola.ativo ? 'pause' : 'check'}
                       disabled={alternandoId === escola.id}
                       onClick={() => onAlternarSituacao(escola)}

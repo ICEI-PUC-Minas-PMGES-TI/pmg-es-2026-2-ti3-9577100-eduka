@@ -46,11 +46,12 @@ export type Endereco = {
 export type Escola = {
   id: string
   nome: string
-  cnpjCpf: string
+  // Opcionais no banco: escolas antigas ou do mock podem vir sem eles.
+  cnpjCpf: string | null
   // Nulo quando nenhum campo do endereço foi preenchido.
   endereco: Endereco | null
-  email: string
-  telefone: string
+  email: string | null
+  telefone: string | null
   ativo: boolean
   criadoEm: string
   // Nulo em escolas cadastradas antes do plano existir.
