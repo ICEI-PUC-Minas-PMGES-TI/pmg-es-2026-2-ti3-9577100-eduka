@@ -6,7 +6,7 @@
   background: var(--color-surface);
   color: var(--color-text);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
   transition:
     border-color 0.15s,

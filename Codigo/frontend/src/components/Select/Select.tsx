@@ -1,12 +1,5 @@
-import {
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type KeyboardEvent,
-} from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { usePopoverFlutuante } from '../../hooks/usePopoverFlutuante'
 import { Icon } from '../Icon/Icon'
 import styles from './Select.module.css'
 
@@ -35,7 +28,6 @@ type SelectProps<T extends string> = {
 }
 
 const ALTURA_MAXIMA_MENU = 264
-const ESPACO_MENU = 6
 
 /**
  * Substitui o <select> nativo, cuja lista aberta é desenhada pelo sistema
@@ -59,58 +51,20 @@ export function Select<T extends string>({
 }: SelectProps<T>) {
   const [aberto, setAberto] = useState(false)
   const [destacado, setDestacado] = useState(0)
-  const [posicao, setPosicao] = useState<CSSProperties>({})
-  const botaoRef = useRef<HTMLButtonElement>(null)
-  const listaRef = useRef<HTMLUListElement>(null)
+  const {
+    ancoraRef: botaoRef,
+    popoverRef: listaRef,
+    estilo: posicao,
+  } = usePopoverFlutuante<HTMLButtonElement, HTMLUListElement>(aberto, () => setAberto(false), {
+    alturaMinimaAbaixo: 160,
+    alturaMaxima: ALTURA_MAXIMA_MENU,
+  })
   const busca = useRef({ texto: '', timer: 0 })
   const idBase = useId()
   const listaId = `${idBase}-lista`
 
   const indiceAtual = opcoes.findIndex((o) => o.valor === valor)
   const opcaoAtual = indiceAtual >= 0 ? opcoes[indiceAtual] : null
-
-  // Posição fixa, calculada a partir do botão: escapa do overflow de modais e
-  // cartões, e abre para cima quando não há espaço embaixo.
-  useLayoutEffect(() => {
-    if (!aberto) return
-    function posicionar() {
-      const botao = botaoRef.current
-      if (!botao) return
-      const r = botao.getBoundingClientRect()
-      const abaixo = window.innerHeight - r.bottom - ESPACO_MENU
-      const acima = r.top - ESPACO_MENU
-      const paraCima = abaixo < Math.min(ALTURA_MAXIMA_MENU, 160) && acima > abaixo
-      const disponivel = Math.max(paraCima ? acima : abaixo, 120) - 8
-      setPosicao({
-        left: r.left,
-        minWidth: r.width,
-        maxHeight: Math.min(ALTURA_MAXIMA_MENU, disponivel),
-        ...(paraCima
-          ? { bottom: window.innerHeight - r.top + ESPACO_MENU }
-          : { top: r.bottom + ESPACO_MENU }),
-      })
-    }
-    posicionar()
-    window.addEventListener('resize', posicionar)
-    window.addEventListener('scroll', posicionar, true)
-    return () => {
-      window.removeEventListener('resize', posicionar)
-      window.removeEventListener('scroll', posicionar, true)
-    }
-  }, [aberto])
-
-  // Fecha ao clicar fora.
-  useEffect(() => {
-    if (!aberto) return
-    function aoClicar(event: MouseEvent) {
-      const alvo = event.target as Node
-      if (!botaoRef.current?.contains(alvo) && !listaRef.current?.contains(alvo)) {
-        setAberto(false)
-      }
-    }
-    document.addEventListener('mousedown', aoClicar)
-    return () => document.removeEventListener('mousedown', aoClicar)
-  }, [aberto])
 
   useEffect(() => {
     if (aberto) listaRef.current?.focus({ preventScroll: true })

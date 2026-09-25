@@ -12,13 +12,15 @@
 .code {
   color: var(--color-primary);
   font-size: 56px;
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-weight: 900;
   line-height: 1;
 }
 
 .title {
   font-size: 24px;
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-weight: 900;
 }
 
 .text {
@@ -31,6 +33,6 @@
   border-radius: var(--radius-md);
   background: var(--color-dark);
   color: #fff;
-  font-weight: 600;
+  font-weight: 700;
   text-decoration: none;
 }

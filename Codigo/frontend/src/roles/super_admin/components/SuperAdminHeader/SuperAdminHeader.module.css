@@ -19,7 +19,8 @@
 
 .logo {
   font-size: 24px;
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-weight: 900;
   letter-spacing: -0.5px;
   color: var(--color-text);
 }

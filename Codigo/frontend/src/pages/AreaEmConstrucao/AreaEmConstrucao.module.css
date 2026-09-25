@@ -22,7 +22,8 @@
 
 .title {
   font-size: 24px;
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-weight: 900;
 }
 
 .text {
@@ -38,6 +39,6 @@
   background: var(--color-dark);
   color: #fff;
   font: inherit;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
 }

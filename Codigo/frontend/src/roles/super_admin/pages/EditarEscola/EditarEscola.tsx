@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } fr
 import { Link, useNavigate, useParams } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { Campo } from '../../../../components/Campo/Campo'
+import { CampoData } from '../../../../components/CampoData/CampoData'
 import { Icon } from '../../../../components/Icon/Icon'
 import { Select } from '../../../../components/Select/Select'
 import { Switch } from '../../../../components/Switch/Switch'
@@ -351,25 +352,17 @@ function FormularioEdicao({ escola, onCancelar, onSalva }: FormularioEdicaoProps
             </div>
             <Campo label="Início da vigência" dica="Definido no cadastro. Não pode ser alterado.">
               {(props) => (
-                <input
-                  {...props}
-                  name="inicioVigencia"
-                  type="date"
-                  readOnly
-                  tabIndex={-1}
-                  value={campos.inicioVigencia}
-                />
+                <CampoData {...props} name="inicioVigencia" somenteLeitura valor={campos.inicioVigencia} />
               )}
             </Campo>
             <Campo label="Término da vigência" erro={erros.fimVigencia}>
               {(props) => (
-                <input
+                <CampoData
                   {...props}
                   name="fimVigencia"
-                  type="date"
                   min={campos.inicioVigencia || undefined}
-                  value={campos.fimVigencia}
-                  onChange={(e) => alterar('fimVigencia', e.target.value)}
+                  valor={campos.fimVigencia}
+                  onChange={(data) => alterar('fimVigencia', data)}
                 />
               )}
             </Campo>

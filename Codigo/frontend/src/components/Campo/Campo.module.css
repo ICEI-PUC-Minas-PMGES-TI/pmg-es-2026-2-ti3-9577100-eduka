@@ -65,5 +65,5 @@
 .error {
   color: var(--color-danger);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
 }
