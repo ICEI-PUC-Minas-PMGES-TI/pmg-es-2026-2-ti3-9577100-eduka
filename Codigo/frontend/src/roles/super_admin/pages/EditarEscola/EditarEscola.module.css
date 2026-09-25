@@ -5,7 +5,7 @@
   margin-bottom: 8px;
   color: var(--color-primary);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   text-decoration: none;
 }
 
@@ -15,7 +15,8 @@
 
 .title {
   font-size: 32px;
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-weight: 900;
   letter-spacing: -0.5px;
   line-height: 1.15;
 }
@@ -40,7 +41,7 @@
   background: var(--color-danger-bg);
   color: var(--color-danger);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 /* Desktop: dados + ações à esquerda, assinatura e acesso à direita. */
@@ -78,7 +79,8 @@
 .cardTitle {
   margin-bottom: 18px;
   font-size: 18px;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-weight: 900;
 }
 
 .grid {
@@ -199,7 +201,7 @@
   background: var(--color-danger-bg);
   color: var(--color-danger);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 @media (max-width: 880px) {

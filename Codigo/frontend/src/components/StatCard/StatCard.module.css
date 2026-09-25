@@ -11,7 +11,7 @@
 
 .label {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .valueRow {
@@ -22,6 +22,7 @@
 
 .value {
   font-size: 32px;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-weight: 900;
   line-height: 1.1;
 }

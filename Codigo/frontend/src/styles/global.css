@@ -25,7 +25,10 @@
   --shadow-sm: 0 1px 2px rgba(22, 20, 29, 0.04);
   --shadow-lg: 0 12px 32px rgba(22, 20, 29, 0.22);
 
-  --font-sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* Textos, rótulos, campos e botões. Só tem pesos 400 e 700. */
+  --font-sans: 'Atkinson Hyperlegible', system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* Títulos, números grandes e a palavra "eduka" da logo, sempre em peso 900. */
+  --font-display: 'Nunito', system-ui, 'Segoe UI', Roboto, sans-serif;
 
   font: 15px/1.45 var(--font-sans);
   color: var(--color-text);
