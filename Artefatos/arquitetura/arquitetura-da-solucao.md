@@ -160,6 +160,7 @@ flowchart TB
         AUTHC["AuthController<br/><code>POST /login</code>"]
         ESCC["EscolaController<br/><code>/escolas</code> · só SUPER_ADMIN"]
         ALUC["AlunoController<br/><code>/alunos</code> · por perfil"]
+        PROFC["ProfessorController<br/><code>/professores</code> · MASTER, SECRETARIA"]
         HLTC["HealthController<br/><code>GET /health</code>"]
     end
 
@@ -168,6 +169,7 @@ flowchart TB
         USUS["UsuarioService"]
         ESCS["EscolaService"]
         ALUS["AlunoService"]
+        PROFS["ProfessorService"]
     end
 
     subgraph repo["repository — Spring Data JPA"]
@@ -175,6 +177,7 @@ flowchart TB
         ER["EscolaRepository"]
         PER["PessoaRepository · PessoaPapelRepository"]
         AR["AlunoRepository · AlunoResponsavelRepository"]
+        PRR["ProfessorRepository"]
     end
 
     DB[("PostgreSQL<br/>schema versionado por Flyway")]
@@ -206,6 +209,11 @@ flowchart TB
 | `PATCH` | `/escolas/{id}/ativar` · `/suspender` | `SUPER_ADMIN` |
 | `GET` | `/alunos` · `/alunos/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO`, `PROFESSOR` |
 | `POST` | `/alunos` | `MASTER`, `SECRETARIA` |
+| `GET` | `/professores` · `/professores/{id}` | `MASTER`, `SECRETARIA` |
+| `POST` | `/professores` | `MASTER`, `SECRETARIA` |
+| `PUT` | `/professores/{id}` | `MASTER`, `SECRETARIA` |
+| `DELETE` | `/professores/{id}` (inativa) | `MASTER`, `SECRETARIA` |
+| `PATCH` | `/professores/{id}/ativar` | `MASTER`, `SECRETARIA` |
 
 Qualquer rota não listada como pública exige `Authorization: Bearer <access token>` e responde
 `401` sem ele. Perfil sem permissão recebe `403`.
@@ -355,6 +363,7 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | `V8__descarta_pessoa_antiga.sql` | Remove a tabela `PESSOA` original, que não cifrava os dados |
 | `V9__recria_pessoa_cifrada.sql` | Recria `PESSOA` com os dados pessoais em `BYTEA` cifrado |
 | `V10__liga_alunos_a_pessoa.sql` | Aluno passa a apontar para `PESSOA`; responsáveis em `ALUNO_RESPONSAVEL` |
+| `V11__criar_professor.sql` | Tabela `PROFESSOR`, ligada a `PESSOA` (dados pessoais cifrados) |
 
 ---
 
