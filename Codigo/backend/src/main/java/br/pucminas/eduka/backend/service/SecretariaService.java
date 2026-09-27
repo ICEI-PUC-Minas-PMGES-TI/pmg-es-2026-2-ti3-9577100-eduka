@@ -1,6 +1,5 @@
 package br.pucminas.eduka.backend.service;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -22,7 +21,6 @@ import br.pucminas.eduka.backend.dto.SecretariaUpdateRequest;
 import br.pucminas.eduka.backend.exception.CpfJaCadastradoException;
 import br.pucminas.eduka.backend.exception.LoginJaCadastradoException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
-import br.pucminas.eduka.backend.exception.SenhaInvalidaException;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.repository.UsuarioRepository;
@@ -88,6 +86,8 @@ public class SecretariaService {
         String filtro = nome == null || nome.isBlank() ? null : nome.trim().toLowerCase(Locale.ROOT);
         return secretarias.stream()
                 .filter(usuario -> ativo == null || usuario.isAtivo() == ativo)
+                // Pessoa ausente (dado orfao) nao pode aparecer na listagem nem estourar NPE no filtro por nome.
+                .filter(usuario -> pessoasPorId.containsKey(usuario.getPessoaId()))
                 .filter(usuario -> filtro == null || pessoasPorId.get(usuario.getPessoaId()).getNome()
                         .toLowerCase(Locale.ROOT).contains(filtro))
                 .map(usuario -> SecretariaResponse.deResumo(usuario, pessoasPorId.get(usuario.getPessoaId())))
@@ -113,7 +113,7 @@ public class SecretariaService {
         if (usuarioRepository.existsByLogin(login)) {
             throw new LoginJaCadastradoException(login);
         }
-        validarSenha(request.senha());
+        UsuarioService.validarSenha(request.senha());
 
         Pessoa pessoa = pessoaRepository.save(Pessoa.builder()
                 .escolaId(escolaId)
@@ -187,22 +187,6 @@ public class SecretariaService {
                 .anyMatch(pessoa -> cpf.equals(pessoa.getCpf()));
         if (repetido) {
             throw new CpfJaCadastradoException("Ja existe secretaria com este CPF nesta escola");
-        }
-    }
-
-    /**
-     * Mesmas regras de {@link UsuarioService}: comprimento minimo em
-     * caracteres, maximo em bytes UTF-8 (limite do BCrypt).
-     */
-    private void validarSenha(String senha) {
-        if (senha == null || senha.length() < UsuarioService.SENHA_TAMANHO_MINIMO) {
-            throw new SenhaInvalidaException(
-                    "Senha deve ter ao menos %d caracteres".formatted(UsuarioService.SENHA_TAMANHO_MINIMO));
-        }
-        int bytes = senha.getBytes(StandardCharsets.UTF_8).length;
-        if (bytes > UsuarioService.SENHA_TAMANHO_MAXIMO_BYTES) {
-            throw new SenhaInvalidaException(
-                    "Senha nao pode passar de %d bytes".formatted(UsuarioService.SENHA_TAMANHO_MAXIMO_BYTES));
         }
     }
 
