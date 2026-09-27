@@ -269,10 +269,10 @@ export function CadastroEscolaModal({ onFechar, onSalvar, onCadastrada }: Cadast
         </div>
 
         <footer className={styles.footer}>
-          <Button className={styles.footerButton} disabled={salvando} onClick={fechar}>
+          <Button disabled={salvando} onClick={fechar}>
             Cancelar
           </Button>
-          <Button type="submit" variant="accent" className={styles.footerButton} disabled={salvando}>
+          <Button type="submit" variant="accent" disabled={salvando}>
             {salvando ? 'Salvando…' : campos.ativo ? 'Salvar e ativar' : 'Salvar como inativa'}
           </Button>
         </footer>

@@ -1,14 +1,20 @@
+/* Pílulas de vidro: a principal é roxa com brilho no topo; a secundária é
+   branca translúcida com sombra lavanda. */
 .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   border: 1px solid transparent;
-  font-weight: 700;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-weight: 800;
   white-space: nowrap;
   transition:
     background-color 0.15s,
     border-color 0.15s,
+    box-shadow 0.15s,
+    filter 0.15s,
     transform 0.08s;
 }
 
@@ -17,43 +23,42 @@
 }
 
 .md {
-  padding: 12px 20px;
-  border-radius: var(--radius-md);
-  font-size: 15px;
+  min-height: 46px;
+  padding: 11px 24px;
+  font-size: 15.5px;
 }
 
 .sm {
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
+  min-height: 34px;
+  padding: 6px 14px;
+  font-size: 13.5px;
 }
 
-.primary {
-  background: var(--color-dark);
-  color: #fff;
-}
-
-.primary:hover {
-  background: var(--color-dark-hover);
-}
-
+.primary,
 .accent {
-  background: var(--color-primary);
+  border-color: rgba(255, 255, 255, 0.28);
+  background: var(--button-primary-bg);
   color: var(--color-on-primary);
+  box-shadow: var(--button-primary-shadow);
 }
 
-.accent:hover {
-  background: var(--color-primary-hover);
+.primary:hover:not(:disabled),
+.accent:hover:not(:disabled) {
+  filter: brightness(1.05) saturate(1.05);
 }
 
 .outline {
-  background: var(--color-surface);
-  border-color: var(--color-border-strong);
+  border: var(--glass-border);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   color: var(--color-text);
 }
 
-.outline:hover {
-  background: var(--color-bg);
+.outline:hover:not(:disabled) {
+  border-color: var(--color-mauve);
+  color: var(--color-primary-text);
 }
 
 .button:disabled {

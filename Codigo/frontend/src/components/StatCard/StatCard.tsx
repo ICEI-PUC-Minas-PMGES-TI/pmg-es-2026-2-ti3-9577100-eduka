@@ -4,17 +4,20 @@ import styles from './StatCard.module.css'
 type StatCardProps = {
   label: string
   value: number | string
-  badge?: ReactNode
+  /** Linha pequena abaixo do número. */
+  descricao?: ReactNode
+  /** Card lavanda com rótulo roxo, para o número principal da tela. */
+  destaque?: boolean
+  /** Número em vermelho, para o que pede atenção. */
+  alerta?: boolean
 }
 
-export function StatCard({ label, value, badge }: StatCardProps) {
+export function StatCard({ label, value, descricao, destaque = false, alerta = false }: StatCardProps) {
   return (
-    <div className={styles.card}>
+    <div className={`${styles.card} ${destaque ? styles.destaque : ''}`}>
       <span className={styles.label}>{label}</span>
-      <div className={styles.valueRow}>
-        <strong className={styles.value}>{value}</strong>
-        {badge}
-      </div>
+      <strong className={`${styles.value} ${alerta ? styles.alerta : ''}`}>{value}</strong>
+      {descricao && <span className={styles.descricao}>{descricao}</span>}
     </div>
   )
 }

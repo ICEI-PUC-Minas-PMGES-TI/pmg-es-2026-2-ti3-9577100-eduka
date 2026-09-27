@@ -1,38 +1,66 @@
 :root {
-  --color-bg: #f3f0fa;
+  /* Paleta do protótipo (Artefatos/identidade-visual). */
+  --color-lavender: #9667e0; /* Lavender Purple: botões e ações principais */
+  --color-mauve: #d4bbfc; /* Mauve: gráficos, bordas e realces */
+  --color-veil: #ebd9fc; /* Lavender Veil: vidro de cards e seletores ativos */
+  --color-mist: #f2ebfb; /* Lavender Mist: superfícies suaves e rodapés */
+
+  --color-bg: #ffffff;
   --color-surface: #ffffff;
-  --color-border: #e6e1f2;
-  --color-border-strong: #d6cfe8;
+  --color-border: #ece2fb;
+  --color-border-strong: #dccbf8;
 
-  --color-text: #15131c;
-  --color-text-muted: #6b6578;
-  --color-text-subtle: #8e889c;
+  --color-text: #221a33; /* Tinta */
+  --color-text-muted: #5f5873;
+  --color-text-subtle: #8f88a3;
 
-  --color-primary: #6c4ce0;
-  --color-primary-hover: #5a3cc9;
-  --color-primary-soft: #ece6fd;
+  --color-primary: var(--color-lavender);
+  --color-primary-hover: #8655d6;
+  /* Roxo mais fechado para texto: o #9667e0 não tem contraste em letra pequena. */
+  --color-primary-text: #6a3fc4;
+  --color-primary-soft: var(--color-veil);
   /* Texto sobre fundo --color-primary (botões, dia escolhido, avatar). */
   --color-on-primary: #ffffff;
-  /* Fundo de elementos escuros com texto branco (botão principal, menu, tags). */
-  --color-dark: #16141d;
-  --color-dark-hover: #2c2937;
 
-  --color-success: #1f8a4c;
-  --color-success-bg: #e3f6ea;
-  --color-danger: #c9344a;
-  --color-danger-bg: #fde6ea;
+  --color-success: #1e7a43;
+  --color-success-bg: #dcf2e4;
+  --color-danger: #a3173d;
+  --color-danger-bg: #fde3ea;
+  --color-neutral: #5f5873;
+  --color-neutral-bg: #ebe9f0;
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-xl: 28px;
   --radius-pill: 999px;
 
-  --shadow-sm: 0 1px 2px rgba(22, 20, 29, 0.04);
-  --shadow-lg: 0 12px 32px rgba(22, 20, 29, 0.22);
+  --shadow-sm: 0 1px 2px rgba(34, 26, 51, 0.04);
+  --shadow-lg: 0 18px 48px rgba(106, 63, 196, 0.18), 0 2px 6px rgba(34, 26, 51, 0.06);
 
-  /* Textos, rótulos, campos e botões. Só tem pesos 400 e 700. */
-  --font-sans: 'Atkinson Hyperlegible', system-ui, 'Segoe UI', Roboto, sans-serif;
-  /* Títulos, números grandes e a palavra "eduka" da logo, sempre em peso 900. */
+  /* Liquid glass: superfície translúcida sobre o fundo lavanda, com desfoque,
+     borda clara e brilho interno no topo. Cada módulo repete estas quatro
+     linhas (background, border, box-shadow, backdrop-filter). */
+  --glass-bg: linear-gradient(145deg, rgba(255, 255, 255, 0.86), rgba(249, 244, 255, 0.68));
+  --glass-bg-tint: linear-gradient(145deg, rgba(235, 217, 252, 0.92), rgba(242, 235, 251, 0.7));
+  --glass-border: 1px solid rgba(255, 255, 255, 0.9);
+  --glass-shadow:
+    0 12px 32px rgba(150, 103, 224, 0.13), 0 1px 3px rgba(34, 26, 51, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  --glass-shadow-sm:
+    0 6px 16px rgba(150, 103, 224, 0.11), 0 1px 2px rgba(34, 26, 51, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  --glass-blur: blur(22px) saturate(170%);
+
+  /* Botão principal: roxo com brilho de vidro em cima e sombra colorida. */
+  --button-primary-bg: linear-gradient(180deg, #a57aeb 0%, #9667e0 55%, #8b5ad9 100%);
+  --button-primary-shadow:
+    0 10px 22px rgba(150, 103, 224, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(90, 50, 170, 0.25);
+
+  /* Textos, legendas e campos de formulário. */
+  --font-sans: 'Figtree', system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* Títulos, números e botões (peso 800-900) e a palavra "eduka" da logo. */
   --font-display: 'Nunito', system-ui, 'Segoe UI', Roboto, sans-serif;
 
   /* Movimento: curto e discreto. As animações ficam em variáveis porque o CSS
@@ -45,7 +73,7 @@
   --animacao-entrar: entrar 0.28s var(--curva) backwards;
   --animacao-aparecer: aparecer 0.2s ease backwards;
 
-  font: 15px/1.45 var(--font-sans);
+  font: 15px/1.5 var(--font-sans);
   color: var(--color-text);
   background: var(--color-bg);
   font-synthesis: none;
@@ -60,10 +88,18 @@
   box-sizing: border-box;
 }
 
+/* Fundo branco com manchas lavanda desfocadas: é o que aparece através do
+   vidro dos cards. Fica fixo para o efeito não "rolar" junto com o conteúdo. */
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--color-bg);
+  background:
+    radial-gradient(38rem 30rem at 92% -4%, rgba(212, 187, 252, 0.62), transparent 70%),
+    radial-gradient(34rem 30rem at -6% 62%, rgba(212, 187, 252, 0.5), transparent 70%),
+    radial-gradient(40rem 32rem at 104% 96%, rgba(235, 217, 252, 0.75), transparent 70%),
+    radial-gradient(28rem 22rem at 30% 8%, rgba(242, 235, 251, 0.9), transparent 70%),
+    var(--color-bg);
+  background-attachment: fixed;
 }
 
 h1,
@@ -81,6 +117,42 @@ input {
 
 button {
   cursor: pointer;
+}
+
+/* Barras de rolagem de vidro: trilho transparente e polegar em pílula lavanda
+   com brilho, afastado da borda por uma margem transparente. */
+::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 4px solid transparent;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, rgba(212, 187, 252, 0.95), rgba(165, 122, 235, 0.85))
+    padding-box;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #a57aeb, #8b5ad9) padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* O Firefox não tem os pseudo-elementos acima. No Chrome, scrollbar-color
+   desligaria o estilo ::-webkit-scrollbar, por isso fica só aqui. */
+@supports (-moz-appearance: none) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(165, 122, 235, 0.8) transparent;
+  }
 }
 
 :focus-visible {
@@ -110,6 +182,12 @@ button {
   }
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -119,4 +197,3 @@ button {
     transition-duration: 0.01ms !important;
   }
 }
-

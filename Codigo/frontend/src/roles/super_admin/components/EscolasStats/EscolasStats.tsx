@@ -1,4 +1,3 @@
-import { Badge } from '../../../../components/Badge/Badge'
 import { StatCard } from '../../../../components/StatCard/StatCard'
 import type { Escola } from '../../../../types/escola'
 import styles from './EscolasStats.module.css'
@@ -14,16 +13,13 @@ export function EscolasStats({ escolas }: EscolasStatsProps) {
 
   return (
     <section className={styles.grid} aria-label="Resumo das escolas">
-      <StatCard label="Total de escolas" value={total} />
-      <StatCard
-        label="Escolas ativas"
-        value={ativas}
-        badge={<Badge tone="success">Funcionando</Badge>}
-      />
+      <StatCard label="Total de escolas" value={total} descricao="Cadastradas na plataforma" destaque />
+      <StatCard label="Escolas ativas" value={ativas} descricao="Funcionando normalmente" />
       <StatCard
         label="Assinaturas suspensas"
         value={suspensas}
-        badge={suspensas > 0 ? <Badge tone="danger">Atenção</Badge> : undefined}
+        descricao={suspensas > 0 ? 'Pedem atenção' : 'Nenhuma no momento'}
+        alerta={suspensas > 0}
       />
     </section>
   )

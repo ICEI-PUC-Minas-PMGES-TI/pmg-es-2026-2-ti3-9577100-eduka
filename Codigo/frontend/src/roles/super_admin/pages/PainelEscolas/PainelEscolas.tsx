@@ -58,16 +58,15 @@ export function PainelEscolas() {
   }
 
   return (
-    <SuperAdminLayout>
-      <div className={styles.heading}>
-        <div>
-          <h1 className={styles.title}>Painel de Escolas</h1>
-          <p className={styles.subtitle}>Todas as escolas que usam o Eduka.</p>
-        </div>
+    <SuperAdminLayout
+      titulo="Painel de Escolas"
+      subtitulo="Todas as escolas que usam o Eduka."
+      acao={
         <Button variant="primary" icon="plus" onClick={abrirCadastro}>
           Cadastrar nova escola
         </Button>
-      </div>
+      }
+    >
 
       <EscolasStats escolas={escolas} />
 
