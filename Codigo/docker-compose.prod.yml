@@ -41,6 +41,14 @@ services:
 
       PII_ENCRYPTION_KEY: ${PII_ENCRYPTION_KEY}
 
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+
+      BREVO_REMETENTE_EMAIL: ${BREVO_REMETENTE_EMAIL:-nao-responda@eduka.com.br}
+
+      BREVO_REMETENTE_NOME: ${BREVO_REMETENTE_NOME:-Eduka}
+
 
   frontend:
 
