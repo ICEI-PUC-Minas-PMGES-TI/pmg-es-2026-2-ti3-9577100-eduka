@@ -4,6 +4,10 @@ package br.pucminas.eduka.backend.exception;
 public class CpfJaCadastradoException extends RuntimeException {
 
     public CpfJaCadastradoException() {
-        super("Ja existe professor com este CPF nesta escola");
+        this("Ja existe professor com este CPF nesta escola");
+    }
+
+    public CpfJaCadastradoException(String mensagem) {
+        super(mensagem);
     }
 }

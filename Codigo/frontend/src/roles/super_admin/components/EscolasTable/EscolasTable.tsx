@@ -4,7 +4,7 @@ import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
 import type { OpcaoSelect } from '../../../../components/Select/Select'
 import { OPCOES_PLANO, ROTULOS_PLANO, type Escola, type PlanoEscola } from '../../../../types/escola'
-import { formatarCnpjCpf, somenteDigitos } from '../../../../utils/formatters'
+import { formatarCnpjCpf, iniciais, somenteDigitos } from '../../../../utils/formatters'
 import { FiltroDropdown } from '../FiltroDropdown/FiltroDropdown'
 import styles from './EscolasTable.module.css'
 
@@ -48,6 +48,7 @@ type EscolasTableProps = {
   onAlternarSituacao: (escola: Escola) => void
 }
 
+/** Lista de escolas em cards de vidro, com busca e filtros por situação e plano. */
 export function EscolasTable({
   escolas,
   carregando,
@@ -67,8 +68,8 @@ export function EscolasTable({
   const suspensas = filtradas.filter((e) => !e.ativo)
   const visiveis = filtroSituacao === 'ativas' ? ativas : filtroSituacao === 'suspensas' ? suspensas : filtradas
 
-  const opcoesSituacao: OpcaoSelect<FiltroSituacao>[] = [
-    { valor: 'todas', rotulo: `Todas as situações (${filtradas.length})` },
+  const opcoesSituacao: { valor: FiltroSituacao; rotulo: string }[] = [
+    { valor: 'todas', rotulo: `Todas (${filtradas.length})` },
     { valor: 'ativas', rotulo: `Ativas (${ativas.length})` },
     { valor: 'suspensas', rotulo: `Suspensas (${suspensas.length})` },
   ]
@@ -78,108 +79,102 @@ export function EscolasTable({
   else if (busca.trim()) mensagemVazia = 'Nenhuma escola encontrada para a busca.'
 
   return (
-    <section className={styles.card}>
+    <section className={styles.secao} aria-labelledby="escolas-cadastradas">
+      <h2 id="escolas-cadastradas" className={styles.title}>
+        Escolas cadastradas
+      </h2>
+
       <div className={styles.toolbar}>
-        <h2 className={styles.title}>Escolas cadastradas</h2>
-        <div className={styles.controles}>
-          <label className={styles.busca}>
-            <Icon name="search" size={15} />
-            <input
-              type="search"
-              placeholder="Buscar por nome, CNPJ ou e-mail"
-              aria-label="Buscar escola por nome, CNPJ ou e-mail"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-            />
-          </label>
-          <div className={styles.filters} role="group" aria-label="Filtrar escolas">
-            <FiltroDropdown
-              aria-label="Filtrar por plano"
-              opcoes={OPCOES_FILTRO_PLANO}
-              valor={filtroPlano}
-              valorPadrao="todos"
-              onChange={setFiltroPlano}
-            />
-            <FiltroDropdown
-              aria-label="Filtrar por situação"
-              opcoes={opcoesSituacao}
-              valor={filtroSituacao}
-              valorPadrao="todas"
-              onChange={setFiltroSituacao}
-            />
-          </div>
+        <label className={styles.busca}>
+          <Icon name="search" size={17} />
+          <input
+            type="search"
+            placeholder="Procurar por nome, CNPJ ou e-mail"
+            aria-label="Buscar escola por nome, CNPJ ou e-mail"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+          />
+        </label>
+        <div className={styles.filters} role="group" aria-label="Filtrar por situação">
+          {opcoesSituacao.map((opcao) => (
+            <button
+              key={opcao.valor}
+              type="button"
+              className={`${styles.chip} ${filtroSituacao === opcao.valor ? styles.chipAtivo : ''}`}
+              aria-pressed={filtroSituacao === opcao.valor}
+              onClick={() => setFiltroSituacao(opcao.valor)}
+            >
+              {opcao.rotulo}
+            </button>
+          ))}
+          <FiltroDropdown
+            aria-label="Filtrar por plano"
+            opcoes={OPCOES_FILTRO_PLANO}
+            valor={filtroPlano}
+            valorPadrao="todos"
+            onChange={setFiltroPlano}
+          />
         </div>
       </div>
 
-      <div className={styles.scroll}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Escola</th>
-              <th>CNPJ</th>
-              <th>Plano</th>
-              <th>Situação</th>
-              <th className={styles.actionsCol}>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {carregando && <LinhaMensagem>Carregando escolas…</LinhaMensagem>}
-            {!carregando && erro && (
-              <LinhaMensagem>
-                <span>{erro}</span>
-                <Button size="sm" onClick={onTentarNovamente}>
-                  Tentar novamente
+      {carregando && <Mensagem>Carregando escolas…</Mensagem>}
+      {!carregando && erro && (
+        <Mensagem>
+          <span>{erro}</span>
+          <Button size="sm" onClick={onTentarNovamente}>
+            Tentar novamente
+          </Button>
+        </Mensagem>
+      )}
+      {!carregando && !erro && visiveis.length === 0 && <Mensagem>{mensagemVazia}</Mensagem>}
+
+      {!carregando && !erro && visiveis.length > 0 && (
+        <ul className={styles.lista}>
+          {visiveis.map((escola) => (
+            <li key={escola.id} className={`${styles.linha} ${escola.ativo ? '' : styles.suspensa}`}>
+              <span className={styles.avatar} aria-hidden="true">
+                {iniciais(escola.nome)}
+              </span>
+              <div className={styles.info}>
+                <strong className={styles.nome}>{escola.nome}</strong>
+                <span className={styles.meta}>
+                  <span className={styles.cnpj}>
+                    {escola.cnpjCpf ? formatarCnpjCpf(escola.cnpjCpf) : 'Sem CNPJ'}
+                  </span>
+                  {' · '}
+                  {escola.plano ? `Plano ${ROTULOS_PLANO[escola.plano]}` : 'Sem plano'}
+                  {escola.email && ` · ${escola.email}`}
+                </span>
+              </div>
+              {escola.ativo ? (
+                <Badge tone="success" icon="check">
+                  Ativa
+                </Badge>
+              ) : (
+                <Badge tone="danger">Suspensa</Badge>
+              )}
+              <div className={styles.actions}>
+                <Button size="sm" icon="edit" onClick={() => onEditar(escola)}>
+                  Editar
                 </Button>
-              </LinhaMensagem>
-            )}
-            {!carregando && !erro && visiveis.length === 0 && (
-              <LinhaMensagem>{mensagemVazia}</LinhaMensagem>
-            )}
-            {!carregando && !erro && visiveis.map((escola) => (
-              <tr key={escola.id}>
-                <td className={styles.nome}>{escola.nome}</td>
-                <td className={styles.cnpj}>{escola.cnpjCpf ? formatarCnpjCpf(escola.cnpjCpf) : '—'}</td>
-                <td>{escola.plano ? ROTULOS_PLANO[escola.plano] : '—'}</td>
-                <td>
-                  {escola.ativo ? (
-                    <Badge tone="success" icon="check">
-                      Ativa
-                    </Badge>
-                  ) : (
-                    <Badge tone="danger">Suspensa</Badge>
-                  )}
-                </td>
-                <td className={styles.actionsCol}>
-                  <div className={styles.actions}>
-                    <Button size="sm" icon="edit" onClick={() => onEditar(escola)}>
-                      Editar
-                    </Button>
-                    <Button
-                      size="sm"
-                      className={styles.alternar}
-                      icon={escola.ativo ? 'pause' : 'check'}
-                      disabled={alternandoId === escola.id}
-                      onClick={() => onAlternarSituacao(escola)}
-                    >
-                      {escola.ativo ? 'Suspender' : 'Reativar'}
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                <Button
+                  size="sm"
+                  className={styles.alternar}
+                  icon={escola.ativo ? 'pause' : 'check'}
+                  disabled={alternandoId === escola.id}
+                  onClick={() => onAlternarSituacao(escola)}
+                >
+                  {escola.ativo ? 'Suspender' : 'Reativar'}
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   )
 }
 
-function LinhaMensagem({ children }: { children: ReactNode }) {
-  return (
-    <tr>
-      <td colSpan={5} className={styles.empty}>
-        <div className={styles.emptyContent}>{children}</div>
-      </td>
-    </tr>
-  )
+function Mensagem({ children }: { children: ReactNode }) {
+  return <div className={styles.mensagem}>{children}</div>
 }

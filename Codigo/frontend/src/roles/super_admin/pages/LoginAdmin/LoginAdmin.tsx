@@ -66,9 +66,9 @@ export function LoginAdmin() {
         {/* Painel Esquerdo com Identidade Visual */}
         <section className={styles.heroCard}>
           <header className={styles.brand}>
-            <img src={logoEduka} alt="" className={styles.brandLogo} width={32} height={32} />
+            <img src={logoEduka} alt="" className={styles.brandLogo} width={54} height={54} />
             <span className={styles.brandName}>eduka</span>
-            <span className={styles.superBadge}>SUPER CONSOLE</span>
+            <span className={styles.superBadge}>Super Console</span>
           </header>
 
           <div className={styles.heroContent}>
@@ -83,14 +83,14 @@ export function LoginAdmin() {
           </div>
 
           <footer className={styles.heroSecurity}>
-            <Icon name="shield" size={16} />
+            <Icon name="shield" size={18} />
             <span>Acesso monitorado e protegido por criptografia.</span>
           </footer>
         </section>
 
         {/* Painel Direito com Formulário */}
         <main className={styles.formCard}>
-          <span className={styles.adminTag}>PAINEL ADMINISTRATIVO GLOBAL</span>
+          <span className={styles.adminTag}>Painel administrativo global</span>
 
           <h2 className={styles.formTitle}>
             Console do

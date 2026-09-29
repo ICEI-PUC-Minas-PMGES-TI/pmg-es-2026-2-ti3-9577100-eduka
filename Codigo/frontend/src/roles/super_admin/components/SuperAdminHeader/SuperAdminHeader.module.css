@@ -1,114 +1,108 @@
 .header {
-  display: grid;
-  grid-template-columns: auto auto;
-  justify-content: space-between;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 24px;
+  justify-content: space-between;
+  gap: 20px 24px;
+}
+
+.texto {
+  min-width: 0;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-bottom: 6px;
 }
 
 .logoIcon {
   display: block;
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
 }
 
 .logo {
-  font-size: 24px;
   font-family: var(--font-display);
+  font-size: 20px;
   font-weight: 900;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.4px;
   color: var(--color-text);
 }
 
-.tag {
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: var(--color-dark);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
+.contexto {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 13.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.user {
+.title {
+  font-family: var(--font-display);
+  font-size: 46px;
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -1.2px;
+}
+
+.subtitle {
+  margin-top: 6px;
+  color: var(--color-text-muted);
+  font-size: 16px;
+}
+
+.acoes {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  padding: 6px 12px 6px 6px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
 }
 
-.avatar {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.userInfo {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
-}
-
-.userInfo strong {
-  font-size: 13px;
-}
-
-.userInfo span {
-  font-size: 11px;
-  color: var(--color-text-muted);
-}
-
+/* Pílula de vidro, como "Ajuda" e "Sair" no protótipo. */
 .sair {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  margin-left: 4px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 10px 22px;
+  border: var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    transform 0.08s;
 }
 
 .sair:hover {
-  background: var(--color-border);
-  color: var(--color-text);
+  border-color: var(--color-mauve);
+  color: var(--color-primary-text);
 }
 
-.sair:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+.sair:active {
+  transform: scale(0.97);
 }
 
 @media (max-width: 720px) {
-  .header {
-    gap: 12px;
+  .title {
+    font-size: 34px;
+    letter-spacing: -0.8px;
   }
 
-
-  .userInfo {
-    display: none;
+  .acoes {
+    width: 100%;
   }
 
-  .user {
-    padding: 4px;
+  .acoes > :first-child:not(:last-child) {
+    flex: 1;
   }
 }

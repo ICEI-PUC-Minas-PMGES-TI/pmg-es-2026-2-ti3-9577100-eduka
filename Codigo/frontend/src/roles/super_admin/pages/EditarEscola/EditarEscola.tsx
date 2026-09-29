@@ -76,15 +76,16 @@ export function EditarEscola() {
   }
 
   return (
-    <SuperAdminLayout>
-      <div>
+    <SuperAdminLayout
+      titulo="Editar escola"
+      subtitulo={escola?.nome}
+      voltar={
         <Link to={paths.superAdmin.escolas} className={styles.voltar}>
-          <Icon name="arrowLeft" size={14} />
+          <Icon name="arrowLeft" size={16} />
           Voltar para o painel de escolas
         </Link>
-        <h1 className={styles.title}>Editar escola</h1>
-        {escola && <p className={styles.subtitle}>{escola.nome}</p>}
-      </div>
+      }
+    >
 
       {erro && (
         <div className={styles.alerta} role="alert">

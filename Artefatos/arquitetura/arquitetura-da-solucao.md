@@ -340,8 +340,8 @@ são sempre lidos das claims do token, e não de um valor salvo à parte; só o 
 guardado separadamente. O `RotaProtegida` é só conveniência de navegação: quem garante o acesso é o
 backend.
 
-A interface usa apenas tema claro, com cores, fontes (Nunito nos títulos, Atkinson Hyperlegible
-no texto) e animações definidas como variáveis em `styles/global.css`. Detalhes em
+A interface usa apenas tema claro, no estilo "liquid glass" do protótipo, com cores, fontes (Nunito
+nos títulos, Figtree no texto) e animações definidas como variáveis em `styles/global.css`. Detalhes em
 [`Codigo/frontend/README.md`](../../Codigo/frontend/README.md).
 
 ---

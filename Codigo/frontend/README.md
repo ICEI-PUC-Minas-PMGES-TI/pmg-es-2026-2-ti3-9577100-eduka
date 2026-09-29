@@ -63,9 +63,13 @@ Nenhuma tela chama `fetch` diretamente. Tudo passa por `apiRequest` (`services/a
 ## Estilo
 
 * **Tokens em `styles/global.css`.** Cores, raios e sombras são variáveis CSS (`--color-primary`,
-  `--color-on-primary`, `--color-dark`, `--shadow-lg`...). Não use cores fixas nos módulos.
-* **Fontes:** Nunito 900 em títulos e na palavra "eduka" (`--font-display`); Atkinson Hyperlegible
-  no texto (`--font-sans`). Carregadas do Google Fonts em `index.html`.
+  `--color-primary-text`, `--color-veil`, `--shadow-lg`...). Não use cores fixas nos módulos.
+* **Liquid glass:** cards, botões secundários, filtros e a navegação são superfícies de vidro sobre o
+  fundo lavanda do `body`. Use `--glass-bg` (ou `--glass-bg-tint` para o card em destaque),
+  `--glass-border`, `--glass-shadow` e `--glass-blur`; o botão principal usa
+  `--button-primary-bg` e `--button-primary-shadow`.
+* **Fontes:** Nunito 800/900 em títulos, números, rótulos e botões (`--font-display`); Figtree no
+  texto e nos campos (`--font-sans`). Carregadas do Google Fonts em `index.html`.
 * **Tema:** apenas claro. Não há modo escuro.
 * **Animações:** curtas e discretas, expostas como variáveis (`--animacao-surgir`,
   `--animacao-entrar`, `--animacao-aparecer`), porque o CSS Modules renomeia `@keyframes` por
