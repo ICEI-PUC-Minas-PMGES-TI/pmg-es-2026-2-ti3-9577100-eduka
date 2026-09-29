@@ -11,9 +11,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.pucminas.eduka.backend.domain.PapelPessoa;
+import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.PessoaPapel;
 import br.pucminas.eduka.backend.domain.Professor;
+import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.ProfessorRequest;
 import br.pucminas.eduka.backend.dto.ProfessorResponse;
 import br.pucminas.eduka.backend.exception.CpfJaCadastradoException;
@@ -42,6 +44,12 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
  * Nao ha exclusao fisica: o professor e inativado, para nao quebrar
  * historico (turmas, avaliacoes) que venha a apontar para ele.
  * </p>
+ *
+ * <p>
+ * O login do professor e criado junto com o cadastro, via
+ * {@link AcessoService}: login = e-mail, senha provisoria = CPF, enviada por
+ * e-mail. Inativar o professor inativa o login.
+ * </p>
  */
 @Service
 public class ProfessorService {
@@ -50,13 +58,16 @@ public class ProfessorService {
     private final PessoaRepository pessoaRepository;
     private final PessoaPapelRepository pessoaPapelRepository;
     private final IsolamentoEscola isolamentoEscola;
+    private final AcessoService acessoService;
 
     public ProfessorService(ProfessorRepository professorRepository, PessoaRepository pessoaRepository,
-            PessoaPapelRepository pessoaPapelRepository, IsolamentoEscola isolamentoEscola) {
+            PessoaPapelRepository pessoaPapelRepository, IsolamentoEscola isolamentoEscola,
+            AcessoService acessoService) {
         this.professorRepository = professorRepository;
         this.pessoaRepository = pessoaRepository;
         this.pessoaPapelRepository = pessoaPapelRepository;
         this.isolamentoEscola = isolamentoEscola;
+        this.acessoService = acessoService;
     }
 
     /**
@@ -84,8 +95,9 @@ public class ProfessorService {
     }
 
     /**
-     * Cadastra o professor na escola do usuario autenticado. O request nao
-     * carrega escola: mesmo que carregasse, seria ignorado.
+     * Cadastra o professor na escola do usuario autenticado e cria o login
+     * dele. O request nao carrega escola: mesmo que carregasse, seria
+     * ignorado. E-mail ja usado como login barra o cadastro inteiro (409).
      */
     @Transactional
     public ProfessorResponse cadastrar(ProfessorRequest request) {
@@ -96,20 +108,42 @@ public class ProfessorService {
                 .escolaId(escolaId)
                 .nome(request.nome().trim())
                 .cpf(request.cpf())
-                .email(request.email())
+                .email(request.email().trim())
                 .telefone(request.telefone())
                 .ativo(true)
                 .build());
         pessoaPapelRepository.save(PessoaPapel.builder().pessoaId(pessoa.getId()).papel(PapelPessoa.PROFESSOR).build());
+        Usuario usuario = acessoService.enviarAcessoInicial(pessoa, PerfilUsuario.PROFESSOR);
 
         Professor professor = professorRepository.save(Professor.builder()
                 .escolaId(escolaId)
                 .pessoaId(pessoa.getId())
+                .usuarioId(usuario.getId())
                 .formacao(request.formacao())
                 .dataAdmissao(request.dataAdmissao())
                 .ativo(true)
                 .build());
         return ProfessorResponse.de(professor, pessoa);
+    }
+
+    /**
+     * Novo e-mail de primeiro acesso, com senha provisoria renovada: para
+     * quem perdeu o e-mail ou deixou a senha expirar. Recusado (409) se o
+     * professor ja definiu a senha.
+     */
+    @Transactional
+    public void reenviarAcesso(UUID id) {
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        Professor professor = buscarProfessor(id, escolaId);
+        if (!professor.isAtivo()) {
+            throw new IllegalArgumentException("Professor inativo nao recebe acesso");
+        }
+        Usuario usuario = acessoService.enviarAcessoInicial(buscarPessoa(professor, escolaId),
+                PerfilUsuario.PROFESSOR);
+        if (!usuario.getId().equals(professor.getUsuarioId())) {
+            professor.setUsuarioId(usuario.getId());
+            professorRepository.save(professor);
+        }
     }
 
     @Transactional
@@ -121,12 +155,13 @@ public class ProfessorService {
 
         pessoa.setNome(request.nome().trim());
         pessoa.setCpf(request.cpf());
-        pessoa.setEmail(request.email());
+        pessoa.setEmail(request.email().trim());
         pessoa.setTelefone(request.telefone());
         professor.setFormacao(request.formacao());
         professor.setDataAdmissao(request.dataAdmissao());
         professor.setAtualizadoEm(Instant.now());
 
+        acessoService.sincronizarLogin(pessoa);
         return ProfessorResponse.de(professorRepository.save(professor), pessoaRepository.save(pessoa));
     }
 
@@ -148,6 +183,7 @@ public class ProfessorService {
             professor.setAtivo(ativo);
             professor.setAtualizadoEm(Instant.now());
             professor = professorRepository.save(professor);
+            acessoService.definirAtivo(pessoa, ativo);
         }
         return ProfessorResponse.de(professor, pessoa);
     }

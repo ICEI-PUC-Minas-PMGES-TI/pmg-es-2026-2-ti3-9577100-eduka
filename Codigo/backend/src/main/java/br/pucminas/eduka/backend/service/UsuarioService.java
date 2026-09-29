@@ -118,7 +118,7 @@ public class UsuarioService {
         return request.escolaId();
     }
 
-    /** Package-private: {@link SecretariaService} reaproveita a mesma regra em vez de duplicar. */
+    /** Regras de tamanho de toda senha definitiva, inclusive a do primeiro acesso. */
     static void validarSenha(String senha) {
         if (senha == null || senha.length() < SENHA_TAMANHO_MINIMO) {
             throw new SenhaInvalidaException(

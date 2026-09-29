@@ -59,10 +59,25 @@ public class Usuario {
     @Column(name = "ATIVO", nullable = false)
     private boolean ativo;
 
+    /**
+     * Senha gerada pelo sistema no primeiro acesso (ver
+     * {@link br.pucminas.eduka.backend.service.AcessoService}). Enquanto
+     * verdadeiro, o login nao emite token: so a troca por senha definitiva.
+     */
+    @Column(name = "SENHA_PROVISORIA", nullable = false)
+    private boolean senhaProvisoria;
+
+    @Column(name = "SENHA_PROVISORIA_EXPIRA_EM")
+    private Instant senhaProvisoriaExpiraEm;
+
     /** Preenchido pelo DEFAULT da coluna e relido apos o insert. */
     @Generated(event = EventType.INSERT)
     @Column(name = "CRIADO_EM", nullable = false, updatable = false)
     private Instant criadoEm;
+
+    public boolean senhaProvisoriaExpirada(Instant agora) {
+        return senhaProvisoriaExpiraEm != null && !agora.isBefore(senhaProvisoriaExpiraEm);
+    }
 
     /**
      * Evita que a senha vaze em log, stack trace ou resposta de erro.

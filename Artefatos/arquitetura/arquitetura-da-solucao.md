@@ -147,7 +147,7 @@ flowchart TB
     REQ(["Requisição HTTP"])
 
     subgraph sec["security — filtro transversal"]
-        CHAIN["<b>SecurityFilterChain</b><br/>stateless · CSRF off · CORS<br/>público: <code>/health</code>, <code>/login</code>, <code>OPTIONS</code>"]
+        CHAIN["<b>SecurityFilterChain</b><br/>stateless · CSRF off · CORS<br/>público: <code>/health</code>, <code>/login</code>, <code>/primeiro-acesso</code>, <code>OPTIONS</code>"]
         VALID["<b>AccessTokenValidator</b><br/>exige access token (recusa refresh)"]
         CONV["<b>PerfilAuthenticationConverter</b><br/>perfil do token → <code>ROLE_*</code>"]
         ROTAS["<b>RotasPorPerfil</b><br/>quais perfis entram em cada módulo"]
@@ -157,7 +157,7 @@ flowchart TB
     end
 
     subgraph ctrl["controller — @RestController"]
-        AUTHC["AuthController<br/><code>POST /login</code>"]
+        AUTHC["AuthController<br/><code>POST /login</code> · <code>/primeiro-acesso</code>"]
         ESCC["EscolaController<br/><code>/escolas</code> · só SUPER_ADMIN"]
         ALUC["AlunoController<br/><code>/alunos</code> · por perfil"]
         PROFC["ProfessorController<br/><code>/professores</code> · MASTER, SECRETARIA"]
@@ -170,6 +170,7 @@ flowchart TB
         ESCS["EscolaService"]
         ALUS["AlunoService"]
         PROFS["ProfessorService"]
+        ACES["AcessoService<br/>login inicial + e-mail"]
     end
 
     subgraph repo["repository — Spring Data JPA"]
@@ -203,6 +204,7 @@ flowchart TB
 |---|---|---|
 | `GET` | `/health` | público |
 | `POST` | `/login` | público |
+| `POST` | `/primeiro-acesso` (troca a senha provisória pela definitiva) | público |
 | `GET` | `/escolas` · `/escolas/{id}` | `SUPER_ADMIN` |
 | `POST` | `/escolas` | `SUPER_ADMIN` |
 | `PUT` | `/escolas/{id}` | `SUPER_ADMIN` |
@@ -214,6 +216,7 @@ flowchart TB
 | `PUT` | `/professores/{id}` | `MASTER`, `SECRETARIA` |
 | `DELETE` | `/professores/{id}` (inativa) | `MASTER`, `SECRETARIA` |
 | `PATCH` | `/professores/{id}/ativar` | `MASTER`, `SECRETARIA` |
+| `POST` | `/professores/{id}/primeiro-acesso` (reenvia o e-mail) | `MASTER`, `SECRETARIA` |
 
 Qualquer rota não listada como pública exige `Authorization: Bearer <access token>` e responde
 `401` sem ele. Perfil sem permissão recebe `403`.
@@ -364,6 +367,7 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | `V9__recria_pessoa_cifrada.sql` | Recria `PESSOA` com os dados pessoais em `BYTEA` cifrado |
 | `V10__liga_alunos_a_pessoa.sql` | Aluno passa a apontar para `PESSOA`; responsáveis em `ALUNO_RESPONSAVEL` |
 | `V11__criar_professor.sql` | Tabela `PROFESSOR`, ligada a `PESSOA` (dados pessoais cifrados) |
+| `V12__acesso_inicial_usuario.sql` | Senha provisória em `USUARIO` (flag + validade) e `PROFESSOR.USUARIO_ID` |
 
 ---
 
@@ -391,7 +395,7 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 
 | RNF | Como a arquitetura atende |
 |---|---|
-| Autenticação | JWT HS256, rotas protegidas por padrão; só `/health` e `/login` são públicas |
+| Autenticação | JWT HS256, rotas protegidas por padrão; só `/health`, `/login` e `/primeiro-acesso` são públicas |
 | Autorização por perfil | `@PreAuthorize` sobre `ROLE_*` derivado do claim de perfil |
 | Isolamento entre escolas | `IsolamentoEscola` nos services e `@TenantId` no Hibernate; escola vem do token |
 | Confidencialidade de senha | BCrypt custo 12; a coluna `senha_hash` nunca recebe texto puro |

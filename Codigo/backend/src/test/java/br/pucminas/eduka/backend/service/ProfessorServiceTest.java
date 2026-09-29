@@ -25,11 +25,14 @@ import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import br.pucminas.eduka.backend.domain.PapelPessoa;
+import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.PessoaPapel;
 import br.pucminas.eduka.backend.domain.Professor;
+import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.ProfessorRequest;
 import br.pucminas.eduka.backend.dto.ProfessorResponse;
+import br.pucminas.eduka.backend.exception.AcessoJaAtivadoException;
 import br.pucminas.eduka.backend.exception.CpfJaCadastradoException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
@@ -41,7 +44,8 @@ import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 /**
  * Isolamento por escola no servico de professor: toda consulta e escrita usa
  * a escola do token. Cobre tambem o CPF unico por escola (checado em memoria,
- * ja que a coluna e cifrada) e a inativacao no lugar da exclusao.
+ * ja que a coluna e cifrada), a inativacao no lugar da exclusao e a
+ * criacao do login junto com o cadastro.
  */
 @ExtendWith(MockitoExtension.class)
 class ProfessorServiceTest {
@@ -55,13 +59,15 @@ class ProfessorServiceTest {
     private PessoaRepository pessoaRepository;
     @Mock
     private PessoaPapelRepository pessoaPapelRepository;
+    @Mock
+    private AcessoService acessoService;
 
     private ProfessorService professorService;
 
     @BeforeEach
     void setUp() {
         professorService = new ProfessorService(professorRepository, pessoaRepository, pessoaPapelRepository,
-                new IsolamentoEscola());
+                new IsolamentoEscola(), acessoService);
     }
 
     @AfterEach
@@ -177,11 +183,17 @@ class ProfessorServiceTest {
         verify(pessoaRepository, never()).save(any());
     }
 
+    private void stubAcessoCriado(UUID usuarioId) {
+        when(acessoService.enviarAcessoInicial(any(Pessoa.class), eq(PerfilUsuario.PROFESSOR)))
+                .thenReturn(Usuario.builder().id(usuarioId).build());
+    }
+
     @Test
     void cadastrarGravaEscolaDoTokenEPapelProfessor() {
         autenticarComo("SECRETARIA", ESCOLA_A);
         when(professorRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of());
         stubSaves();
+        stubAcessoCriado(UUID.randomUUID());
 
         ProfessorResponse resultado = professorService.cadastrar(request(" Ana ", "12345678900"));
 
@@ -203,6 +215,69 @@ class ProfessorServiceTest {
         assertThat(resultado.escolaId()).isEqualTo(ESCOLA_A);
         assertThat(resultado.ativo()).isTrue();
         assertThat(resultado.dataAdmissao()).isEqualTo(LocalDate.of(2026, 2, 1));
+    }
+
+    @Test
+    void cadastrarCriaOLoginDoProfessorEGuardaOVinculo() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        when(professorRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of());
+        stubSaves();
+        UUID usuarioId = UUID.randomUUID();
+        stubAcessoCriado(usuarioId);
+
+        professorService.cadastrar(request("Ana", "12345678900"));
+
+        ArgumentCaptor<Pessoa> pessoaCaptor = ArgumentCaptor.forClass(Pessoa.class);
+        verify(acessoService).enviarAcessoInicial(pessoaCaptor.capture(), eq(PerfilUsuario.PROFESSOR));
+        assertThat(pessoaCaptor.getValue().getEmail()).isEqualTo("prof@example.com");
+        assertThat(pessoaCaptor.getValue().getCpf()).isEqualTo("12345678900");
+
+        ArgumentCaptor<Professor> professorCaptor = ArgumentCaptor.forClass(Professor.class);
+        verify(professorRepository).save(professorCaptor.capture());
+        assertThat(professorCaptor.getValue().getUsuarioId()).isEqualTo(usuarioId);
+    }
+
+    @Test
+    void reenviarAcessoRenovaOAcessoDoProfessorDaEscola() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Pessoa pessoaAna = pessoa("Ana", "12345678900");
+        Professor ana = professor(ESCOLA_A, pessoaAna.getId());
+        UUID usuarioId = UUID.randomUUID();
+        ana.setUsuarioId(usuarioId);
+        when(professorRepository.findByIdAndEscolaId(ana.getId(), ESCOLA_A)).thenReturn(Optional.of(ana));
+        when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+        stubAcessoCriado(usuarioId);
+
+        professorService.reenviarAcesso(ana.getId());
+
+        verify(acessoService).enviarAcessoInicial(pessoaAna, PerfilUsuario.PROFESSOR);
+        verify(professorRepository, never()).save(any());
+    }
+
+    @Test
+    void reenviarAcessoParaProfessorInativoEhRecusado() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Professor ana = professor(ESCOLA_A, UUID.randomUUID());
+        ana.setAtivo(false);
+        when(professorRepository.findByIdAndEscolaId(ana.getId(), ESCOLA_A)).thenReturn(Optional.of(ana));
+
+        assertThatThrownBy(() -> professorService.reenviarAcesso(ana.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(acessoService, never()).enviarAcessoInicial(any(), any());
+    }
+
+    @Test
+    void reenviarAcessoDeQuemJaDefiniuASenhaPropagaOConflito() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Pessoa pessoaAna = pessoa("Ana", "12345678900");
+        Professor ana = professor(ESCOLA_A, pessoaAna.getId());
+        when(professorRepository.findByIdAndEscolaId(ana.getId(), ESCOLA_A)).thenReturn(Optional.of(ana));
+        when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+        when(acessoService.enviarAcessoInicial(pessoaAna, PerfilUsuario.PROFESSOR))
+                .thenThrow(new AcessoJaAtivadoException());
+
+        assertThatThrownBy(() -> professorService.reenviarAcesso(ana.getId()))
+                .isInstanceOf(AcessoJaAtivadoException.class);
     }
 
     @Test
@@ -230,10 +305,13 @@ class ProfessorServiceTest {
         stubSaves();
 
         ProfessorResponse resultado = professorService.atualizar(ana.getId(),
-                new ProfessorRequest("Ana Maria", "12345678900", null, null, "Mestrado em Fisica", null));
+                new ProfessorRequest("Ana Maria", "12345678900", " ana@example.com ", null, "Mestrado em Fisica",
+                        null));
 
         assertThat(resultado.nome()).isEqualTo("Ana Maria");
-        assertThat(resultado.email()).isNull();
+        assertThat(resultado.email()).isEqualTo("ana@example.com");
+        assertThat(resultado.telefone()).isNull();
+        verify(acessoService).sincronizarLogin(pessoaAna);
         assertThat(resultado.formacao()).isEqualTo("Mestrado em Fisica");
         assertThat(ana.getAtualizadoEm()).isNotNull();
         assertThat(ana.getEscolaId()).isEqualTo(ESCOLA_A);
@@ -269,8 +347,10 @@ class ProfessorServiceTest {
 
         professorService.inativar(ana.getId());
         assertThat(ana.isAtivo()).isFalse();
+        verify(acessoService).definirAtivo(pessoaAna, false);
 
         assertThat(professorService.ativar(ana.getId()).ativo()).isTrue();
+        verify(acessoService).definirAtivo(pessoaAna, true);
         verify(professorRepository, never()).delete(any());
         verify(professorRepository, never()).deleteById(any());
     }

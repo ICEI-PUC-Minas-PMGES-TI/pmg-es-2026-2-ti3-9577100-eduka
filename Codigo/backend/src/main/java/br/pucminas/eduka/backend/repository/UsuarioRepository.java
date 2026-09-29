@@ -15,7 +15,5 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
 
     boolean existsByLogin(String login);
 
-    List<Usuario> findAllByEscolaIdAndPerfil(UUID escolaId, PerfilUsuario perfil);
-
-    Optional<Usuario> findByIdAndEscolaIdAndPerfil(UUID id, UUID escolaId, PerfilUsuario perfil);
+    Optional<Usuario> findByPessoaId(UUID pessoaId);
 }
