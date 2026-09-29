@@ -52,7 +52,7 @@ class ProfessorControllerSecurityTest {
 
     private static final UUID ESCOLA_A = UUID.randomUUID();
     private static final UUID ESCOLA_B = UUID.randomUUID();
-    private static final String CORPO_VALIDO = "{\"nome\":\"Ana\",\"cpf\":\"12345678900\"}";
+    private static final String CORPO_VALIDO = "{\"nome\":\"Ana\",\"cpf\":\"52998224725\"}";
 
     @Autowired
     private MockMvc mockMvc;
@@ -85,7 +85,7 @@ class ProfessorControllerSecurityTest {
     }
 
     private static Pessoa pessoa(String nome) {
-        return Pessoa.builder().id(UUID.randomUUID()).nome(nome).cpf("12345678900").ativo(true).build();
+        return Pessoa.builder().id(UUID.randomUUID()).nome(nome).cpf("52998224725").ativo(true).build();
     }
 
     private void stubSaves() {
@@ -152,14 +152,18 @@ class ProfessorControllerSecurityTest {
     class Validacao {
 
         @Test
-        void semNomeOuComCpfMalformadoResponde400() throws Exception {
+        void semNomeOuComCpfInvalidoResponde400() throws Exception {
             String token = accessToken("SECRETARIA", ESCOLA_A);
-            mockMvc.perform(json(post("/professores"), token, "{\"cpf\":\"12345678900\"}"))
+            mockMvc.perform(json(post("/professores"), token, "{\"cpf\":\"52998224725\"}"))
                     .andExpect(status().isBadRequest());
             mockMvc.perform(json(post("/professores"), token, "{\"nome\":\"Ana\",\"cpf\":\"123.456.789-00\"}"))
                     .andExpect(status().isBadRequest());
+            mockMvc.perform(json(post("/professores"), token, "{\"nome\":\"Ana\",\"cpf\":\"52998224724\"}"))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(json(post("/professores"), token, "{\"nome\":\"Ana\",\"cpf\":\"11111111111\"}"))
+                    .andExpect(status().isBadRequest());
             mockMvc.perform(json(post("/professores"), token,
-                    "{\"nome\":\"Ana\",\"cpf\":\"12345678900\",\"email\":\"nao-e-email\"}"))
+                    "{\"nome\":\"Ana\",\"cpf\":\"52998224725\",\"email\":\"nao-e-email\"}"))
                     .andExpect(status().isBadRequest());
             verify(professorRepository, never()).save(any());
         }
@@ -237,7 +241,7 @@ class ProfessorControllerSecurityTest {
             stubSaves();
 
             mockMvc.perform(json(post("/professores"), accessToken("MASTER", ESCOLA_A),
-                    "{\"nome\":\"Ana\",\"cpf\":\"12345678900\",\"escolaId\":\"" + ESCOLA_B + "\"}"))
+                    "{\"nome\":\"Ana\",\"cpf\":\"52998224725\",\"escolaId\":\"" + ESCOLA_B + "\"}"))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.escolaId").value(ESCOLA_A.toString()));
 
