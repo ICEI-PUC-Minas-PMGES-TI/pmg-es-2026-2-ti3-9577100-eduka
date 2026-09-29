@@ -7,6 +7,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -22,6 +25,8 @@ import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.LoginResponse;
 import br.pucminas.eduka.backend.exception.CredenciaisInvalidasException;
+import br.pucminas.eduka.backend.exception.SenhaInvalidaException;
+import br.pucminas.eduka.backend.exception.SenhaProvisoriaExpiradaException;
 import br.pucminas.eduka.backend.repository.UsuarioRepository;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.security.PasswordEncoderConfig;
@@ -30,6 +35,9 @@ import br.pucminas.eduka.backend.security.PasswordEncoderConfig;
 class AuthServiceTest {
 
     private static final String SENHA = "senha-forte-123";
+    private static final String CPF = "52998224725";
+    private static final Instant AGORA = Instant.parse("2026-09-28T12:00:00Z");
+    private static final Clock RELOGIO = Clock.fixed(AGORA, ZoneOffset.UTC);
 
     @Mock
     private UsuarioRepository usuarioRepository;
@@ -45,7 +53,7 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(usuarioRepository, passwordEncoder, jwtService);
+        authService = new AuthService(usuarioRepository, passwordEncoder, jwtService, RELOGIO);
         usuario = Usuario.builder()
                 .id(UUID.randomUUID())
                 .escolaId(UUID.randomUUID())
@@ -165,5 +173,114 @@ class AuthServiceTest {
         assertThat(usuario.getSenhaHash()).startsWith("{bcrypt}$2a$12$");
         assertThat(passwordEncoder.matches(SENHA, usuario.getSenhaHash())).isTrue();
         verify(usuarioRepository).save(usuario);
+    }
+
+    private void comSenhaProvisoria(Instant expiraEm) {
+        usuario.setSenhaHash(passwordEncoder.encode(CPF));
+        usuario.setSenhaProvisoria(true);
+        usuario.setSenhaProvisoriaExpiraEm(expiraEm);
+        when(usuarioRepository.findByLogin("maria")).thenReturn(Optional.of(usuario));
+    }
+
+    @Test
+    void loginComSenhaProvisoriaNaoEmiteTokenEPedeTroca() {
+        comSenhaProvisoria(AGORA.plusSeconds(3600));
+
+        LoginResponse response = authService.login("maria", CPF);
+
+        assertThat(response.trocaSenhaObrigatoria()).isTrue();
+        assertThat(response.accessToken()).isNull();
+        assertThat(response.refreshToken()).isNull();
+        assertThat(response.usuarioId()).isEqualTo(usuario.getId());
+        verify(jwtService, never()).generateAccessToken(any(), any(), any());
+        verify(jwtService, never()).generateRefreshToken(any());
+    }
+
+    @Test
+    void loginComSenhaProvisoriaExpiradaEhRecusado() {
+        comSenhaProvisoria(AGORA);
+
+        assertThatThrownBy(() -> authService.login("maria", CPF))
+                .isInstanceOf(SenhaProvisoriaExpiradaException.class);
+    }
+
+    @Test
+    void loginComSenhaProvisoriaErradaNaoRevelaQueEhProvisoria() {
+        comSenhaProvisoria(AGORA);
+
+        assertThatThrownBy(() -> authService.login("maria", "11144477735"))
+                .isInstanceOf(CredenciaisInvalidasException.class);
+    }
+
+    @Test
+    void loginNormalDevolveTrocaSenhaObrigatoriaFalsa() {
+        when(usuarioRepository.findByLogin("maria")).thenReturn(Optional.of(usuario));
+
+        assertThat(authService.login("maria", SENHA).trocaSenhaObrigatoria()).isFalse();
+    }
+
+    @Test
+    void definirSenhaDefinitivaTrocaAHashEEmiteTokens() {
+        comSenhaProvisoria(AGORA.plusSeconds(3600));
+        when(jwtService.generateAccessToken(usuario.getId(), "FINANCEIRO", usuario.getEscolaId()))
+                .thenReturn("access-token");
+        when(jwtService.generateRefreshToken(usuario.getId())).thenReturn("refresh-token");
+
+        LoginResponse response = authService.definirSenhaDefinitiva(" MARIA ", CPF, "nova-senha-forte");
+
+        assertThat(response.accessToken()).isEqualTo("access-token");
+        assertThat(response.trocaSenhaObrigatoria()).isFalse();
+        assertThat(usuario.isSenhaProvisoria()).isFalse();
+        assertThat(usuario.getSenhaProvisoriaExpiraEm()).isNull();
+        assertThat(passwordEncoder.matches("nova-senha-forte", usuario.getSenhaHash())).isTrue();
+        assertThat(passwordEncoder.matches(CPF, usuario.getSenhaHash())).isFalse();
+        verify(usuarioRepository).save(usuario);
+    }
+
+    @Test
+    void definirSenhaDefinitivaIgualAProvisoriaEhRecusada() {
+        comSenhaProvisoria(AGORA.plusSeconds(3600));
+
+        assertThatThrownBy(() -> authService.definirSenhaDefinitiva("maria", CPF, CPF))
+                .isInstanceOf(SenhaInvalidaException.class);
+        assertThat(usuario.isSenhaProvisoria()).isTrue();
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void definirSenhaDefinitivaCurtaEhRecusada() {
+        comSenhaProvisoria(AGORA.plusSeconds(3600));
+
+        assertThatThrownBy(() -> authService.definirSenhaDefinitiva("maria", CPF, "curta"))
+                .isInstanceOf(SenhaInvalidaException.class);
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void definirSenhaDefinitivaComProvisoriaExpiradaEhRecusada() {
+        comSenhaProvisoria(AGORA.minusSeconds(1));
+
+        assertThatThrownBy(() -> authService.definirSenhaDefinitiva("maria", CPF, "nova-senha-forte"))
+                .isInstanceOf(SenhaProvisoriaExpiradaException.class);
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void definirSenhaDefinitivaNaoServeParaQuemJaTemSenhaDefinitiva() {
+        // Sem isto a rota publica viraria uma troca de senha sem token.
+        when(usuarioRepository.findByLogin("maria")).thenReturn(Optional.of(usuario));
+
+        assertThatThrownBy(() -> authService.definirSenhaDefinitiva("maria", SENHA, "nova-senha-forte"))
+                .isInstanceOf(CredenciaisInvalidasException.class);
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void definirSenhaDefinitivaComSenhaProvisoriaErradaEhRecusada() {
+        comSenhaProvisoria(AGORA.plusSeconds(3600));
+
+        assertThatThrownBy(() -> authService.definirSenhaDefinitiva("maria", "11144477735", "nova-senha-forte"))
+                .isInstanceOf(CredenciaisInvalidasException.class);
+        verify(usuarioRepository, never()).save(any());
     }
 }

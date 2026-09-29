@@ -135,9 +135,9 @@ public class JwtConfig {
 
 	/**
 	 * API stateless autenticada por JWT (RNF01/RNF02). Sem sessao nem cookie,
-	 * CSRF nao se aplica. Apenas o health check, o preflight de CORS e o login
-	 * ficam publicos; todo o resto exige um access token valido, cujo perfil
-	 * vira ROLE_* para {@code @PreAuthorize}.
+	 * CSRF nao se aplica. Apenas o health check, o preflight de CORS, o login e
+	 * a troca da senha provisoria ficam publicos; todo o resto exige um access
+	 * token valido, cujo perfil vira ROLE_* para {@code @PreAuthorize}.
 	 *
 	 * <p>
 	 * Os modulos de {@link RotasPorPerfil} sao barrados aqui por perfil. Rotas
@@ -157,7 +157,7 @@ public class JwtConfig {
 				.authorizeHttpRequests(authorize -> {
 					authorize
 							.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-							.requestMatchers("/health", "/login").permitAll();
+							.requestMatchers("/health", "/login", "/primeiro-acesso").permitAll();
 					RotasPorPerfil.aplicar(authorize);
 					authorize.anyRequest().authenticated();
 				})

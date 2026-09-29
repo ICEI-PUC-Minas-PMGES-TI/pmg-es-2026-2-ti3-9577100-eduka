@@ -118,7 +118,8 @@ public class UsuarioService {
         return request.escolaId();
     }
 
-    private void validarSenha(String senha) {
+    /** Regras de tamanho de toda senha definitiva, inclusive a do primeiro acesso. */
+    static void validarSenha(String senha) {
         if (senha == null || senha.length() < SENHA_TAMANHO_MINIMO) {
             throw new SenhaInvalidaException(
                     "Senha deve ter ao menos %d caracteres".formatted(SENHA_TAMANHO_MINIMO));

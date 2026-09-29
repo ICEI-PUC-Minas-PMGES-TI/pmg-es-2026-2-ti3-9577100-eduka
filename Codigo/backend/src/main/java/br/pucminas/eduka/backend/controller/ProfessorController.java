@@ -77,4 +77,11 @@ public class ProfessorController {
     public ProfessorResponse ativar(@PathVariable UUID id) {
         return professorService.ativar(id);
     }
+
+    /** Reenvia o e-mail de primeiro acesso com uma senha provisoria renovada. */
+    @PostMapping("/{id}/primeiro-acesso")
+    public ResponseEntity<Void> reenviarAcesso(@PathVariable UUID id) {
+        professorService.reenviarAcesso(id);
+        return ResponseEntity.noContent().build();
+    }
 }
