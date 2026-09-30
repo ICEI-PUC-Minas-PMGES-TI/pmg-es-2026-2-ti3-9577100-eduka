@@ -29,6 +29,7 @@ export const paths = {
   },
   aluno: {
     raiz: '/aluno',
+    meusDados: '/aluno/meus-dados',
   },
 } as const
 
@@ -40,5 +41,5 @@ export const rotaInicialPorPerfil: Record<PerfilUsuario, string> = {
   SECRETARIA: paths.secretaria.raiz,
   FINANCEIRO: paths.financeiro.raiz,
   PROFESSOR: paths.professor.raiz,
-  ALUNO: paths.aluno.raiz,
+  ALUNO: paths.aluno.meusDados,
 }

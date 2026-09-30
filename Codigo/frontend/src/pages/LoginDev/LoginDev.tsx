@@ -4,7 +4,7 @@ import iconeEduka from '../../assets/eduka-icone.svg'
 import { Icon, type IconName } from '../../components/Icon/Icon'
 import { rotaInicialPorPerfil } from '../../routes/paths'
 import { ApiError } from '../../services/api'
-import { autenticar, type PerfilUsuario } from '../../services/authService'
+import { autenticar, salvarSessao, type PerfilUsuario } from '../../services/authService'
 import styles from './LoginDev.module.css'
 
 // Só existe em dev: a rota /login/dev nem entra no build de produção (ver
@@ -35,10 +35,28 @@ export function LoginDev() {
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
         setErro(`A conta de ${conta.rotulo} não existe. Confira se o backend subiu com o perfil "dev".`)
-      } else {
-        setErro(e instanceof ApiError ? e.message : 'Erro inesperado ao entrar.')
+        setEntrando(null)
+        return
       }
-      setEntrando(null)
+
+      // Se a API estiver offline no ambiente de dev, simula o token localmente para permitir testar a UI
+      try {
+        const payloadBase64 = btoa(JSON.stringify({ sub: 'dev-' + conta.perfil.toLowerCase(), perfil: conta.perfil }))
+        const mockToken = `dev.${payloadBase64}.dev`
+        salvarSessao(
+          {
+            accessToken: mockToken,
+            refreshToken: mockToken,
+            usuarioId: 'dev-' + conta.perfil.toLowerCase(),
+            perfil: conta.perfil,
+          },
+          conta.login,
+        )
+        navigate(rotaInicialPorPerfil[conta.perfil], { replace: true })
+      } catch {
+        setErro(e instanceof ApiError ? e.message : 'Erro inesperado ao entrar.')
+        setEntrando(null)
+      }
     }
   }
 
