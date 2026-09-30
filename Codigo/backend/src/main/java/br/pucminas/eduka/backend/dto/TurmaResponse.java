@@ -1,5 +1,7 @@
 package br.pucminas.eduka.backend.dto;
 
+import java.util.UUID;
+
 import br.pucminas.eduka.backend.domain.Turno;
 import lombok.Builder;
 import lombok.Data;
@@ -9,7 +11,7 @@ import java.util.Set;
 @Builder
 public class TurmaResponse {
     private Long id;
-    private Long escolaId;
+    private UUID escolaId;
     private Long periodoLetivoId;
     private String periodoLetivoNome;
     private Long cursoId;

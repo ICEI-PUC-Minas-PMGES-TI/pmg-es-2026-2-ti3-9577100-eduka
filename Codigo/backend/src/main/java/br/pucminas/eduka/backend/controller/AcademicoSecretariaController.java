@@ -22,7 +22,6 @@ public class AcademicoSecretariaController {
 
     @GetMapping("/periodos-letivos")
     public ResponseEntity<?> listarPeriodosLetivos(@AuthenticationPrincipal UsuarioAutenticado usuario) {
-        // Substituted getEscolaId() with escolaId()
         UUID escolaId = usuario.escolaId(); 
         return ResponseEntity.ok(academicoSecretariaService.listarPeriodosLetivos(escolaId));
     }
@@ -45,5 +44,4 @@ public class AcademicoSecretariaController {
         return ResponseEntity.ok(academicoSecretariaService.listarTurmas(escolaId));
     }
 
-    // Aplica-se a mesma alteração (usuario.escolaId()) nos restantes métodos do Controller
 }

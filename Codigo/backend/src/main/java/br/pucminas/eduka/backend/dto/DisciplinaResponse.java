@@ -1,5 +1,7 @@
 package br.pucminas.eduka.backend.dto;
 
+import java.util.UUID;
+
 import lombok.Builder;
 import lombok.Data;
 
@@ -7,7 +9,7 @@ import lombok.Data;
 @Builder
 public class DisciplinaResponse {
     private Long id;
-    private Long escolaId;
+    private UUID escolaId;
     private Long cursoId;
     private String cursoNome;
     private String nome;

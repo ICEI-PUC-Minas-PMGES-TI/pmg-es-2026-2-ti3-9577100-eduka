@@ -4,9 +4,10 @@ import br.pucminas.eduka.backend.domain.Disciplina;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface DisciplinaRepository extends JpaRepository<Disciplina, Long> {
-    List<Disciplina> findAllByEscolaId(Long escolaId);
-    Optional<Disciplina> findByIdAndEscolaId(Long id, Long escolaId);
-    List<Disciplina> findAllByIdInAndEscolaId(List<Long> ids, Long escolaId);
+    List<Disciplina> findAllByEscolaId(UUID escolaId);
+    Optional<Disciplina> findByIdAndEscolaId(Long id, UUID escolaId);
+    List<Disciplina> findAllByIdInAndEscolaId(List<Long> ids, UUID escolaId);
 }
