@@ -30,6 +30,7 @@ import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.PessoaPapel;
 import br.pucminas.eduka.backend.domain.Professor;
 import br.pucminas.eduka.backend.domain.Usuario;
+import br.pucminas.eduka.backend.domain.VinculoProfessor;
 import br.pucminas.eduka.backend.dto.ProfessorRequest;
 import br.pucminas.eduka.backend.dto.ProfessorResponse;
 import br.pucminas.eduka.backend.exception.AcessoJaAtivadoException;
@@ -92,7 +93,7 @@ class ProfessorServiceTest {
 
     private static ProfessorRequest request(String nome, String cpf) {
         return new ProfessorRequest(nome, cpf, "prof@example.com", "31999998888", "Licenciatura em Fisica",
-                LocalDate.of(2026, 2, 1));
+                LocalDate.of(2026, 2, 1), VinculoProfessor.CLT_40H);
     }
 
     private void stubSaves() {
@@ -211,10 +212,12 @@ class ProfessorServiceTest {
         verify(professorRepository).save(professorCaptor.capture());
         assertThat(professorCaptor.getValue().getEscolaId()).isEqualTo(ESCOLA_A);
         assertThat(professorCaptor.getValue().getPessoaId()).isEqualTo(pessoaCaptor.getValue().getId());
+        assertThat(professorCaptor.getValue().getVinculo()).isEqualTo(VinculoProfessor.CLT_40H);
 
         assertThat(resultado.escolaId()).isEqualTo(ESCOLA_A);
         assertThat(resultado.ativo()).isTrue();
         assertThat(resultado.dataAdmissao()).isEqualTo(LocalDate.of(2026, 2, 1));
+        assertThat(resultado.vinculo()).isEqualTo(VinculoProfessor.CLT_40H);
     }
 
     @Test
@@ -306,13 +309,14 @@ class ProfessorServiceTest {
 
         ProfessorResponse resultado = professorService.atualizar(ana.getId(),
                 new ProfessorRequest("Ana Maria", "12345678900", " ana@example.com ", null, "Mestrado em Fisica",
-                        null));
+                        null, VinculoProfessor.HORISTA));
 
         assertThat(resultado.nome()).isEqualTo("Ana Maria");
         assertThat(resultado.email()).isEqualTo("ana@example.com");
         assertThat(resultado.telefone()).isNull();
         verify(acessoService).sincronizarLogin(pessoaAna);
         assertThat(resultado.formacao()).isEqualTo("Mestrado em Fisica");
+        assertThat(resultado.vinculo()).isEqualTo(VinculoProfessor.HORISTA);
         assertThat(ana.getAtualizadoEm()).isNotNull();
         assertThat(ana.getEscolaId()).isEqualTo(ESCOLA_A);
     }

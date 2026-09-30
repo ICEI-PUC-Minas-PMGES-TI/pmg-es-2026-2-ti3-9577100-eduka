@@ -121,6 +121,7 @@ public class ProfessorService {
                 .usuarioId(usuario.getId())
                 .formacao(request.formacao())
                 .dataAdmissao(request.dataAdmissao())
+                .vinculo(request.vinculo())
                 .ativo(true)
                 .build());
         return ProfessorResponse.de(professor, pessoa);
@@ -159,6 +160,7 @@ public class ProfessorService {
         pessoa.setTelefone(request.telefone());
         professor.setFormacao(request.formacao());
         professor.setDataAdmissao(request.dataAdmissao());
+        professor.setVinculo(request.vinculo());
         professor.setAtualizadoEm(Instant.now());
 
         acessoService.sincronizarLogin(pessoa);

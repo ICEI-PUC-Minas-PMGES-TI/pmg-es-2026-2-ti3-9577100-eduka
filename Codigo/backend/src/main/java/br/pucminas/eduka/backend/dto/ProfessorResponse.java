@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.Professor;
+import br.pucminas.eduka.backend.domain.VinculoProfessor;
 
 public record ProfessorResponse(
         UUID id,
@@ -15,18 +16,19 @@ public record ProfessorResponse(
         String telefone,
         String formacao,
         LocalDate dataAdmissao,
+        VinculoProfessor vinculo,
         boolean ativo) {
 
     /** Listagem: sem CPF, que so aparece no detalhe de um professor especifico. */
     public static ProfessorResponse deResumo(Professor professor, Pessoa pessoa) {
         return new ProfessorResponse(professor.getId(), professor.getEscolaId(), pessoa.getNome(), null,
                 pessoa.getEmail(), pessoa.getTelefone(), professor.getFormacao(), professor.getDataAdmissao(),
-                professor.isAtivo());
+                professor.getVinculo(), professor.isAtivo());
     }
 
     public static ProfessorResponse de(Professor professor, Pessoa pessoa) {
         return new ProfessorResponse(professor.getId(), professor.getEscolaId(), pessoa.getNome(), pessoa.getCpf(),
                 pessoa.getEmail(), pessoa.getTelefone(), professor.getFormacao(), professor.getDataAdmissao(),
-                professor.isAtivo());
+                professor.getVinculo(), professor.isAtivo());
     }
 }
