@@ -13,6 +13,16 @@ import { paths } from './paths'
 export const router = createBrowserRouter([
   { path: '/', element: <Home /> },
   { path: paths.login, element: <LoginAdmin /> },
+  // Login de um clique por perfil. Em produção DEV é false e o Vite remove
+  // este trecho, junto com o chunk da tela: /login/dev cai no 404.
+  ...(import.meta.env.DEV
+    ? [
+        {
+          path: paths.loginDev,
+          lazy: async () => ({ Component: (await import('../pages/LoginDev/LoginDev')).LoginDev }),
+        },
+      ]
+    : []),
   superAdminRoutes,
   masterRoutes,
   secretariaRoutes,

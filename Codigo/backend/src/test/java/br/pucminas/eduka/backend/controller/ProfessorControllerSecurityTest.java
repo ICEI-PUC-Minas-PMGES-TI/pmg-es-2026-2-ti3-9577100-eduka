@@ -31,13 +31,17 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.Professor;
+import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.repository.ProfessorRepository;
+import br.pucminas.eduka.backend.repository.UsuarioRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
+import br.pucminas.eduka.backend.security.PasswordEncoderConfig;
+import br.pucminas.eduka.backend.service.AcessoService;
 import br.pucminas.eduka.backend.service.ProfessorService;
 
 /**
@@ -47,12 +51,13 @@ import br.pucminas.eduka.backend.service.ProfessorService;
  */
 @WebMvcTest(ProfessorController.class)
 @Import({ JwtConfig.class, JwtService.class, IsolamentoEscola.class, ApiExceptionHandler.class,
-        ProfessorService.class })
+        ProfessorService.class, AcessoService.class, PasswordEncoderConfig.class })
 class ProfessorControllerSecurityTest {
 
     private static final UUID ESCOLA_A = UUID.randomUUID();
     private static final UUID ESCOLA_B = UUID.randomUUID();
-    private static final String CORPO_VALIDO = "{\"nome\":\"Ana\",\"cpf\":\"12345678900\"}";
+    private static final String CORPO_VALIDO =
+            "{\"nome\":\"Ana\",\"cpf\":\"52998224725\",\"email\":\"ana@escola.com\"}";
 
     @Autowired
     private MockMvc mockMvc;
@@ -66,6 +71,8 @@ class ProfessorControllerSecurityTest {
     private PessoaRepository pessoaRepository;
     @MockitoBean
     private PessoaPapelRepository pessoaPapelRepository;
+    @MockitoBean
+    private UsuarioRepository usuarioRepository;
 
     private String accessToken(String perfil, UUID escolaId) {
         return jwtService.generateAccessToken(UUID.randomUUID(), perfil, escolaId);
@@ -85,7 +92,8 @@ class ProfessorControllerSecurityTest {
     }
 
     private static Pessoa pessoa(String nome) {
-        return Pessoa.builder().id(UUID.randomUUID()).nome(nome).cpf("12345678900").ativo(true).build();
+        return Pessoa.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).nome(nome).cpf("52998224725")
+                .email("ana@escola.com").ativo(true).build();
     }
 
     private void stubSaves() {
@@ -98,6 +106,11 @@ class ProfessorControllerSecurityTest {
             Professor professor = inv.getArgument(0);
             professor.setId(UUID.randomUUID());
             return professor;
+        });
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> {
+            Usuario usuario = inv.getArgument(0);
+            usuario.setId(UUID.randomUUID());
+            return usuario;
         });
     }
 
@@ -152,14 +165,23 @@ class ProfessorControllerSecurityTest {
     class Validacao {
 
         @Test
-        void semNomeOuComCpfMalformadoResponde400() throws Exception {
+        void semNomeOuComCpfInvalidoResponde400() throws Exception {
             String token = accessToken("SECRETARIA", ESCOLA_A);
-            mockMvc.perform(json(post("/professores"), token, "{\"cpf\":\"12345678900\"}"))
-                    .andExpect(status().isBadRequest());
-            mockMvc.perform(json(post("/professores"), token, "{\"nome\":\"Ana\",\"cpf\":\"123.456.789-00\"}"))
+            mockMvc.perform(json(post("/professores"), token, "{\"cpf\":\"52998224725\",\"email\":\"a@b.com\"}"))
                     .andExpect(status().isBadRequest());
             mockMvc.perform(json(post("/professores"), token,
-                    "{\"nome\":\"Ana\",\"cpf\":\"12345678900\",\"email\":\"nao-e-email\"}"))
+                    "{\"nome\":\"Ana\",\"cpf\":\"123.456.789-00\",\"email\":\"a@b.com\"}"))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(json(post("/professores"), token,
+                    "{\"nome\":\"Ana\",\"cpf\":\"52998224724\",\"email\":\"a@b.com\"}"))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(json(post("/professores"), token,
+                    "{\"nome\":\"Ana\",\"cpf\":\"11111111111\",\"email\":\"a@b.com\"}"))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(json(post("/professores"), token,
+                    "{\"nome\":\"Ana\",\"cpf\":\"52998224725\",\"email\":\"nao-e-email\"}"))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(json(post("/professores"), token, "{\"nome\":\"Ana\",\"cpf\":\"52998224725\"}"))
                     .andExpect(status().isBadRequest());
             verify(professorRepository, never()).save(any());
         }
@@ -237,13 +259,89 @@ class ProfessorControllerSecurityTest {
             stubSaves();
 
             mockMvc.perform(json(post("/professores"), accessToken("MASTER", ESCOLA_A),
-                    "{\"nome\":\"Ana\",\"cpf\":\"12345678900\",\"escolaId\":\"" + ESCOLA_B + "\"}"))
+                    "{\"nome\":\"Ana\",\"cpf\":\"52998224725\",\"email\":\"ana@escola.com\",\"escolaId\":\""
+                            + ESCOLA_B + "\"}"))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.escolaId").value(ESCOLA_A.toString()));
 
             ArgumentCaptor<Professor> captor = ArgumentCaptor.forClass(Professor.class);
             verify(professorRepository).save(captor.capture());
             assertThat(captor.getValue().getEscolaId()).isEqualTo(ESCOLA_A);
+        }
+    }
+
+    @Nested
+    class PrimeiroAcesso {
+
+        @Test
+        void cadastroCriaLoginPeloEmailComSenhaProvisoria() throws Exception {
+            stubSaves();
+
+            mockMvc.perform(json(post("/professores"), accessToken("SECRETARIA", ESCOLA_A), CORPO_VALIDO))
+                    .andExpect(status().isCreated());
+
+            ArgumentCaptor<Usuario> captor = ArgumentCaptor.forClass(Usuario.class);
+            verify(usuarioRepository).save(captor.capture());
+            Usuario usuario = captor.getValue();
+            assertThat(usuario.getLogin()).isEqualTo("ana@escola.com");
+            assertThat(usuario.getEscolaId()).isEqualTo(ESCOLA_A);
+            assertThat(usuario.isSenhaProvisoria()).isTrue();
+            assertThat(usuario.getSenhaProvisoriaExpiraEm()).isNotNull();
+            assertThat(usuario.getSenhaHash()).doesNotContain("52998224725");
+        }
+
+        @Test
+        void emailJaUsadoComoLoginResponde409ENaoGravaProfessor() throws Exception {
+            stubSaves();
+            when(usuarioRepository.existsByLogin("ana@escola.com")).thenReturn(true);
+
+            mockMvc.perform(json(post("/professores"), accessToken("SECRETARIA", ESCOLA_A), CORPO_VALIDO))
+                    .andExpect(status().isConflict());
+            verify(professorRepository, never()).save(any());
+            verify(usuarioRepository, never()).save(any());
+        }
+
+        @Test
+        void reenvioSoParaGestaoESecretaria() throws Exception {
+            String url = "/professores/" + UUID.randomUUID() + "/primeiro-acesso";
+            for (String perfil : List.of("PROFESSOR", "FINANCEIRO")) {
+                mockMvc.perform(com(post(url), accessToken(perfil, ESCOLA_A)))
+                        .andExpect(status().isForbidden());
+            }
+            verify(professorRepository, never()).findByIdAndEscolaId(any(), any());
+        }
+
+        @Test
+        void reenvioDeQuemJaDefiniuASenhaResponde409() throws Exception {
+            Pessoa pessoaAna = pessoa("Ana");
+            Professor ana = professor(ESCOLA_A, pessoaAna.getId());
+            when(professorRepository.findByIdAndEscolaId(ana.getId(), ESCOLA_A)).thenReturn(Optional.of(ana));
+            when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+            when(usuarioRepository.findByPessoaId(pessoaAna.getId())).thenReturn(Optional.of(Usuario.builder()
+                    .id(UUID.randomUUID()).login("ana@escola.com").senhaProvisoria(false).ativo(true).build()));
+
+            mockMvc.perform(com(post("/professores/" + ana.getId() + "/primeiro-acesso"),
+                    accessToken("SECRETARIA", ESCOLA_A)))
+                    .andExpect(status().isConflict());
+            verify(usuarioRepository, never()).save(any());
+        }
+
+        @Test
+        void reenvioComSenhaAindaProvisoriaResponde204() throws Exception {
+            Pessoa pessoaAna = pessoa("Ana");
+            Professor ana = professor(ESCOLA_A, pessoaAna.getId());
+            Usuario usuario = Usuario.builder().id(UUID.randomUUID()).login("ana@escola.com")
+                    .senhaProvisoria(true).ativo(true).build();
+            ana.setUsuarioId(usuario.getId());
+            when(professorRepository.findByIdAndEscolaId(ana.getId(), ESCOLA_A)).thenReturn(Optional.of(ana));
+            when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+            when(usuarioRepository.findByPessoaId(pessoaAna.getId())).thenReturn(Optional.of(usuario));
+            when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            mockMvc.perform(com(post("/professores/" + ana.getId() + "/primeiro-acesso"),
+                    accessToken("SECRETARIA", ESCOLA_A)))
+                    .andExpect(status().isNoContent());
+            assertThat(usuario.getSenhaProvisoriaExpiraEm()).isNotNull();
         }
     }
 }

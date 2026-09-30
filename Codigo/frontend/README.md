@@ -49,6 +49,7 @@ src/
   quem garante o acesso é o backend, que responde `403`.
 * Telas do Super Admin: painel de escolas (lista com busca, filtros por plano e situação,
   cadastro em modal, ativar/suspender) e edição de escola (`/super-admin/escolas/:id/editar`).
+* `/login/dev` (só em dev): um botão por perfil que entra com as contas de teste do `DevDataSeeder` e abre a área do perfil. A rota só é registrada quando `import.meta.env.DEV` é verdadeiro, então não existe no build de produção.
 * Use sempre as constantes de `paths` em vez de strings de rota soltas.
 
 ## Comunicação com a API

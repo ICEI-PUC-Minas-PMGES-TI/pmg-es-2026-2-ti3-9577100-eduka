@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.dto.LoginResponse;
 import br.pucminas.eduka.backend.exception.CredenciaisInvalidasException;
+import br.pucminas.eduka.backend.exception.SenhaProvisoriaExpiradaException;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.service.AuthService;
 
@@ -35,7 +36,7 @@ class AuthControllerTest {
     @Test
     void retornaTokensParaCredenciaisValidas() throws Exception {
         when(authService.login("usuario@escola.com", "senha-correta"))
-                .thenReturn(new LoginResponse("access-token", "refresh-token", UUID.randomUUID(),
+                .thenReturn(LoginResponse.autenticado("access-token", "refresh-token", UUID.randomUUID(),
                         PerfilUsuario.SECRETARIA));
 
         mockMvc.perform(post("/login")
@@ -84,5 +85,62 @@ class AuthControllerTest {
                                 {"login":"usuario@escola.com","senha":"senha-correta"}
                                 """))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void loginComSenhaProvisoriaRespondeSemTokens() throws Exception {
+        when(authService.login("prof@escola.com", "52998224725"))
+                .thenReturn(LoginResponse.trocaDeSenhaPendente(UUID.randomUUID(), PerfilUsuario.PROFESSOR));
+
+        mockMvc.perform(post("/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"login":"prof@escola.com","senha":"52998224725"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.trocaSenhaObrigatoria").value(true))
+                .andExpect(jsonPath("$.accessToken").doesNotExist());
+    }
+
+    @Test
+    void primeiroAcessoEhPublicoEDevolveTokens() throws Exception {
+        when(authService.definirSenhaDefinitiva("prof@escola.com", "52998224725", "nova-senha-forte"))
+                .thenReturn(LoginResponse.autenticado("access-token", "refresh-token", UUID.randomUUID(),
+                        PerfilUsuario.PROFESSOR));
+
+        mockMvc.perform(post("/primeiro-acesso")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"login":"prof@escola.com","senhaProvisoria":"52998224725",
+                                 "novaSenha":"nova-senha-forte"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("access-token"))
+                .andExpect(jsonPath("$.trocaSenhaObrigatoria").value(false));
+    }
+
+    @Test
+    void primeiroAcessoComSenhaProvisoriaExpiradaResponde401() throws Exception {
+        when(authService.definirSenhaDefinitiva(anyString(), anyString(), anyString()))
+                .thenThrow(new SenhaProvisoriaExpiradaException());
+
+        mockMvc.perform(post("/primeiro-acesso")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"login":"prof@escola.com","senhaProvisoria":"52998224725",
+                                 "novaSenha":"nova-senha-forte"}
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.detail").value(new SenhaProvisoriaExpiradaException().getMessage()));
+    }
+
+    @Test
+    void primeiroAcessoSemNovaSenhaResponde400() throws Exception {
+        mockMvc.perform(post("/primeiro-acesso")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"login":"prof@escola.com","senhaProvisoria":"52998224725"}
+                                """))
+                .andExpect(status().isBadRequest());
     }
 }

@@ -48,6 +48,12 @@ public class ApiExceptionHandler {
                 .body(problema(HttpStatus.UNAUTHORIZED, ex.getMessage()));
     }
 
+    @ExceptionHandler(SenhaProvisoriaExpiradaException.class)
+    public ResponseEntity<ProblemDetail> senhaProvisoriaExpirada(SenhaProvisoriaExpiradaException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(problema(HttpStatus.UNAUTHORIZED, ex.getMessage()));
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ProblemDetail> acessoNegado(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -61,7 +67,7 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler({ LoginJaCadastradoException.class, CnpjJaCadastradoException.class,
-            CpfJaCadastradoException.class })
+            CpfJaCadastradoException.class, AcessoJaAtivadoException.class })
     public ResponseEntity<ProblemDetail> recursoDuplicado(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(problema(HttpStatus.CONFLICT, ex.getMessage()));

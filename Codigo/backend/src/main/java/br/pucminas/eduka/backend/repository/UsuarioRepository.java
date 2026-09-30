@@ -18,4 +18,6 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
     List<Usuario> findAllByEscolaIdAndPerfil(UUID escolaId, PerfilUsuario perfil);
 
     Optional<Usuario> findByIdAndEscolaIdAndPerfil(UUID id, UUID escolaId, PerfilUsuario perfil);
+
+    Optional<Usuario> findByPessoaId(UUID pessoaId);
 }
