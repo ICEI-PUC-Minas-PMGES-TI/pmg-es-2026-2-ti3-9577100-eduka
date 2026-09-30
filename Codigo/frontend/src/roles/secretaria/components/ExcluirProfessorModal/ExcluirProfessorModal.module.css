@@ -1,0 +1,28 @@
+/* Diálogo estreito: só um aviso e três botões. O resto vem do modal de cadastro. */
+.dialog {
+  width: min(480px, calc(100% - 32px));
+}
+
+.texto {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--color-text-muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.texto strong {
+  color: var(--color-text);
+}
+
+/* Ação destrutiva: vermelho em vez do roxo do botão principal. */
+.perigo {
+  border-color: transparent;
+  background: var(--color-danger);
+  color: #ffffff;
+}
+
+.perigo:hover:not(:disabled) {
+  filter: brightness(1.08);
+}

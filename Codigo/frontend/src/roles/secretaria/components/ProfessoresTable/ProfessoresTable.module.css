@@ -101,6 +101,28 @@
   color: var(--color-text-muted);
 }
 
+.acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Mesma largura para "Inativar" e "Reativar", para as colunas não pularem. */
+.alternar {
+  min-width: 112px;
+  justify-content: center;
+}
+
+/* Só o ícone: a ação destrutiva fica discreta até o hover. */
+.excluir {
+  padding-inline: 10px;
+}
+
+.excluir:hover:not(:disabled) {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
 /* Professor inativo fica apagado, como a escola suspensa no Super Admin. */
 .inativo .professor {
   opacity: 0.6;

@@ -8,11 +8,14 @@ export const ACCESS_TOKEN_KEY = 'eduka.accessToken'
 
 export class ApiError extends Error {
   readonly status: number
+  /** Campo `detail` do ProblemDetail do backend, quando veio (ex.: qual dado já existe no 409). */
+  readonly detalhe: string | null
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, detalhe: string | null = null) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.detalhe = detalhe
   }
 }
 
@@ -29,6 +32,16 @@ function mensagemPadrao(status: number): string {
   if (status === 403) return 'Você não tem permissão para acessar este recurso.'
   if (status === 404) return 'Recurso não encontrado.'
   return 'Não foi possível completar a requisição.'
+}
+
+async function lerDetalhe(resposta: Response): Promise<string | null> {
+  try {
+    const corpo: unknown = await resposta.json()
+    const detalhe = (corpo as { detail?: unknown } | null)?.detail
+    return typeof detalhe === 'string' ? detalhe : null
+  } catch {
+    return null
+  }
 }
 
 export async function apiRequest<T>(caminho: string, init: RequestInit = {}): Promise<T> {
@@ -48,7 +61,7 @@ export async function apiRequest<T>(caminho: string, init: RequestInit = {}): Pr
   }
 
   if (!resposta.ok) {
-    throw new ApiError(resposta.status, mensagemPadrao(resposta.status))
+    throw new ApiError(resposta.status, mensagemPadrao(resposta.status), await lerDetalhe(resposta))
   }
 
   if (resposta.status === 204) return undefined as T

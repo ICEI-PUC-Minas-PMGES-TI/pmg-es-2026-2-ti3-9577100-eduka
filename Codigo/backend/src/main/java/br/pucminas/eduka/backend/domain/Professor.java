@@ -10,6 +10,8 @@ import org.hibernate.generator.EventType;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -61,6 +63,11 @@ public class Professor {
 
     @Column(name = "DATA_ADMISSAO")
     private LocalDate dataAdmissao;
+
+    /** Regime e carga horaria (V13). Nulo nos professores anteriores a ela. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "VINCULO")
+    private VinculoProfessor vinculo;
 
     @Builder.Default
     @Column(name = "ATIVO", nullable = false)

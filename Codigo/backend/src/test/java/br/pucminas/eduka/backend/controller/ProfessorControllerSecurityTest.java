@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -231,15 +232,18 @@ class ProfessorControllerSecurityTest {
                     .andExpect(jsonPath("$.detail").value("Professor nao encontrado"));
             mockMvc.perform(json(put(url), token, CORPO_VALIDO))
                     .andExpect(status().isNotFound());
+            mockMvc.perform(com(patch(url + "/inativar"), token))
+                    .andExpect(status().isNotFound());
             mockMvc.perform(com(delete(url), token))
                     .andExpect(status().isNotFound());
 
             verify(professorRepository, never()).findById(any());
             verify(professorRepository, never()).save(any());
+            verify(professorRepository, never()).delete(any());
         }
 
         @Test
-        void inativarProfessorDaPropriaEscolaResponde204() throws Exception {
+        void inativarProfessorDaPropriaEscolaMantemORegistro() throws Exception {
             Pessoa pessoaAna = pessoa("Ana");
             Professor daEscolaA = professor(ESCOLA_A, pessoaAna.getId());
             when(professorRepository.findByIdAndEscolaId(daEscolaA.getId(), ESCOLA_A))
@@ -247,11 +251,27 @@ class ProfessorControllerSecurityTest {
             when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
             when(professorRepository.save(any(Professor.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            mockMvc.perform(com(delete("/professores/" + daEscolaA.getId()), accessToken("SECRETARIA", ESCOLA_A)))
-                    .andExpect(status().isNoContent());
+            mockMvc.perform(com(patch("/professores/" + daEscolaA.getId() + "/inativar"),
+                    accessToken("SECRETARIA", ESCOLA_A)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.ativo").value(false));
 
             assertThat(daEscolaA.isAtivo()).isFalse();
             verify(professorRepository, never()).delete(any());
+        }
+
+        @Test
+        void excluirProfessorDaPropriaEscolaResponde204EApagaORegistro() throws Exception {
+            Pessoa pessoaAna = pessoa("Ana");
+            Professor daEscolaA = professor(ESCOLA_A, pessoaAna.getId());
+            when(professorRepository.findByIdAndEscolaId(daEscolaA.getId(), ESCOLA_A))
+                    .thenReturn(Optional.of(daEscolaA));
+            when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+
+            mockMvc.perform(com(delete("/professores/" + daEscolaA.getId()), accessToken("SECRETARIA", ESCOLA_A)))
+                    .andExpect(status().isNoContent());
+
+            verify(professorRepository).delete(daEscolaA);
         }
 
         @Test

@@ -214,8 +214,9 @@ flowchart TB
 | `GET` | `/professores` · `/professores/{id}` | `MASTER`, `SECRETARIA` |
 | `POST` | `/professores` | `MASTER`, `SECRETARIA` |
 | `PUT` | `/professores/{id}` | `MASTER`, `SECRETARIA` |
-| `DELETE` | `/professores/{id}` (inativa) | `MASTER`, `SECRETARIA` |
+| `PATCH` | `/professores/{id}/inativar` (afastamento: licença etc.) | `MASTER`, `SECRETARIA` |
 | `PATCH` | `/professores/{id}/ativar` | `MASTER`, `SECRETARIA` |
+| `DELETE` | `/professores/{id}` (saída da escola: exclui; 409 se já tem histórico) | `MASTER`, `SECRETARIA` |
 | `POST` | `/professores/{id}/primeiro-acesso` (reenvia o e-mail) | `MASTER`, `SECRETARIA` |
 
 Qualquer rota não listada como pública exige `Authorization: Bearer <access token>` e responde
@@ -368,6 +369,7 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | `V10__liga_alunos_a_pessoa.sql` | Aluno passa a apontar para `PESSOA`; responsáveis em `ALUNO_RESPONSAVEL` |
 | `V11__criar_professor.sql` | Tabela `PROFESSOR`, ligada a `PESSOA` (dados pessoais cifrados) |
 | `V12__acesso_inicial_usuario.sql` | Senha provisória em `USUARIO` (flag + validade) e `PROFESSOR.USUARIO_ID` |
+| `V13__adiciona_vinculo_professor.sql` | `PROFESSOR.VINCULO` (regime e carga horária: CLT 40h, horista...) |
 
 ---
 
