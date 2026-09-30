@@ -1,6 +1,6 @@
 @startuml 03-gestao-academica
 !include _estilo.puml
-title Eduka — Casos de Uso: Gestão Acadêmica (UC05 a UC08)
+title Eduka — Casos de Uso: Gestão Acadêmica (UC05 a UC08, UC18)
 
 left to right direction
 
@@ -9,30 +9,57 @@ actor "MASTER" as MASTER
 
 rectangle "Eduka — Gestão acadêmica" {
   usecase "UC05\nGerenciar Alunos" as UC05
+  usecase "Criar Acesso do Aluno" as UC05C
   usecase "Inativar Aluno" as UC05A
   usecase "UC06\nGerenciar Professores" as UC06
-  usecase "Associar Professor\na Turmas e Disciplinas" as UC06A
+  usecase "Criar Acesso do Professor" as UC06C
   usecase "Inativar Professor" as UC06B
-  usecase "UC07\nGerenciar Cursos,\nDisciplinas e Turmas" as UC07
-  usecase "Associar Turma a Período Letivo,\nCurso e Professor(es)" as UC07A
+  usecase "UC07\nGerenciar Estrutura Acadêmica" as UC07
+  usecase "Gerenciar Períodos Letivos" as UC07P
+  usecase "Gerenciar Cursos" as UC07C
+  usecase "Gerenciar Disciplinas" as UC07D
+  usecase "Gerenciar Turmas" as UC07T
+  usecase "Associar Turma a\nCurso e Período Letivo" as UC07A
+  usecase "UC18\nAlocar Professor em\nTurmas e Disciplinas" as UC18
   usecase "UC08\nRealizar Matrícula de Aluno" as UC08
+  usecase "Atualizar Status da Matrícula" as UC08A
 }
 
 SECRETARIA --> UC05
 SECRETARIA --> UC06
 SECRETARIA --> UC07
+SECRETARIA --> UC18
 SECRETARIA --> UC08
 
 MASTER --> UC06
 MASTER --> UC07
 
+UC05 ..> UC05C : <<include>>
 UC05A ..> UC05 : <<extend>>
-UC06 ..> UC06A : <<include>>
+UC06 ..> UC06C : <<include>>
 UC06B ..> UC06 : <<extend>>
-UC07 ..> UC07A : <<include>>
+UC07 ..> UC07P : <<include>>
+UC07 ..> UC07C : <<include>>
+UC07 ..> UC07D : <<include>>
+UC07 ..> UC07T : <<include>>
+UC07T ..> UC07A : <<include>>
+UC08A ..> UC08 : <<extend>>
 
+UC18 ..> UC06 : pré-condição
+UC18 ..> UC07 : pré-condição
 UC08 ..> UC05 : pré-condição
 UC08 ..> UC07 : pré-condição
+
+note bottom of UC05C
+  Gera o usuário com perfil ALUNO e envia a
+  senha inicial ou o link de primeiro acesso.
+  O responsável do aluno é opcional nesta versão.
+end note
+
+note bottom of UC06C
+  Gera o usuário com perfil PROFESSOR e envia a
+  senha inicial ou o link de primeiro acesso.
+end note
 
 note bottom of UC08
   Pré-condições: aluno previamente cadastrado (UC05)

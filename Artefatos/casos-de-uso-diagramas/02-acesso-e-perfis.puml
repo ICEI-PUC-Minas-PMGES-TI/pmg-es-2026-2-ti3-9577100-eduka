@@ -1,6 +1,6 @@
 @startuml 02-acesso-e-perfis
 !include _estilo.puml
-title Eduka — Casos de Uso: Acesso e Perfis (UC03, UC04, UC16)
+title Eduka — Casos de Uso: Autenticação, Usuários e Dashboards (UC03, UC04, UC16)
 
 left to right direction
 
@@ -19,34 +19,63 @@ USUARIO <|-- FINANCEIRO
 USUARIO <|-- PROFESSOR
 USUARIO <|-- ALUNO
 
-rectangle "Eduka — Acesso e perfis" {
+rectangle "Eduka — Autenticação e Dashboards" {
   usecase "UC03\nAutenticar Usuário" as UC03
+  usecase "Redirecionar para o\nPainel do Perfil" as UC03C
   usecase "Encerrar Sessão" as UC03A
   usecase "Recuperar Senha" as UC03B
+  usecase "UC16\nVisualizar Dashboard" as UC16
+  usecase "Visualizar Dashboard\nda Escola" as UC16A
+  usecase "Visualizar Dashboard\nda Secretaria" as UC16B
+  usecase "Visualizar Dashboard\ndo Professor" as UC16C
+}
+
+rectangle "Eduka — Gestão de Usuários" {
   usecase "UC04\nGerenciar Usuários da Escola" as UC04
   usecase "Atribuir Perfil e Permissões" as UC04A
   usecase "Ativar / Inativar Usuário" as UC04B
-  usecase "UC16\nVisualizar Dashboard" as UC16
 }
 
 USUARIO --> UC03
 USUARIO --> UC16
 MASTER --> UC04
+MASTER --> UC16A
+SECRETARIA --> UC16B
+PROFESSOR --> UC16C
 
+UC03 ..> UC03C : <<include>>
 UC03A ..> UC03 : <<extend>>
 UC03B ..> UC03 : <<extend>>
+UC16 <|-- UC16A
+UC16 <|-- UC16B
+UC16 <|-- UC16C
 UC04 ..> UC04A : <<include>>
 UC04B ..> UC04 : <<extend>>
 
-note bottom of UC16
-  O sistema seleciona indicadores conforme
-  o perfil e as permissões do usuário autenticado.
+note right of UC03
+  O JWT carrega a Role e o escola_id do usuário.
+  Isolamento por escola: toda consulta e gravação
+  fica limitada à escola do usuário logado.
 end note
 
-note bottom of UC04
+note bottom of UC03C
+  /super-admin, /master, /secretaria,
+  /financeiro, /professor ou /aluno,
+  conforme a Role do token.
+end note
+
+note bottom of UC16
+  Escola: resumo geral. Secretaria: resumo de matrículas.
+  Professor: turmas, alunos e próximas avaliações.
+  SUPER_ADMIN, FINANCEIRO e ALUNO têm, nesta versão,
+  apenas o painel inicial do perfil.
+end note
+
+note right of UC04
   Pré-condições: MASTER autenticado e escola ativa.
-  Perfis atribuíveis: SECRETARIA, FINANCEIRO,
-  PROFESSOR, ALUNO, entre outros.
+  Perfis atribuíveis pelo MASTER: SECRETARIA e FINANCEIRO.
+  Os acessos de PROFESSOR e ALUNO são criados
+  pela SECRETARIA no cadastro (UC05 e UC06).
 end note
 
 @enduml
