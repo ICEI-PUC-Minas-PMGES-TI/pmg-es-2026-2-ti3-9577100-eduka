@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -35,6 +37,7 @@ import br.pucminas.eduka.backend.dto.ProfessorRequest;
 import br.pucminas.eduka.backend.dto.ProfessorResponse;
 import br.pucminas.eduka.backend.exception.AcessoJaAtivadoException;
 import br.pucminas.eduka.backend.exception.CpfJaCadastradoException;
+import br.pucminas.eduka.backend.exception.ProfessorComHistoricoException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
@@ -45,8 +48,8 @@ import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 /**
  * Isolamento por escola no servico de professor: toda consulta e escrita usa
  * a escola do token. Cobre tambem o CPF unico por escola (checado em memoria,
- * ja que a coluna e cifrada), a inativacao no lugar da exclusao e a
- * criacao do login junto com o cadastro.
+ * ja que a coluna e cifrada), inativacao e exclusao e a criacao do login
+ * junto com o cadastro.
  */
 @ExtendWith(MockitoExtension.class)
 class ProfessorServiceTest {
@@ -180,7 +183,10 @@ class ProfessorServiceTest {
                 .isInstanceOf(RecursoNaoEncontradoException.class);
         assertThatThrownBy(() -> professorService.inativar(daEscolaB.getId()))
                 .isInstanceOf(RecursoNaoEncontradoException.class);
+        assertThatThrownBy(() -> professorService.excluir(daEscolaB.getId()))
+                .isInstanceOf(RecursoNaoEncontradoException.class);
         verify(professorRepository, never()).save(any());
+        verify(professorRepository, never()).delete(any());
         verify(pessoaRepository, never()).save(any());
     }
 
@@ -357,6 +363,59 @@ class ProfessorServiceTest {
         verify(acessoService).definirAtivo(pessoaAna, true);
         verify(professorRepository, never()).delete(any());
         verify(professorRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void excluirApagaProfessorLoginPapelEPessoa() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Pessoa pessoaAna = pessoa("Ana", "12345678900");
+        Professor ana = professor(ESCOLA_A, pessoaAna.getId());
+        PessoaPapel papel = PessoaPapel.builder().pessoaId(pessoaAna.getId()).papel(PapelPessoa.PROFESSOR).build();
+        when(professorRepository.findByIdAndEscolaId(ana.getId(), ESCOLA_A)).thenReturn(Optional.of(ana));
+        when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+        when(pessoaPapelRepository.findAllByPessoaId(pessoaAna.getId())).thenReturn(List.of(papel));
+
+        professorService.excluir(ana.getId());
+
+        verify(professorRepository).delete(ana);
+        verify(acessoService).excluirLogin(pessoaAna);
+        verify(pessoaPapelRepository).deleteAll(List.of(papel));
+        verify(pessoaRepository).delete(pessoaAna);
+    }
+
+    @Test
+    void excluirMantemPessoaQueTemOutroPapelNaEscola() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Pessoa pessoaAna = pessoa("Ana", "12345678900");
+        Professor ana = professor(ESCOLA_A, pessoaAna.getId());
+        PessoaPapel professora = PessoaPapel.builder().pessoaId(pessoaAna.getId()).papel(PapelPessoa.PROFESSOR)
+                .build();
+        PessoaPapel responsavel = PessoaPapel.builder().pessoaId(pessoaAna.getId())
+                .papel(PapelPessoa.RESPONSAVEL).build();
+        when(professorRepository.findByIdAndEscolaId(ana.getId(), ESCOLA_A)).thenReturn(Optional.of(ana));
+        when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+        when(pessoaPapelRepository.findAllByPessoaId(pessoaAna.getId())).thenReturn(List.of(professora, responsavel));
+
+        professorService.excluir(ana.getId());
+
+        verify(professorRepository).delete(ana);
+        verify(pessoaPapelRepository).deleteAll(List.of(professora));
+        verify(pessoaRepository, never()).delete(any());
+    }
+
+    @Test
+    void excluirProfessorComHistoricoEhRecusado() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Pessoa pessoaAna = pessoa("Ana", "12345678900");
+        Professor ana = professor(ESCOLA_A, pessoaAna.getId());
+        when(professorRepository.findByIdAndEscolaId(ana.getId(), ESCOLA_A)).thenReturn(Optional.of(ana));
+        when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+        doThrow(new DataIntegrityViolationException("fk")).when(professorRepository).flush();
+
+        assertThatThrownBy(() -> professorService.excluir(ana.getId()))
+                .isInstanceOf(ProfessorComHistoricoException.class);
+        verify(acessoService, never()).excluirLogin(any());
+        verify(pessoaRepository, never()).delete(any());
     }
 
     @Test

@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +20,7 @@ import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.ProfessorRequest;
 import br.pucminas.eduka.backend.dto.ProfessorResponse;
 import br.pucminas.eduka.backend.exception.CpfJaCadastradoException;
+import br.pucminas.eduka.backend.exception.ProfessorComHistoricoException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
@@ -41,8 +43,9 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
  * </p>
  *
  * <p>
- * Nao ha exclusao fisica: o professor e inativado, para nao quebrar
- * historico (turmas, avaliacoes) que venha a apontar para ele.
+ * Afastamento temporario (licenca) e inativacao: o registro e o login ficam,
+ * so desligados. Saida da escola e exclusao fisica, recusada quando ja ha
+ * historico (turmas, avaliacoes) apontando para o professor.
  * </p>
  *
  * <p>
@@ -168,13 +171,44 @@ public class ProfessorService {
     }
 
     @Transactional
-    public void inativar(UUID id) {
-        alterarAtivo(id, false);
+    public ProfessorResponse inativar(UUID id) {
+        return alterarAtivo(id, false);
     }
 
     @Transactional
     public ProfessorResponse ativar(UUID id) {
         return alterarAtivo(id, true);
+    }
+
+    /**
+     * Exclusao fisica, para quem saiu da escola: some o professor, o login e
+     * o papel PROFESSOR. A pessoa so e apagada se nao tiver outro papel na
+     * escola (ex.: tambem e responsavel de aluno).
+     *
+     * @throws ProfessorComHistoricoException se outros registros ainda
+     *         apontam para o professor
+     */
+    @Transactional
+    public void excluir(UUID id) {
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        Professor professor = buscarProfessor(id, escolaId);
+        Pessoa pessoa = buscarPessoa(professor, escolaId);
+
+        List<PessoaPapel> papeis = pessoaPapelRepository.findAllByPessoaId(pessoa.getId());
+        List<PessoaPapel> papeisProfessor = papeis.stream()
+                .filter(papel -> papel.getPapel() == PapelPessoa.PROFESSOR)
+                .toList();
+        try {
+            professorRepository.delete(professor);
+            professorRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new ProfessorComHistoricoException();
+        }
+        acessoService.excluirLogin(pessoa);
+        pessoaPapelRepository.deleteAll(papeisProfessor);
+        if (papeisProfessor.size() == papeis.size()) {
+            pessoaRepository.delete(pessoa);
+        }
     }
 
     private ProfessorResponse alterarAtivo(UUID id, boolean ativo) {

@@ -119,6 +119,12 @@ public class AcessoService {
         });
     }
 
+    /** Apaga o login da pessoa, quando existe (ex.: professor excluido). */
+    @Transactional
+    public void excluirLogin(Pessoa pessoa) {
+        usuarioRepository.findByPessoaId(pessoa.getId()).ifPresent(usuarioRepository::delete);
+    }
+
     private boolean trocarLogin(Usuario usuario, String login) {
         if (login.equals(usuario.getLogin())) {
             return false;

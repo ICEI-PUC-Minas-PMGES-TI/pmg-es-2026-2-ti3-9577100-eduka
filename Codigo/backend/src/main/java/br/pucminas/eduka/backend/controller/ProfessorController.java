@@ -66,10 +66,19 @@ public class ProfessorController {
         return professorService.atualizar(id, request);
     }
 
-    /** Exclusao logica: o professor fica inativo, o registro continua. */
+    /** Afastamento (licenca, ferias...): o professor e o login ficam inativos, o registro continua. */
+    @PatchMapping("/{id}/inativar")
+    public ProfessorResponse inativar(@PathVariable UUID id) {
+        return professorService.inativar(id);
+    }
+
+    /**
+     * Saida da escola: apaga o professor e o login. Recusado (409) se ele ja
+     * tem historico; nesse caso, inativar.
+     */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> inativar(@PathVariable UUID id) {
-        professorService.inativar(id);
+    public ResponseEntity<Void> excluir(@PathVariable UUID id) {
+        professorService.excluir(id);
         return ResponseEntity.noContent().build();
     }
 
