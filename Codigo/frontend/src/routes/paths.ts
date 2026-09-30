@@ -5,6 +5,8 @@ import type { PerfilUsuario } from '../services/authService'
 // Cada perfil tem uma rota-mãe (raiz); as telas entram como subrotas dela.
 export const paths = {
   login: '/login',
+  /** Só existe em dev (import.meta.env.DEV). */
+  loginDev: '/login/dev',
   superAdmin: {
     raiz: '/super-admin',
     login: '/super-admin/login',
