@@ -22,3 +22,8 @@
   background: var(--color-danger-bg);
   color: var(--color-danger);
 }
+
+.neutral {
+  background: var(--color-neutral-bg);
+  color: var(--color-neutral);
+}
