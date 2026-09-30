@@ -17,6 +17,7 @@ export const paths = {
   },
   secretaria: {
     raiz: '/secretaria',
+    professores: '/secretaria/professores',
   },
   financeiro: {
     raiz: '/financeiro',

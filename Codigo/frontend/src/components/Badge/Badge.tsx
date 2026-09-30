@@ -3,7 +3,7 @@ import { Icon, type IconName } from '../Icon/Icon'
 import styles from './Badge.module.css'
 
 type BadgeProps = {
-  tone: 'success' | 'danger'
+  tone: 'success' | 'danger' | 'neutral'
   icon?: IconName
   children: ReactNode
 }
