@@ -72,3 +72,27 @@ export function mascararInteiro(valor: string, maxDigitos: number): string {
   const digitos = somenteDigitos(valor).replace(/^0+/, '').slice(0, maxDigitos)
   return digitos.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
 }
+
+/** Máscara de CPF: "12345678909" -> "123.456.789-09". */
+export function mascararCpf(valor: string): string {
+  return somenteDigitos(valor)
+    .slice(0, 11)
+    .replace(/^(\d{3})(\d)/, '$1.$2')
+    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1-$2')
+}
+
+/** Confere tamanho e dígitos verificadores de um CPF (com ou sem máscara). */
+export function cpfValido(valor: string): boolean {
+  const digitos = somenteDigitos(valor)
+  if (digitos.length !== 11 || /^(\d)\1+$/.test(digitos)) return false
+
+  const digitoVerificador = (quantidade: number) => {
+    let soma = 0
+    for (let i = 0; i < quantidade; i++) soma += Number(digitos[i]) * (quantidade + 1 - i)
+    const resto = soma % 11
+    return resto < 2 ? 0 : 11 - resto
+  }
+
+  return digitoVerificador(9) === Number(digitos[9]) && digitoVerificador(10) === Number(digitos[10])
+}

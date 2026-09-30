@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
+import { ApiError } from '../../../../services/api'
 import type { Professor } from '../../../../types/professor'
+import { CadastroProfessorModal } from '../../components/CadastroProfessorModal/CadastroProfessorModal'
+import { ExcluirProfessorModal } from '../../components/ExcluirProfessorModal/ExcluirProfessorModal'
 import { ProfessoresTable } from '../../components/ProfessoresTable/ProfessoresTable'
 import { useProfessores } from '../../hooks/useProfessores'
 import { SecretariaLayout } from '../../layouts/SecretariaLayout'
@@ -15,14 +18,59 @@ function correspondeBusca(professor: Professor, busca: string): boolean {
 }
 
 export function Professores() {
-  const { professores, carregando, erro, recarregar } = useProfessores()
+  const { professores, carregando, erro, recarregar, cadastrar, alternarSituacao, excluir } = useProfessores()
   const [busca, setBusca] = useState('')
+  const [cadastroAberto, setCadastroAberto] = useState(false)
+  const [sucesso, setSucesso] = useState<string | null>(null)
+  const [erroAcao, setErroAcao] = useState<string | null>(null)
+  const [alternandoId, setAlternandoId] = useState<string | null>(null)
+  const [excluindo, setExcluindo] = useState<Professor | null>(null)
 
   const visiveis = professores.filter((p) => correspondeBusca(p, busca))
   const mensagemVazia =
     professores.length === 0
       ? 'Nenhum professor cadastrado ainda.'
       : 'Nenhum professor encontrado para a busca.'
+
+  function limparAvisos() {
+    setSucesso(null)
+    setErroAcao(null)
+  }
+
+  function abrirCadastro() {
+    limparAvisos()
+    setCadastroAberto(true)
+  }
+
+  async function handleAlternarSituacao(professor: Professor) {
+    limparAvisos()
+    setAlternandoId(professor.id)
+    try {
+      await alternarSituacao(professor)
+      setSucesso(`"${professor.nome}" foi ${professor.ativo ? 'inativado' : 'reativado'}.`)
+    } catch (e) {
+      const acao = professor.ativo ? 'inativar' : 'reativar'
+      const detalhe = e instanceof ApiError ? ` ${e.message}` : ''
+      setErroAcao(`Não foi possível ${acao} "${professor.nome}".${detalhe}`)
+    } finally {
+      setAlternandoId(null)
+    }
+  }
+
+  function abrirExclusao(professor: Professor) {
+    limparAvisos()
+    setExcluindo(professor)
+  }
+
+  function handleExclusaoConcluida(mensagem: string) {
+    setExcluindo(null)
+    setSucesso(mensagem)
+  }
+
+  function handleCadastrado(professor: Professor) {
+    setCadastroAberto(false)
+    setSucesso(`"${professor.nome}" foi cadastrado com sucesso.`)
+  }
 
   return (
     <SecretariaLayout
@@ -40,18 +88,51 @@ export function Professores() {
             onChange={(e) => setBusca(e.target.value)}
           />
         </label>
-        <Button variant="primary" icon="plus" disabled title="Em breve">
+        <Button variant="primary" icon="plus" onClick={abrirCadastro}>
           Novo professor
         </Button>
       </div>
+
+      {sucesso && (
+        <p className={styles.sucesso} role="status">
+          {sucesso}
+        </p>
+      )}
+
+      {erroAcao && (
+        <p className={styles.alerta} role="alert">
+          {erroAcao}
+        </p>
+      )}
 
       <ProfessoresTable
         professores={visiveis}
         carregando={carregando}
         erro={erro}
         mensagemVazia={mensagemVazia}
+        alternandoId={alternandoId}
         onTentarNovamente={recarregar}
+        onAlternarSituacao={handleAlternarSituacao}
+        onExcluir={abrirExclusao}
       />
+
+      {cadastroAberto && (
+        <CadastroProfessorModal
+          onFechar={() => setCadastroAberto(false)}
+          onSalvar={cadastrar}
+          onCadastrado={handleCadastrado}
+        />
+      )}
+
+      {excluindo && (
+        <ExcluirProfessorModal
+          professor={excluindo}
+          onFechar={() => setExcluindo(null)}
+          onExcluir={excluir}
+          onInativar={alternarSituacao}
+          onConcluido={handleExclusaoConcluida}
+        />
+      )}
     </SecretariaLayout>
   )
 }
