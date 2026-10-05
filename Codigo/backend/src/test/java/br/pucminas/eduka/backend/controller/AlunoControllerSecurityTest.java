@@ -30,15 +30,20 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import br.pucminas.eduka.backend.domain.Aluno;
+import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Pessoa;
+import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
+import br.pucminas.eduka.backend.repository.UsuarioRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
+import br.pucminas.eduka.backend.security.PasswordEncoderConfig;
+import br.pucminas.eduka.backend.service.AcessoService;
 import br.pucminas.eduka.backend.service.AlunoService;
 
 /**
@@ -49,11 +54,13 @@ import br.pucminas.eduka.backend.service.AlunoService;
  */
 @WebMvcTest(AlunoController.class)
 @Import({ JwtConfig.class, JwtService.class, IsolamentoEscola.class, ApiExceptionHandler.class,
-        AlunoService.class })
+        AlunoService.class, AcessoService.class, PasswordEncoderConfig.class })
 class AlunoControllerSecurityTest {
 
     private static final UUID ESCOLA_A = UUID.randomUUID();
     private static final UUID ESCOLA_B = UUID.randomUUID();
+    private static final String CORPO_VALIDO =
+            "{\"nome\":\"Ana\",\"matricula\":\"2026-001\",\"cpf\":\"52998224725\",\"email\":\"ana@escola.com\"}";
 
     @Autowired
     private MockMvc mockMvc;
@@ -69,6 +76,8 @@ class AlunoControllerSecurityTest {
     private PessoaPapelRepository pessoaPapelRepository;
     @MockitoBean
     private AlunoResponsavelRepository alunoResponsavelRepository;
+    @MockitoBean
+    private UsuarioRepository usuarioRepository;
 
     private String accessToken(String perfil, UUID escolaId) {
         return jwtService.generateAccessToken(UUID.randomUUID(), perfil, escolaId);
@@ -91,7 +100,8 @@ class AlunoControllerSecurityTest {
     }
 
     private static Pessoa pessoa(String nome) {
-        return Pessoa.builder().id(UUID.randomUUID()).nome(nome).ativo(true).build();
+        return Pessoa.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).nome(nome).cpf("52998224725")
+                .email("ana@escola.com").ativo(true).build();
     }
 
     private void stubSavePessoaEAluno() {
@@ -104,6 +114,11 @@ class AlunoControllerSecurityTest {
             Aluno aluno = inv.getArgument(0);
             aluno.setId(UUID.randomUUID());
             return aluno;
+        });
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> {
+            Usuario usuario = inv.getArgument(0);
+            usuario.setId(UUID.randomUUID());
+            return usuario;
         });
     }
 
@@ -144,7 +159,7 @@ class AlunoControllerSecurityTest {
                     .andExpect(status().isOk());
 
             mockMvc.perform(postCom("/alunos", accessToken("PROFESSOR", ESCOLA_A),
-                    "{\"nome\":\"Ana\",\"matricula\":\"2026-001\"}"))
+                    CORPO_VALIDO))
                     .andExpect(status().isForbidden());
             verify(alunoRepository, never()).save(any());
         }
@@ -158,7 +173,7 @@ class AlunoControllerSecurityTest {
                     .andExpect(status().isForbidden());
             mockMvc.perform(getCom("/alunos/" + UUID.randomUUID(), token))
                     .andExpect(status().isForbidden());
-            mockMvc.perform(postCom("/alunos", token, "{\"nome\":\"Ana\",\"matricula\":\"2026-001\"}"))
+            mockMvc.perform(postCom("/alunos", token, CORPO_VALIDO))
                     .andExpect(status().isForbidden());
 
             verify(alunoRepository, never()).findAll();
@@ -171,10 +186,106 @@ class AlunoControllerSecurityTest {
             stubSavePessoaEAluno();
 
             mockMvc.perform(postCom("/alunos", accessToken("SECRETARIA", ESCOLA_A),
-                    "{\"nome\":\"Ana\",\"matricula\":\"2026-001\"}"))
+                    CORPO_VALIDO))
                     .andExpect(status().isCreated())
                     .andExpect(header().exists(HttpHeaders.LOCATION))
                     .andExpect(jsonPath("$.escolaId").value(ESCOLA_A.toString()));
+        }
+    }
+
+    @Nested
+    class PrimeiroAcesso {
+
+        @Test
+        void cadastroCriaLoginDeAlunoPeloEmailComSenhaProvisoria() throws Exception {
+            stubSavePessoaEAluno();
+
+            mockMvc.perform(postCom("/alunos", accessToken("SECRETARIA", ESCOLA_A), CORPO_VALIDO))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.email").value("ana@escola.com"));
+
+            ArgumentCaptor<Usuario> usuarioCaptor = ArgumentCaptor.forClass(Usuario.class);
+            verify(usuarioRepository).save(usuarioCaptor.capture());
+            Usuario usuario = usuarioCaptor.getValue();
+            assertThat(usuario.getLogin()).isEqualTo("ana@escola.com");
+            assertThat(usuario.getPerfil()).isEqualTo(PerfilUsuario.ALUNO);
+            assertThat(usuario.getEscolaId()).isEqualTo(ESCOLA_A);
+            assertThat(usuario.isSenhaProvisoria()).isTrue();
+            assertThat(usuario.getSenhaProvisoriaExpiraEm()).isNotNull();
+            assertThat(usuario.getSenhaHash()).doesNotContain("52998224725");
+
+            ArgumentCaptor<Aluno> alunoCaptor = ArgumentCaptor.forClass(Aluno.class);
+            verify(alunoRepository).save(alunoCaptor.capture());
+            assertThat(alunoCaptor.getValue().getUsuarioId()).isEqualTo(usuario.getId());
+        }
+
+        @Test
+        void cadastroSemCpfOuEmailValidoResponde400() throws Exception {
+            String token = accessToken("SECRETARIA", ESCOLA_A);
+            for (String corpo : List.of(
+                    "{\"nome\":\"Ana\",\"matricula\":\"2026-001\",\"email\":\"ana@escola.com\"}",
+                    "{\"nome\":\"Ana\",\"matricula\":\"2026-001\",\"cpf\":\"52998224725\"}",
+                    "{\"nome\":\"Ana\",\"matricula\":\"2026-001\",\"cpf\":\"12345678900\",\"email\":\"ana@escola.com\"}",
+                    "{\"nome\":\"Ana\",\"matricula\":\"2026-001\",\"cpf\":\"52998224725\",\"email\":\"ana\"}")) {
+                mockMvc.perform(postCom("/alunos", token, corpo))
+                        .andExpect(status().isBadRequest());
+            }
+            verify(pessoaRepository, never()).save(any());
+            verify(usuarioRepository, never()).save(any());
+        }
+
+        @Test
+        void emailJaUsadoComoLoginResponde409ENaoGravaAluno() throws Exception {
+            stubSavePessoaEAluno();
+            when(usuarioRepository.existsByLogin("ana@escola.com")).thenReturn(true);
+
+            mockMvc.perform(postCom("/alunos", accessToken("SECRETARIA", ESCOLA_A), CORPO_VALIDO))
+                    .andExpect(status().isConflict());
+            verify(alunoRepository, never()).save(any());
+            verify(usuarioRepository, never()).save(any());
+        }
+
+        @Test
+        void reenvioSoParaGestaoESecretaria() throws Exception {
+            String url = "/alunos/" + UUID.randomUUID() + "/primeiro-acesso";
+            for (String perfil : List.of("PROFESSOR", "FINANCEIRO", "ALUNO")) {
+                mockMvc.perform(post(url).header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken(perfil, ESCOLA_A)))
+                        .andExpect(status().isForbidden());
+            }
+            verify(alunoRepository, never()).findByIdAndEscolaId(any(), any());
+        }
+
+        @Test
+        void reenvioDeQuemJaDefiniuASenhaResponde409() throws Exception {
+            Pessoa pessoaAna = pessoa("Ana");
+            Aluno ana = aluno(ESCOLA_A, pessoaAna.getId());
+            when(alunoRepository.findByIdAndEscolaId(ana.getId(), ESCOLA_A)).thenReturn(Optional.of(ana));
+            when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+            when(usuarioRepository.findByPessoaId(pessoaAna.getId())).thenReturn(Optional.of(Usuario.builder()
+                    .id(UUID.randomUUID()).login("ana@escola.com").senhaProvisoria(false).ativo(true).build()));
+
+            mockMvc.perform(post("/alunos/" + ana.getId() + "/primeiro-acesso")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken("SECRETARIA", ESCOLA_A)))
+                    .andExpect(status().isConflict());
+            verify(usuarioRepository, never()).save(any());
+        }
+
+        @Test
+        void reenvioComSenhaAindaProvisoriaResponde204() throws Exception {
+            Pessoa pessoaAna = pessoa("Ana");
+            Aluno ana = aluno(ESCOLA_A, pessoaAna.getId());
+            Usuario usuario = Usuario.builder().id(UUID.randomUUID()).login("ana@escola.com")
+                    .senhaProvisoria(true).ativo(true).build();
+            ana.setUsuarioId(usuario.getId());
+            when(alunoRepository.findByIdAndEscolaId(ana.getId(), ESCOLA_A)).thenReturn(Optional.of(ana));
+            when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+            when(usuarioRepository.findByPessoaId(pessoaAna.getId())).thenReturn(Optional.of(usuario));
+            when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            mockMvc.perform(post("/alunos/" + ana.getId() + "/primeiro-acesso")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken("SECRETARIA", ESCOLA_A)))
+                    .andExpect(status().isNoContent());
+            assertThat(usuario.getSenhaProvisoriaExpiraEm()).isNotNull();
         }
     }
 
@@ -229,7 +340,7 @@ class AlunoControllerSecurityTest {
             stubSavePessoaEAluno();
 
             mockMvc.perform(postCom("/alunos", accessToken("MASTER", ESCOLA_A),
-                    "{\"nome\":\"Ana\",\"matricula\":\"2026-001\",\"escolaId\":\"" + ESCOLA_B + "\"}"))
+                    CORPO_VALIDO.replace("}", ",\"escolaId\":\"" + ESCOLA_B + "\"}")))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.escolaId").value(ESCOLA_A.toString()));
 

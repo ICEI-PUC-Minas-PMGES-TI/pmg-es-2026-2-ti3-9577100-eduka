@@ -22,7 +22,7 @@ import br.pucminas.eduka.backend.security.PerfilNaoPermitidoException;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 
 /**
- * Login de quem e cadastrado pela escola (professor hoje; depois aluno,
+ * Login de quem e cadastrado pela escola (professor e aluno hoje; depois
  * funcionario...). Serve a qualquer perfil: quem chama passa a {@link Pessoa}
  * ja cadastrada e o perfil do novo usuario.
  *

@@ -15,8 +15,10 @@ import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.AlunoResponsavel;
 import br.pucminas.eduka.backend.domain.AlunoResponsavelId;
 import br.pucminas.eduka.backend.domain.PapelPessoa;
+import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.PessoaPapel;
+import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.AlunoRequest;
 import br.pucminas.eduka.backend.dto.AlunoResponse;
 import br.pucminas.eduka.backend.dto.EnderecoRequest;
@@ -44,6 +46,11 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
  * primeiro por {@code escola_id} (indice existente) e so decifra em memoria
  * depois - nunca {@code LIKE} sobre coluna cifrada.
  * </p>
+ *
+ * <p>
+ * O login do aluno e criado junto com o cadastro, via {@link AcessoService}:
+ * login = e-mail, senha provisoria = CPF, enviada por e-mail.
+ * </p>
  */
 @Service
 public class AlunoService {
@@ -53,15 +60,17 @@ public class AlunoService {
     private final PessoaPapelRepository pessoaPapelRepository;
     private final AlunoResponsavelRepository alunoResponsavelRepository;
     private final IsolamentoEscola isolamentoEscola;
+    private final AcessoService acessoService;
 
     public AlunoService(AlunoRepository alunoRepository, PessoaRepository pessoaRepository,
             PessoaPapelRepository pessoaPapelRepository, AlunoResponsavelRepository alunoResponsavelRepository,
-            IsolamentoEscola isolamentoEscola) {
+            IsolamentoEscola isolamentoEscola, AcessoService acessoService) {
         this.alunoRepository = alunoRepository;
         this.pessoaRepository = pessoaRepository;
         this.pessoaPapelRepository = pessoaPapelRepository;
         this.alunoResponsavelRepository = alunoResponsavelRepository;
         this.isolamentoEscola = isolamentoEscola;
+        this.acessoService = acessoService;
     }
 
     public List<AlunoResponse> listar(String nome) {
@@ -89,8 +98,9 @@ public class AlunoService {
 
     /**
      * Cadastra o aluno (e, se informados, seus responsaveis) na escola do
-     * usuario autenticado. O request nao carrega escola: mesmo que
-     * carregasse, seria ignorado.
+     * usuario autenticado e cria o login dele. O request nao carrega escola:
+     * mesmo que carregasse, seria ignorado. E-mail ja usado como login barra
+     * o cadastro inteiro (409).
      */
     @Transactional
     public AlunoResponse cadastrar(AlunoRequest request) {
@@ -98,13 +108,15 @@ public class AlunoService {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
 
         Pessoa pessoaAluno = criarPessoa(escolaId, request.nome(), request.cpf(), request.dataNascimento(),
-                null, null, request.endereco());
+                request.email() == null ? null : request.email().trim(), null, request.endereco());
         pessoaPapelRepository
                 .save(PessoaPapel.builder().pessoaId(pessoaAluno.getId()).papel(PapelPessoa.ALUNO).build());
+        Usuario usuario = acessoService.enviarAcessoInicial(pessoaAluno, PerfilUsuario.ALUNO);
 
         Aluno aluno = alunoRepository.save(Aluno.builder()
                 .escolaId(escolaId)
                 .pessoaId(pessoaAluno.getId())
+                .usuarioId(usuario.getId())
                 .matricula(request.matricula())
                 .genero(request.genero())
                 .build());
@@ -126,6 +138,25 @@ public class AlunoService {
             }
         }
         return AlunoResponse.de(aluno, pessoaAluno, responsaveis);
+    }
+
+    /**
+     * Novo e-mail de primeiro acesso, com senha provisoria renovada: para
+     * quem perdeu o e-mail ou deixou a senha expirar. Recusado (409) se o
+     * aluno ja definiu a senha. Aluno anterior ao login automatico ganha o
+     * acesso aqui, desde que tenha e-mail e CPF.
+     */
+    @Transactional
+    public void reenviarAcesso(UUID id) {
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        Aluno aluno = alunoRepository.findByIdAndEscolaId(id, escolaId).orElseThrow(AlunoService::naoEncontrado);
+        Pessoa pessoa = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
+                .orElseThrow(AlunoService::naoEncontrado);
+        Usuario usuario = acessoService.enviarAcessoInicial(pessoa, PerfilUsuario.ALUNO);
+        if (!usuario.getId().equals(aluno.getUsuarioId())) {
+            aluno.setUsuarioId(usuario.getId());
+            alunoRepository.save(aluno);
+        }
     }
 
     private Pessoa criarPessoa(UUID escolaId, String nome, String cpf, java.time.LocalDate dataNascimento,

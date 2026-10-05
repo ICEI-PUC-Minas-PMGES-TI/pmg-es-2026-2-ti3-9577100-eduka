@@ -22,6 +22,7 @@ import br.pucminas.eduka.backend.service.AlunoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 
 /**
  * Alunos da escola do usuario autenticado. Nao ha rota com {@code escolaId}
@@ -61,9 +62,18 @@ public class AlunoController {
 
     @PostMapping
     @PreAuthorize(Perfis.CADASTRO_ACADEMICO)
-    @Operation(summary = "Cadastra um aluno", description = "Perfis: MASTER, SECRETARIA.")
-    public ResponseEntity<AlunoResponse> cadastrar(@RequestBody AlunoRequest request) {
+    @Operation(summary = "Cadastra um aluno", description = "Cria tambem o login do aluno e envia o e-mail de primeiro acesso. Responde 409 se o e-mail ja e login de alguem. Perfis: MASTER, SECRETARIA.")
+    public ResponseEntity<AlunoResponse> cadastrar(@Valid @RequestBody AlunoRequest request) {
         AlunoResponse response = alunoService.cadastrar(request);
         return ResponseEntity.created(URI.create("/alunos/" + response.id())).body(response);
+    }
+
+    /** Reenvia o e-mail de primeiro acesso com uma senha provisoria renovada. */
+    @PostMapping("/{id}/primeiro-acesso")
+    @PreAuthorize(Perfis.CADASTRO_ACADEMICO)
+    @Operation(summary = "Reenvia o e-mail de primeiro acesso", description = "Gera uma nova senha provisoria. Responde 409 se o aluno ja definiu a senha. Perfis: MASTER, SECRETARIA.")
+    public ResponseEntity<Void> reenviarAcesso(@PathVariable UUID id) {
+        alunoService.reenviarAcesso(id);
+        return ResponseEntity.noContent().build();
     }
 }
