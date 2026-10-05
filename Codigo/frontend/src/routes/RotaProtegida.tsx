@@ -9,6 +9,8 @@ import { paths, rotaInicialPorPerfil } from './paths'
 
 type RotaProtegidaProps = {
   perfis: readonly PerfilUsuario[]
+  /** Tela de login desta área. Padrão: o login da escola. */
+  login?: string
 }
 
 // Guarda a rota-mãe de um perfil. Sem sessão, manda para o login; com sessão
@@ -16,11 +18,11 @@ type RotaProtegidaProps = {
 //
 // É só conveniência de navegação: quem garante o acesso é o backend, que
 // responde 403 para qualquer rota fora do perfil do token.
-export function RotaProtegida({ perfis }: RotaProtegidaProps) {
+export function RotaProtegida({ perfis, login = paths.login }: RotaProtegidaProps) {
   const usuario = obterUsuarioLogado()
 
   if (!usuario || !obterToken()) {
-    return <Navigate to={paths.login} replace />
+    return <Navigate to={login} replace />
   }
 
   if (!perfis.includes(usuario.perfil)) {
@@ -29,7 +31,7 @@ export function RotaProtegida({ perfis }: RotaProtegidaProps) {
     // loop entre o login e a área protegida.
     if (!destino) {
       limparSessao()
-      return <Navigate to={paths.login} replace />
+      return <Navigate to={login} replace />
     }
     return <Navigate to={destino} replace />
   }

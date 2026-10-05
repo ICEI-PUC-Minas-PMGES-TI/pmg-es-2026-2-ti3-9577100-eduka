@@ -11,10 +11,16 @@ export type PerfilUsuario =
   | 'ALUNO'
 
 export type LoginResponse = {
-  accessToken: string
-  refreshToken: string
+  /** Nulo quando trocaSenhaObrigatoria é verdadeiro. */
+  accessToken: string | null
+  refreshToken: string | null
   usuarioId: string
   perfil: PerfilUsuario
+  /**
+   * O usuário entrou com a senha provisória: ainda não há sessão, e ele
+   * precisa definir a definitiva com definirSenhaDefinitiva.
+   */
+  trocaSenhaObrigatoria: boolean
 }
 
 export type UsuarioSessao = {
@@ -42,7 +48,26 @@ export async function autenticar(login: string, senha: string): Promise<LoginRes
   return resposta
 }
 
+// Primeiro acesso: troca a senha provisória pela definitiva e já abre a
+// sessão, sem pedir um segundo login.
+export async function definirSenhaDefinitiva(
+  login: string,
+  senhaProvisoria: string,
+  novaSenha: string,
+): Promise<LoginResponse> {
+  const resposta = await apiRequest<LoginResponse>('/primeiro-acesso', {
+    method: 'POST',
+    body: JSON.stringify({ login: login.trim(), senhaProvisoria, novaSenha }),
+  })
+
+  salvarSessao(resposta, login.trim())
+  return resposta
+}
+
 export function salvarSessao(dados: LoginResponse, login: string): void {
+  // Troca de senha pendente: o backend não emitiu token, não há o que guardar.
+  if (!dados.accessToken) return
+
   try {
     localStorage.setItem(ACCESS_TOKEN_KEY, dados.accessToken)
     // Só o login (e-mail) é guardado à parte: id e perfil não vêm daqui, são
