@@ -24,6 +24,8 @@ export const paths = {
   secretaria: {
     raiz: '/secretaria',
     professores: '/secretaria/professores',
+    /** Alocação de professores nas turmas; por enquanto a única tela do Acadêmico. */
+    alocacoes: '/secretaria/academico/alocacoes',
   },
   financeiro: {
     raiz: '/financeiro',
