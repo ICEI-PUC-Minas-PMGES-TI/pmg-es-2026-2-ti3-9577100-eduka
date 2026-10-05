@@ -30,6 +30,7 @@ export const paths = {
   },
   professor: {
     raiz: '/professor',
+    turmas: '/professor/turmas',
   },
   aluno: {
     raiz: '/aluno',
