@@ -4,11 +4,15 @@ import type { PerfilUsuario } from '../services/authService'
 // vez de strings soltas, para que renomear uma rota seja uma mudança só.
 // Cada perfil tem uma rota-mãe (raiz); as telas entram como subrotas dela.
 export const paths = {
+  /** Login da escola: master, secretaria, financeiro, professor e aluno. */
   login: '/login',
+  /** Login do console da plataforma (SUPER_ADMIN). */
+  loginAdmin: '/login/admin',
   /** Só existe em dev (import.meta.env.DEV). */
   loginDev: '/login/dev',
   superAdmin: {
     raiz: '/super-admin',
+    /** Atalho antigo: redireciona para loginAdmin. */
     login: '/super-admin/login',
     escolas: '/super-admin/escolas',
     /** Use com generatePath(paths.superAdmin.editarEscola, { id }). */

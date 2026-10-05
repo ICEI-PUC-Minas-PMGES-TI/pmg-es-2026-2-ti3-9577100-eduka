@@ -24,7 +24,7 @@ export function SuperAdminLayout({ titulo, subtitulo, acao, voltar, children }: 
   // o token local. replace impede que o "voltar" reabra o painel.
   function sair() {
     limparSessao()
-    navigate(paths.login, { replace: true })
+    navigate(paths.loginAdmin, { replace: true })
   }
 
   return (
