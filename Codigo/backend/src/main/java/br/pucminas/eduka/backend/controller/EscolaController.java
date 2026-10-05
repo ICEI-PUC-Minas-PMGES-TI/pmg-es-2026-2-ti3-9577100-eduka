@@ -21,6 +21,8 @@ import br.pucminas.eduka.backend.dto.EscolaResponse;
 import br.pucminas.eduka.backend.dto.EscolaUpdateRequest;
 import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.EscolaService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 /**
@@ -31,6 +33,7 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/escolas")
 @PreAuthorize(Perfis.SUPER_ADMIN)
+@Tag(name = "Escolas", description = "Escolas contratantes (tenants). Perfil: SUPER_ADMIN.")
 public class EscolaController {
 
     private final EscolaService escolaService;
@@ -40,16 +43,19 @@ public class EscolaController {
     }
 
     @GetMapping
+    @Operation(summary = "Lista as escolas")
     public List<EscolaResponse> listar() {
         return escolaService.listar();
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Busca uma escola pelo id")
     public EscolaResponse buscarPorId(@PathVariable UUID id) {
         return escolaService.buscarPorId(id);
     }
 
     @PostMapping
+    @Operation(summary = "Cadastra uma escola")
     public ResponseEntity<EscolaResponse> cadastrar(@Valid @RequestBody EscolaRequest request) {
         Escola escola = escolaService.cadastrar(request);
         return ResponseEntity.created(URI.create("/escolas/" + escola.getId()))
@@ -57,16 +63,19 @@ public class EscolaController {
     }
 
     @PutMapping("/{id}")
+    @Operation(summary = "Atualiza os dados de uma escola")
     public EscolaResponse atualizar(@PathVariable UUID id, @Valid @RequestBody EscolaUpdateRequest request) {
         return escolaService.atualizar(id, request);
     }
 
     @PatchMapping("/{id}/ativar")
+    @Operation(summary = "Ativa uma escola")
     public EscolaResponse ativar(@PathVariable UUID id) {
         return escolaService.ativar(id);
     }
 
     @PatchMapping("/{id}/suspender")
+    @Operation(summary = "Suspende uma escola")
     public EscolaResponse suspender(@PathVariable UUID id) {
         return escolaService.suspender(id);
     }

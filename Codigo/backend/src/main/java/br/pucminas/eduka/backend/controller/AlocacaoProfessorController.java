@@ -17,6 +17,8 @@ import br.pucminas.eduka.backend.dto.AlocacaoProfessorRequest;
 import br.pucminas.eduka.backend.dto.AlocacaoProfessorResponse;
 import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.AlocacaoProfessorService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 /**
@@ -31,6 +33,8 @@ import jakarta.validation.Valid;
  */
 @RestController
 @PreAuthorize(Perfis.CADASTRO_ACADEMICO)
+@Tag(name = "Alocacao de professores",
+        description = "Professores nas disciplinas das turmas. Perfis: MASTER, SECRETARIA.")
 public class AlocacaoProfessorController {
 
     private final AlocacaoProfessorService alocacaoService;
@@ -40,11 +44,13 @@ public class AlocacaoProfessorController {
     }
 
     @GetMapping("/professores/{professorId}/alocacoes")
+    @Operation(summary = "Lista as alocacoes de um professor")
     public List<AlocacaoProfessorResponse> listarPorProfessor(@PathVariable UUID professorId) {
         return alocacaoService.listarPorProfessor(professorId);
     }
 
     @PostMapping("/professores/{professorId}/alocacoes")
+    @Operation(summary = "Aloca um professor em uma disciplina de uma turma")
     public ResponseEntity<AlocacaoProfessorResponse> alocar(@PathVariable UUID professorId,
             @Valid @RequestBody AlocacaoProfessorRequest request) {
         AlocacaoProfessorResponse response = alocacaoService.alocar(professorId, request);
@@ -53,12 +59,14 @@ public class AlocacaoProfessorController {
     }
 
     @DeleteMapping("/professores/{professorId}/alocacoes/{alocacaoId}")
+    @Operation(summary = "Remove uma alocacao do professor")
     public ResponseEntity<Void> desalocar(@PathVariable UUID professorId, @PathVariable UUID alocacaoId) {
         alocacaoService.desalocar(professorId, alocacaoId);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/turmas/{turmaId}/alocacoes")
+    @Operation(summary = "Lista os professores alocados em uma turma")
     public List<AlocacaoProfessorResponse> listarPorTurma(@PathVariable Long turmaId) {
         return alocacaoService.listarPorTurma(turmaId);
     }
