@@ -52,6 +52,10 @@ public class Aluno {
     @Column(name = "pessoa_id", nullable = false, updatable = false)
     private UUID pessoaId;
 
+    /** Login do aluno (V16). Nulo enquanto o acesso nao foi criado. */
+    @Column(name = "usuario_id")
+    private UUID usuarioId;
+
     @Column(name = "numero_matricula", nullable = false, length = 50)
     private String matricula;
 
