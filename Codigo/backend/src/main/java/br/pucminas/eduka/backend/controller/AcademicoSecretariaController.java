@@ -9,9 +9,13 @@ import org.springframework.web.bind.annotation.*;
 
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 import br.pucminas.eduka.backend.service.AcademicoSecretariaService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @RequestMapping("/academico/secretaria")
+@Tag(name = "Estrutura academica", description = "Periodos letivos, cursos, disciplinas e turmas da escola.")
 public class AcademicoSecretariaController {
 
     private final AcademicoSecretariaService academicoSecretariaService;
@@ -21,25 +25,29 @@ public class AcademicoSecretariaController {
     }
 
     @GetMapping("/periodos-letivos")
-    public ResponseEntity<?> listarPeriodosLetivos(@AuthenticationPrincipal UsuarioAutenticado usuario) {
+    @Operation(summary = "Lista os periodos letivos")
+    public ResponseEntity<?> listarPeriodosLetivos(@Parameter(hidden = true) @AuthenticationPrincipal UsuarioAutenticado usuario) {
         UUID escolaId = usuario.escolaId(); 
         return ResponseEntity.ok(academicoSecretariaService.listarPeriodosLetivos(escolaId));
     }
 
     @GetMapping("/cursos")
-    public ResponseEntity<?> listarCursos(@AuthenticationPrincipal UsuarioAutenticado usuario) {
+    @Operation(summary = "Lista os cursos")
+    public ResponseEntity<?> listarCursos(@Parameter(hidden = true) @AuthenticationPrincipal UsuarioAutenticado usuario) {
         UUID escolaId = usuario.escolaId();
         return ResponseEntity.ok(academicoSecretariaService.listarCursos(escolaId));
     }
 
     @GetMapping("/disciplinas")
-    public ResponseEntity<?> listarDisciplinas(@AuthenticationPrincipal UsuarioAutenticado usuario) {
+    @Operation(summary = "Lista as disciplinas")
+    public ResponseEntity<?> listarDisciplinas(@Parameter(hidden = true) @AuthenticationPrincipal UsuarioAutenticado usuario) {
         UUID escolaId = usuario.escolaId();
         return ResponseEntity.ok(academicoSecretariaService.listarDisciplinas(escolaId));
     }
 
     @GetMapping("/turmas")
-    public ResponseEntity<?> listarTurmas(@AuthenticationPrincipal UsuarioAutenticado usuario) {
+    @Operation(summary = "Lista as turmas")
+    public ResponseEntity<?> listarTurmas(@Parameter(hidden = true) @AuthenticationPrincipal UsuarioAutenticado usuario) {
         UUID escolaId = usuario.escolaId();
         return ResponseEntity.ok(academicoSecretariaService.listarTurmas(escolaId));
     }
