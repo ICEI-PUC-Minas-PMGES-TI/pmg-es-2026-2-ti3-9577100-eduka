@@ -28,12 +28,15 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.AlunoResponsavel;
 import br.pucminas.eduka.backend.domain.PapelPessoa;
+import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.PessoaPapel;
+import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.AlunoRequest;
 import br.pucminas.eduka.backend.dto.AlunoResponse;
 import br.pucminas.eduka.backend.dto.EnderecoRequest;
 import br.pucminas.eduka.backend.dto.ResponsavelRequest;
+import br.pucminas.eduka.backend.exception.AcessoJaAtivadoException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
@@ -62,6 +65,8 @@ class AlunoServiceTest {
     private PessoaPapelRepository pessoaPapelRepository;
     @Mock
     private AlunoResponsavelRepository alunoResponsavelRepository;
+    @Mock
+    private AcessoService acessoService;
 
     private AlunoService alunoService;
 
@@ -70,7 +75,7 @@ class AlunoServiceTest {
         // IsolamentoEscola real: o ponto e provar que o servico consulta o
         // contexto de seguranca, nao um mock que devolve o que quisermos.
         alunoService = new AlunoService(alunoRepository, pessoaRepository, pessoaPapelRepository,
-                alunoResponsavelRepository, new IsolamentoEscola());
+                alunoResponsavelRepository, new IsolamentoEscola(), acessoService);
     }
 
     @AfterEach
@@ -91,6 +96,17 @@ class AlunoServiceTest {
 
     private static Pessoa pessoa(String nome) {
         return Pessoa.builder().id(UUID.randomUUID()).nome(nome).cpf("12345678900").ativo(true).build();
+    }
+
+    private static AlunoRequest request(String nome, String matricula, EnderecoRequest endereco,
+            List<ResponsavelRequest> responsaveis) {
+        return new AlunoRequest(nome, "12345678900", " ana@example.com ", null, endereco, matricula, null,
+                responsaveis);
+    }
+
+    private void stubAcessoCriado(UUID usuarioId) {
+        when(acessoService.enviarAcessoInicial(any(Pessoa.class), eq(PerfilUsuario.ALUNO)))
+                .thenReturn(Usuario.builder().id(usuarioId).build());
     }
 
     @Test
@@ -179,9 +195,9 @@ class AlunoServiceTest {
             return pessoa;
         });
         when(alunoRepository.save(any(Aluno.class))).thenAnswer(inv -> inv.getArgument(0));
+        stubAcessoCriado(UUID.randomUUID());
 
-        AlunoResponse resultado = alunoService
-                .cadastrar(new AlunoRequest("Ana", null, null, null, "2026-001", null, null));
+        AlunoResponse resultado = alunoService.cadastrar(request("Ana", "2026-001", null, null));
 
         ArgumentCaptor<Pessoa> pessoaCaptor = ArgumentCaptor.forClass(Pessoa.class);
         verify(pessoaRepository).save(pessoaCaptor.capture());
@@ -208,8 +224,9 @@ class AlunoServiceTest {
             aluno.setId(UUID.randomUUID());
             return aluno;
         });
+        stubAcessoCriado(UUID.randomUUID());
 
-        AlunoResponse resultado = alunoService.cadastrar(new AlunoRequest("Ana", null, null, null, "2026-001", null,
+        AlunoResponse resultado = alunoService.cadastrar(request("Ana", "2026-001", null,
                 List.of(new ResponsavelRequest("Maria Silva", null, "maria@example.com", "31999998888", "MAE"))));
 
         assertThat(resultado.responsaveis()).hasSize(1);
@@ -250,9 +267,10 @@ class AlunoServiceTest {
             return pessoa;
         });
         when(alunoRepository.save(any(Aluno.class))).thenAnswer(inv -> inv.getArgument(0));
+        stubAcessoCriado(UUID.randomUUID());
 
-        AlunoResponse resultado = alunoService.cadastrar(new AlunoRequest("Ana", null, null,
-                new EnderecoRequest(null, null, null, "Belo Horizonte", null, null), "2026-001", null, null));
+        AlunoResponse resultado = alunoService.cadastrar(request("Ana", "2026-001",
+                new EnderecoRequest(null, null, null, "Belo Horizonte", null, null), null));
 
         assertThat(resultado.endereco().cidade()).isEqualTo("Belo Horizonte");
         assertThat(resultado.endereco().logradouro()).isNull();
@@ -263,13 +281,97 @@ class AlunoServiceTest {
         autenticarComo("SECRETARIA", ESCOLA_A);
 
         assertThatThrownBy(
-                () -> alunoService.cadastrar(new AlunoRequest(" ", null, null, null, "2026-001", null, null)))
+                () -> alunoService.cadastrar(request(" ", "2026-001", null, null)))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(
-                () -> alunoService.cadastrar(new AlunoRequest("Ana", null, null, null, null, null, null)))
+                () -> alunoService.cadastrar(request("Ana", null, null, null)))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(alunoRepository, never()).save(any());
         verify(pessoaRepository, never()).save(any());
+        verify(acessoService, never()).enviarAcessoInicial(any(), any());
+    }
+
+    @Test
+    void cadastrarCriaOLoginDoAlunoEGuardaOVinculo() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(inv -> {
+            Pessoa pessoa = inv.getArgument(0);
+            pessoa.setId(UUID.randomUUID());
+            return pessoa;
+        });
+        when(alunoRepository.save(any(Aluno.class))).thenAnswer(inv -> inv.getArgument(0));
+        UUID usuarioId = UUID.randomUUID();
+        stubAcessoCriado(usuarioId);
+
+        AlunoResponse resultado = alunoService.cadastrar(request("Ana", "2026-001", null, null));
+
+        ArgumentCaptor<Pessoa> pessoaCaptor = ArgumentCaptor.forClass(Pessoa.class);
+        verify(acessoService).enviarAcessoInicial(pessoaCaptor.capture(), eq(PerfilUsuario.ALUNO));
+        assertThat(pessoaCaptor.getValue().getEmail()).isEqualTo("ana@example.com");
+        assertThat(pessoaCaptor.getValue().getCpf()).isEqualTo("12345678900");
+
+        ArgumentCaptor<Aluno> alunoCaptor = ArgumentCaptor.forClass(Aluno.class);
+        verify(alunoRepository).save(alunoCaptor.capture());
+        assertThat(alunoCaptor.getValue().getUsuarioId()).isEqualTo(usuarioId);
+        assertThat(resultado.email()).isEqualTo("ana@example.com");
+    }
+
+    @Test
+    void reenviarAcessoRenovaOAcessoDoAlunoDaEscola() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Pessoa pessoaAna = pessoa("Ana");
+        Aluno ana = aluno(ESCOLA_A, pessoaAna.getId());
+        UUID usuarioId = UUID.randomUUID();
+        ana.setUsuarioId(usuarioId);
+        when(alunoRepository.findByIdAndEscolaId(ana.getId(), ESCOLA_A)).thenReturn(Optional.of(ana));
+        when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+        stubAcessoCriado(usuarioId);
+
+        alunoService.reenviarAcesso(ana.getId());
+
+        verify(acessoService).enviarAcessoInicial(pessoaAna, PerfilUsuario.ALUNO);
+        verify(alunoRepository, never()).save(any());
+    }
+
+    @Test
+    void reenviarAcessoDeAlunoSemLoginCriaEGuardaOVinculo() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Pessoa pessoaAna = pessoa("Ana");
+        Aluno ana = aluno(ESCOLA_A, pessoaAna.getId());
+        when(alunoRepository.findByIdAndEscolaId(ana.getId(), ESCOLA_A)).thenReturn(Optional.of(ana));
+        when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+        UUID usuarioId = UUID.randomUUID();
+        stubAcessoCriado(usuarioId);
+
+        alunoService.reenviarAcesso(ana.getId());
+
+        verify(alunoRepository).save(ana);
+        assertThat(ana.getUsuarioId()).isEqualTo(usuarioId);
+    }
+
+    @Test
+    void reenviarAcessoDeQuemJaDefiniuASenhaPropagaOConflito() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Pessoa pessoaAna = pessoa("Ana");
+        Aluno ana = aluno(ESCOLA_A, pessoaAna.getId());
+        when(alunoRepository.findByIdAndEscolaId(ana.getId(), ESCOLA_A)).thenReturn(Optional.of(ana));
+        when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+        when(acessoService.enviarAcessoInicial(pessoaAna, PerfilUsuario.ALUNO))
+                .thenThrow(new AcessoJaAtivadoException());
+
+        assertThatThrownBy(() -> alunoService.reenviarAcesso(ana.getId()))
+                .isInstanceOf(AcessoJaAtivadoException.class);
+    }
+
+    @Test
+    void reenviarAcessoDeAlunoDeOutraEscolaEhTratadoComoInexistente() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Aluno daEscolaB = aluno(ESCOLA_B, UUID.randomUUID());
+        when(alunoRepository.findByIdAndEscolaId(daEscolaB.getId(), ESCOLA_A)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> alunoService.reenviarAcesso(daEscolaB.getId()))
+                .isInstanceOf(RecursoNaoEncontradoException.class);
+        verify(acessoService, never()).enviarAcessoInicial(any(), any());
     }
 
     @Test

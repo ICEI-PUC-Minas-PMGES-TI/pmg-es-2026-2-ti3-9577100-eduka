@@ -19,6 +19,10 @@ import br.pucminas.eduka.backend.dto.AlunoRequest;
 import br.pucminas.eduka.backend.dto.AlunoResponse;
 import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.AlunoService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 
 /**
  * Alunos da escola do usuario autenticado. Nao ha rota com {@code escolaId}
@@ -31,6 +35,7 @@ import br.pucminas.eduka.backend.service.AlunoService;
  */
 @RestController
 @RequestMapping("/alunos")
+@Tag(name = "Alunos", description = "Alunos da escola do usuario autenticado.")
 public class AlunoController {
 
     private final AlunoService alunoService;
@@ -42,20 +47,33 @@ public class AlunoController {
     /** {@code nome}: filtro parcial (enturmacao), decifrado em memoria pelo servico. */
     @GetMapping
     @PreAuthorize(Perfis.LEITURA_ACADEMICA)
-    public List<AlunoResponse> listar(@RequestParam(required = false) String nome) {
+    @Operation(summary = "Lista os alunos", description = "Perfis: MASTER, SECRETARIA, FINANCEIRO, PROFESSOR.")
+    public List<AlunoResponse> listar(
+            @Parameter(description = "Filtro parcial pelo nome") @RequestParam(required = false) String nome) {
         return alunoService.listar(nome);
     }
 
     @GetMapping("/{id}")
     @PreAuthorize(Perfis.LEITURA_ACADEMICA)
+    @Operation(summary = "Busca um aluno pelo id", description = "Perfis: MASTER, SECRETARIA, FINANCEIRO, PROFESSOR.")
     public AlunoResponse buscarPorId(@PathVariable UUID id) {
         return alunoService.buscarPorId(id);
     }
 
     @PostMapping
     @PreAuthorize(Perfis.CADASTRO_ACADEMICO)
-    public ResponseEntity<AlunoResponse> cadastrar(@RequestBody AlunoRequest request) {
+    @Operation(summary = "Cadastra um aluno", description = "Cria tambem o login do aluno e envia o e-mail de primeiro acesso. Responde 409 se o e-mail ja e login de alguem. Perfis: MASTER, SECRETARIA.")
+    public ResponseEntity<AlunoResponse> cadastrar(@Valid @RequestBody AlunoRequest request) {
         AlunoResponse response = alunoService.cadastrar(request);
         return ResponseEntity.created(URI.create("/alunos/" + response.id())).body(response);
+    }
+
+    /** Reenvia o e-mail de primeiro acesso com uma senha provisoria renovada. */
+    @PostMapping("/{id}/primeiro-acesso")
+    @PreAuthorize(Perfis.CADASTRO_ACADEMICO)
+    @Operation(summary = "Reenvia o e-mail de primeiro acesso", description = "Gera uma nova senha provisoria. Responde 409 se o aluno ja definiu a senha. Perfis: MASTER, SECRETARIA.")
+    public ResponseEntity<Void> reenviarAcesso(@PathVariable UUID id) {
+        alunoService.reenviarAcesso(id);
+        return ResponseEntity.noContent().build();
     }
 }

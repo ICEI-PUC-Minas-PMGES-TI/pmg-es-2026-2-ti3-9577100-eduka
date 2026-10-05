@@ -21,6 +21,9 @@ import br.pucminas.eduka.backend.dto.ProfessorRequest;
 import br.pucminas.eduka.backend.dto.ProfessorResponse;
 import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.ProfessorService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 /**
@@ -36,6 +39,7 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/professores")
 @PreAuthorize(Perfis.CADASTRO_ACADEMICO)
+@Tag(name = "Professores", description = "Professores da escola do usuario autenticado. Perfis: MASTER, SECRETARIA.")
 public class ProfessorController {
 
     private final ProfessorService professorService;
@@ -45,29 +49,35 @@ public class ProfessorController {
     }
 
     @GetMapping
-    public List<ProfessorResponse> listar(@RequestParam(required = false) String nome,
-            @RequestParam(required = false) Boolean ativo) {
+    @Operation(summary = "Lista os professores")
+    public List<ProfessorResponse> listar(
+            @Parameter(description = "Filtro parcial pelo nome") @RequestParam(required = false) String nome,
+            @Parameter(description = "Filtra por ativos (true) ou inativos (false)") @RequestParam(required = false) Boolean ativo) {
         return professorService.listar(nome, ativo);
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Busca um professor pelo id")
     public ProfessorResponse buscarPorId(@PathVariable UUID id) {
         return professorService.buscarPorId(id);
     }
 
     @PostMapping
+    @Operation(summary = "Cadastra um professor", description = "Cria tambem o login e envia o e-mail de primeiro acesso.")
     public ResponseEntity<ProfessorResponse> cadastrar(@Valid @RequestBody ProfessorRequest request) {
         ProfessorResponse response = professorService.cadastrar(request);
         return ResponseEntity.created(URI.create("/professores/" + response.id())).body(response);
     }
 
     @PutMapping("/{id}")
+    @Operation(summary = "Atualiza os dados de um professor")
     public ProfessorResponse atualizar(@PathVariable UUID id, @Valid @RequestBody ProfessorRequest request) {
         return professorService.atualizar(id, request);
     }
 
     /** Afastamento (licenca, ferias...): o professor e o login ficam inativos, o registro continua. */
     @PatchMapping("/{id}/inativar")
+    @Operation(summary = "Inativa um professor", description = "Afastamento: professor e login ficam inativos, o registro continua.")
     public ProfessorResponse inativar(@PathVariable UUID id) {
         return professorService.inativar(id);
     }
@@ -77,18 +87,21 @@ public class ProfessorController {
      * tem historico; nesse caso, inativar.
      */
     @DeleteMapping("/{id}")
+    @Operation(summary = "Exclui um professor", description = "Apaga professor e login. Responde 409 se ele ja tem historico; nesse caso, inativar.")
     public ResponseEntity<Void> excluir(@PathVariable UUID id) {
         professorService.excluir(id);
         return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/ativar")
+    @Operation(summary = "Reativa um professor")
     public ProfessorResponse ativar(@PathVariable UUID id) {
         return professorService.ativar(id);
     }
 
     /** Reenvia o e-mail de primeiro acesso com uma senha provisoria renovada. */
     @PostMapping("/{id}/primeiro-acesso")
+    @Operation(summary = "Reenvia o e-mail de primeiro acesso", description = "Gera uma nova senha provisoria.")
     public ResponseEntity<Void> reenviarAcesso(@PathVariable UUID id) {
         professorService.reenviarAcesso(id);
         return ResponseEntity.noContent().build();
