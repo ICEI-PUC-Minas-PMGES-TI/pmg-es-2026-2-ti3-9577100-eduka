@@ -1,0 +1,183 @@
+/* Turmas à esquerda, alunos da turma aberta à direita (como na alocação). */
+.colunas {
+  display: grid;
+  grid-template-columns: 330px minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+
+.turmas {
+  position: sticky;
+  top: 24px;
+}
+
+.painel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* Cabeçalho da turma aberta: nome, ocupação e o botão de matricular. */
+.cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px 24px;
+  padding: 20px 24px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.turmaInfo {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 180px;
+}
+
+.turmaNome {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.3px;
+}
+
+.turmaDetalhes {
+  color: var(--color-text-muted);
+  font-size: 13.5px;
+}
+
+.numeros {
+  display: flex;
+  gap: 22px;
+  margin: 0;
+}
+
+.numeros dt {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.numeros dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.numeros small {
+  color: var(--color-text-muted);
+  font-size: 15px;
+}
+
+.esgotado {
+  color: var(--color-danger);
+}
+
+/* Filtro por situação, em pílulas. */
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filtro {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border: var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.filtro:hover {
+  color: var(--color-primary-text);
+}
+
+.filtroAtivo,
+.filtroAtivo:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.filtroQuantidade {
+  min-width: 22px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.6);
+  color: inherit;
+  font-size: 12px;
+  text-align: center;
+}
+
+/* Carregando, erro e vazio da página inteira, num card de vidro. */
+.estado {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 36px 20px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.alerta,
+.sucesso {
+  margin: 0;
+  padding: 14px 20px;
+  border: var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow-sm);
+  font-size: 14.5px;
+  font-weight: 500;
+  animation: var(--animacao-surgir);
+}
+
+.alerta {
+  background: linear-gradient(145deg, rgba(253, 227, 234, 0.95), rgba(253, 227, 234, 0.7));
+  color: var(--color-danger);
+}
+
+.sucesso {
+  background: linear-gradient(145deg, rgba(220, 242, 228, 0.95), rgba(220, 242, 228, 0.7));
+  color: var(--color-success);
+}
+
+@media (max-width: 860px) {
+  .colunas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .turmas {
+    position: static;
+  }
+}
+
+@media (max-width: 520px) {
+  .cabecalho > button {
+    width: 100%;
+  }
+}

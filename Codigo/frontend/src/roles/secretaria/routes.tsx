@@ -3,6 +3,7 @@ import { paths } from '../../routes/paths'
 import { RotaProtegida } from '../../routes/RotaProtegida'
 import { SecretariaDashboard } from './components/PainelSecretaria/SecretariaDashboard'
 import { Alocacoes } from './pages/Alocacoes/Alocacoes'
+import { Matriculas } from './pages/Matriculas/Matriculas'
 import { Professores } from './pages/Professores/Professores'
 
 // Rota-mãe do perfil SECRETARIA. As telas entram como children do RotaProtegida.
@@ -15,5 +16,6 @@ export const secretariaRoutes: RouteObject = {
     { path: paths.secretaria.professores, element: <Professores /> },
     { path: paths.secretaria.academico, element: <SecretariaDashboard /> },
     { path: paths.secretaria.alocacoes, element: <Alocacoes /> },
+    { path: paths.secretaria.matriculas, element: <Matriculas /> },
   ],
 }

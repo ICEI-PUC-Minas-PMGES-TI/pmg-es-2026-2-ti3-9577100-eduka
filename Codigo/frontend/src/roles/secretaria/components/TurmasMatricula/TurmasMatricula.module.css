@@ -1,0 +1,167 @@
+/* Mesmo visual dos cartões da alocação (TurmasAlocacao), com a barra de vagas. */
+
+.grupos {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.quantidade {
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-veil);
+  color: var(--color-primary-text);
+  letter-spacing: 0;
+}
+
+.cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  color: var(--color-text);
+  text-align: left;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s var(--curva);
+}
+
+.cartao:hover {
+  border-color: var(--color-mauve);
+  transform: translateX(2px);
+}
+
+.cartao:focus-visible {
+  outline: 0;
+  box-shadow: var(--glass-shadow-sm), 0 0 0 4px rgba(212, 187, 252, 0.5);
+}
+
+.selecionado,
+.selecionado:hover {
+  border-color: var(--color-primary);
+  background: var(--glass-bg-tint);
+  box-shadow: var(--glass-shadow);
+  transform: translateX(4px);
+}
+
+/* Turma inativa: ainda dá para ver as matrículas, mas não recebe novas. */
+.inativa {
+  opacity: 0.65;
+}
+
+.linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.nome {
+  font-family: var(--font-display);
+  font-size: 16.5px;
+  font-weight: 900;
+  line-height: 1.3;
+}
+
+.detalhes {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.contador {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 3px;
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+.contador strong {
+  color: var(--color-text);
+  font-size: 18px;
+  font-weight: 900;
+}
+
+/* Turma cheia: sem vaga para matrícula nova. */
+.cheia,
+.cheia strong {
+  color: var(--color-danger);
+}
+
+.trilho {
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: rgba(220, 203, 248, 0.45);
+}
+
+.selecionado .trilho {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.barra {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--button-primary-bg);
+  transition: width 0.3s var(--curva);
+}
+
+.barraCheia {
+  background: var(--color-danger);
+}
+
+/* Só para leitores de tela: o texto que a barra e o "28/35" mostram visualmente. */
+.oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  .cartao:hover,
+  .selecionado,
+  .selecionado:hover {
+    transform: none;
+  }
+}

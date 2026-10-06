@@ -10,7 +10,7 @@ const itens: { label: string; icon: IconName; to?: string }[] = [
   { label: 'Professores', icon: 'graduationCap', to: paths.secretaria.professores },
   // Também fica ativo na alocação, que é subrota do Acadêmico.
   { label: 'Acadêmico', icon: 'book', to: paths.secretaria.academico },
-  { label: 'Matrículas', icon: 'check' },
+  { label: 'Matrículas', icon: 'check', to: paths.secretaria.matriculas },
 ]
 
 export function SecretariaNav() {

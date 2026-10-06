@@ -1,0 +1,22 @@
+.resumo {
+  grid-column: 1 / -1;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.resumo strong {
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+
+/* Alerta para cancelar/concluir, que não têm volta. */
+.aviso {
+  grid-column: 1 / -1;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-size: 13.5px;
+}

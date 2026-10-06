@@ -28,6 +28,8 @@ export const paths = {
     academico: '/secretaria/academico',
     /** Alocação de professores nas turmas, dentro do Acadêmico. */
     alocacoes: '/secretaria/academico/alocacoes',
+    /** Matrícula de alunos nas turmas. */
+    matriculas: '/secretaria/matriculas',
   },
   financeiro: {
     raiz: '/financeiro',

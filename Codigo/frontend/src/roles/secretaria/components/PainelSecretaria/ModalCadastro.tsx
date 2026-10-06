@@ -12,6 +12,8 @@ type ModalCadastroProps = {
   validar: () => boolean
   /** Envia o cadastro; deve lançar ApiError em caso de falha. */
   onEnviar: () => Promise<void>
+  /** Texto do erro de envio; o padrão cobre 400 e 404 genericamente. */
+  traduzirErro?: (erro: unknown) => string
   children: ReactNode
 }
 
@@ -30,7 +32,15 @@ function mensagemDeEnvio(erro: unknown): string {
  * servidor; os campos e a validação ficam com cada formulário. Montado só
  * enquanto está aberto, então cada abertura começa limpa.
  */
-export function ModalCadastro({ titulo, rotuloSalvar, onFechar, validar, onEnviar, children }: ModalCadastroProps) {
+export function ModalCadastro({
+  titulo,
+  rotuloSalvar,
+  onFechar,
+  validar,
+  onEnviar,
+  traduzirErro = mensagemDeEnvio,
+  children,
+}: ModalCadastroProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const tituloId = useId()
   const [salvando, setSalvando] = useState(false)
@@ -62,7 +72,7 @@ export function ModalCadastro({ titulo, rotuloSalvar, onFechar, validar, onEnvia
     try {
       await onEnviar()
     } catch (e) {
-      setErroEnvio(mensagemDeEnvio(e))
+      setErroEnvio(traduzirErro(e))
       setSalvando(false)
     }
   }
