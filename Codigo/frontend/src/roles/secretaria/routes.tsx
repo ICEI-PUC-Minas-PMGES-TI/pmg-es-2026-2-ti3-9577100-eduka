@@ -3,6 +3,7 @@ import { paths } from '../../routes/paths'
 import { RotaProtegida } from '../../routes/RotaProtegida'
 import { SecretariaDashboard } from './components/PainelSecretaria/SecretariaDashboard'
 import { Alocacoes } from './pages/Alocacoes/Alocacoes'
+import { Alunos } from './pages/Alunos/Alunos'
 import { Matriculas } from './pages/Matriculas/Matriculas'
 import { Professores } from './pages/Professores/Professores'
 
@@ -13,6 +14,7 @@ export const secretariaRoutes: RouteObject = {
   children: [
     // Enquanto o "Início" não existe, a secretaria cai direto em Professores.
     { index: true, element: <Navigate to={paths.secretaria.professores} replace /> },
+    { path: paths.secretaria.alunos, element: <Alunos /> },
     { path: paths.secretaria.professores, element: <Professores /> },
     { path: paths.secretaria.academico, element: <SecretariaDashboard /> },
     { path: paths.secretaria.alocacoes, element: <Alocacoes /> },

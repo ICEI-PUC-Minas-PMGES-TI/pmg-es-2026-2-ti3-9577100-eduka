@@ -23,6 +23,7 @@ export const paths = {
   },
   secretaria: {
     raiz: '/secretaria',
+    alunos: '/secretaria/alunos',
     professores: '/secretaria/professores',
     /** Painel acadêmico: períodos letivos, cursos, disciplinas e turmas (aba em ?aba=). */
     academico: '/secretaria/academico',
