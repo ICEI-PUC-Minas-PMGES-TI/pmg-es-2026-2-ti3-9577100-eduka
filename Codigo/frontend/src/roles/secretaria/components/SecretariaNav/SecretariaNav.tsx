@@ -8,7 +8,8 @@ const itens: { label: string; icon: IconName; to?: string }[] = [
   { label: 'Início', icon: 'home' },
   { label: 'Alunos', icon: 'users' },
   { label: 'Professores', icon: 'graduationCap', to: paths.secretaria.professores },
-  { label: 'Acadêmico', icon: 'book', to: paths.secretaria.alocacoes },
+  // Também fica ativo na alocação, que é subrota do Acadêmico.
+  { label: 'Acadêmico', icon: 'book', to: paths.secretaria.academico },
   { label: 'Matrículas', icon: 'check' },
 ]
 

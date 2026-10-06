@@ -24,7 +24,9 @@ export const paths = {
   secretaria: {
     raiz: '/secretaria',
     professores: '/secretaria/professores',
-    /** Alocação de professores nas turmas; por enquanto a única tela do Acadêmico. */
+    /** Painel acadêmico: períodos letivos, cursos, disciplinas e turmas (aba em ?aba=). */
+    academico: '/secretaria/academico',
+    /** Alocação de professores nas turmas, dentro do Acadêmico. */
     alocacoes: '/secretaria/academico/alocacoes',
   },
   financeiro: {
