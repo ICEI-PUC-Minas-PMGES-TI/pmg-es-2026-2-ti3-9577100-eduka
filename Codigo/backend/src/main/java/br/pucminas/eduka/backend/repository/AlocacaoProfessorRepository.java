@@ -24,4 +24,8 @@ public interface AlocacaoProfessorRepository extends JpaRepository<AlocacaoProfe
     Optional<AlocacaoProfessor> findByIdAndEscolaIdAndProfessorId(UUID id, UUID escolaId, UUID professorId);
 
     boolean existsByEscolaIdAndTurmaIdAndDisciplinaId(UUID escolaId, Long turmaId, Long disciplinaId);
+
+    /** O professor leciona esta disciplina nesta turma? */
+    boolean existsByEscolaIdAndProfessorIdAndTurmaIdAndDisciplinaId(UUID escolaId, UUID professorId, Long turmaId,
+            Long disciplinaId);
 }

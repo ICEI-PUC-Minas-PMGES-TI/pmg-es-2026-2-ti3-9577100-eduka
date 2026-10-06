@@ -1,0 +1,34 @@
+package br.pucminas.eduka.backend.dto;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
+
+import br.pucminas.eduka.backend.domain.Avaliacao;
+import br.pucminas.eduka.backend.domain.TipoAvaliacao;
+
+public record AvaliacaoResponse(
+        UUID id,
+        Long turmaId,
+        String turmaNome,
+        Long disciplinaId,
+        String disciplinaNome,
+        TipoAvaliacao tipo,
+        String titulo,
+        String descricao,
+        LocalDate data,
+        /** Pontuacao maxima. */
+        BigDecimal valor,
+        /** Quantos alunos ja tem nota lancada nesta avaliacao. */
+        long notasLancadas,
+        Instant criadoEm,
+        Instant atualizadoEm) {
+
+    public static AvaliacaoResponse de(Avaliacao avaliacao, long notasLancadas) {
+        return new AvaliacaoResponse(avaliacao.getId(), avaliacao.getTurma().getId(), avaliacao.getTurma().getNome(),
+                avaliacao.getDisciplina().getId(), avaliacao.getDisciplina().getNome(), avaliacao.getTipo(),
+                avaliacao.getTitulo(), avaliacao.getDescricao(), avaliacao.getData(), avaliacao.getValor(),
+                notasLancadas, avaliacao.getCriadoEm(), avaliacao.getAtualizadoEm());
+    }
+}
