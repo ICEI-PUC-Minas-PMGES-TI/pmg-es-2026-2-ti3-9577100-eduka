@@ -37,6 +37,10 @@
   color: var(--color-danger);
 }
 
+.sucesso {
+  color: var(--color-success);
+}
+
 .descricao {
   color: var(--color-text-muted);
   font-size: 13px;
