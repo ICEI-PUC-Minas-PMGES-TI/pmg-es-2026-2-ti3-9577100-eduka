@@ -8,7 +8,7 @@ const itens: { label: string; icon: IconName; to?: string }[] = [
   { label: 'Início', icon: 'home' },
   { label: 'Alunos', icon: 'users' },
   { label: 'Professores', icon: 'graduationCap', to: paths.secretaria.professores },
-  { label: 'Acadêmico', icon: 'book' },
+  { label: 'Acadêmico', icon: 'book', to: paths.secretaria.alocacoes },
   { label: 'Matrículas', icon: 'check' },
 ]
 

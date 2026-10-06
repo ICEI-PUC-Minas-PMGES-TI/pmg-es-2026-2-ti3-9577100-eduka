@@ -11,6 +11,7 @@ import java.util.UUID;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -59,9 +60,14 @@ import br.pucminas.eduka.backend.security.UsuarioAutenticado;
  * <li>O professor dev ganha o cadastro de PROFESSOR e turmas de exemplo
  * alocadas a ele, para o portal do professor ter o que mostrar.</li>
  * </ul>
+ *
+ * <p>
+ * Roda antes do {@link DevAcademicoSeeder}, que precisa da "Escola Dev".
+ * </p>
  */
 @Component
 @Profile("dev")
+@Order(1)
 public class DevDataSeeder implements ApplicationRunner {
 
     private static final String LOGIN_SUPER_ADMIN = "admin@eduka.com.br";

@@ -1,0 +1,212 @@
+/* Fechado: a pessoa que dá a disciplina, num cartão branco com o avatar dela. */
+.gatilho {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 50px;
+  padding: 6px 12px 6px 6px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 2px rgba(106, 63, 196, 0.06);
+  color: var(--color-text);
+  text-align: left;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    background-color 0.15s;
+}
+
+.gatilho:hover:not(:disabled) {
+  border-color: var(--color-primary);
+}
+
+.gatilho:focus-visible,
+.gatilho[aria-expanded='true'] {
+  border-color: var(--color-primary);
+  outline: 0;
+  box-shadow: 0 0 0 4px rgba(212, 187, 252, 0.5);
+}
+
+.gatilho:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Vaga em aberto: tracejada e sem fundo, pedindo para ser preenchida. */
+.vaga {
+  border-style: dashed;
+  border-color: var(--color-mauve);
+  background: rgba(255, 255, 255, 0.45);
+  box-shadow: none;
+  color: var(--color-primary-text);
+}
+
+.avatar {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg-tint);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  color: var(--color-primary-text);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.avatarVago {
+  border: 1px dashed var(--color-mauve);
+  background: transparent;
+  box-shadow: none;
+}
+
+.nome {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 14.5px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seta {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform 0.15s;
+}
+
+.setaAberta {
+  transform: rotate(180deg);
+}
+
+/* Mesmo menu opaco do Select: fixo na tela, para não ser cortado pelo painel. */
+.menu {
+  position: fixed;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  padding: 8px;
+  border: var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(160deg, #ffffff, #f8f2ff);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  color: var(--color-text);
+  animation: var(--animacao-surgir);
+}
+
+.menu:focus {
+  outline: none;
+}
+
+.busca {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: #ffffff;
+  color: var(--color-text-muted);
+}
+
+.busca:focus-within {
+  border-color: var(--color-primary);
+}
+
+.busca input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.lista {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.opcao {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 6px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    background-color 0.12s,
+    border-color 0.12s;
+}
+
+.destacada {
+  border-color: rgba(255, 255, 255, 0.9);
+  background: var(--glass-bg-tint);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 8px rgba(150, 103, 224, 0.12);
+}
+
+.texto {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.descricao {
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.marcado {
+  flex-shrink: 0;
+  color: var(--color-primary-text);
+}
+
+.remover {
+  min-height: 40px;
+  margin-top: 4px;
+  padding-left: 16px;
+  border-top: 1px solid var(--color-border);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  color: var(--color-danger);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.remover.destacada {
+  border-color: transparent;
+  border-top-color: var(--color-border);
+  background: var(--color-danger-bg);
+  box-shadow: none;
+}
+
+.vazio {
+  padding: 18px 14px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  text-align: center;
+}
