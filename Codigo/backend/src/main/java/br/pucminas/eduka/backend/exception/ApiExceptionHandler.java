@@ -13,6 +13,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /**
  * Traduz excecoes em respostas HTTP no formato ProblemDetail (RFC 9457).
@@ -97,7 +98,8 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler({ LoginJaCadastradoException.class, CnpjJaCadastradoException.class,
             CpfJaCadastradoException.class, AcessoJaAtivadoException.class,
-            ProfessorComHistoricoException.class, AlocacaoJaExisteException.class })
+            ProfessorComHistoricoException.class, AlocacaoJaExisteException.class,
+            MatriculaJaExisteException.class, TurmaSemVagasException.class })
     public ResponseEntity<ProblemDetail> recursoDuplicado(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(problema(HttpStatus.CONFLICT, ex.getMessage()));
@@ -117,6 +119,16 @@ public class ApiExceptionHandler {
     public ResponseEntity<ProblemDetail> corpoIlegivel(HttpMessageNotReadableException ex) {
         return ResponseEntity.badRequest()
                 .body(problema(HttpStatus.BAD_REQUEST, "corpo da requisição inválido"));
+    }
+
+    /**
+     * Parametro de URL ou de query que nao converte para o tipo esperado
+     * (UUID malformado, valor fora de um enum...). Sem isto viraria 500.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ProblemDetail> parametroInvalido(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.badRequest()
+                .body(problema(HttpStatus.BAD_REQUEST, "parâmetro inválido: " + ex.getName()));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
