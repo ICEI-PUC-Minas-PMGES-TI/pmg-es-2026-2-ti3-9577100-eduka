@@ -6,7 +6,7 @@ import styles from './SecretariaNav.module.css'
 // Itens sem `to` ainda não têm página e aparecem desabilitados.
 const itens: { label: string; icon: IconName; to?: string }[] = [
   { label: 'Início', icon: 'home' },
-  { label: 'Alunos', icon: 'users' },
+  { label: 'Alunos', icon: 'users', to: paths.secretaria.alunos },
   { label: 'Professores', icon: 'graduationCap', to: paths.secretaria.professores },
   // Também fica ativo na alocação, que é subrota do Acadêmico.
   { label: 'Acadêmico', icon: 'book', to: paths.secretaria.academico },

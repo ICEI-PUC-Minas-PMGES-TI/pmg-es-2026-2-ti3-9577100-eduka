@@ -37,6 +37,7 @@ import br.pucminas.eduka.backend.dto.AlunoResponse;
 import br.pucminas.eduka.backend.dto.EnderecoRequest;
 import br.pucminas.eduka.backend.dto.ResponsavelRequest;
 import br.pucminas.eduka.backend.exception.AcessoJaAtivadoException;
+import br.pucminas.eduka.backend.exception.NumeroMatriculaJaCadastradoException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
@@ -384,5 +385,94 @@ class AlunoServiceTest {
         verify(alunoRepository, never()).findAllByEscolaId(any());
         verify(alunoRepository, never()).findById(any());
         verify(alunoRepository, never()).findByIdAndEscolaId(any(), any());
+    }
+
+    @Test
+    void cadastrarComNumeroDeMatriculaRepetidoNaEscolaResponde409SemCriarLogin() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        when(alunoRepository.existsByEscolaIdAndMatricula(ESCOLA_A, "2026-001")).thenReturn(true);
+
+        assertThatThrownBy(() -> alunoService.cadastrar(request("Ana", " 2026-001 ", null, null)))
+                .isInstanceOf(NumeroMatriculaJaCadastradoException.class);
+        verify(pessoaRepository, never()).save(any());
+        verify(acessoService, never()).enviarAcessoInicial(any(), any());
+    }
+
+    @Test
+    void atualizarSubstituiOsDadosESincronizaOLogin() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Pessoa pessoaAna = pessoa("Ana");
+        pessoaAna.setCidade("Contagem");
+        Aluno ana = aluno(ESCOLA_A, pessoaAna.getId());
+        when(alunoRepository.findByIdAndEscolaId(ana.getId(), ESCOLA_A)).thenReturn(Optional.of(ana));
+        when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(alunoRepository.save(any(Aluno.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AlunoResponse resposta = alunoService.atualizar(ana.getId(),
+                request("Ana Maria ", "2026-002", null, null));
+
+        assertThat(resposta.nome()).isEqualTo("Ana Maria");
+        assertThat(resposta.email()).isEqualTo("ana@example.com");
+        assertThat(resposta.matricula()).isEqualTo("2026-002");
+        // Endereco nulo no request apaga o anterior.
+        assertThat(resposta.endereco()).isNull();
+        assertThat(ana.getAtualizadoEm()).isNotNull();
+        verify(acessoService).sincronizarLogin(pessoaAna);
+        verify(alunoResponsavelRepository, never()).save(any());
+    }
+
+    @Test
+    void atualizarComMatriculaDeOutroAlunoResponde409SemGravar() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Pessoa pessoaAna = pessoa("Ana");
+        Aluno ana = aluno(ESCOLA_A, pessoaAna.getId());
+        when(alunoRepository.findByIdAndEscolaId(ana.getId(), ESCOLA_A)).thenReturn(Optional.of(ana));
+        when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+        when(alunoRepository.existsByEscolaIdAndMatriculaAndIdNot(ESCOLA_A, "2026-009", ana.getId()))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> alunoService.atualizar(ana.getId(), request("Ana", "2026-009", null, null)))
+                .isInstanceOf(NumeroMatriculaJaCadastradoException.class);
+        verify(pessoaRepository, never()).save(any());
+        verify(alunoRepository, never()).save(any());
+    }
+
+    @Test
+    void atualizarAlunoDeOutraEscolaEhTratadoComoInexistente() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        UUID idDaEscolaB = UUID.randomUUID();
+        when(alunoRepository.findByIdAndEscolaId(idDaEscolaB, ESCOLA_A)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> alunoService.atualizar(idDaEscolaB, request("Ana", "2026-001", null, null)))
+                .isInstanceOf(RecursoNaoEncontradoException.class);
+        verify(pessoaRepository, never()).save(any());
+    }
+
+    @Test
+    void buscarMeusDadosUsaOLoginEAEscolaDoToken() {
+        UUID usuarioId = UUID.randomUUID();
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
+                new UsuarioAutenticado(usuarioId, "ALUNO", ESCOLA_A), null, "ROLE_ALUNO"));
+        Pessoa pessoaAna = pessoa("Ana");
+        Aluno ana = aluno(ESCOLA_A, pessoaAna.getId());
+        when(alunoRepository.findByUsuarioIdAndEscolaId(usuarioId, ESCOLA_A)).thenReturn(Optional.of(ana));
+        when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+
+        AlunoResponse resposta = alunoService.buscarMeusDados();
+
+        assertThat(resposta.id()).isEqualTo(ana.getId());
+        assertThat(resposta.nome()).isEqualTo("Ana");
+        assertThat(resposta.cpf()).isEqualTo("12345678900");
+    }
+
+    @Test
+    void buscarMeusDadosDeLoginSemCadastroDeAlunoResponde404() {
+        autenticarComo("ALUNO", ESCOLA_A);
+        when(alunoRepository.findByUsuarioIdAndEscolaId(any(), eq(ESCOLA_A))).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> alunoService.buscarMeusDados())
+                .isInstanceOf(RecursoNaoEncontradoException.class);
+        verify(pessoaRepository, never()).findByIdAndEscolaId(any(), any());
     }
 }

@@ -10,6 +10,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -66,6 +67,13 @@ public class AlunoController {
     public ResponseEntity<AlunoResponse> cadastrar(@Valid @RequestBody AlunoRequest request) {
         AlunoResponse response = alunoService.cadastrar(request);
         return ResponseEntity.created(URI.create("/alunos/" + response.id())).body(response);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize(Perfis.CADASTRO_ACADEMICO)
+    @Operation(summary = "Atualiza os dados de um aluno", description = "Substitui o registro inteiro; os responsaveis nao mudam por aqui. Trocar o e-mail troca o login. Responde 409 se o numero de matricula ou o e-mail ja estiverem em uso. Perfis: MASTER, SECRETARIA.")
+    public AlunoResponse atualizar(@PathVariable UUID id, @Valid @RequestBody AlunoRequest request) {
+        return alunoService.atualizar(id, request);
     }
 
     /** Reenvia o e-mail de primeiro acesso com uma senha provisoria renovada. */
