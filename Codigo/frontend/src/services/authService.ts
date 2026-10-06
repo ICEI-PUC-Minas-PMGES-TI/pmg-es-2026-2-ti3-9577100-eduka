@@ -21,6 +21,19 @@ export type LoginResponse = {
    * precisa definir a definitiva com definirSenhaDefinitiva.
    */
   trocaSenhaObrigatoria: boolean
+  /**
+   * A senha conferiu, mas ainda não há sessão: falta confirmar com
+   * confirmarCodigo o código enviado por e-mail. Nulo quando não há essa etapa.
+   */
+  verificacao: VerificacaoLogin | null
+}
+
+export type VerificacaoLogin = {
+  id: string
+  /** Segundos, a partir da resposta, até o código expirar. */
+  validadeSegundos: number
+  /** Segundos, a partir da resposta, até poder pedir outro código. */
+  reenvioSegundos: number
 }
 
 export type UsuarioSessao = {
@@ -64,8 +77,32 @@ export async function definirSenhaDefinitiva(
   return resposta
 }
 
+// Segunda etapa do login: troca o código recebido por e-mail pela sessão.
+export async function confirmarCodigo(
+  verificacaoId: string,
+  codigo: string,
+  login: string,
+): Promise<LoginResponse> {
+  const resposta = await apiRequest<LoginResponse>('/login/codigo', {
+    method: 'POST',
+    body: JSON.stringify({ verificacaoId, codigo }),
+  })
+
+  salvarSessao(resposta, login.trim())
+  return resposta
+}
+
+// Pede um código novo para a mesma verificação; o anterior deixa de valer.
+export function reenviarCodigo(verificacaoId: string): Promise<VerificacaoLogin> {
+  return apiRequest<VerificacaoLogin>('/login/codigo/reenvio', {
+    method: 'POST',
+    body: JSON.stringify({ verificacaoId }),
+  })
+}
+
 export function salvarSessao(dados: LoginResponse, login: string): void {
-  // Troca de senha pendente: o backend não emitiu token, não há o que guardar.
+  // Troca de senha ou código pendente: o backend não emitiu token, não há o
+  // que guardar.
   if (!dados.accessToken) return
 
   try {

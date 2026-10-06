@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import logoEduka from '../../assets/eduka-logo-branca.svg'
 import { Icon } from '../../components/Icon/Icon'
+import { VerificacaoCodigo } from '../../components/VerificacaoCodigo/VerificacaoCodigo'
 import { rotaInicialPorPerfil } from '../../routes/paths'
 import { ApiError } from '../../services/api'
 import {
@@ -9,6 +10,8 @@ import {
   definirSenhaDefinitiva,
   estaAutenticado,
   obterUsuarioLogado,
+  type LoginResponse,
+  type VerificacaoLogin,
 } from '../../services/authService'
 import styles from './Login.module.css'
 
@@ -21,9 +24,13 @@ const SENHA_TAMANHO_MINIMO = 8
 //
 // Quem entra com a senha provisória (recebida por e-mail no cadastro) passa
 // antes pela etapa "novaSenha": o backend só emite o token depois da troca.
+//
+// Com a senha certa, a última etapa é "codigo": o backend manda um código por
+// e-mail e só emite o token quando ele é confirmado (VerificacaoCodigo).
 export function Login() {
   const navigate = useNavigate()
-  const [etapa, setEtapa] = useState<'entrar' | 'novaSenha'>('entrar')
+  const [etapa, setEtapa] = useState<'entrar' | 'novaSenha' | 'codigo'>('entrar')
+  const [verificacao, setVerificacao] = useState<VerificacaoLogin | null>(null)
   const [login, setLogin] = useState('')
   const [senha, setSenha] = useState('')
   const [novaSenha, setNovaSenha] = useState('')
@@ -57,6 +64,19 @@ export function Login() {
     return 'Não foi possível entrar agora. Tente novamente em instantes.'
   }
 
+  // Depois da senha (ou da troca da provisória): ou a sessão já abriu, ou
+  // falta o código enviado por e-mail.
+  function concluir(resposta: LoginResponse) {
+    if (resposta.verificacao) {
+      setVerificacao(resposta.verificacao)
+      setMostrarSenha(false)
+      setErro(null)
+      setEtapa('codigo')
+      return
+    }
+    navigate(rotaInicialPorPerfil[resposta.perfil], { replace: true })
+  }
+
   async function entrar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setErro(null)
@@ -75,7 +95,7 @@ export function Login() {
         setEtapa('novaSenha')
         return
       }
-      navigate(rotaInicialPorPerfil[resposta.perfil], { replace: true })
+      concluir(resposta)
     } catch (err) {
       setErro(mensagemDeErro(err))
     } finally {
@@ -102,8 +122,7 @@ export function Login() {
 
     setCarregando(true)
     try {
-      const { perfil } = await definirSenhaDefinitiva(login, senha, novaSenha)
-      navigate(rotaInicialPorPerfil[perfil], { replace: true })
+      concluir(await definirSenhaDefinitiva(login, senha, novaSenha))
     } catch (err) {
       setErro(mensagemDeErro(err))
     } finally {
@@ -113,6 +132,7 @@ export function Login() {
 
   function voltarParaEntrar() {
     setEtapa('entrar')
+    setVerificacao(null)
     setSenha('')
     setNovaSenha('')
     setConfirmacao('')
@@ -162,7 +182,14 @@ export function Login() {
         </section>
 
         <main className={styles.formCard}>
-          {etapa === 'entrar' ? (
+          {etapa === 'codigo' && verificacao ? (
+            <VerificacaoCodigo
+              verificacao={verificacao}
+              login={login}
+              onAutenticado={concluir}
+              onVoltar={voltarParaEntrar}
+            />
+          ) : etapa === 'entrar' ? (
             <form className={styles.form} onSubmit={entrar} noValidate>
               <h2 className={styles.formTitle}>Entrar</h2>
 

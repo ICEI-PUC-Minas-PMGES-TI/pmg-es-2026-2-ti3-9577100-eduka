@@ -30,7 +30,18 @@ export function LoginDev() {
     setEntrando(conta.perfil)
     setErro(null)
     try {
-      const { perfil } = await autenticar(conta.login, conta.senha)
+      const { perfil, verificacao } = await autenticar(conta.login, conta.senha)
+      if (verificacao) {
+        // O backend pediu o código por e-mail, e estas contas não têm caixa de
+        // entrada. Um clique só funciona com a verificação desligada.
+        setErro(
+          'A verificação em duas etapas está ligada. Para entrar em um clique, defina ' +
+            'LOGIN_VERIFICACAO_HABILITADA=false no .env e recrie o backend. Para testar o ' +
+            'código, entre por /login e leia o código no log do backend.',
+        )
+        setEntrando(null)
+        return
+      }
       navigate(rotaInicialPorPerfil[perfil], { replace: true })
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {

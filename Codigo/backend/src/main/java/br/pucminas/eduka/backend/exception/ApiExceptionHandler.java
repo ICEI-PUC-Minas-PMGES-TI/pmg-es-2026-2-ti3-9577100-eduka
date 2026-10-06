@@ -54,6 +54,35 @@ public class ApiExceptionHandler {
                 .body(problema(HttpStatus.UNAUTHORIZED, ex.getMessage()));
     }
 
+    /**
+     * Cada desfecho do codigo de verificacao tem um status proprio, porque o
+     * front reage diferente a cada um: 401 deixa tentar de novo, 410 pede o
+     * reenvio, 404 manda de volta ao login e 429 pede para esperar.
+     */
+    @ExceptionHandler(CodigoVerificacaoIncorretoException.class)
+    public ResponseEntity<ProblemDetail> codigoIncorreto(CodigoVerificacaoIncorretoException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(problema(HttpStatus.UNAUTHORIZED, ex.getMessage()));
+    }
+
+    @ExceptionHandler(CodigoVerificacaoExpiradoException.class)
+    public ResponseEntity<ProblemDetail> codigoExpirado(CodigoVerificacaoExpiradoException ex) {
+        return ResponseEntity.status(HttpStatus.GONE)
+                .body(problema(HttpStatus.GONE, ex.getMessage()));
+    }
+
+    @ExceptionHandler(VerificacaoLoginEncerradaException.class)
+    public ResponseEntity<ProblemDetail> verificacaoEncerrada(VerificacaoLoginEncerradaException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(problema(HttpStatus.NOT_FOUND, ex.getMessage()));
+    }
+
+    @ExceptionHandler(ReenvioCodigoIndisponivelException.class)
+    public ResponseEntity<ProblemDetail> reenvioIndisponivel(ReenvioCodigoIndisponivelException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(problema(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage()));
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ProblemDetail> acessoNegado(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)

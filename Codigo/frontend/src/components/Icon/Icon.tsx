@@ -40,6 +40,12 @@ const paths = {
       <path d="M16 2v4M8 2v4M3 10h18" />
     </>
   ),
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
   close: <path d="M18 6 6 18M6 6l12 12" />,
   home: (
     <>
