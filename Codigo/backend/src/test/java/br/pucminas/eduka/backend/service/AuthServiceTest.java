@@ -24,9 +24,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.LoginResponse;
+import br.pucminas.eduka.backend.dto.VerificacaoLoginResponse;
 import br.pucminas.eduka.backend.exception.CredenciaisInvalidasException;
 import br.pucminas.eduka.backend.exception.SenhaInvalidaException;
 import br.pucminas.eduka.backend.exception.SenhaProvisoriaExpiradaException;
+import br.pucminas.eduka.backend.exception.VerificacaoLoginEncerradaException;
 import br.pucminas.eduka.backend.repository.UsuarioRepository;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.security.PasswordEncoderConfig;
@@ -45,6 +47,9 @@ class AuthServiceTest {
     @Mock
     private JwtService jwtService;
 
+    @Mock
+    private VerificacaoLoginService verificacaoLoginService;
+
     private final PasswordEncoder passwordEncoder = new PasswordEncoderConfig().passwordEncoder();
 
     private AuthService authService;
@@ -53,7 +58,10 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(usuarioRepository, passwordEncoder, jwtService, RELOGIO);
+        // O mock devolve Optional vazio em iniciar(): sem codigo de verificacao,
+        // como com o recurso desligado. Os testes do codigo ligam explicitamente.
+        authService = new AuthService(usuarioRepository, passwordEncoder, jwtService, verificacaoLoginService,
+                RELOGIO);
         usuario = Usuario.builder()
                 .id(UUID.randomUUID())
                 .escolaId(UUID.randomUUID())
@@ -235,6 +243,71 @@ class AuthServiceTest {
         assertThat(passwordEncoder.matches("nova-senha-forte", usuario.getSenhaHash())).isTrue();
         assertThat(passwordEncoder.matches(CPF, usuario.getSenhaHash())).isFalse();
         verify(usuarioRepository).save(usuario);
+    }
+
+    @Test
+    void loginComVerificacaoLigadaNaoEmiteTokenEDevolveAVerificacao() {
+        VerificacaoLoginResponse verificacao = new VerificacaoLoginResponse(UUID.randomUUID(), 300, 60);
+        when(usuarioRepository.findByLogin("maria")).thenReturn(Optional.of(usuario));
+        when(verificacaoLoginService.iniciar(usuario)).thenReturn(Optional.of(verificacao));
+
+        LoginResponse response = authService.login("maria", SENHA);
+
+        assertThat(response.verificacao()).isEqualTo(verificacao);
+        assertThat(response.accessToken()).isNull();
+        assertThat(response.refreshToken()).isNull();
+        assertThat(response.trocaSenhaObrigatoria()).isFalse();
+        verify(jwtService, never()).generateAccessToken(any(), any(), any());
+    }
+
+    @Test
+    void loginComSenhaErradaNaoEnviaCodigo() {
+        when(usuarioRepository.findByLogin("maria")).thenReturn(Optional.of(usuario));
+
+        assertThatThrownBy(() -> authService.login("maria", "errada"))
+                .isInstanceOf(CredenciaisInvalidasException.class);
+
+        verify(verificacaoLoginService, never()).iniciar(any());
+    }
+
+    @Test
+    void loginComSenhaProvisoriaNaoEnviaCodigoAntesDaTroca() {
+        usuario.setSenhaProvisoria(true);
+        usuario.setSenhaProvisoriaExpiraEm(AGORA.plusSeconds(60));
+        when(usuarioRepository.findByLogin("maria")).thenReturn(Optional.of(usuario));
+
+        authService.login("maria", SENHA);
+
+        verify(verificacaoLoginService, never()).iniciar(any());
+    }
+
+    @Test
+    void confirmarCodigoEmiteTokensDoUsuarioDaVerificacao() {
+        UUID verificacaoId = UUID.randomUUID();
+        when(verificacaoLoginService.confirmar(verificacaoId, "123456")).thenReturn(usuario.getId());
+        when(usuarioRepository.findById(usuario.getId())).thenReturn(Optional.of(usuario));
+        when(jwtService.generateAccessToken(usuario.getId(), "FINANCEIRO", usuario.getEscolaId()))
+                .thenReturn("access-token");
+        when(jwtService.generateRefreshToken(usuario.getId())).thenReturn("refresh-token");
+
+        LoginResponse response = authService.confirmarCodigo(verificacaoId, "123456");
+
+        assertThat(response.accessToken()).isEqualTo("access-token");
+        assertThat(response.refreshToken()).isEqualTo("refresh-token");
+        assertThat(response.verificacao()).isNull();
+    }
+
+    @Test
+    void confirmarCodigoDeUsuarioInativadoNoMeioDoLoginNaoEmiteToken() {
+        UUID verificacaoId = UUID.randomUUID();
+        usuario.setAtivo(false);
+        when(verificacaoLoginService.confirmar(verificacaoId, "123456")).thenReturn(usuario.getId());
+        when(usuarioRepository.findById(usuario.getId())).thenReturn(Optional.of(usuario));
+
+        assertThatThrownBy(() -> authService.confirmarCodigo(verificacaoId, "123456"))
+                .isInstanceOf(VerificacaoLoginEncerradaException.class);
+
+        verify(jwtService, never()).generateAccessToken(any(), any(), any());
     }
 
     @Test

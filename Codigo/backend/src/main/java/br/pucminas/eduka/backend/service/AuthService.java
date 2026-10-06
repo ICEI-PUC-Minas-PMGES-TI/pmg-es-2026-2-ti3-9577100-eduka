@@ -9,9 +9,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.LoginResponse;
+import br.pucminas.eduka.backend.dto.VerificacaoLoginResponse;
 import br.pucminas.eduka.backend.exception.CredenciaisInvalidasException;
 import br.pucminas.eduka.backend.exception.SenhaInvalidaException;
 import br.pucminas.eduka.backend.exception.SenhaProvisoriaExpiradaException;
+import br.pucminas.eduka.backend.exception.VerificacaoLoginEncerradaException;
 import br.pucminas.eduka.backend.repository.UsuarioRepository;
 import br.pucminas.eduka.backend.security.JwtService;
 
@@ -25,6 +27,12 @@ import br.pucminas.eduka.backend.security.JwtService;
  * {@link #definirSenhaDefinitiva}. Assim nenhum token emitido vale para uma
  * senha que outra pessoa (quem sabe o CPF) poderia conhecer.
  * </p>
+ *
+ * <p>
+ * Com a verificacao em duas etapas ligada, a senha certa tambem nao basta:
+ * o login responde com uma verificacao pendente e os tokens so saem em
+ * {@link #confirmarCodigo} (ver {@link VerificacaoLoginService}).
+ * </p>
  */
 @Service
 public class AuthService {
@@ -32,6 +40,7 @@ public class AuthService {
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final VerificacaoLoginService verificacaoLoginService;
     private final Clock clock;
 
     /**
@@ -43,10 +52,11 @@ public class AuthService {
     private final String hashSentinela;
 
     public AuthService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
-            JwtService jwtService, Clock clock) {
+            JwtService jwtService, VerificacaoLoginService verificacaoLoginService, Clock clock) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.verificacaoLoginService = verificacaoLoginService;
         this.clock = clock;
         this.hashSentinela = passwordEncoder.encode(UUID.randomUUID().toString());
     }
@@ -65,7 +75,7 @@ public class AuthService {
         }
 
         atualizarHashSeNecessario(usuario, senha);
-        return emitirTokens(usuario);
+        return concluir(usuario);
     }
 
     /**
@@ -90,7 +100,26 @@ public class AuthService {
         usuario.setSenhaProvisoria(false);
         usuario.setSenhaProvisoriaExpiraEm(null);
         usuarioRepository.save(usuario);
+        return concluir(usuario);
+    }
+
+    /**
+     * Segunda etapa do login: troca o codigo recebido por e-mail pelos tokens.
+     * Sem {@code @Transactional} de proposito: a tentativa errada precisa
+     * ficar gravada mesmo com a excecao (ver
+     * {@link VerificacaoLoginService#confirmar}).
+     */
+    public LoginResponse confirmarCodigo(UUID verificacaoId, String codigo) {
+        UUID usuarioId = verificacaoLoginService.confirmar(verificacaoId, codigo);
+        // Inativado entre a senha e o codigo: nao entra.
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .filter(Usuario::isAtivo)
+                .orElseThrow(VerificacaoLoginEncerradaException::new);
         return emitirTokens(usuario);
+    }
+
+    public VerificacaoLoginResponse reenviarCodigo(UUID verificacaoId) {
+        return verificacaoLoginService.reenviar(verificacaoId);
     }
 
     /** Login inexistente, senha errada e usuario inativo sao indistinguiveis. */
@@ -112,6 +141,17 @@ public class AuthService {
         if (usuario.senhaProvisoriaExpirada(clock.instant())) {
             throw new SenhaProvisoriaExpiradaException();
         }
+    }
+
+    /**
+     * Senha conferida: os tokens so saem direto quando nao ha codigo de
+     * verificacao a pedir. Com ele, saem em {@link #confirmarCodigo}.
+     */
+    private LoginResponse concluir(Usuario usuario) {
+        return verificacaoLoginService.iniciar(usuario)
+                .map(verificacao -> LoginResponse.verificacaoPendente(usuario.getId(), usuario.getPerfil(),
+                        verificacao))
+                .orElseGet(() -> emitirTokens(usuario));
     }
 
     private LoginResponse emitirTokens(Usuario usuario) {

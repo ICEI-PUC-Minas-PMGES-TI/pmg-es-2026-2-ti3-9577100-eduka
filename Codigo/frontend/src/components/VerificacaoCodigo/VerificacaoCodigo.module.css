@@ -1,0 +1,221 @@
+/* Etapa do código de verificação do login. Tem estilo próprio porque entra
+   tanto no login da escola quanto no do console da plataforma. */
+.form {
+  display: flex;
+  flex-direction: column;
+  animation: var(--animacao-aparecer);
+}
+
+.selo {
+  align-self: flex-start;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--color-veil);
+  color: var(--color-primary-text);
+  font-family: var(--font-display);
+  font-size: 11.5px;
+  font-weight: 900;
+  letter-spacing: 1.1px;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.titulo {
+  margin-top: 18px;
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -1px;
+  color: var(--color-text);
+}
+
+.subtitulo {
+  margin-top: 10px;
+  color: var(--color-text-muted);
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+/* Seis caixas, uma por número. Dividem a largura do formulário e param de
+   crescer em 60px, para não virarem retângulos em tela larga. */
+.campos {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 60px));
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.campo {
+  width: 100%;
+  height: 68px;
+  padding: 0;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 1px 2px rgba(106, 63, 196, 0.05);
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 900;
+  text-align: center;
+  caret-color: var(--color-primary);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.campo:hover:not(:disabled) {
+  border-color: var(--color-mauve);
+}
+
+.campo:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px rgba(212, 187, 252, 0.5);
+}
+
+.campo[aria-invalid='true']:not(:focus) {
+  border-color: rgba(163, 23, 61, 0.45);
+}
+
+.campo:disabled {
+  opacity: 0.7;
+}
+
+.cronometro {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.cronometro svg {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+/* Largura fixa por algarismo: o texto não treme a cada segundo. */
+.cronometro strong {
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.cronometroExpirado,
+.cronometroExpirado svg {
+  color: var(--color-danger);
+}
+
+/* Dois seletores para vencer o tamanho padrão de Button.module.css. */
+.form .botao {
+  width: 100%;
+  height: 56px;
+  margin-top: 22px;
+  font-size: 17px;
+}
+
+.reenvio {
+  margin-top: 20px;
+  color: var(--color-text-muted);
+  font-size: 15px;
+  text-align: center;
+}
+
+.reenvioEspera {
+  color: var(--color-text-subtle);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.link,
+.voltar {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-primary-text);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.link {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.voltar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: center;
+  margin-top: 14px;
+}
+
+.link:hover:not(:disabled),
+.voltar:hover:not(:disabled) {
+  color: var(--color-primary);
+}
+
+.link:disabled,
+.voltar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.link:focus-visible,
+.voltar:focus-visible {
+  outline: 3px solid var(--color-mauve);
+  outline-offset: 3px;
+}
+
+.erro,
+.aviso {
+  margin-top: 20px;
+  padding: 13px 16px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  animation: var(--animacao-surgir);
+}
+
+.erro {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid rgba(163, 23, 61, 0.14);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.erro svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.aviso {
+  border: var(--glass-border);
+  background: var(--glass-bg-tint);
+  color: var(--color-primary-text);
+}
+
+@media (max-width: 480px) {
+  .titulo {
+    font-size: 32px;
+  }
+
+  .campos {
+    gap: 8px;
+  }
+
+  .campo {
+    height: 58px;
+    border-radius: 14px;
+    font-size: 24px;
+  }
+}
