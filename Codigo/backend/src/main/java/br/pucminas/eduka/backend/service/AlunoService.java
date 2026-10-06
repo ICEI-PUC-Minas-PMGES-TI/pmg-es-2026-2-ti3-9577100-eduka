@@ -1,6 +1,7 @@
 // Codigo/backend/src/main/java/br/pucminas/eduka/backend/service/AlunoService.java
 package br.pucminas.eduka.backend.service;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -24,12 +25,14 @@ import br.pucminas.eduka.backend.dto.AlunoResponse;
 import br.pucminas.eduka.backend.dto.EnderecoRequest;
 import br.pucminas.eduka.backend.dto.ResponsavelRequest;
 import br.pucminas.eduka.backend.dto.ResponsavelResponse;
+import br.pucminas.eduka.backend.exception.NumeroMatriculaJaCadastradoException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
+import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 
 /**
  * Regras de aluno com isolamento por escola (RF05, RNF03).
@@ -97,6 +100,24 @@ public class AlunoService {
     }
 
     /**
+     * Dados do aluno dono do login (portal do aluno). O aluno nunca e
+     * parametro: sai do token, assim como a escola. Nao ha como pedir os
+     * dados de outro aluno por aqui.
+     *
+     * @throws RecursoNaoEncontradoException se o login nao e de um aluno
+     *         cadastrado na escola
+     */
+    public AlunoResponse buscarMeusDados() {
+        UsuarioAutenticado usuario = isolamentoEscola.usuarioAtual();
+        UUID escolaId = usuario.escolaId();
+        Aluno aluno = alunoRepository.findByUsuarioIdAndEscolaId(usuario.id(), escolaId)
+                .orElseThrow(AlunoService::naoEncontrado);
+        Pessoa pessoa = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
+                .orElseThrow(AlunoService::naoEncontrado);
+        return AlunoResponse.de(aluno, pessoa, responsaveisDe(aluno.getId(), escolaId));
+    }
+
+    /**
      * Cadastra o aluno (e, se informados, seus responsaveis) na escola do
      * usuario autenticado e cria o login dele. O request nao carrega escola:
      * mesmo que carregasse, seria ignorado. E-mail ja usado como login barra
@@ -106,6 +127,9 @@ public class AlunoService {
     public AlunoResponse cadastrar(AlunoRequest request) {
         validar(request);
         UUID escolaId = isolamentoEscola.escolaIdAtual();
+        if (alunoRepository.existsByEscolaIdAndMatricula(escolaId, request.matricula().trim())) {
+            throw new NumeroMatriculaJaCadastradoException();
+        }
 
         Pessoa pessoaAluno = criarPessoa(escolaId, request.nome(), request.cpf(), request.dataNascimento(),
                 request.email() == null ? null : request.email().trim(), null, request.endereco());
@@ -117,7 +141,7 @@ public class AlunoService {
                 .escolaId(escolaId)
                 .pessoaId(pessoaAluno.getId())
                 .usuarioId(usuario.getId())
-                .matricula(request.matricula())
+                .matricula(request.matricula().trim())
                 .genero(request.genero())
                 .build());
 
@@ -138,6 +162,43 @@ public class AlunoService {
             }
         }
         return AlunoResponse.de(aluno, pessoaAluno, responsaveis);
+    }
+
+    /**
+     * Edita os dados do aluno: substitui o registro inteiro (campo opcional
+     * nulo apaga o valor anterior). Os responsaveis nao mudam por aqui: o que
+     * vier em {@code responsaveis} e ignorado. Trocar o e-mail troca o login.
+     */
+    @Transactional
+    public AlunoResponse atualizar(UUID id, AlunoRequest request) {
+        validar(request);
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        Aluno aluno = alunoRepository.findByIdAndEscolaId(id, escolaId).orElseThrow(AlunoService::naoEncontrado);
+        Pessoa pessoa = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
+                .orElseThrow(AlunoService::naoEncontrado);
+        String matricula = request.matricula().trim();
+        if (alunoRepository.existsByEscolaIdAndMatriculaAndIdNot(escolaId, matricula, aluno.getId())) {
+            throw new NumeroMatriculaJaCadastradoException();
+        }
+
+        EnderecoRequest endereco = request.endereco();
+        pessoa.setNome(request.nome().trim());
+        pessoa.setCpf(request.cpf());
+        pessoa.setEmail(request.email().trim());
+        pessoa.setDataNascimento(request.dataNascimento() == null ? null : request.dataNascimento().toString());
+        pessoa.setLogradouro(endereco == null ? null : endereco.logradouro());
+        pessoa.setNumero(endereco == null ? null : endereco.numero());
+        pessoa.setBairro(endereco == null ? null : endereco.bairro());
+        pessoa.setCidade(endereco == null ? null : endereco.cidade());
+        pessoa.setEstado(endereco == null ? null : endereco.estado());
+        pessoa.setCep(endereco == null ? null : endereco.cep());
+        aluno.setMatricula(matricula);
+        aluno.setGenero(request.genero());
+        aluno.setAtualizadoEm(Instant.now());
+
+        acessoService.sincronizarLogin(pessoa);
+        Pessoa pessoaSalva = pessoaRepository.save(pessoa);
+        return AlunoResponse.de(alunoRepository.save(aluno), pessoaSalva, responsaveisDe(aluno.getId(), escolaId));
     }
 
     /**

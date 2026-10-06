@@ -211,6 +211,9 @@ flowchart TB
 | `PATCH` | `/escolas/{id}/ativar` · `/suspender` | `SUPER_ADMIN` |
 | `GET` | `/alunos` · `/alunos/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO`, `PROFESSOR` |
 | `POST` | `/alunos` | `MASTER`, `SECRETARIA` |
+| `PUT` | `/alunos/{id}` (responsáveis não mudam; 409 se a matrícula ou o e-mail já estão em uso) | `MASTER`, `SECRETARIA` |
+| `POST` | `/alunos/{id}/primeiro-acesso` (reenvia o e-mail) | `MASTER`, `SECRETARIA` |
+| `GET` | `/portal/aluno/me` (dados do próprio aluno, pelo token) | `ALUNO` |
 | `GET` | `/professores` · `/professores/{id}` | `MASTER`, `SECRETARIA` |
 | `POST` | `/professores` | `MASTER`, `SECRETARIA` |
 | `PUT` | `/professores/{id}` | `MASTER`, `SECRETARIA` |

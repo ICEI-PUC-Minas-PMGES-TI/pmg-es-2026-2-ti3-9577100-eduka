@@ -13,4 +13,11 @@ public interface AlunoRepository extends JpaRepository<Aluno, UUID> {
     List<Aluno> findAllByEscolaId(UUID escolaId);
 
     Optional<Aluno> findByIdAndEscolaId(UUID id, UUID escolaId);
+
+    /** Aluno dono do login (portal do aluno). */
+    Optional<Aluno> findByUsuarioIdAndEscolaId(UUID usuarioId, UUID escolaId);
+
+    boolean existsByEscolaIdAndMatricula(UUID escolaId, String matricula);
+
+    boolean existsByEscolaIdAndMatriculaAndIdNot(UUID escolaId, String matricula, UUID id);
 }
