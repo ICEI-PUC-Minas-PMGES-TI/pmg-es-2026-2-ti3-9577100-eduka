@@ -38,6 +38,10 @@ export const paths = {
   professor: {
     raiz: '/professor',
     turmas: '/professor/turmas',
+    /** Provas, trabalhos e tarefas de uma turma/disciplina (?turma=&disciplina=). */
+    avaliacoes: '/professor/avaliacoes',
+    /** Lançamento de notas de uma avaliação (?turma=&disciplina=&avaliacao=). */
+    notas: '/professor/notas',
   },
   aluno: {
     raiz: '/aluno',
