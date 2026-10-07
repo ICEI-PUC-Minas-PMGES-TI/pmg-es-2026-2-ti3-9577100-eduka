@@ -29,6 +29,9 @@ public interface MatriculaTurmaRepository extends JpaRepository<MatriculaTurma, 
     @EntityGraph(attributePaths = { "aluno", "turma", "turma.periodoLetivo", "turma.curso" })
     Optional<MatriculaTurma> findByIdAndEscolaId(UUID id, UUID escolaId);
 
+    /** A turma tem alguma matricula, em qualquer situacao? */
+    boolean existsByEscolaIdAndTurmaId(UUID escolaId, Long turmaId);
+
     boolean existsByEscolaIdAndAlunoIdAndTurmaId(UUID escolaId, UUID alunoId, Long turmaId);
 
     /** Vagas ocupadas: so matricula ATIVA conta. */

@@ -5,7 +5,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -29,9 +31,12 @@ import br.pucminas.eduka.backend.domain.Disciplina;
 import br.pucminas.eduka.backend.domain.PeriodoLetivo;
 import br.pucminas.eduka.backend.domain.Turma;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
+import br.pucminas.eduka.backend.repository.AlocacaoProfessorRepository;
+import br.pucminas.eduka.backend.repository.AvaliacaoRepository;
 import br.pucminas.eduka.backend.repository.CursoRepository;
 import br.pucminas.eduka.backend.repository.DisciplinaRepository;
 import br.pucminas.eduka.backend.repository.EscolaRepository;
+import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.PeriodoLetivoRepository;
 import br.pucminas.eduka.backend.repository.TurmaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
@@ -69,6 +74,12 @@ class AcademicoSecretariaControllerSecurityTest {
     private TurmaRepository turmaRepository;
     @MockitoBean
     private EscolaRepository escolaRepository;
+    @MockitoBean
+    private MatriculaTurmaRepository matriculaRepository;
+    @MockitoBean
+    private AlocacaoProfessorRepository alocacaoRepository;
+    @MockitoBean
+    private AvaliacaoRepository avaliacaoRepository;
 
     private String accessToken(String perfil, UUID escolaId) {
         return jwtService.generateAccessToken(UUID.randomUUID(), perfil, escolaId);
@@ -197,5 +208,112 @@ class AcademicoSecretariaControllerSecurityTest {
                 .andExpect(jsonPath("$.periodoLetivoNome").value("2026"))
                 .andExpect(jsonPath("$.cursoNome").value("Fundamental"))
                 .andExpect(jsonPath("$.disciplinas[0].nome").value("Matematica"));
+    }
+
+    @Test
+    void professorNaoEditaNemExclui() throws Exception {
+        String token = accessToken("PROFESSOR", ESCOLA_A);
+        mockMvc.perform(json(put(BASE + "/cursos/7"), token, CURSO_VALIDO))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(com(delete(BASE + "/cursos/7"), token))
+                .andExpect(status().isForbidden());
+        verify(cursoRepository, never()).save(any());
+        verify(cursoRepository, never()).delete(any());
+    }
+
+    @Test
+    void secretariaEditaCurso() throws Exception {
+        Curso curso = Curso.builder().id(7L).nome("Antigo").codigo("X").build();
+        when(cursoRepository.findByIdAndEscolaId(7L, ESCOLA_A)).thenReturn(Optional.of(curso));
+        when(cursoRepository.save(any(Curso.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        mockMvc.perform(json(put(BASE + "/cursos/7"), accessToken("SECRETARIA", ESCOLA_A),
+                "{\"nome\":\" Ensino Medio \",\"codigo\":\"\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Ensino Medio"))
+                .andExpect(jsonPath("$.codigo").doesNotExist());
+    }
+
+    @Test
+    void editarCursoDeOutraEscolaResponde404() throws Exception {
+        when(cursoRepository.findByIdAndEscolaId(7L, ESCOLA_A)).thenReturn(Optional.empty());
+
+        mockMvc.perform(json(put(BASE + "/cursos/7"), accessToken("SECRETARIA", ESCOLA_A), CURSO_VALIDO))
+                .andExpect(status().isNotFound());
+        verify(cursoRepository, never()).save(any());
+    }
+
+    @Test
+    void excluirCursoComTurmasResponde409() throws Exception {
+        when(cursoRepository.findByIdAndEscolaId(7L, ESCOLA_A))
+                .thenReturn(Optional.of(Curso.builder().id(7L).nome("Medio").build()));
+        when(turmaRepository.existsByEscolaIdAndCursoId(ESCOLA_A, 7L)).thenReturn(true);
+
+        mockMvc.perform(com(delete(BASE + "/cursos/7"), accessToken("SECRETARIA", ESCOLA_A)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("O curso tem turmas; exclua ou mude o curso delas antes"));
+        verify(cursoRepository, never()).delete(any());
+    }
+
+    @Test
+    void excluirPeriodoSemTurmasResponde204() throws Exception {
+        PeriodoLetivo periodo = PeriodoLetivo.builder().id(1L).nome("2026").build();
+        when(periodoLetivoRepository.findByIdAndEscolaId(1L, ESCOLA_A)).thenReturn(Optional.of(periodo));
+
+        mockMvc.perform(com(delete(BASE + "/periodos-letivos/1"), accessToken("MASTER", ESCOLA_A)))
+                .andExpect(status().isNoContent());
+        verify(periodoLetivoRepository).delete(periodo);
+    }
+
+    @Test
+    void excluirDisciplinaNaGradeResponde409() throws Exception {
+        when(disciplinaRepository.findByIdAndEscolaId(10L, ESCOLA_A)).thenReturn(Optional.of(
+                Disciplina.builder().id(10L).nome("Matematica").cargaHoraria(80).build()));
+        when(turmaRepository.existsByEscolaIdAndDisciplinas_Id(ESCOLA_A, 10L)).thenReturn(true);
+
+        mockMvc.perform(com(delete(BASE + "/disciplinas/10"), accessToken("SECRETARIA", ESCOLA_A)))
+                .andExpect(status().isConflict());
+        verify(disciplinaRepository, never()).delete(any());
+    }
+
+    @Test
+    void excluirTurmaComMatriculaResponde409() throws Exception {
+        when(turmaRepository.findByIdAndEscolaId(3L, ESCOLA_A))
+                .thenReturn(Optional.of(Turma.builder().id(3L).nome("1A").build()));
+        when(matriculaRepository.existsByEscolaIdAndTurmaId(ESCOLA_A, 3L)).thenReturn(true);
+
+        mockMvc.perform(com(delete(BASE + "/turmas/3"), accessToken("SECRETARIA", ESCOLA_A)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("A turma tem alunos matriculados e nao pode ser excluida"));
+        verify(turmaRepository, never()).delete(any());
+    }
+
+    @Test
+    void editarTurmaComVagasAbaixoDasMatriculasAtivasResponde400() throws Exception {
+        when(turmaRepository.findByIdAndEscolaId(3L, ESCOLA_A))
+                .thenReturn(Optional.of(Turma.builder().id(3L).nome("1A").build()));
+        when(matriculaRepository.countByEscolaIdAndTurmaIdAndStatus(any(), any(), any())).thenReturn(20L);
+
+        mockMvc.perform(json(put(BASE + "/turmas/3"), accessToken("SECRETARIA", ESCOLA_A),
+                "{\"periodoLetivoId\":1,\"cursoId\":2,\"nome\":\"1A\",\"vagas\":10,\"turno\":\"MATUTINO\"}"))
+                .andExpect(status().isBadRequest());
+        verify(turmaRepository, never()).save(any());
+    }
+
+    @Test
+    void tirarDaGradeDisciplinaComAvaliacaoResponde409() throws Exception {
+        Disciplina matematica = Disciplina.builder().id(10L).nome("Matematica").cargaHoraria(80).build();
+        Turma turma = Turma.builder().id(3L).nome("1A").build();
+        turma.getDisciplinas().add(matematica);
+        when(turmaRepository.findByIdAndEscolaId(3L, ESCOLA_A)).thenReturn(Optional.of(turma));
+        when(avaliacaoRepository.existsByEscolaIdAndTurmaIdAndDisciplinaId(ESCOLA_A, 3L, 10L)).thenReturn(true);
+
+        mockMvc.perform(json(put(BASE + "/turmas/3"), accessToken("SECRETARIA", ESCOLA_A),
+                "{\"periodoLetivoId\":1,\"cursoId\":2,\"nome\":\"1A\",\"vagas\":30,\"turno\":\"MATUTINO\","
+                        + "\"disciplinaIds\":[]}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail")
+                        .value("A disciplina Matematica tem avaliacoes nesta turma e nao pode sair da grade"));
+        verify(turmaRepository, never()).save(any());
     }
 }
