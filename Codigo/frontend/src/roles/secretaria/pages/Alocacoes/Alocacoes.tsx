@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Button } from '../../../../components/Button/Button'
+import { Medidor } from '../../../../components/Dashboard/Dashboard'
+import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import type { Turma } from '../../../../types/alocacao'
 import { GradeAlocacao } from '../../components/GradeAlocacao/GradeAlocacao'
 import type { OpcaoProfessor } from '../../components/SeletorProfessor/SeletorProfessor'
@@ -157,37 +159,22 @@ export function Alocacoes() {
 
       {!carregando && !erro && turma && (
         <>
-        <section className={styles.resumo} aria-label="Resumo da alocação da escola">
-          <div className={styles.geral}>
-            <span className={styles.percentual}>{percentualGeral}%</span>
-            <div className={styles.geralTexto}>
-              <strong>da grade com professor</strong>
-              <span className={styles.trilho} aria-hidden="true">
-                <span className={styles.barra} style={{ width: `${percentualGeral}%` }} />
-              </span>
-            </div>
-          </div>
-          <dl className={styles.numeros}>
-            <div className={styles.numero}>
-              <dt>Disciplinas sem professor</dt>
-              <dd className={semProfessor > 0 ? styles.atencao : styles.ok}>{semProfessor}</dd>
-            </div>
-            <div className={styles.numero}>
-              <dt>Turmas completas</dt>
-              <dd>
-                {turmasCompletas}
-                <small>/{turmas.length}</small>
-              </dd>
-            </div>
-            <div className={styles.numero}>
-              <dt>Professores sem turma</dt>
-              <dd>
-                {semTurma}
-                <small>/{ativos.length}</small>
-              </dd>
-            </div>
-          </dl>
-        </section>
+        <StatCards rotulo="Resumo da alocação da escola">
+          <StatCard
+            label="Grade com professor"
+            value={`${percentualGeral}%`}
+            descricao={<Medidor valor={alocacoes.length} maximo={totalDisciplinas} rotulo="Grade com professor" />}
+            destaque
+          />
+          <StatCard
+            label="Disciplinas sem professor"
+            value={semProfessor}
+            descricao={semProfessor > 0 ? 'Faltam alocar' : 'Grade completa'}
+            atencao={semProfessor > 0}
+          />
+          <StatCard label="Turmas completas" value={`${turmasCompletas} de ${turmas.length}`} descricao="Todas as disciplinas com professor" />
+          <StatCard label="Professores sem turma" value={`${semTurma} de ${ativos.length}`} descricao="Entre os ativos" />
+        </StatCards>
 
         <div className={styles.colunas}>
           <div className={styles.turmas}>

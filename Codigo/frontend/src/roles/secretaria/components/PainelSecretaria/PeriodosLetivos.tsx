@@ -5,10 +5,10 @@ import { CampoData } from '../../../../components/CampoData/CampoData'
 import { ModalDetalhes } from '../../../../components/ModalDetalhes/ModalDetalhes'
 import type { PeriodoLetivo, PeriodoLetivoRequest } from '../../../../types/academico'
 import { AcoesLinha, CabecalhoAba, Tabela } from './comum'
-import { ConfirmarExclusao } from './ConfirmarExclusao'
+import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/ConfirmarExclusao'
 import { mensagemErroAcademico } from './erros'
 import { formatarData, hojeIso } from './formatacao'
-import { ModalCadastro } from './ModalCadastro'
+import { ModalCadastro } from '../../../../components/ModalCadastro/ModalCadastro'
 import styles from './PainelSecretaria.module.css'
 
 // Limite da coluna NOME (V14).
@@ -120,6 +120,7 @@ export function PeriodosLetivos({ periodos, onCadastrar, onAtualizar, onExcluir 
 
       {excluindo && (
         <ConfirmarExclusao
+          traduzirErro={mensagemErroAcademico}
           titulo="Excluir período letivo"
           nome={excluindo.nome}
           onFechar={() => setExcluindo(null)}

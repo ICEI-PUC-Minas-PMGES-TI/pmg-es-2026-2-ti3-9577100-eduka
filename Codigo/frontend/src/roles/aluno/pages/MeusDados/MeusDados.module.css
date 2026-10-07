@@ -26,8 +26,8 @@
   width: 88px;
   height: 88px;
   border-radius: 22px;
-  background: #ebd9fc;
-  color: #6a3fc4;
+  background: var(--color-veil);
+  color: var(--color-primary-text);
   font-family: var(--font-display);
   font-size: 32px;
   font-weight: 900;

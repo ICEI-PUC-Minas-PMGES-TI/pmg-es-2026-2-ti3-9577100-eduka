@@ -23,13 +23,8 @@
   padding-bottom: 0;
 }
 
-/* Botão só com ícone: compacto, como na lista de avaliações. */
 .item > button {
   flex-shrink: 0;
-}
-
-.item > button[aria-label] {
-  padding-inline: 10px;
 }
 
 /* Mesmo quadradinho de data da tela de Avaliações. */

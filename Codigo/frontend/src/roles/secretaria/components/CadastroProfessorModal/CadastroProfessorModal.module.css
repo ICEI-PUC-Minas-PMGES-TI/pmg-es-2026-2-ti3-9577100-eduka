@@ -1,83 +1,3 @@
-.dialog {
-  width: min(720px, calc(100% - 32px));
-  max-height: calc(100dvh - 32px);
-  padding: 0;
-  /* Quem rola é só o corpo do formulário; o diálogo em si nunca. */
-  overflow: hidden;
-  border: var(--glass-border);
-  border-radius: var(--radius-xl);
-  /* Opaco: o formulário é longo e o conteúdo da página por trás atrapalharia a leitura. */
-  background: linear-gradient(145deg, #ffffff, #f8f3ff);
-  color: var(--color-text);
-  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.95);
-}
-
-.dialog[open] {
-  animation: var(--animacao-surgir);
-}
-
-.dialog::backdrop {
-  background: rgba(34, 26, 51, 0.28);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  /* Keyframes locais: o ::backdrop não herda as variáveis do :root em todos os navegadores. */
-  animation: escurecer 0.2s ease backwards;
-}
-
-@keyframes escurecer {
-  from {
-    opacity: 0;
-  }
-}
-
-/* 2px a menos que o diálogo: sobra a borda de 1px em cima e embaixo. */
-.form {
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100dvh - 34px);
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 26px 28px 14px;
-}
-
-.title {
-  font-size: 26px;
-  font-family: var(--font-display);
-  font-weight: 900;
-  letter-spacing: -0.5px;
-}
-
-.close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border: var(--glass-border);
-  border-radius: var(--radius-pill);
-  background: var(--glass-bg);
-  box-shadow: var(--glass-shadow-sm);
-  color: var(--color-text);
-}
-
-.close:hover {
-  border-color: var(--color-mauve);
-  color: var(--color-primary-text);
-}
-
-.body {
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-  padding: 4px 28px 22px;
-  overflow-y: auto;
-}
-
 .grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -97,29 +17,6 @@
   grid-column: span 4;
 }
 
-.aviso {
-  color: var(--color-text-muted);
-  font-size: 14px;
-}
-
-.alerta {
-  padding: 14px 20px;
-  border-radius: var(--radius-lg);
-  background: var(--color-danger-bg);
-  color: var(--color-danger);
-  font-size: 14px;
-  font-weight: 400;
-  animation: var(--animacao-surgir);
-}
-
-.footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 18px 28px 24px;
-  border-top: 1px solid rgba(212, 187, 252, 0.45);
-}
-
 @media (max-width: 520px) {
   .grid {
     grid-template-columns: minmax(0, 1fr);
@@ -129,13 +26,5 @@
   .span3,
   .span4 {
     grid-column: auto;
-  }
-
-  .footer {
-    flex-direction: column-reverse;
-  }
-
-  .footer > button {
-    width: 100%;
   }
 }

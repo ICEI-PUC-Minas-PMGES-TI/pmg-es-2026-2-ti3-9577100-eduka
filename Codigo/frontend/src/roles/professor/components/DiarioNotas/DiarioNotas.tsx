@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Badge } from '../../../../components/Badge/Badge'
 import { Button } from '../../../../components/Button/Button'
-import { StatCard } from '../../../../components/StatCard/StatCard'
+import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { lancarNotas } from '../../../../services/portalProfessorService'
 import type { AvaliacaoDoProfessor, LancamentoNota, NotaDoAluno } from '../../../../types/avaliacaoProfessor'
 import { ROTULOS_STATUS_MATRICULA } from '../../../../types/matricula'
@@ -143,7 +143,7 @@ export function DiarioNotas({ avaliacao, notas, onPendente, onSalvo }: DiarioNot
             {formatarData(avaliacao.data)} · vale {formatarPontos(avaliacao.valor)} pts
           </span>
         </div>
-        <div className={styles.stats}>
+        <StatCards rotulo="Resumo das notas">
           <StatCard
             label="Notas lançadas"
             value={`${lancadas.length} de ${ativos.length}`}
@@ -155,7 +155,7 @@ export function DiarioNotas({ avaliacao, notas, onPendente, onSalvo }: DiarioNot
             value={media === null ? '—' : formatarPontos(Math.round(media * 100) / 100)}
             descricao={`de ${formatarPontos(avaliacao.valor)} pts`}
           />
-        </div>
+        </StatCards>
       </section>
 
       {notas.length === 0 ? (

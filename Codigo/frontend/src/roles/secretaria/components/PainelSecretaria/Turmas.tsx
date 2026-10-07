@@ -16,10 +16,10 @@ import {
 import { ROTULOS_TURNO, type Turno } from '../../../../types/alocacao'
 import { mascararInteiro } from '../../../../utils/formatters'
 import { AcoesLinha, CabecalhoAba, Tabela } from './comum'
-import { ConfirmarExclusao } from './ConfirmarExclusao'
+import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/ConfirmarExclusao'
 import { mensagemErroAcademico } from './erros'
 import { opcional } from './formatacao'
-import { ModalCadastro } from './ModalCadastro'
+import { ModalCadastro } from '../../../../components/ModalCadastro/ModalCadastro'
 import styles from './PainelSecretaria.module.css'
 
 // Limites das colunas de TURMA (V14).
@@ -112,6 +112,7 @@ export function Turmas({ turmas, periodos, cursos, disciplinas, onCadastrar, onA
 
       {excluindo && (
         <ConfirmarExclusao
+          traduzirErro={mensagemErroAcademico}
           titulo="Excluir turma"
           nome={excluindo.nome}
           onFechar={() => setExcluindo(null)}

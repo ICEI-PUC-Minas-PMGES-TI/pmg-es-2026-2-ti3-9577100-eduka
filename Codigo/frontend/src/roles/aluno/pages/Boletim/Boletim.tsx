@@ -1,6 +1,6 @@
 import { Badge } from '../../../../components/Badge/Badge'
 import { Button } from '../../../../components/Button/Button'
-import { StatCard } from '../../../../components/StatCard/StatCard'
+import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { buscarBoletim } from '../../../../services/portalAlunoService'
 import { ROTULOS_STATUS_MATRICULA } from '../../../../types/matricula'
 import {
@@ -53,7 +53,7 @@ export function Boletim() {
       {!carregando && !erro && turmas.length > 0 && (
         <>
           {disciplinasAtivas.length > 0 && (
-            <section className={styles.stats} aria-label="Resumo do boletim">
+            <StatCards rotulo="Resumo do boletim">
               <StatCard
                 label="Aproveitamento"
                 value={geral === null ? '—' : `${geral}%`}
@@ -66,7 +66,7 @@ export function Boletim() {
                 value={`${comNota} de ${avaliacoes.length}`}
                 descricao="Provas, trabalhos e tarefas"
               />
-            </section>
+            </StatCards>
           )}
 
           {turmas.map((turma) => (

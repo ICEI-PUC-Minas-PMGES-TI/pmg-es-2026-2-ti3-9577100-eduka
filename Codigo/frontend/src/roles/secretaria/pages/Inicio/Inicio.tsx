@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
-import { Colunas, EstadoDashboard, Indicadores, Medidor, Painel, PainelVazio } from '../../../../components/Dashboard/Dashboard'
-import { StatCard } from '../../../../components/StatCard/StatCard'
+import { Colunas, EstadoDashboard, Medidor, Painel, PainelVazio } from '../../../../components/Dashboard/Dashboard'
+import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { paths } from '../../../../routes/paths'
 import { obterDashboardSecretaria } from '../../../../services/dashboardService'
 import { ROTULOS_TURNO } from '../../../../types/alocacao'
@@ -43,7 +43,7 @@ function Resumo({ dados }: { dados: DashboardSecretaria }) {
 
   return (
     <>
-      <Indicadores rotulo="Resumo de matrículas">
+      <StatCards rotulo="Resumo de matrículas">
         <StatCard
           label="Matrículas ativas"
           value={matriculasPorSituacao.ATIVA ?? 0}
@@ -66,7 +66,7 @@ function Resumo({ dados }: { dados: DashboardSecretaria }) {
               : `De ${vagas.ofertadas} ofertadas`
           }
         />
-      </Indicadores>
+      </StatCards>
 
       <Colunas>
         <Painel

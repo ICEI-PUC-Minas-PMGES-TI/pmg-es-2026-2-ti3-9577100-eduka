@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
-import { Colunas, EstadoDashboard, Indicadores, Painel, PainelVazio } from '../../../../components/Dashboard/Dashboard'
-import { StatCard } from '../../../../components/StatCard/StatCard'
+import { Colunas, EstadoDashboard, Painel, PainelVazio } from '../../../../components/Dashboard/Dashboard'
+import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { paths } from '../../../../routes/paths'
 import { obterDashboardProfessor } from '../../../../services/portalProfessorService'
 import type { AvaliacaoResumo, DashboardProfessor } from '../../../../types/dashboard'
@@ -57,7 +57,7 @@ function Resumo({ dados }: { dados: DashboardProfessor }) {
 
   return (
     <>
-      <Indicadores rotulo="Resumo das suas turmas">
+      <StatCards rotulo="Resumo das suas turmas">
         <StatCard
           label="Turmas"
           value={dados.turmas}
@@ -76,7 +76,7 @@ function Resumo({ dados }: { dados: DashboardProfessor }) {
           }
           alerta={avaliacoesPendentes.length > 0}
         />
-      </Indicadores>
+      </StatCards>
 
       {dados.turmas === 0 && (
         <Painel titulo="Você ainda não tem turmas">

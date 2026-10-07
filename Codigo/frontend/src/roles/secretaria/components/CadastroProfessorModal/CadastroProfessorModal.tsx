@@ -1,8 +1,8 @@
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Button } from '../../../../components/Button/Button'
 import { Campo } from '../../../../components/Campo/Campo'
 import { CampoData } from '../../../../components/CampoData/CampoData'
-import { Icon } from '../../../../components/Icon/Icon'
+import { Modal, ModalAlerta, ModalAviso } from '../../../../components/Modal/Modal'
 import { Select } from '../../../../components/Select/Select'
 import { ApiError } from '../../../../services/api'
 import { buscarProfessor } from '../../../../services/professorService'
@@ -119,7 +119,6 @@ type CadastroProfessorModalProps = {
 export function CadastroProfessorModal({ professorId, onFechar, onSalvar, onCadastrado }: CadastroProfessorModalProps) {
   const edicao = professorId !== undefined
   const dialogRef = useRef<HTMLDialogElement>(null)
-  const tituloId = useId()
   const [campos, setCampos] = useState<Campos>(CAMPOS_INICIAIS)
   const [erros, setErros] = useState<Erros>({})
   const [erroEnvio, setErroEnvio] = useState<string | null>(null)
@@ -127,12 +126,6 @@ export function CadastroProfessorModal({ professorId, onFechar, onSalvar, onCada
   // A listagem não traz o CPF: na edição, os campos vêm do detalhe.
   const [carregando, setCarregando] = useState(edicao)
   const [erroCarga, setErroCarga] = useState<string | null>(null)
-
-  useEffect(() => {
-    const dialog = dialogRef.current
-    dialog?.showModal()
-    return () => dialog?.close()
-  }, [])
 
   useEffect(() => {
     if (!professorId) return
@@ -154,10 +147,6 @@ export function CadastroProfessorModal({ professorId, onFechar, onSalvar, onCada
   function alterar<K extends keyof Campos>(campo: K, valor: Campos[K]) {
     setCampos((atuais) => ({ ...atuais, [campo]: valor }))
     if (erros[campo]) setErros((atuais) => ({ ...atuais, [campo]: undefined }))
-  }
-
-  function fechar() {
-    if (!salvando) onFechar()
   }
 
   async function handleSubmit(evento: FormEvent<HTMLFormElement>) {
@@ -196,154 +185,127 @@ export function CadastroProfessorModal({ professorId, onFechar, onSalvar, onCada
   }
 
   return (
-    <dialog
-      ref={dialogRef}
-      className={styles.dialog}
-      aria-labelledby={tituloId}
-      onCancel={(e) => {
-        e.preventDefault()
-        fechar()
-      }}
-    >
-      <form className={styles.form} noValidate onSubmit={handleSubmit}>
-        <header className={styles.header}>
-          <h2 id={tituloId} className={styles.title}>
-            {edicao ? 'Editar professor' : 'Cadastrar novo professor'}
-          </h2>
-          <button
-            type="button"
-            className={styles.close}
-            aria-label="Fechar"
-            disabled={salvando}
-            onClick={fechar}
-          >
-            <Icon name="close" size={16} />
-          </button>
-        </header>
-
-        <div className={styles.body}>
-          {carregando && <p className={styles.aviso}>Carregando dados do professor…</p>}
-          {erroCarga && (
-            <p className={styles.alerta} role="alert">
-              {erroCarga}
-            </p>
-          )}
-
-          {!bloqueado && (
-            <div className={styles.grid}>
-              <Campo label="Nome completo" erro={erros.nome} obrigatorio className={styles.span4}>
-                {(props) => (
-                  <input
-                    {...props}
-                    name="nome"
-                    maxLength={MAX_NOME}
-                    autoComplete="name"
-                    placeholder="Nome do professor"
-                    value={campos.nome}
-                    onChange={(e) => alterar('nome', e.target.value)}
-                  />
-                )}
-              </Campo>
-              <Campo label="CPF" erro={erros.cpf} obrigatorio className={styles.span2}>
-                {(props) => (
-                  <input
-                    {...props}
-                    name="cpf"
-                    inputMode="numeric"
-                    placeholder="000.000.000-00"
-                    value={campos.cpf}
-                    onChange={(e) => alterar('cpf', mascararCpf(e.target.value))}
-                  />
-                )}
-              </Campo>
-
-              <Campo
-                label="E-mail"
-                erro={erros.email}
-                obrigatorio
-                dica={edicao ? 'Trocar o e-mail troca o login do professor.' : 'O acesso ao Eduka é enviado para ele.'}
-                className={styles.span2}
-              >
-                {(props) => (
-                  <input
-                    {...props}
-                    name="email"
-                    type="email"
-                    maxLength={MAX_EMAIL}
-                    autoComplete="email"
-                    placeholder="professor@escola.com.br"
-                    value={campos.email}
-                    onChange={(e) => alterar('email', e.target.value)}
-                  />
-                )}
-              </Campo>
-              <Campo label="Telefone" erro={erros.telefone} className={styles.span2}>
-                {(props) => (
-                  <input
-                    {...props}
-                    name="telefone"
-                    type="tel"
-                    autoComplete="tel"
-                    placeholder="(00) 00000-0000"
-                    value={campos.telefone}
-                    onChange={(e) => alterar('telefone', mascararTelefone(e.target.value))}
-                  />
-                )}
-              </Campo>
-              <Campo label="Formação" erro={erros.formacao} className={styles.span2}>
-                {(props) => (
-                  <input
-                    {...props}
-                    name="formacao"
-                    maxLength={MAX_FORMACAO}
-                    placeholder="Ex.: Licenciatura em Matemática"
-                    value={campos.formacao}
-                    onChange={(e) => alterar('formacao', e.target.value)}
-                  />
-                )}
-              </Campo>
-
-              <Campo label="Vínculo" erro={erros.vinculo} obrigatorio className={styles.span3}>
-                {(props) => (
-                  <Select<VinculoProfessor | ''>
-                    {...props}
-                    name="vinculo"
-                    opcoes={OPCOES_VINCULO}
-                    valor={campos.vinculo}
-                    placeholder="Selecione"
-                    onChange={(vinculo) => alterar('vinculo', vinculo)}
-                  />
-                )}
-              </Campo>
-              <Campo label="Data de admissão" erro={erros.dataAdmissao} className={styles.span3}>
-                {(props) => (
-                  <CampoData
-                    {...props}
-                    name="dataAdmissao"
-                    valor={campos.dataAdmissao}
-                    onChange={(data) => alterar('dataAdmissao', data)}
-                  />
-                )}
-              </Campo>
-            </div>
-          )}
-
-          {erroEnvio && (
-            <p className={styles.alerta} role="alert">
-              {erroEnvio}
-            </p>
-          )}
-        </div>
-
-        <footer className={styles.footer}>
-          <Button disabled={salvando} onClick={fechar}>
+    <Modal
+      titulo={edicao ? 'Editar professor' : 'Cadastrar novo professor'}
+      tamanho="grande"
+      ocupado={salvando}
+      onFechar={onFechar}
+      onEnviar={handleSubmit}
+      dialogRef={dialogRef}
+      rodape={
+        <>
+          <Button disabled={salvando} onClick={onFechar}>
             Cancelar
           </Button>
           <Button type="submit" variant="accent" disabled={salvando || bloqueado}>
             {salvando ? 'Salvando…' : edicao ? 'Salvar alterações' : 'Salvar professor'}
           </Button>
-        </footer>
-      </form>
-    </dialog>
+        </>
+      }
+    >
+      {carregando && <ModalAviso>Carregando dados do professor…</ModalAviso>}
+      {erroCarga && <ModalAlerta>{erroCarga}</ModalAlerta>}
+
+      {!bloqueado && (
+        <div className={styles.grid}>
+          <Campo label="Nome completo" erro={erros.nome} obrigatorio className={styles.span4}>
+            {(props) => (
+              <input
+                {...props}
+                name="nome"
+                maxLength={MAX_NOME}
+                autoComplete="name"
+                placeholder="Nome do professor"
+                value={campos.nome}
+                onChange={(e) => alterar('nome', e.target.value)}
+              />
+            )}
+          </Campo>
+          <Campo label="CPF" erro={erros.cpf} obrigatorio className={styles.span2}>
+            {(props) => (
+              <input
+                {...props}
+                name="cpf"
+                inputMode="numeric"
+                placeholder="000.000.000-00"
+                value={campos.cpf}
+                onChange={(e) => alterar('cpf', mascararCpf(e.target.value))}
+              />
+            )}
+          </Campo>
+
+          <Campo
+            label="E-mail"
+            erro={erros.email}
+            obrigatorio
+            dica={edicao ? 'Trocar o e-mail troca o login do professor.' : 'O acesso ao Eduka é enviado para ele.'}
+            className={styles.span2}
+          >
+            {(props) => (
+              <input
+                {...props}
+                name="email"
+                type="email"
+                maxLength={MAX_EMAIL}
+                autoComplete="email"
+                placeholder="professor@escola.com.br"
+                value={campos.email}
+                onChange={(e) => alterar('email', e.target.value)}
+              />
+            )}
+          </Campo>
+          <Campo label="Telefone" erro={erros.telefone} className={styles.span2}>
+            {(props) => (
+              <input
+                {...props}
+                name="telefone"
+                type="tel"
+                autoComplete="tel"
+                placeholder="(00) 00000-0000"
+                value={campos.telefone}
+                onChange={(e) => alterar('telefone', mascararTelefone(e.target.value))}
+              />
+            )}
+          </Campo>
+          <Campo label="Formação" erro={erros.formacao} className={styles.span2}>
+            {(props) => (
+              <input
+                {...props}
+                name="formacao"
+                maxLength={MAX_FORMACAO}
+                placeholder="Ex.: Licenciatura em Matemática"
+                value={campos.formacao}
+                onChange={(e) => alterar('formacao', e.target.value)}
+              />
+            )}
+          </Campo>
+
+          <Campo label="Vínculo" erro={erros.vinculo} obrigatorio className={styles.span3}>
+            {(props) => (
+              <Select<VinculoProfessor | ''>
+                {...props}
+                name="vinculo"
+                opcoes={OPCOES_VINCULO}
+                valor={campos.vinculo}
+                placeholder="Selecione"
+                onChange={(vinculo) => alterar('vinculo', vinculo)}
+              />
+            )}
+          </Campo>
+          <Campo label="Data de admissão" erro={erros.dataAdmissao} className={styles.span3}>
+            {(props) => (
+              <CampoData
+                {...props}
+                name="dataAdmissao"
+                valor={campos.dataAdmissao}
+                onChange={(data) => alterar('dataAdmissao', data)}
+              />
+            )}
+          </Campo>
+        </div>
+      )}
+
+      {erroEnvio && <ModalAlerta>{erroEnvio}</ModalAlerta>}
+    </Modal>
   )
 }

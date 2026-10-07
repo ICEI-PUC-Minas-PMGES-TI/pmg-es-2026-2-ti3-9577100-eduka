@@ -1,5 +1,5 @@
-import { Colunas, EstadoDashboard, Indicadores, Linhas, Medidor, Painel, PainelVazio } from '../../../../components/Dashboard/Dashboard'
-import { StatCard } from '../../../../components/StatCard/StatCard'
+import { Colunas, EstadoDashboard, Linhas, Medidor, Painel, PainelVazio } from '../../../../components/Dashboard/Dashboard'
+import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { obterDashboardEscola } from '../../../../services/dashboardService'
 import type { DashboardEscola } from '../../../../types/dashboard'
 import { plural } from '../../../../utils/formatters'
@@ -30,7 +30,7 @@ function Resumo({ dados }: { dados: DashboardEscola }) {
 
   return (
     <>
-      <Indicadores rotulo="Resumo da escola">
+      <StatCards rotulo="Resumo da escola">
         <StatCard
           label="Alunos"
           value={pessoas.alunos}
@@ -56,7 +56,7 @@ function Resumo({ dados }: { dados: DashboardEscola }) {
           value={desempenho.aproveitamento === null ? '—' : `${desempenho.aproveitamento}%`}
           descricao={desempenho.aproveitamento === null ? 'Ainda sem notas lançadas' : 'Média geral das notas lançadas'}
         />
-      </Indicadores>
+      </StatCards>
 
       <Painel
         titulo="Ocupação das vagas"

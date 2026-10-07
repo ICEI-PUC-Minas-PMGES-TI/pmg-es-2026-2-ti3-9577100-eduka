@@ -1,13 +1,13 @@
 import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
-import { StatCard } from '../../../../components/StatCard/StatCard'
+import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { paths } from '../../../../routes/paths'
 import { cadastrarAvaliacao, atualizarAvaliacao, excluirAvaliacao, listarAvaliacoes } from '../../../../services/portalProfessorService'
 import type { AvaliacaoDoProfessor } from '../../../../types/avaliacaoProfessor'
 import { ROTULOS_TIPO_AVALIACAO } from '../../../../types/portalAluno'
 import { formatarPontos } from '../../../aluno/formatacao'
-import { ConfirmarExclusao } from '../../../secretaria/components/PainelSecretaria/ConfirmarExclusao'
+import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/ConfirmarExclusao'
 import { EstadoTurmas } from '../../components/EstadoTurmas/EstadoTurmas'
 import { FormularioAvaliacao } from '../../components/FormularioAvaliacao/FormularioAvaliacao'
 import { SeletorTurmaDisciplina } from '../../components/SeletorTurmaDisciplina/SeletorTurmaDisciplina'
@@ -119,7 +119,7 @@ export function Avaliacoes() {
 
       {!carregando && !erro && avaliacoes.length > 0 && (
         <>
-          <section className={styles.stats} aria-label="Resumo das avaliações">
+          <StatCards rotulo="Resumo das avaliações">
             <StatCard label="Avaliações" value={avaliacoes.length} descricao={contexto} destaque />
             <StatCard
               label="Pontos distribuídos"
@@ -131,7 +131,7 @@ export function Avaliacoes() {
               value={`${comNotas} de ${avaliacoes.length}`}
               descricao={comNotas === avaliacoes.length ? 'Todas já têm nota' : 'Já têm alguma nota lançada'}
             />
-          </section>
+          </StatCards>
 
           <ul className={styles.lista} aria-label={`Avaliações de ${contexto}`}>
             {avaliacoes.map((avaliacao) => (
@@ -224,7 +224,7 @@ function ItemAvaliacao({ avaliacao, onLancarNotas, onEditar, onExcluir }: ItemAv
         <Button
           size="sm"
           icon="trash"
-          className={styles.botaoExcluir}
+          variant="dangerOutline"
           aria-label={`Excluir ${avaliacao.titulo}`}
           title={temNotas ? 'Tem notas lançadas: apague as notas antes de excluir' : 'Excluir'}
           disabled={temNotas}

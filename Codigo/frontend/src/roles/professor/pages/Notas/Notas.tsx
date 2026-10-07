@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useBlocker, useNavigate, useSearchParams } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
+import { Modal } from '../../../../components/Modal/Modal'
 import { Select } from '../../../../components/Select/Select'
 import { paths } from '../../../../routes/paths'
 import { listarAvaliacoes, listarNotas } from '../../../../services/portalProfessorService'
@@ -17,7 +18,6 @@ import styles from './Notas.module.css'
 
 const NENHUMA_AVALIACAO: AvaliacaoDoProfessor[] = []
 const NENHUMA_NOTA: NotaDoAluno[] = []
-const AVISO_PENDENTE = 'Há notas alteradas que ainda não foram salvas. Sair mesmo assim?'
 
 /** Sem avaliação na URL: a mais recente que já aconteceu, ou a primeira que vem. */
 function avaliacaoPadrao(avaliacoes: AvaliacaoDoProfessor[]): AvaliacaoDoProfessor | null {
@@ -59,11 +59,9 @@ export function Notas() {
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) => pendente && currentLocation.pathname !== nextLocation.pathname,
   )
-  useEffect(() => {
-    if (blocker.state !== 'blocked') return
-    if (window.confirm(AVISO_PENDENTE)) blocker.proceed()
-    else blocker.reset()
-  }, [blocker])
+  // Troca de turma ou de avaliação esperando o "Sair sem salvar".
+  const [aoDescartar, setAoDescartar] = useState<(() => void) | null>(null)
+  const confirmandoSaida = blocker.state === 'blocked' || aoDescartar !== null
   useEffect(() => {
     if (!pendente) return
     const avisar = (e: BeforeUnloadEvent) => e.preventDefault()
@@ -71,10 +69,23 @@ export function Notas() {
     return () => window.removeEventListener('beforeunload', avisar)
   }, [pendente])
 
-  function podeTrocar(): boolean {
-    if (pendente && !window.confirm(AVISO_PENDENTE)) return false
-    setPendente(false)
-    return true
+  function trocar(acao: () => void) {
+    if (!pendente) return acao()
+    setAoDescartar(() => () => {
+      setPendente(false)
+      acao()
+    })
+  }
+
+  function descartar() {
+    if (blocker.state === 'blocked') blocker.proceed()
+    else aoDescartar?.()
+    setAoDescartar(null)
+  }
+
+  function continuarEditando() {
+    if (blocker.state === 'blocked') blocker.reset()
+    setAoDescartar(null)
   }
 
   if (!selecionada) {
@@ -94,7 +105,7 @@ export function Notas() {
         <SeletorTurmaDisciplina
           opcoes={opcoes}
           selecionada={selecionada}
-          onChange={(chave) => podeTrocar() && selecionar(chave)}
+          onChange={(chave) => trocar(() => selecionar(chave))}
         />
         {avaliacoes.dados.length > 0 && (
           <Select
@@ -103,7 +114,7 @@ export function Notas() {
               rotulo: `${formatarData(a.data)} · ${a.titulo} (${ROTULOS_TIPO_AVALIACAO[a.tipo]})`,
             }))}
             valor={avaliacaoId ?? ''}
-            onChange={(id) => podeTrocar() && setParams({ ...turmaDisciplina, avaliacao: id }, { replace: true })}
+            onChange={(id) => trocar(() => setParams({ ...turmaDisciplina, avaliacao: id }, { replace: true }))}
             aria-label="Avaliação"
             className={styles.filtro}
           />
@@ -162,6 +173,24 @@ export function Notas() {
             )
           }}
         />
+      )}
+
+      {confirmandoSaida && (
+        <Modal
+          titulo="Sair sem salvar?"
+          tamanho="pequeno"
+          onFechar={continuarEditando}
+          rodape={
+            <>
+              <Button onClick={continuarEditando}>Continuar editando</Button>
+              <Button variant="danger" onClick={descartar}>
+                Sair sem salvar
+              </Button>
+            </>
+          }
+        >
+          <p className={styles.avisoSaida}>Há notas alteradas que ainda não foram salvas e elas serão perdidas.</p>
+        </Modal>
       )}
     </ProfessorLayout>
   )

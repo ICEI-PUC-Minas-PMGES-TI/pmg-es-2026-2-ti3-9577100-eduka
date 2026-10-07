@@ -1,10 +1,13 @@
 import type { ReactNode } from 'react'
-import { useNavigate } from 'react-router'
+import { PainelLayout, type ItemMenu } from '../../../components/PainelLayout/PainelLayout'
 import { paths } from '../../../routes/paths'
-import { limparSessao } from '../../../services/authService'
-import { ProfessorHeader } from '../components/ProfessorHeader/ProfessorHeader'
-import { ProfessorNav } from '../components/ProfessorNav/ProfessorNav'
-import styles from './ProfessorLayout.module.css'
+
+const MENU: ItemMenu[] = [
+  { label: 'Início', icon: 'home', to: paths.professor.inicio },
+  { label: 'Minhas turmas', icon: 'users', to: paths.professor.turmas },
+  { label: 'Avaliações', icon: 'calendar', to: paths.professor.avaliacoes },
+  { label: 'Notas', icon: 'check', to: paths.professor.notas },
+]
 
 type ProfessorLayoutProps = {
   titulo: string
@@ -12,21 +15,6 @@ type ProfessorLayoutProps = {
   children: ReactNode
 }
 
-export function ProfessorLayout({ titulo, subtitulo, children }: ProfessorLayoutProps) {
-  const navigate = useNavigate()
-
-  // JWT e stateless: basta descartar o token local. replace impede que o
-  // "voltar" reabra o painel.
-  function sair() {
-    limparSessao()
-    navigate(paths.login, { replace: true })
-  }
-
-  return (
-    <div className={styles.shell}>
-      <ProfessorHeader titulo={titulo} subtitulo={subtitulo} onSair={sair} />
-      <main className={styles.main}>{children}</main>
-      <ProfessorNav />
-    </div>
-  )
+export function ProfessorLayout(props: ProfessorLayoutProps) {
+  return <PainelLayout contexto="Professor" menu={MENU} menuRotulo="Navegação do professor" {...props} />
 }

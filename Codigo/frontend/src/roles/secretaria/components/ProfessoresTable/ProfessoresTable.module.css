@@ -113,16 +113,6 @@
   justify-content: center;
 }
 
-/* Só o ícone: a ação destrutiva fica discreta até o hover. */
-.excluir {
-  padding-inline: 10px;
-}
-
-.excluir:hover:not(:disabled) {
-  border-color: var(--color-danger);
-  color: var(--color-danger);
-}
-
 /* Professor inativo fica apagado, como a escola suspensa no Super Admin. */
 .inativo .professor {
   opacity: 0.6;

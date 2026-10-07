@@ -9,7 +9,7 @@ import {
   type Matricula,
   type StatusMatricula,
 } from '../../../../types/matricula'
-import { ModalCadastro } from '../PainelSecretaria/ModalCadastro'
+import { ModalCadastro } from '../../../../components/ModalCadastro/ModalCadastro'
 import styles from './AlterarMatriculaModal.module.css'
 
 const MAX_OBSERVACAO = 500

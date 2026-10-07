@@ -1,6 +1,6 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Button } from '../Button/Button'
-import { Icon } from '../Icon/Icon'
+import { Modal, ModalAlerta, ModalAviso } from '../Modal/Modal'
 import styles from './ModalDetalhes.module.css'
 
 export type ItemDetalhe = {
@@ -46,69 +46,34 @@ export function ModalDetalhes({
   children,
   onFechar,
 }: ModalDetalhesProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
-  const tituloId = useId()
-
-  useEffect(() => {
-    const dialog = dialogRef.current
-    dialog?.showModal()
-    return () => dialog?.close()
-  }, [])
-
   return (
-    <dialog
-      ref={dialogRef}
-      className={styles.dialog}
-      aria-labelledby={tituloId}
-      onCancel={(e) => {
-        e.preventDefault()
-        onFechar()
-      }}
+    <Modal
+      titulo={titulo}
+      subtitulo={subtitulo}
+      tamanho="grande"
+      onFechar={onFechar}
+      rodape={<Button onClick={onFechar}>Fechar</Button>}
     >
-      <div className={styles.conteudo}>
-        <header className={styles.header}>
-          <div className={styles.cabecalho}>
-            <h2 id={tituloId} className={styles.titulo}>
-              {titulo}
-            </h2>
-            {subtitulo && <div className={styles.subtitulo}>{subtitulo}</div>}
-          </div>
-          <button type="button" className={styles.fechar} aria-label="Fechar" onClick={onFechar}>
-            <Icon name="close" size={16} />
-          </button>
-        </header>
+      {carregando && <ModalAviso>Carregando…</ModalAviso>}
+      {erro && <ModalAlerta>{erro}</ModalAlerta>}
 
-        <div className={styles.corpo}>
-          {carregando && <p className={styles.aviso}>Carregando…</p>}
-          {erro && (
-            <p className={styles.alerta} role="alert">
-              {erro}
-            </p>
-          )}
+      {!carregando &&
+        !erro &&
+        secoes.map((secao, indice) => (
+          <section key={secao.titulo ?? indice} className={styles.secao}>
+            {secao.titulo && <h3 className={styles.secaoTitulo}>{secao.titulo}</h3>}
+            <dl className={styles.grid}>
+              {secao.itens.map((item) => (
+                <div key={item.rotulo} className={item.largo ? styles.itemLargo : styles.item}>
+                  <dt>{item.rotulo}</dt>
+                  <dd>{vazio(item.valor) ? '—' : item.valor}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ))}
 
-          {!carregando &&
-            !erro &&
-            secoes.map((secao, indice) => (
-              <section key={secao.titulo ?? indice} className={styles.secao}>
-                {secao.titulo && <h3 className={styles.secaoTitulo}>{secao.titulo}</h3>}
-                <dl className={styles.grid}>
-                  {secao.itens.map((item) => (
-                    <div key={item.rotulo} className={item.largo ? styles.itemLargo : styles.item}>
-                      <dt>{item.rotulo}</dt>
-                      <dd>{vazio(item.valor) ? '—' : item.valor}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </section>
-            ))}
-
-          {!carregando && !erro && children}
-        </div>
-
-        <footer className={styles.footer}>
-          <Button onClick={onFechar}>Fechar</Button>
-        </footer>
-      </div>
-    </dialog>
+      {!carregando && !erro && children}
+    </Modal>
   )
 }

@@ -34,6 +34,10 @@
   font-size: 13.5px;
 }
 
+.soIcone {
+  padding-inline: 10px;
+}
+
 .primary,
 .accent {
   border-color: rgba(255, 255, 255, 0.28);
@@ -47,7 +51,8 @@
   filter: brightness(1.05) saturate(1.05);
 }
 
-.outline {
+.outline,
+.dangerOutline {
   border: var(--glass-border);
   background: var(--glass-bg);
   box-shadow: var(--glass-shadow-sm);
@@ -59,6 +64,21 @@
 .outline:hover:not(:disabled) {
   border-color: var(--color-mauve);
   color: var(--color-primary-text);
+}
+
+.dangerOutline:hover:not(:disabled) {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+/* Vermelho em vez do roxo do botão principal. */
+.danger {
+  background: var(--color-danger);
+  color: var(--color-on-primary);
+}
+
+.danger:hover:not(:disabled) {
+  filter: brightness(1.08);
 }
 
 .button:disabled {

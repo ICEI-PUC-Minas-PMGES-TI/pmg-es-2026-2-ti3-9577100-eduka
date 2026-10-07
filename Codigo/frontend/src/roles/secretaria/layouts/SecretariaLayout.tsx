@@ -1,10 +1,15 @@
 import type { ReactNode } from 'react'
-import { useNavigate } from 'react-router'
+import { PainelLayout, type ItemMenu } from '../../../components/PainelLayout/PainelLayout'
 import { paths } from '../../../routes/paths'
-import { limparSessao } from '../../../services/authService'
-import { SecretariaHeader } from '../components/SecretariaHeader/SecretariaHeader'
-import { SecretariaNav } from '../components/SecretariaNav/SecretariaNav'
-import styles from './SecretariaLayout.module.css'
+
+const MENU: ItemMenu[] = [
+  { label: 'Início', icon: 'home', to: paths.secretaria.inicio },
+  { label: 'Alunos', icon: 'users', to: paths.secretaria.alunos },
+  { label: 'Professores', icon: 'graduationCap', to: paths.secretaria.professores },
+  // Também fica ativo na alocação, que é subrota do Acadêmico.
+  { label: 'Acadêmico', icon: 'book', to: paths.secretaria.academico },
+  { label: 'Matrículas', icon: 'check', to: paths.secretaria.matriculas },
+]
 
 type SecretariaLayoutProps = {
   titulo: string
@@ -12,21 +17,6 @@ type SecretariaLayoutProps = {
   children: ReactNode
 }
 
-export function SecretariaLayout({ titulo, subtitulo, children }: SecretariaLayoutProps) {
-  const navigate = useNavigate()
-
-  // JWT e stateless: basta descartar o token local. replace impede que o
-  // "voltar" reabra o painel.
-  function sair() {
-    limparSessao()
-    navigate(paths.login, { replace: true })
-  }
-
-  return (
-    <div className={styles.shell}>
-      <SecretariaHeader titulo={titulo} subtitulo={subtitulo} onSair={sair} />
-      <main className={styles.main}>{children}</main>
-      <SecretariaNav />
-    </div>
-  )
+export function SecretariaLayout(props: SecretariaLayoutProps) {
+  return <PainelLayout contexto="Secretaria" menu={MENU} menuRotulo="Navegação da secretaria" {...props} />
 }

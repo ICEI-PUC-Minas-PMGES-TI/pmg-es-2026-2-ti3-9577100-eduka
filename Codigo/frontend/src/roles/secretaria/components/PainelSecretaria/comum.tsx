@@ -79,7 +79,7 @@ export function AcoesLinha({ nome, onVer, onEditar, onExcluir }: AcoesLinhaProps
       <Button
         size="sm"
         icon="trash"
-        className={styles.botaoExcluir}
+        variant="dangerOutline"
         aria-label={`Excluir ${nome}`}
         title="Excluir"
         onClick={onExcluir}

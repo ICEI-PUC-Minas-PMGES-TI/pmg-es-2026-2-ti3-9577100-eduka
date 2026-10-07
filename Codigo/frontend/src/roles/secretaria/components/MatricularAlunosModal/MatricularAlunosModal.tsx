@@ -7,7 +7,7 @@ import type { TurmaAcademica } from '../../../../types/academico'
 import type { AlunoResumo } from '../../../../types/aluno'
 import type { Matricula, MatriculaRequest } from '../../../../types/matricula'
 import { formatarData, hojeIso } from '../PainelSecretaria/formatacao'
-import { ModalCadastro } from '../PainelSecretaria/ModalCadastro'
+import { ModalCadastro } from '../../../../components/ModalCadastro/ModalCadastro'
 import styles from './MatricularAlunosModal.module.css'
 
 const MAX_OBSERVACAO = 500

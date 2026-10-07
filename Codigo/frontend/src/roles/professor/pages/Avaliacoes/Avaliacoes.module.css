@@ -18,12 +18,6 @@
   animation: var(--animacao-surgir);
 }
 
-.stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-}
-
 .lista {
   display: flex;
   flex-direction: column;
@@ -125,16 +119,6 @@
   gap: 8px;
 }
 
-/* Botões só com ícone: compactos e com o vermelho de exclusão no hover. */
-.acoes > button:not(:first-child) {
-  padding-inline: 10px;
-}
-
-.botaoExcluir:hover:not(:disabled) {
-  border-color: var(--color-danger);
-  color: var(--color-danger);
-}
-
 .mensagem {
   display: flex;
   flex-direction: column;
@@ -157,11 +141,6 @@
 }
 
 @media (max-width: 720px) {
-  .stats {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
   .item {
     flex-wrap: wrap;
     gap: 12px;

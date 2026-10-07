@@ -4,10 +4,10 @@ import { Campo } from '../../../../components/Campo/Campo'
 import { ModalDetalhes } from '../../../../components/ModalDetalhes/ModalDetalhes'
 import type { Curso, CursoRequest } from '../../../../types/academico'
 import { AcoesLinha, CabecalhoAba, Tabela } from './comum'
-import { ConfirmarExclusao } from './ConfirmarExclusao'
+import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/ConfirmarExclusao'
 import { mensagemErroAcademico } from './erros'
 import { opcional } from './formatacao'
-import { ModalCadastro } from './ModalCadastro'
+import { ModalCadastro } from '../../../../components/ModalCadastro/ModalCadastro'
 import styles from './PainelSecretaria.module.css'
 
 // Limites das colunas de CURSO (V14).
@@ -100,6 +100,7 @@ export function Cursos({ cursos, onCadastrar, onAtualizar, onExcluir }: CursosPr
 
       {excluindo && (
         <ConfirmarExclusao
+          traduzirErro={mensagemErroAcademico}
           titulo="Excluir curso"
           nome={excluindo.nome}
           onFechar={() => setExcluindo(null)}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
+import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { paths } from '../../../../routes/paths'
 import type { TurmaAcademica } from '../../../../types/academico'
 import { ROTULOS_TURNO } from '../../../../types/alocacao'
@@ -55,6 +56,15 @@ export function Matriculas() {
   for (const m of matriculas) {
     if (m.status === 'ATIVA') ativasPorTurma.set(m.turmaId, (ativasPorTurma.get(m.turmaId) ?? 0) + 1)
   }
+
+  // Resumo da escola inteira, acima da turma escolhida.
+  const totalAtivas = matriculas.filter((m) => m.status === 'ATIVA').length
+  const trancadas = matriculas.filter((m) => m.status === 'TRANCADA').length
+  const comTurma = new Set(matriculas.filter((m) => m.status === 'ATIVA').map((m) => m.alunoId))
+  const alunosSemTurma = alunos.filter((a) => !comTurma.has(a.id)).length
+  const vagasLivresEscola = turmas
+    .filter((t) => t.ativa)
+    .reduce((soma, t) => soma + Math.max(t.vagas - (ativasPorTurma.get(t.id) ?? 0), 0), 0)
 
   const daTurma = turma ? matriculas.filter((m) => m.turmaId === turma.id).sort(porNomeDoAluno) : []
   const visiveis = filtro ? daTurma.filter((m) => m.status === filtro) : daTurma
@@ -113,6 +123,20 @@ export function Matriculas() {
             Ir para Turmas
           </Button>
         </div>
+      )}
+
+      {!carregando && !erro && turma && (
+        <StatCards rotulo="Resumo das matrículas da escola">
+          <StatCard label="Matrículas ativas" value={totalAtivas} descricao="Em todas as turmas" destaque />
+          <StatCard label="Trancadas" value={trancadas} descricao="Podem ser reativadas" />
+          <StatCard
+            label="Alunos sem turma"
+            value={alunosSemTurma}
+            descricao={alunosSemTurma > 0 ? 'Sem matrícula ativa' : 'Todos matriculados'}
+            atencao={alunosSemTurma > 0}
+          />
+          <StatCard label="Vagas livres" value={vagasLivresEscola} descricao="Nas turmas ativas" />
+        </StatCards>
       )}
 
       {!carregando && !erro && turma && (

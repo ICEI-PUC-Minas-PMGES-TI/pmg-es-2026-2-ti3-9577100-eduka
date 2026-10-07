@@ -42,12 +42,6 @@
   font-size: 14px;
 }
 
-.stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-}
-
 /* ---------- Tabela do diário ---------- */
 
 .card {
@@ -236,11 +230,6 @@
 }
 
 @media (max-width: 520px) {
-  .stats {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
   .botoes {
     flex-direction: column-reverse;
     width: 100%;

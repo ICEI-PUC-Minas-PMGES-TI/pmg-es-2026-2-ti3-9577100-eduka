@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
+import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { reenviarAcessoAluno } from '../../../../services/alunoService'
 import { ApiError } from '../../../../services/api'
+import { obterDashboardSecretaria } from '../../../../services/dashboardService'
 import type { Aluno, AlunoResumo } from '../../../../types/aluno'
 import { AlunoModal } from '../../components/AlunoModal/AlunoModal'
 import { AlunosTable } from '../../components/AlunosTable/AlunosTable'
 import { DetalhesAlunoModal } from '../../components/DetalhesAlunoModal/DetalhesAlunoModal'
+import { useCarregamento } from '../../../professor/hooks/useCarregamento'
 import { useAlunos } from '../../hooks/useAlunos'
 import { SecretariaLayout } from '../../layouts/SecretariaLayout'
 import styles from './Alunos.module.css'
@@ -28,6 +31,10 @@ export function Alunos() {
   const [erroAcao, setErroAcao] = useState<string | null>(null)
   const [reenviandoId, setReenviandoId] = useState<string | null>(null)
   const [vendo, setVendo] = useState<AlunoResumo | null>(null)
+
+  // Quem está sem turma vem do resumo de matrículas; a listagem não traz as matrículas.
+  const resumo = useCarregamento(obterDashboardSecretaria, null, 'Não foi possível carregar o resumo.')
+  const semTurma = resumo.dados?.alunosSemTurma
 
   const visiveis = alunos.filter((a) => correspondeBusca(a, busca))
   const mensagemVazia =
@@ -51,6 +58,8 @@ export function Alunos() {
   function handleSalvo(aluno: Aluno) {
     const edicao = modal.aberto && modal.aluno !== undefined
     setModal({ aberto: false })
+    // Aluno novo entra sem turma: atualiza o "Sem turma".
+    if (!edicao) resumo.recarregar()
     setSucesso(
       edicao
         ? `Os dados de "${aluno.nome}" foram atualizados.`
@@ -80,6 +89,23 @@ export function Alunos() {
 
   return (
     <SecretariaLayout titulo="Alunos" subtitulo="Cadastre os alunos da escola e mantenha os dados em dia.">
+      {!carregando && !erro && (
+        <StatCards rotulo="Resumo dos alunos">
+          <StatCard label="Alunos cadastrados" value={alunos.length} descricao="Na escola" destaque />
+          <StatCard
+            label="Com turma"
+            value={semTurma === undefined ? '—' : alunos.length - semTurma}
+            descricao="Com matrícula ativa"
+          />
+          <StatCard
+            label="Sem turma"
+            value={semTurma ?? '—'}
+            descricao={semTurma ? 'Matricule em Matrículas' : 'Todos matriculados'}
+            atencao={Boolean(semTurma)}
+          />
+        </StatCards>
+      )}
+
       <div className={styles.toolbar}>
         <label className={styles.busca}>
           <Icon name="search" size={17} />

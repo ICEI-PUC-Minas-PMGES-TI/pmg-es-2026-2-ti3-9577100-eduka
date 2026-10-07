@@ -4,15 +4,6 @@ import styles from './Dashboard.module.css'
 
 // Peças comuns das telas de "Início" (dashboard) de cada perfil.
 
-/** Linha de StatCards no topo do dashboard. */
-export function Indicadores({ rotulo, children }: { rotulo: string; children: ReactNode }) {
-  return (
-    <section className={styles.indicadores} aria-label={rotulo}>
-      {children}
-    </section>
-  )
-}
-
 /** Painéis lado a lado; empilham em tela estreita. */
 export function Colunas({ children }: { children: ReactNode }) {
   return <div className={styles.colunas}>{children}</div>

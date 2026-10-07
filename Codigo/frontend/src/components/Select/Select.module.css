@@ -42,10 +42,10 @@
   gap: 2px;
   /* Opaco: abre sobre campos e textos, e qualquer transparência deixa o texto
      de baixo aparecer. O vidro fica na borda clara, no brilho e na sombra. */
-  background: linear-gradient(160deg, #ffffff, #f8f2ff);
+  background: var(--glass-bg-opaque);
   border: var(--glass-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  box-shadow: var(--glass-shadow-opaque);
   color: var(--color-text);
   animation: var(--animacao-surgir);
 }

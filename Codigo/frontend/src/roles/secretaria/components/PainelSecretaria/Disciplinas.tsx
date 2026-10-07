@@ -6,10 +6,10 @@ import { Select } from '../../../../components/Select/Select'
 import type { Curso, Disciplina, DisciplinaRequest } from '../../../../types/academico'
 import { mascararInteiro } from '../../../../utils/formatters'
 import { AcoesLinha, CabecalhoAba, Tabela } from './comum'
-import { ConfirmarExclusao } from './ConfirmarExclusao'
+import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/ConfirmarExclusao'
 import { mensagemErroAcademico } from './erros'
 import { opcional } from './formatacao'
-import { ModalCadastro } from './ModalCadastro'
+import { ModalCadastro } from '../../../../components/ModalCadastro/ModalCadastro'
 import styles from './PainelSecretaria.module.css'
 
 // Limites das colunas de DISCIPLINA (V14).
@@ -103,6 +103,7 @@ export function Disciplinas({ disciplinas, cursos, onCadastrar, onAtualizar, onE
 
       {excluindo && (
         <ConfirmarExclusao
+          traduzirErro={mensagemErroAcademico}
           titulo="Excluir disciplina"
           nome={excluindo.nome}
           onFechar={() => setExcluindo(null)}

@@ -99,7 +99,7 @@ export function ProfessoresTable({
                       </Button>
                       <Button
                         size="sm"
-                        className={styles.excluir}
+                        variant="dangerOutline"
                         icon="trash"
                         aria-label={`Excluir ${professor.nome}`}
                         title="Excluir (saiu da escola)"

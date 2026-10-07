@@ -37,17 +37,59 @@
   color: var(--color-danger);
 }
 
+.atencao {
+  color: var(--color-warning);
+}
+
 .descricao {
   color: var(--color-text-muted);
   font-size: 13px;
 }
 
+.faixa {
+  display: grid;
+  gap: 18px;
+}
+
+.duas {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tres {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.quatro {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 960px) {
+  .quatro {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 720px) {
+  .faixa {
+    gap: 12px;
+  }
+
+  .duas,
+  .tres {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .card {
     padding: 20px 22px;
   }
 
   .value {
     font-size: 34px;
+  }
+}
+
+@media (max-width: 520px) {
+  .quatro {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

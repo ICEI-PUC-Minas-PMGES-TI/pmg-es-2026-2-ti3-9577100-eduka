@@ -1,8 +1,8 @@
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Button } from '../../../../components/Button/Button'
 import { Campo } from '../../../../components/Campo/Campo'
 import { CampoData } from '../../../../components/CampoData/CampoData'
-import { Icon } from '../../../../components/Icon/Icon'
+import { Modal, ModalAlerta, ModalAviso } from '../../../../components/Modal/Modal'
 import { Select } from '../../../../components/Select/Select'
 import { buscarAluno } from '../../../../services/alunoService'
 import { ApiError } from '../../../../services/api'
@@ -178,7 +178,6 @@ type AlunoModalProps = {
 export function AlunoModal({ alunoId, onFechar, onSalvar, onSalvo }: AlunoModalProps) {
   const edicao = alunoId !== undefined
   const dialogRef = useRef<HTMLDialogElement>(null)
-  const tituloId = useId()
   const [campos, setCampos] = useState<Campos>(CAMPOS_INICIAIS)
   const [erros, setErros] = useState<Erros>({})
   const [responsaveis, setResponsaveis] = useState<CamposResponsavel[]>([])
@@ -188,12 +187,6 @@ export function AlunoModal({ alunoId, onFechar, onSalvar, onSalvo }: AlunoModalP
   const [erroCarga, setErroCarga] = useState<string | null>(null)
   const [erroEnvio, setErroEnvio] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
-
-  useEffect(() => {
-    const dialog = dialogRef.current
-    dialog?.showModal()
-    return () => dialog?.close()
-  }, [])
 
   useEffect(() => {
     if (!alunoId) return
@@ -231,10 +224,6 @@ export function AlunoModal({ alunoId, onFechar, onSalvar, onSalvo }: AlunoModalP
   function removerResponsavel(indice: number) {
     setResponsaveis((atuais) => atuais.filter((_, i) => i !== indice))
     setErrosResponsaveis((atuais) => atuais.filter((_, i) => i !== indice))
-  }
-
-  function fechar() {
-    if (!salvando) onFechar()
   }
 
   function focar(nome: string) {
@@ -286,336 +275,309 @@ export function AlunoModal({ alunoId, onFechar, onSalvar, onSalvo }: AlunoModalP
   const bloqueado = carregando || erroCarga !== null
 
   return (
-    <dialog
-      ref={dialogRef}
-      className={styles.dialog}
-      aria-labelledby={tituloId}
-      onCancel={(e) => {
-        e.preventDefault()
-        fechar()
-      }}
-    >
-      <form className={styles.form} noValidate onSubmit={handleSubmit}>
-        <header className={styles.header}>
-          <h2 id={tituloId} className={styles.title}>
-            {edicao ? 'Editar aluno' : 'Cadastrar novo aluno'}
-          </h2>
-          <button
-            type="button"
-            className={styles.close}
-            aria-label="Fechar"
-            disabled={salvando}
-            onClick={fechar}
-          >
-            <Icon name="close" size={16} />
-          </button>
-        </header>
-
-        <div className={styles.body}>
-          {carregando && <p className={styles.aviso}>Carregando dados do aluno…</p>}
-          {erroCarga && (
-            <p className={styles.alerta} role="alert">
-              {erroCarga}
-            </p>
-          )}
-
-          {!bloqueado && (
-            <>
-              <fieldset className={styles.secao}>
-                <legend className={styles.legenda}>Dados do aluno</legend>
-                <div className={styles.grid}>
-                  <Campo label="Nome completo" erro={erros.nome} obrigatorio className={styles.span4}>
-                    {(props) => (
-                      <input
-                        {...props}
-                        name="nome"
-                        maxLength={MAX_NOME}
-                        autoComplete="off"
-                        placeholder="Nome do aluno"
-                        value={campos.nome}
-                        onChange={(e) => alterar('nome', e.target.value)}
-                      />
-                    )}
-                  </Campo>
-                  <Campo label="Matrícula" erro={erros.matricula} obrigatorio className={styles.span2}>
-                    {(props) => (
-                      <input
-                        {...props}
-                        name="matricula"
-                        maxLength={MAX_MATRICULA}
-                        placeholder="Ex.: 2026-001"
-                        value={campos.matricula}
-                        onChange={(e) => alterar('matricula', e.target.value)}
-                      />
-                    )}
-                  </Campo>
-
-                  <Campo
-                    label="CPF"
-                    erro={erros.cpf}
-                    obrigatorio
-                    dica={edicao ? undefined : 'É a senha do primeiro acesso.'}
-                    className={styles.span2}
-                  >
-                    {(props) => (
-                      <input
-                        {...props}
-                        name="cpf"
-                        inputMode="numeric"
-                        placeholder="000.000.000-00"
-                        value={campos.cpf}
-                        onChange={(e) => alterar('cpf', mascararCpf(e.target.value))}
-                      />
-                    )}
-                  </Campo>
-                  <Campo
-                    label="E-mail"
-                    erro={erros.email}
-                    obrigatorio
-                    dica={edicao ? 'Trocar o e-mail troca o login do aluno.' : 'O acesso ao Eduka é enviado para ele.'}
-                    className={styles.span4}
-                  >
-                    {(props) => (
-                      <input
-                        {...props}
-                        name="email"
-                        type="email"
-                        maxLength={MAX_EMAIL}
-                        autoComplete="off"
-                        placeholder="aluno@email.com"
-                        value={campos.email}
-                        onChange={(e) => alterar('email', e.target.value)}
-                      />
-                    )}
-                  </Campo>
-
-                  <Campo label="Data de nascimento" erro={erros.dataNascimento} className={styles.span3}>
-                    {(props) => (
-                      <CampoData
-                        {...props}
-                        name="dataNascimento"
-                        valor={campos.dataNascimento}
-                        onChange={(data) => alterar('dataNascimento', data)}
-                      />
-                    )}
-                  </Campo>
-                  <Campo label="Gênero" erro={erros.genero} className={styles.span3}>
-                    {(props) => (
-                      <Select<string>
-                        {...props}
-                        name="genero"
-                        opcoes={OPCOES_GENERO}
-                        valor={campos.genero}
-                        placeholder="Selecione"
-                        onChange={(genero) => alterar('genero', genero)}
-                      />
-                    )}
-                  </Campo>
-                </div>
-              </fieldset>
-
-              <fieldset className={styles.secao}>
-                <legend className={styles.legenda}>Endereço</legend>
-                <div className={styles.grid}>
-                  <Campo label="CEP" erro={erros.cep} className={styles.span2}>
-                    {(props) => (
-                      <input
-                        {...props}
-                        name="cep"
-                        inputMode="numeric"
-                        placeholder="00000-000"
-                        value={campos.cep}
-                        onChange={(e) => alterar('cep', mascararCep(e.target.value))}
-                      />
-                    )}
-                  </Campo>
-                  <Campo label="Logradouro" erro={erros.logradouro} className={styles.span4}>
-                    {(props) => (
-                      <input
-                        {...props}
-                        name="logradouro"
-                        placeholder="Rua, avenida…"
-                        value={campos.logradouro}
-                        onChange={(e) => alterar('logradouro', e.target.value)}
-                      />
-                    )}
-                  </Campo>
-                  <Campo label="Número" erro={erros.numero} className={styles.span2}>
-                    {(props) => (
-                      <input
-                        {...props}
-                        name="numero"
-                        value={campos.numero}
-                        onChange={(e) => alterar('numero', e.target.value)}
-                      />
-                    )}
-                  </Campo>
-                  <Campo label="Bairro" erro={erros.bairro} className={styles.span4}>
-                    {(props) => (
-                      <input
-                        {...props}
-                        name="bairro"
-                        value={campos.bairro}
-                        onChange={(e) => alterar('bairro', e.target.value)}
-                      />
-                    )}
-                  </Campo>
-                  <Campo label="Cidade" erro={erros.cidade} className={styles.span4}>
-                    {(props) => (
-                      <input
-                        {...props}
-                        name="cidade"
-                        value={campos.cidade}
-                        onChange={(e) => alterar('cidade', e.target.value)}
-                      />
-                    )}
-                  </Campo>
-                  <Campo label="UF" erro={erros.estado} className={styles.span2}>
-                    {(props) => (
-                      <input
-                        {...props}
-                        name="estado"
-                        maxLength={2}
-                        placeholder="MG"
-                        value={campos.estado}
-                        onChange={(e) => alterar('estado', e.target.value.toUpperCase())}
-                      />
-                    )}
-                  </Campo>
-                </div>
-              </fieldset>
-
-              <fieldset className={styles.secao}>
-                <legend className={styles.legenda}>Responsáveis</legend>
-                {edicao ? (
-                  <>
-                    {responsaveisAtuais.length === 0 ? (
-                      <p className={styles.aviso}>Nenhum responsável cadastrado.</p>
-                    ) : (
-                      <ul className={styles.responsaveis}>
-                        {responsaveisAtuais.map((r) => (
-                          <li key={r.pessoaId}>
-                            <strong>{r.nome}</strong>
-                            {r.parentesco && <span> · {r.parentesco}</span>}
-                            {(r.email || r.telefone) && (
-                              <span className={styles.contato}>
-                                {[r.email, r.telefone && mascararTelefone(r.telefone)].filter(Boolean).join(' · ')}
-                              </span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <p className={styles.aviso}>Os responsáveis ainda não podem ser alterados por aqui.</p>
-                  </>
-                ) : (
-                  <>
-                    {responsaveis.map((responsavel, indice) => {
-                      const errosR = errosResponsaveis[indice] ?? {}
-                      const nome = (campo: keyof CamposResponsavel) => `responsavel-${indice}-${campo}`
-                      return (
-                        <div key={indice} className={styles.responsavel}>
-                          <div className={styles.responsavelTopo}>
-                            <span>Responsável {indice + 1}</span>
-                            <Button
-                              size="sm"
-                              icon="trash"
-                              aria-label={`Remover responsável ${indice + 1}`}
-                              onClick={() => removerResponsavel(indice)}
-                            />
-                          </div>
-                          <div className={styles.grid}>
-                            <Campo label="Nome" erro={errosR.nome} obrigatorio className={styles.span4}>
-                              {(props) => (
-                                <input
-                                  {...props}
-                                  name={nome('nome')}
-                                  maxLength={MAX_NOME}
-                                  value={responsavel.nome}
-                                  onChange={(e) => alterarResponsavel(indice, 'nome', e.target.value)}
-                                />
-                              )}
-                            </Campo>
-                            <Campo label="Parentesco" erro={errosR.parentesco} className={styles.span2}>
-                              {(props) => (
-                                <input
-                                  {...props}
-                                  name={nome('parentesco')}
-                                  placeholder="Ex.: Mãe"
-                                  value={responsavel.parentesco}
-                                  onChange={(e) => alterarResponsavel(indice, 'parentesco', e.target.value)}
-                                />
-                              )}
-                            </Campo>
-                            <Campo label="CPF" erro={errosR.cpf} className={styles.span2}>
-                              {(props) => (
-                                <input
-                                  {...props}
-                                  name={nome('cpf')}
-                                  inputMode="numeric"
-                                  placeholder="000.000.000-00"
-                                  value={responsavel.cpf}
-                                  onChange={(e) => alterarResponsavel(indice, 'cpf', mascararCpf(e.target.value))}
-                                />
-                              )}
-                            </Campo>
-                            <Campo label="E-mail" erro={errosR.email} className={styles.span2}>
-                              {(props) => (
-                                <input
-                                  {...props}
-                                  name={nome('email')}
-                                  type="email"
-                                  maxLength={MAX_EMAIL}
-                                  value={responsavel.email}
-                                  onChange={(e) => alterarResponsavel(indice, 'email', e.target.value)}
-                                />
-                              )}
-                            </Campo>
-                            <Campo label="Telefone" erro={errosR.telefone} className={styles.span2}>
-                              {(props) => (
-                                <input
-                                  {...props}
-                                  name={nome('telefone')}
-                                  type="tel"
-                                  placeholder="(00) 00000-0000"
-                                  value={responsavel.telefone}
-                                  onChange={(e) =>
-                                    alterarResponsavel(indice, 'telefone', mascararTelefone(e.target.value))
-                                  }
-                                />
-                              )}
-                            </Campo>
-                          </div>
-                        </div>
-                      )
-                    })}
-                    <div>
-                      <Button size="sm" icon="plus" onClick={adicionarResponsavel}>
-                        Adicionar responsável
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </fieldset>
-            </>
-          )}
-
-          {erroEnvio && (
-            <p className={styles.alerta} role="alert">
-              {erroEnvio}
-            </p>
-          )}
-        </div>
-
-        <footer className={styles.footer}>
-          <Button disabled={salvando} onClick={fechar}>
+    <Modal
+      titulo={edicao ? 'Editar aluno' : 'Cadastrar novo aluno'}
+      tamanho="grande"
+      ocupado={salvando}
+      onFechar={onFechar}
+      onEnviar={handleSubmit}
+      dialogRef={dialogRef}
+      rodape={
+        <>
+          <Button disabled={salvando} onClick={onFechar}>
             Cancelar
           </Button>
           <Button type="submit" variant="accent" disabled={salvando || bloqueado}>
             {salvando ? 'Salvando…' : edicao ? 'Salvar alterações' : 'Salvar aluno'}
           </Button>
-        </footer>
-      </form>
-    </dialog>
+        </>
+      }
+    >
+      {carregando && <ModalAviso>Carregando dados do aluno…</ModalAviso>}
+      {erroCarga && <ModalAlerta>{erroCarga}</ModalAlerta>}
+
+      {!bloqueado && (
+        <>
+          <fieldset className={styles.secao}>
+            <legend className={styles.legenda}>Dados do aluno</legend>
+            <div className={styles.grid}>
+              <Campo label="Nome completo" erro={erros.nome} obrigatorio className={styles.span4}>
+                {(props) => (
+                  <input
+                    {...props}
+                    name="nome"
+                    maxLength={MAX_NOME}
+                    autoComplete="off"
+                    placeholder="Nome do aluno"
+                    value={campos.nome}
+                    onChange={(e) => alterar('nome', e.target.value)}
+                  />
+                )}
+              </Campo>
+              <Campo label="Matrícula" erro={erros.matricula} obrigatorio className={styles.span2}>
+                {(props) => (
+                  <input
+                    {...props}
+                    name="matricula"
+                    maxLength={MAX_MATRICULA}
+                    placeholder="Ex.: 2026-001"
+                    value={campos.matricula}
+                    onChange={(e) => alterar('matricula', e.target.value)}
+                  />
+                )}
+              </Campo>
+
+              <Campo
+                label="CPF"
+                erro={erros.cpf}
+                obrigatorio
+                dica={edicao ? undefined : 'É a senha do primeiro acesso.'}
+                className={styles.span2}
+              >
+                {(props) => (
+                  <input
+                    {...props}
+                    name="cpf"
+                    inputMode="numeric"
+                    placeholder="000.000.000-00"
+                    value={campos.cpf}
+                    onChange={(e) => alterar('cpf', mascararCpf(e.target.value))}
+                  />
+                )}
+              </Campo>
+              <Campo
+                label="E-mail"
+                erro={erros.email}
+                obrigatorio
+                dica={edicao ? 'Trocar o e-mail troca o login do aluno.' : 'O acesso ao Eduka é enviado para ele.'}
+                className={styles.span4}
+              >
+                {(props) => (
+                  <input
+                    {...props}
+                    name="email"
+                    type="email"
+                    maxLength={MAX_EMAIL}
+                    autoComplete="off"
+                    placeholder="aluno@email.com"
+                    value={campos.email}
+                    onChange={(e) => alterar('email', e.target.value)}
+                  />
+                )}
+              </Campo>
+
+              <Campo label="Data de nascimento" erro={erros.dataNascimento} className={styles.span3}>
+                {(props) => (
+                  <CampoData
+                    {...props}
+                    name="dataNascimento"
+                    valor={campos.dataNascimento}
+                    onChange={(data) => alterar('dataNascimento', data)}
+                  />
+                )}
+              </Campo>
+              <Campo label="Gênero" erro={erros.genero} className={styles.span3}>
+                {(props) => (
+                  <Select<string>
+                    {...props}
+                    name="genero"
+                    opcoes={OPCOES_GENERO}
+                    valor={campos.genero}
+                    placeholder="Selecione"
+                    onChange={(genero) => alterar('genero', genero)}
+                  />
+                )}
+              </Campo>
+            </div>
+          </fieldset>
+
+          <fieldset className={styles.secao}>
+            <legend className={styles.legenda}>Endereço</legend>
+            <div className={styles.grid}>
+              <Campo label="CEP" erro={erros.cep} className={styles.span2}>
+                {(props) => (
+                  <input
+                    {...props}
+                    name="cep"
+                    inputMode="numeric"
+                    placeholder="00000-000"
+                    value={campos.cep}
+                    onChange={(e) => alterar('cep', mascararCep(e.target.value))}
+                  />
+                )}
+              </Campo>
+              <Campo label="Logradouro" erro={erros.logradouro} className={styles.span4}>
+                {(props) => (
+                  <input
+                    {...props}
+                    name="logradouro"
+                    placeholder="Rua, avenida…"
+                    value={campos.logradouro}
+                    onChange={(e) => alterar('logradouro', e.target.value)}
+                  />
+                )}
+              </Campo>
+              <Campo label="Número" erro={erros.numero} className={styles.span2}>
+                {(props) => (
+                  <input
+                    {...props}
+                    name="numero"
+                    value={campos.numero}
+                    onChange={(e) => alterar('numero', e.target.value)}
+                  />
+                )}
+              </Campo>
+              <Campo label="Bairro" erro={erros.bairro} className={styles.span4}>
+                {(props) => (
+                  <input
+                    {...props}
+                    name="bairro"
+                    value={campos.bairro}
+                    onChange={(e) => alterar('bairro', e.target.value)}
+                  />
+                )}
+              </Campo>
+              <Campo label="Cidade" erro={erros.cidade} className={styles.span4}>
+                {(props) => (
+                  <input
+                    {...props}
+                    name="cidade"
+                    value={campos.cidade}
+                    onChange={(e) => alterar('cidade', e.target.value)}
+                  />
+                )}
+              </Campo>
+              <Campo label="UF" erro={erros.estado} className={styles.span2}>
+                {(props) => (
+                  <input
+                    {...props}
+                    name="estado"
+                    maxLength={2}
+                    placeholder="MG"
+                    value={campos.estado}
+                    onChange={(e) => alterar('estado', e.target.value.toUpperCase())}
+                  />
+                )}
+              </Campo>
+            </div>
+          </fieldset>
+
+          <fieldset className={styles.secao}>
+            <legend className={styles.legenda}>Responsáveis</legend>
+            {edicao ? (
+              <>
+                {responsaveisAtuais.length === 0 ? (
+                  <ModalAviso>Nenhum responsável cadastrado.</ModalAviso>
+                ) : (
+                  <ul className={styles.responsaveis}>
+                    {responsaveisAtuais.map((r) => (
+                      <li key={r.pessoaId}>
+                        <strong>{r.nome}</strong>
+                        {r.parentesco && <span> · {r.parentesco}</span>}
+                        {(r.email || r.telefone) && (
+                          <span className={styles.contato}>
+                            {[r.email, r.telefone && mascararTelefone(r.telefone)].filter(Boolean).join(' · ')}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <ModalAviso>Os responsáveis ainda não podem ser alterados por aqui.</ModalAviso>
+              </>
+            ) : (
+              <>
+                {responsaveis.map((responsavel, indice) => {
+                  const errosR = errosResponsaveis[indice] ?? {}
+                  const nome = (campo: keyof CamposResponsavel) => `responsavel-${indice}-${campo}`
+                  return (
+                    <div key={indice} className={styles.responsavel}>
+                      <div className={styles.responsavelTopo}>
+                        <span>Responsável {indice + 1}</span>
+                        <Button
+                          size="sm"
+                          icon="trash"
+                          aria-label={`Remover responsável ${indice + 1}`}
+                          onClick={() => removerResponsavel(indice)}
+                        />
+                      </div>
+                      <div className={styles.grid}>
+                        <Campo label="Nome" erro={errosR.nome} obrigatorio className={styles.span4}>
+                          {(props) => (
+                            <input
+                              {...props}
+                              name={nome('nome')}
+                              maxLength={MAX_NOME}
+                              value={responsavel.nome}
+                              onChange={(e) => alterarResponsavel(indice, 'nome', e.target.value)}
+                            />
+                          )}
+                        </Campo>
+                        <Campo label="Parentesco" erro={errosR.parentesco} className={styles.span2}>
+                          {(props) => (
+                            <input
+                              {...props}
+                              name={nome('parentesco')}
+                              placeholder="Ex.: Mãe"
+                              value={responsavel.parentesco}
+                              onChange={(e) => alterarResponsavel(indice, 'parentesco', e.target.value)}
+                            />
+                          )}
+                        </Campo>
+                        <Campo label="CPF" erro={errosR.cpf} className={styles.span2}>
+                          {(props) => (
+                            <input
+                              {...props}
+                              name={nome('cpf')}
+                              inputMode="numeric"
+                              placeholder="000.000.000-00"
+                              value={responsavel.cpf}
+                              onChange={(e) => alterarResponsavel(indice, 'cpf', mascararCpf(e.target.value))}
+                            />
+                          )}
+                        </Campo>
+                        <Campo label="E-mail" erro={errosR.email} className={styles.span2}>
+                          {(props) => (
+                            <input
+                              {...props}
+                              name={nome('email')}
+                              type="email"
+                              maxLength={MAX_EMAIL}
+                              value={responsavel.email}
+                              onChange={(e) => alterarResponsavel(indice, 'email', e.target.value)}
+                            />
+                          )}
+                        </Campo>
+                        <Campo label="Telefone" erro={errosR.telefone} className={styles.span2}>
+                          {(props) => (
+                            <input
+                              {...props}
+                              name={nome('telefone')}
+                              type="tel"
+                              placeholder="(00) 00000-0000"
+                              value={responsavel.telefone}
+                              onChange={(e) =>
+                                alterarResponsavel(indice, 'telefone', mascararTelefone(e.target.value))
+                              }
+                            />
+                          )}
+                        </Campo>
+                      </div>
+                    </div>
+                  )
+                })}
+                <div>
+                  <Button size="sm" icon="plus" onClick={adicionarResponsavel}>
+                    Adicionar responsável
+                  </Button>
+                </div>
+              </>
+            )}
+          </fieldset>
+        </>
+      )}
+
+      {erroEnvio && <ModalAlerta>{erroEnvio}</ModalAlerta>}
+    </Modal>
   )
 }

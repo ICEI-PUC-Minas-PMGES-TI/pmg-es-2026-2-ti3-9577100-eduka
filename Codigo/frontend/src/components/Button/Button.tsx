@@ -3,7 +3,11 @@ import { Icon, type IconName } from '../Icon/Icon'
 import styles from './Button.module.css'
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'primary' | 'accent' | 'outline'
+  /**
+   * danger: ação destrutiva já confirmada (o "Excluir" do diálogo).
+   * dangerOutline: atalho de excluir na linha da tabela, discreto até o hover.
+   */
+  variant?: 'primary' | 'accent' | 'outline' | 'danger' | 'dangerOutline'
   size?: 'sm' | 'md'
   icon?: IconName
 }
@@ -17,7 +21,8 @@ export function Button({
   type = 'button',
   ...props
 }: ButtonProps) {
-  const classes = [styles.button, styles[variant], styles[size], className]
+  // Só com ícone (ex.: excluir na linha da tabela): fica compacto.
+  const classes = [styles.button, styles[variant], styles[size], !children && styles.soIcone, className]
     .filter(Boolean)
     .join(' ')
 

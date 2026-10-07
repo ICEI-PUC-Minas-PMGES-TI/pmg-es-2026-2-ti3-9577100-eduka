@@ -5,7 +5,7 @@ import { Select } from '../../../../components/Select/Select'
 import type { AvaliacaoDoProfessor, DadosAvaliacao } from '../../../../types/avaliacaoProfessor'
 import { ROTULOS_TIPO_AVALIACAO, type TipoAvaliacao } from '../../../../types/portalAluno'
 import { opcional } from '../../../secretaria/components/PainelSecretaria/formatacao'
-import { ModalCadastro } from '../../../secretaria/components/PainelSecretaria/ModalCadastro'
+import { ModalCadastro } from '../../../../components/ModalCadastro/ModalCadastro'
 import { lerPontos, mascararPontos, mensagemErroAvaliacao, pontosParaCampo } from '../../notas'
 
 // Limites das colunas de AVALIACAO (V19).

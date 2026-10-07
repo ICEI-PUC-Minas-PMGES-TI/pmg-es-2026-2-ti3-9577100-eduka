@@ -99,8 +99,8 @@
   padding: 8px;
   border: var(--glass-border);
   border-radius: var(--radius-lg);
-  background: linear-gradient(160deg, #ffffff, #f8f2ff);
-  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  background: var(--glass-bg-opaque);
+  box-shadow: var(--glass-shadow-opaque);
   color: var(--color-text);
   animation: var(--animacao-surgir);
 }
@@ -118,7 +118,7 @@
   padding: 0 14px;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-pill);
-  background: #ffffff;
+  background: var(--color-surface);
   color: var(--color-text-muted);
 }
 

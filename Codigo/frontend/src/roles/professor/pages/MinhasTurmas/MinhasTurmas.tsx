@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
 import { Select, type OpcaoSelect } from '../../../../components/Select/Select'
-import { StatCard } from '../../../../components/StatCard/StatCard'
+import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import type { TurmaDoProfessor } from '../../../../types/turmaProfessor'
 import { TurmaCard } from '../../components/TurmaCard/TurmaCard'
 import { useMinhasTurmas } from '../../hooks/useMinhasTurmas'
@@ -57,7 +57,7 @@ export function MinhasTurmas() {
     <ProfessorLayout titulo="Minhas turmas" subtitulo="As turmas e disciplinas em que você dá aula.">
       {temTurmas && (
         <>
-          <section className={styles.stats} aria-label="Resumo das suas turmas">
+          <StatCards rotulo="Resumo das suas turmas">
             <StatCard
               label="Turmas"
               value={turmas.length}
@@ -66,7 +66,7 @@ export function MinhasTurmas() {
             />
             <StatCard label="Disciplinas" value={disciplinas} descricao="Que você leciona" />
             <StatCard label="Carga horária" value={`${cargaHoraria} h`} descricao="Somando todas as turmas" />
-          </section>
+          </StatCards>
 
           <div className={styles.toolbar}>
             <label className={styles.busca}>

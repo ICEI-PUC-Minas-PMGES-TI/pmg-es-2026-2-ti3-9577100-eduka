@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
+import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { ApiError } from '../../../../services/api'
 import type { Professor } from '../../../../types/professor'
 import { CadastroProfessorModal } from '../../components/CadastroProfessorModal/CadastroProfessorModal'
@@ -31,6 +32,8 @@ export function Professores() {
   const [vendo, setVendo] = useState<Professor | null>(null)
 
   const visiveis = professores.filter((p) => correspondeBusca(p, busca))
+  const ativos = professores.filter((p) => p.ativo).length
+  const semVinculo = professores.filter((p) => p.vinculo === null).length
   const mensagemVazia =
     professores.length === 0
       ? 'Nenhum professor cadastrado ainda.'
@@ -91,6 +94,24 @@ export function Professores() {
       titulo="Professores"
       subtitulo="Cadastre os professores e veja onde cada um dá aula."
     >
+      {!carregando && !erro && (
+        <StatCards rotulo="Resumo dos professores">
+          <StatCard
+            label="Professores ativos"
+            value={ativos}
+            descricao={`De ${professores.length} cadastrados`}
+            destaque
+          />
+          <StatCard label="Inativos" value={professores.length - ativos} descricao="Afastados ou de licença" />
+          <StatCard
+            label="Sem vínculo informado"
+            value={semVinculo}
+            descricao={semVinculo > 0 ? 'Edite o cadastro para completar' : 'Cadastros completos'}
+            atencao={semVinculo > 0}
+          />
+        </StatCards>
+      )}
+
       <div className={styles.toolbar}>
         <label className={styles.busca}>
           <Icon name="search" size={17} />
