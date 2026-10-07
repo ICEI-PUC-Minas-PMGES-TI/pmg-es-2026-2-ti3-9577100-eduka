@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
+import { PainelHeader } from '../../../components/PainelHeader/PainelHeader'
 import { paths } from '../../../routes/paths'
 import { limparSessao } from '../../../services/authService'
-import { SecretariaHeader } from '../components/SecretariaHeader/SecretariaHeader'
 import { SecretariaNav } from '../components/SecretariaNav/SecretariaNav'
 import styles from './SecretariaLayout.module.css'
 
@@ -24,7 +24,7 @@ export function SecretariaLayout({ titulo, subtitulo, children }: SecretariaLayo
 
   return (
     <div className={styles.shell}>
-      <SecretariaHeader titulo={titulo} subtitulo={subtitulo} onSair={sair} />
+      <PainelHeader titulo={titulo} subtitulo={subtitulo} contexto="Secretaria" onSair={sair} />
       <main className={styles.main}>{children}</main>
       <SecretariaNav />
     </div>

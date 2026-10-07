@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
+import { PainelHeader } from '../../../components/PainelHeader/PainelHeader'
 import { paths } from '../../../routes/paths'
 import { limparSessao } from '../../../services/authService'
-import { MasterHeader } from '../components/MasterHeader/MasterHeader'
 import styles from './MasterLayout.module.css'
 
 type MasterLayoutProps = {
@@ -24,7 +24,7 @@ export function MasterLayout({ titulo, subtitulo, children }: MasterLayoutProps)
 
   return (
     <div className={styles.shell}>
-      <MasterHeader titulo={titulo} subtitulo={subtitulo} onSair={sair} />
+      <PainelHeader titulo={titulo} subtitulo={subtitulo} contexto="Gestão da escola" onSair={sair} />
       <main className={styles.main}>{children}</main>
     </div>
   )
