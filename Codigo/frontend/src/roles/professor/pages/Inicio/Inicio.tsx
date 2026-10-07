@@ -3,14 +3,12 @@ import { useNavigate } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { Colunas, EstadoDashboard, Indicadores, Painel, PainelVazio } from '../../../../components/Dashboard/Dashboard'
 import { StatCard } from '../../../../components/StatCard/StatCard'
+import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { paths } from '../../../../routes/paths'
 import { obterDashboardProfessor } from '../../../../services/portalProfessorService'
 import type { AvaliacaoResumo, DashboardProfessor } from '../../../../types/dashboard'
 import { ROTULOS_TIPO_AVALIACAO } from '../../../../types/portalAluno'
-import { plural } from '../../../../utils/formatters'
-import { formatarPontos } from '../../../aluno/formatacao'
-import { hojeIso } from '../../../secretaria/components/PainelSecretaria/formatacao'
-import { useCarregamento } from '../../hooks/useCarregamento'
+import { formatarPontos, hojeIso, plural } from '../../../../utils/formatters'
 import { ProfessorLayout } from '../../layouts/ProfessorLayout'
 import styles from './Inicio.module.css'
 
@@ -165,7 +163,8 @@ function ItemAvaliacao({ avaliacao, detalhe, alerta = false, acao }: ItemAvaliac
 
   return (
     <li className={styles.item}>
-      <div className={styles.data} aria-label={`Dia ${dia}/${mes}`}>
+      {/* role="img" para o leitor de tela ler "Dia dd/mm" no lugar de "07 out". */}
+      <div className={styles.data} role="img" aria-label={`Dia ${dia}/${mes}`}>
         <strong>{dia}</strong>
         <span>{MESES[Number(mes) - 1]}</span>
       </div>

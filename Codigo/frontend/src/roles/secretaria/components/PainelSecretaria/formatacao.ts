@@ -9,11 +9,3 @@ export function formatarData(iso: string): string {
   const [ano, mes, dia] = iso.split('-')
   return ano && mes && dia ? `${dia}/${mes}/${ano}` : iso
 }
-
-/** Hoje no fuso local, em ISO, para comparar com as datas do backend. */
-export function hojeIso(): string {
-  const hoje = new Date()
-  const mes = String(hoje.getMonth() + 1).padStart(2, '0')
-  const dia = String(hoje.getDate()).padStart(2, '0')
-  return `${hoje.getFullYear()}-${mes}-${dia}`
-}

@@ -1,9 +1,9 @@
 import { Colunas, EstadoDashboard, Indicadores, Linhas, Medidor, Painel, PainelVazio } from '../../../../components/Dashboard/Dashboard'
 import { StatCard } from '../../../../components/StatCard/StatCard'
+import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { obterDashboardEscola } from '../../../../services/dashboardService'
 import type { DashboardEscola } from '../../../../types/dashboard'
 import { plural } from '../../../../utils/formatters'
-import { useCarregamento } from '../../../professor/hooks/useCarregamento'
 import { MasterLayout } from '../../layouts/MasterLayout'
 import styles from './Inicio.module.css'
 
@@ -25,7 +25,6 @@ export function Inicio() {
 
 function Resumo({ dados }: { dados: DashboardEscola }) {
   const { pessoas, estrutura, ocupacao, desempenho } = dados
-  const semTurma = pessoas.alunos - pessoas.alunosAtivos
   const vagasLivres = Math.max(0, ocupacao.vagasOfertadas - ocupacao.matriculasAtivas)
 
   return (
@@ -89,7 +88,10 @@ function Resumo({ dados }: { dados: DashboardEscola }) {
               { rotulo: 'Período letivo atual', valor: estrutura.periodoLetivoAtual ?? 'Nenhum em andamento' },
               { rotulo: 'Cursos', valor: estrutura.cursos },
               { rotulo: 'Disciplinas', valor: estrutura.disciplinas },
-              { rotulo: 'Turmas', valor: `${estrutura.turmasAtivas} ativas de ${estrutura.turmas}` },
+              {
+                rotulo: 'Turmas',
+                valor: `${estrutura.turmasAtivas} ${plural(estrutura.turmasAtivas, 'ativa', 'ativas')} de ${estrutura.turmas}`,
+              },
             ]}
           />
         </Painel>
@@ -97,7 +99,7 @@ function Resumo({ dados }: { dados: DashboardEscola }) {
         <Painel titulo="Pessoas">
           <Linhas
             itens={[
-              { rotulo: 'Alunos sem turma', valor: semTurma },
+              { rotulo: 'Alunos sem turma', valor: pessoas.alunosSemTurma },
               { rotulo: 'Professores', valor: pessoas.professoresAtivos + pessoas.professoresInativos },
               { rotulo: 'Secretaria', valor: pessoas.secretarias },
               { rotulo: 'Financeiro', valor: pessoas.financeiro },

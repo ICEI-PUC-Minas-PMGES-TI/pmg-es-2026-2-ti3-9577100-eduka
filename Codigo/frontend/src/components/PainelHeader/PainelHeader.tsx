@@ -1,17 +1,20 @@
 import type { ReactNode } from 'react'
-import iconeEduka from '../../../../assets/eduka-icone.svg'
-import { Icon } from '../../../../components/Icon/Icon'
-import styles from './SecretariaHeader.module.css'
+import iconeEduka from '../../assets/eduka-icone.svg'
+import { Icon } from '../Icon/Icon'
+import styles from './PainelHeader.module.css'
 
-type SecretariaHeaderProps = {
+type PainelHeaderProps = {
   titulo: string
   subtitulo?: ReactNode
+  /** Área do painel na linha da marca, ex.: "Secretaria", "Gestão da escola". */
+  contexto: string
   /** Nome da escola na linha da marca; a API ainda não expõe para a secretaria. */
   escola?: string
   onSair: () => void
 }
 
-export function SecretariaHeader({ titulo, subtitulo, escola, onSair }: SecretariaHeaderProps) {
+/** Cabeçalho dos painéis da escola (master e secretaria). */
+export function PainelHeader({ titulo, subtitulo, contexto, escola, onSair }: PainelHeaderProps) {
   return (
     <header className={styles.header}>
       <div className={styles.texto}>
@@ -19,7 +22,7 @@ export function SecretariaHeader({ titulo, subtitulo, escola, onSair }: Secretar
           <img src={iconeEduka} alt="" className={styles.logoIcon} width={26} height={26} />
           <span className={styles.logo}>eduka</span>
           <span className={styles.contexto}>
-            {escola ? ` · ${escola}` : ''} · Secretaria
+            {escola ? ` · ${escola}` : ''} · {contexto}
           </span>
         </div>
         <h1 className={styles.title}>{titulo}</h1>
