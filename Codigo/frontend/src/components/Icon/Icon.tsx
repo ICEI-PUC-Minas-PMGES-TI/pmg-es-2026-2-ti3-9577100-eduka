@@ -134,6 +134,18 @@ const paths = {
       <path d="m16 17 5-5-5-5M21 12H9" />
     </>
   ),
+  user: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21v-1a7 7 0 0 1 14 0v1" />
+    </>
+  ),
+  info: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 16v-4M12 8h.01" />
+    </>
+  ),
 }
 
 export type IconName = keyof typeof paths

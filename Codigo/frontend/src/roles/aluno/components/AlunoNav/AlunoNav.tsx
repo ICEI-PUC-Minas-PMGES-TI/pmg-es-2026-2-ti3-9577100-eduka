@@ -10,8 +10,8 @@ type NavItem = {
 }
 
 const itens: NavItem[] = [
-  { label: 'Início', icon: 'home' },
-  { label: 'Boletim', icon: 'book' },
+  { label: 'Boletim', icon: 'book', to: paths.aluno.boletim },
+  { label: 'Provas e tarefas', icon: 'calendar', to: paths.aluno.avaliacoes },
   { label: 'Pagamentos', icon: 'card' },
   { label: 'Meus dados', icon: 'user', to: paths.aluno.meusDados },
 ]
@@ -35,7 +35,7 @@ export function AlunoNav() {
             type="button"
             className={styles.item}
             disabled
-            title="Módulo em desenvolvimento"
+            title="Em breve"
           >
             <Icon name={item.icon} size={16} />
             <span>{item.label}</span>

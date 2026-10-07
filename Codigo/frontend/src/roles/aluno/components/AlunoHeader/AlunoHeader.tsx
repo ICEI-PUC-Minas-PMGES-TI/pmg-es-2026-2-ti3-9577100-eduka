@@ -19,7 +19,7 @@ export function AlunoHeader({ titulo, subtitulo, escola, onSair, onAjuda }: Alun
           <img src={iconeEduka} alt="" className={styles.logoIcon} width={26} height={26} />
           <span className={styles.logo}>eduka</span>
           <span className={styles.contexto}>
-            {escola ? ` · ${escola}` : ' · [NOME DA ESCOLA]'} · Aluno
+            {escola ? ` · ${escola}` : ''} · Aluno
           </span>
         </div>
         <h1 className={styles.title}>{titulo}</h1>
