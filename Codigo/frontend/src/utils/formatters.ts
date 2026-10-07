@@ -20,6 +20,20 @@ export function plural(quantidade: number, singular: string, varios: string): st
   return quantidade === 1 ? singular : varios
 }
 
+/** Pontos com até duas casas e vírgula: 8.5 -> "8,5", 10 -> "10". */
+export function formatarPontos(valor: number): string {
+  return valor.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
+}
+
+// O mesmo fuso que o backend usa para "hoje" (FUSO_ESCOLA).
+const DATA_DA_ESCOLA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' })
+
+/** Hoje no fuso da escola, em ISO, para comparar com as datas do backend. */
+export function hojeIso(): string {
+  // en-CA formata como "AAAA-MM-DD".
+  return DATA_DA_ESCOLA.format(new Date())
+}
+
 /** Iniciais do primeiro e do último nome: "Lucas Silva" -> "LS". */
 export function iniciais(nome: string): string {
   const partes = nome.trim().split(/\s+/)

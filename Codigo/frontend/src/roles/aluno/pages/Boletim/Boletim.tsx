@@ -8,8 +8,9 @@ import {
   type BoletimDisciplina,
   type BoletimTurma,
 } from '../../../../types/portalAluno'
+import { formatarPontos } from '../../../../utils/formatters'
 import { formatarData } from '../../../secretaria/components/PainelSecretaria/formatacao'
-import { aproveitamento, formatarPontos } from '../../formatacao'
+import { aproveitamento } from '../../formatacao'
 import { useDadosDoAluno } from '../../hooks/useDadosDoAluno'
 import { AlunoLayout } from '../../layouts/AlunoLayout'
 import styles from './Boletim.module.css'
