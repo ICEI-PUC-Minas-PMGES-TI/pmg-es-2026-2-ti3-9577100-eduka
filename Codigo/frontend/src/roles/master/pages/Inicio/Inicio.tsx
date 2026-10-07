@@ -89,7 +89,10 @@ function Resumo({ dados }: { dados: DashboardEscola }) {
               { rotulo: 'Período letivo atual', valor: estrutura.periodoLetivoAtual ?? 'Nenhum em andamento' },
               { rotulo: 'Cursos', valor: estrutura.cursos },
               { rotulo: 'Disciplinas', valor: estrutura.disciplinas },
-              { rotulo: 'Turmas', valor: `${estrutura.turmasAtivas} ativas de ${estrutura.turmas}` },
+              {
+                rotulo: 'Turmas',
+                valor: `${estrutura.turmasAtivas} ${plural(estrutura.turmasAtivas, 'ativa', 'ativas')} de ${estrutura.turmas}`,
+              },
             ]}
           />
         </Painel>
