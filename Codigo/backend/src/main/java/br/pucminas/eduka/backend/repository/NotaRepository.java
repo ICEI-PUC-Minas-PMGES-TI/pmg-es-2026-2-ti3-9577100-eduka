@@ -1,5 +1,6 @@
 package br.pucminas.eduka.backend.repository;
 
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -33,6 +34,38 @@ public interface NotaRepository extends JpaRepository<Nota, UUID> {
             """)
     List<NotasPorAvaliacao> contarPorAvaliacao(@Param("escolaId") UUID escolaId,
             @Param("avaliacaoIds") Collection<UUID> avaliacaoIds);
+
+    /** Quantidade e soma das notas de cada avaliacao (aproveitamento nos dashboards). */
+    @Query("""
+            select n.avaliacao.id as avaliacaoId, count(n) as total, sum(n.valor) as soma
+            from Nota n
+            where n.escolaId = :escolaId
+            group by n.avaliacao.id
+            """)
+    List<SomaPorAvaliacao> somarPorAvaliacao(@Param("escolaId") UUID escolaId);
+
+    /** Quem ja tem nota em cada avaliacao, sem carregar as entidades (notas pendentes). */
+    @Query("""
+            select n.avaliacao.id as avaliacaoId, n.aluno.id as alunoId
+            from Nota n
+            where n.escolaId = :escolaId and n.avaliacao.id in :avaliacaoIds
+            """)
+    List<NotaLancada> listarLancadas(@Param("escolaId") UUID escolaId,
+            @Param("avaliacaoIds") Collection<UUID> avaliacaoIds);
+
+    interface SomaPorAvaliacao {
+        UUID getAvaliacaoId();
+
+        long getTotal();
+
+        BigDecimal getSoma();
+    }
+
+    interface NotaLancada {
+        UUID getAvaliacaoId();
+
+        UUID getAlunoId();
+    }
 
     interface NotasPorAvaliacao {
         UUID getAvaliacaoId();

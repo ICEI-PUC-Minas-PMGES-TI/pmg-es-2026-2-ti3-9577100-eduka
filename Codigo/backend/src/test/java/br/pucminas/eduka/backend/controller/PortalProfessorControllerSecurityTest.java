@@ -34,6 +34,8 @@ import br.pucminas.eduka.backend.repository.ProfessorRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
+import br.pucminas.eduka.backend.dto.DashboardProfessorResponse;
+import br.pucminas.eduka.backend.service.DashboardService;
 import br.pucminas.eduka.backend.service.PortalProfessorService;
 
 /**
@@ -59,6 +61,8 @@ class PortalProfessorControllerSecurityTest {
     private ProfessorRepository professorRepository;
     @MockitoBean
     private AlocacaoProfessorRepository alocacaoRepository;
+    @MockitoBean
+    private DashboardService dashboardService;
 
     private String accessToken(UUID usuarioId, String perfil, UUID escolaId) {
         return jwtService.generateAccessToken(usuarioId, perfil, escolaId);
@@ -150,5 +154,20 @@ class PortalProfessorControllerSecurityTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.detail").value("Professor nao encontrado"));
         verify(alocacaoRepository, never()).findAllComTurmaEDisciplinaByEscolaIdAndProfessorId(any(), any());
+    }
+
+    @Test
+    void dashboardSoParaProfessor() throws Exception {
+        when(dashboardService.professor())
+                .thenReturn(new DashboardProfessorResponse(2, 1, 30, 4, List.of(), List.of()));
+
+        mockMvc.perform(com(get("/portal/professor/dashboard"), accessToken(UUID.randomUUID(), "PROFESSOR", ESCOLA_A)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.turmas").value(2))
+                .andExpect(jsonPath("$.alunos").value(30));
+        for (String perfil : List.of("MASTER", "SECRETARIA", "ALUNO")) {
+            mockMvc.perform(com(get("/portal/professor/dashboard"), accessToken(UUID.randomUUID(), perfil, ESCOLA_A)))
+                    .andExpect(status().isForbidden());
+        }
     }
 }

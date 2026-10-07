@@ -17,6 +17,10 @@ public interface AvaliacaoRepository extends JpaRepository<Avaliacao, UUID> {
     @EntityGraph(attributePaths = { "turma", "disciplina" })
     List<Avaliacao> findAllByEscolaIdAndTurmaIdAndDisciplinaId(UUID escolaId, Long turmaId, Long disciplinaId);
 
+    /** Todas as avaliacoes da escola (dashboards). */
+    @EntityGraph(attributePaths = { "turma", "disciplina" })
+    List<Avaliacao> findAllByEscolaId(UUID escolaId);
+
     /** Avaliacoes de varias turmas de uma vez (portal do aluno). */
     @EntityGraph(attributePaths = { "turma", "disciplina" })
     List<Avaliacao> findAllByEscolaIdAndTurmaIdIn(UUID escolaId, Collection<Long> turmaIds);
