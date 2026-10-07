@@ -1,0 +1,228 @@
+.container {
+  display: grid;
+  grid-template-columns: 310px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+/* Card lateral do Aluno (Resumo) */
+.perfilCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 24px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 22px;
+  background: #ebd9fc;
+  color: #6a3fc4;
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 900;
+  margin-bottom: 18px;
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.8), 0 4px 12px rgba(150, 103, 224, 0.15);
+}
+
+.nomeAluno {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--color-text);
+  text-align: center;
+}
+
+.matricula {
+  font-size: 13.5px;
+  color: var(--color-text-subtle);
+  margin-top: 4px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.detalhesAcademicos {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 18px;
+  margin-top: 18px;
+  margin-bottom: 24px;
+  border-top: 1px solid var(--color-border);
+}
+
+.linhaInfo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+
+.rotuloInfo {
+  color: var(--color-text-muted);
+}
+
+.valorInfo {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+/* Área direita: Abas e Conteúdo */
+.painelDireito {
+  display: flex;
+  flex-direction: column;
+}
+
+.tabsContainer {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.tabBotao {
+  padding: 8px 20px;
+  border-radius: var(--radius-pill);
+  border: 0;
+  background: transparent;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.tabBotao:hover {
+  background: rgba(242, 235, 251, 0.75);
+  color: var(--color-text);
+}
+
+.tabAtiva,
+.tabAtiva:hover {
+  background: var(--button-primary-bg);
+  color: var(--color-on-primary);
+  box-shadow: var(--button-primary-shadow);
+}
+
+.conteudoCard {
+  padding: 32px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.tituloSecao {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--color-text);
+  margin-bottom: 22px;
+}
+
+.gridCampos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+/* Um bloco por responsável, separados por uma linha. */
+.gridCampos + .gridCampos {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Caixa com fundo translúcido para exibição de dados somente leitura */
+.campoItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
+  background: rgba(247, 244, 253, 0.75);
+  border: 1px solid rgba(235, 217, 252, 0.85);
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.campoItem:hover {
+  background: rgba(242, 235, 251, 0.95);
+  border-color: var(--color-mauve);
+}
+
+.campoRotulo {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-subtle);
+  letter-spacing: 0.2px;
+}
+
+.campoValor {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.campoItemLargo {
+  grid-column: 1 / -1;
+}
+
+.avisoRodape {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+  font-size: 13.5px;
+  color: var(--color-text-muted);
+}
+
+.avisoRodape svg {
+  flex-shrink: 0;
+  color: var(--color-primary-text);
+}
+
+@media (max-width: 860px) {
+  .container {
+    grid-template-columns: 1fr;
+  }
+
+  .gridCampos {
+    grid-template-columns: 1fr;
+  }
+
+  .conteudoCard,
+  .perfilCard {
+    padding: 22px;
+  }
+}
+
+/* Carregando ou erro, no mesmo card de vidro das outras telas do aluno. */
+.mensagem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 36px 20px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+}

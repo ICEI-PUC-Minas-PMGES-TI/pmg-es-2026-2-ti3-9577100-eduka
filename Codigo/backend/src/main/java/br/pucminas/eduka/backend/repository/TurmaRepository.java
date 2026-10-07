@@ -14,6 +14,14 @@ public interface TurmaRepository extends JpaRepository<Turma, Long> {
     List<Turma> findAllByEscolaId(UUID escolaId);
     Optional<Turma> findByIdAndEscolaId(Long id, UUID escolaId);
 
+    // Usados antes de excluir periodo, curso ou disciplina.
+    boolean existsByEscolaIdAndPeriodoLetivoId(UUID escolaId, Long periodoLetivoId);
+
+    boolean existsByEscolaIdAndCursoId(UUID escolaId, Long cursoId);
+
+    /** A disciplina esta na grade de alguma turma? */
+    boolean existsByEscolaIdAndDisciplinas_Id(UUID escolaId, Long disciplinaId);
+
     /**
      * Mesma busca, travando a linha da turma ate o fim da transacao. Usada ao
      * ocupar vaga: duas matriculas simultaneas na mesma turma passam uma de

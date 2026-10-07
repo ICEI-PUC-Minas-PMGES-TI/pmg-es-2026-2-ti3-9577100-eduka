@@ -13,6 +13,7 @@ import br.pucminas.eduka.backend.domain.Curso;
 import br.pucminas.eduka.backend.domain.Disciplina;
 import br.pucminas.eduka.backend.domain.Escola;
 import br.pucminas.eduka.backend.domain.PeriodoLetivo;
+import br.pucminas.eduka.backend.domain.StatusMatricula;
 import br.pucminas.eduka.backend.domain.Turma;
 import br.pucminas.eduka.backend.dto.CursoRequest;
 import br.pucminas.eduka.backend.dto.CursoResponse;
@@ -23,9 +24,13 @@ import br.pucminas.eduka.backend.dto.PeriodoLetivoResponse;
 import br.pucminas.eduka.backend.dto.TurmaRequest;
 import br.pucminas.eduka.backend.dto.TurmaResponse;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.exception.RegistroEmUsoException;
+import br.pucminas.eduka.backend.repository.AlocacaoProfessorRepository;
+import br.pucminas.eduka.backend.repository.AvaliacaoRepository;
 import br.pucminas.eduka.backend.repository.CursoRepository;
 import br.pucminas.eduka.backend.repository.DisciplinaRepository;
 import br.pucminas.eduka.backend.repository.EscolaRepository;
+import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.PeriodoLetivoRepository;
 import br.pucminas.eduka.backend.repository.TurmaRepository;
 
@@ -34,6 +39,13 @@ import br.pucminas.eduka.backend.repository.TurmaRepository;
  * turmas. A escola sempre vem do token (o controller repassa a do usuario
  * autenticado); curso, periodo e disciplinas referenciados num cadastro so
  * sao aceitos se forem da mesma escola.
+ *
+ * <p>
+ * Edicao substitui o registro inteiro. Exclusao so passa se nada depende do
+ * registro; senao responde 409 ({@link RegistroEmUsoException}) dizendo o
+ * que impede. Assim nenhum historico (matricula, avaliacao, alocacao) some
+ * por tabela.
+ * </p>
  */
 @Service
 @Transactional(readOnly = true)
@@ -44,24 +56,31 @@ public class AcademicoSecretariaService {
     private final DisciplinaRepository disciplinaRepository;
     private final TurmaRepository turmaRepository;
     private final EscolaRepository escolaRepository;
+    private final MatriculaTurmaRepository matriculaRepository;
+    private final AlocacaoProfessorRepository alocacaoRepository;
+    private final AvaliacaoRepository avaliacaoRepository;
 
     public AcademicoSecretariaService(PeriodoLetivoRepository periodoLetivoRepository,
                                       CursoRepository cursoRepository,
                                       DisciplinaRepository disciplinaRepository,
                                       TurmaRepository turmaRepository,
-                                      EscolaRepository escolaRepository) {
+                                      EscolaRepository escolaRepository,
+                                      MatriculaTurmaRepository matriculaRepository,
+                                      AlocacaoProfessorRepository alocacaoRepository,
+                                      AvaliacaoRepository avaliacaoRepository) {
         this.periodoLetivoRepository = periodoLetivoRepository;
         this.cursoRepository = cursoRepository;
         this.disciplinaRepository = disciplinaRepository;
         this.turmaRepository = turmaRepository;
         this.escolaRepository = escolaRepository;
+        this.matriculaRepository = matriculaRepository;
+        this.alocacaoRepository = alocacaoRepository;
+        this.avaliacaoRepository = avaliacaoRepository;
     }
 
     @Transactional
     public PeriodoLetivoResponse cadastrarPeriodoLetivo(UUID escolaId, PeriodoLetivoRequest request) {
-        if (request.getDataFim().isBefore(request.getDataInicio())) {
-            throw new IllegalArgumentException("A data de fim deve ser igual ou posterior a data de inicio");
-        }
+        exigirDatasEmOrdem(request);
         PeriodoLetivo periodo = PeriodoLetivo.builder()
                 .escola(escola(escolaId))
                 .nome(request.getNome().trim())
@@ -98,8 +117,7 @@ public class AcademicoSecretariaService {
 
     @Transactional
     public TurmaResponse cadastrarTurma(UUID escolaId, TurmaRequest request) {
-        PeriodoLetivo periodo = periodoLetivoRepository.findByIdAndEscolaId(request.getPeriodoLetivoId(), escolaId)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Periodo letivo nao encontrado"));
+        PeriodoLetivo periodo = periodoDaEscola(request.getPeriodoLetivoId(), escolaId);
         Curso curso = cursoDaEscola(request.getCursoId(), escolaId);
         Turma turma = Turma.builder()
                 .escola(escola(escolaId))
@@ -114,6 +132,123 @@ public class AcademicoSecretariaService {
         return toResponse(turmaRepository.save(turma), escolaId);
     }
 
+    // ----- Edicao -----
+
+    @Transactional
+    public PeriodoLetivoResponse atualizarPeriodoLetivo(UUID escolaId, Long id, PeriodoLetivoRequest request) {
+        exigirDatasEmOrdem(request);
+        PeriodoLetivo periodo = periodoDaEscola(id, escolaId);
+        periodo.setNome(request.getNome().trim());
+        periodo.setDataInicio(request.getDataInicio());
+        periodo.setDataFim(request.getDataFim());
+        return toResponse(periodoLetivoRepository.save(periodo), escolaId);
+    }
+
+    @Transactional
+    public CursoResponse atualizarCurso(UUID escolaId, Long id, CursoRequest request) {
+        Curso curso = cursoDaEscola(id, escolaId);
+        curso.setNome(request.getNome().trim());
+        curso.setCodigo(opcional(request.getCodigo()));
+        curso.setDescricao(opcional(request.getDescricao()));
+        return toResponse(cursoRepository.save(curso), escolaId);
+    }
+
+    @Transactional
+    public DisciplinaResponse atualizarDisciplina(UUID escolaId, Long id, DisciplinaRequest request) {
+        Disciplina disciplina = disciplinaDaEscola(id, escolaId);
+        disciplina.setCurso(request.getCursoId() == null ? null : cursoDaEscola(request.getCursoId(), escolaId));
+        disciplina.setNome(request.getNome().trim());
+        disciplina.setCodigo(opcional(request.getCodigo()));
+        disciplina.setCargaHoraria(request.getCargaHoraria());
+        disciplina.setDescricao(opcional(request.getDescricao()));
+        return toResponse(disciplinaRepository.save(disciplina), escolaId);
+    }
+
+    /**
+     * Substitui os dados e a grade da turma. Tirar da grade uma disciplina
+     * leva junto a alocacao do professor nela (FK em cascata, V15).
+     *
+     * @throws IllegalArgumentException se as vagas ficam abaixo das
+     *                                  matriculas ativas
+     * @throws RegistroEmUsoException   se sai da grade uma disciplina que ja
+     *                                  tem avaliacao nesta turma
+     */
+    @Transactional
+    public TurmaResponse atualizarTurma(UUID escolaId, Long id, TurmaRequest request) {
+        Turma turma = turmaDaEscola(id, escolaId);
+        long ativas = matriculaRepository.countByEscolaIdAndTurmaIdAndStatus(escolaId, id, StatusMatricula.ATIVA);
+        if (request.getVagas() < ativas) {
+            throw new IllegalArgumentException(
+                    "A turma tem %d matriculas ativas; as vagas nao podem ficar abaixo disso".formatted(ativas));
+        }
+        Set<Disciplina> grade = disciplinasDaEscola(request.getDisciplinaIds(), escolaId);
+        Set<Long> idsDaGrade = grade.stream().map(Disciplina::getId).collect(Collectors.toSet());
+        for (Disciplina saindo : turma.getDisciplinas()) {
+            if (!idsDaGrade.contains(saindo.getId())
+                    && avaliacaoRepository.existsByEscolaIdAndTurmaIdAndDisciplinaId(escolaId, id, saindo.getId())) {
+                throw new RegistroEmUsoException("A disciplina %s tem avaliacoes nesta turma e nao pode sair da grade"
+                        .formatted(saindo.getNome()));
+            }
+        }
+
+        turma.setPeriodoLetivo(periodoDaEscola(request.getPeriodoLetivoId(), escolaId));
+        turma.setCurso(cursoDaEscola(request.getCursoId(), escolaId));
+        turma.setNome(request.getNome().trim());
+        turma.setCodigo(opcional(request.getCodigo()));
+        turma.setVagas(request.getVagas());
+        turma.setTurno(request.getTurno());
+        turma.getDisciplinas().clear();
+        turma.getDisciplinas().addAll(grade);
+        return toResponse(turmaRepository.save(turma), escolaId);
+    }
+
+    // ----- Exclusao -----
+
+    @Transactional
+    public void excluirPeriodoLetivo(UUID escolaId, Long id) {
+        PeriodoLetivo periodo = periodoDaEscola(id, escolaId);
+        if (turmaRepository.existsByEscolaIdAndPeriodoLetivoId(escolaId, id)) {
+            throw new RegistroEmUsoException("O periodo letivo tem turmas; exclua ou mude o periodo delas antes");
+        }
+        periodoLetivoRepository.delete(periodo);
+    }
+
+    @Transactional
+    public void excluirCurso(UUID escolaId, Long id) {
+        Curso curso = cursoDaEscola(id, escolaId);
+        if (turmaRepository.existsByEscolaIdAndCursoId(escolaId, id)) {
+            throw new RegistroEmUsoException("O curso tem turmas; exclua ou mude o curso delas antes");
+        }
+        if (disciplinaRepository.existsByEscolaIdAndCursoId(escolaId, id)) {
+            throw new RegistroEmUsoException("O curso tem disciplinas vinculadas; exclua ou desvincule-as antes");
+        }
+        cursoRepository.delete(curso);
+    }
+
+    @Transactional
+    public void excluirDisciplina(UUID escolaId, Long id) {
+        Disciplina disciplina = disciplinaDaEscola(id, escolaId);
+        if (turmaRepository.existsByEscolaIdAndDisciplinas_Id(escolaId, id)) {
+            throw new RegistroEmUsoException("A disciplina esta na grade de alguma turma; tire-a da grade antes");
+        }
+        disciplinaRepository.delete(disciplina);
+    }
+
+    @Transactional
+    public void excluirTurma(UUID escolaId, Long id) {
+        Turma turma = turmaDaEscola(id, escolaId);
+        if (matriculaRepository.existsByEscolaIdAndTurmaId(escolaId, id)) {
+            throw new RegistroEmUsoException("A turma tem alunos matriculados e nao pode ser excluida");
+        }
+        if (avaliacaoRepository.existsByEscolaIdAndTurmaId(escolaId, id)) {
+            throw new RegistroEmUsoException("A turma tem avaliacoes cadastradas e nao pode ser excluida");
+        }
+        if (alocacaoRepository.existsByEscolaIdAndTurmaId(escolaId, id)) {
+            throw new RegistroEmUsoException("A turma tem professores alocados; desaloque-os antes");
+        }
+        turmaRepository.delete(turma);
+    }
+
     /** Referencia sem SELECT: a escola do token sempre existe. */
     private Escola escola(UUID escolaId) {
         return escolaRepository.getReferenceById(escolaId);
@@ -123,6 +258,27 @@ public class AcademicoSecretariaService {
     private Curso cursoDaEscola(Long cursoId, UUID escolaId) {
         return cursoRepository.findByIdAndEscolaId(cursoId, escolaId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Curso nao encontrado"));
+    }
+
+    private PeriodoLetivo periodoDaEscola(Long id, UUID escolaId) {
+        return periodoLetivoRepository.findByIdAndEscolaId(id, escolaId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Periodo letivo nao encontrado"));
+    }
+
+    private Disciplina disciplinaDaEscola(Long id, UUID escolaId) {
+        return disciplinaRepository.findByIdAndEscolaId(id, escolaId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Disciplina nao encontrada"));
+    }
+
+    private Turma turmaDaEscola(Long id, UUID escolaId) {
+        return turmaRepository.findByIdAndEscolaId(id, escolaId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Turma nao encontrada"));
+    }
+
+    private static void exigirDatasEmOrdem(PeriodoLetivoRequest request) {
+        if (request.getDataFim().isBefore(request.getDataInicio())) {
+            throw new IllegalArgumentException("A data de fim deve ser igual ou posterior a data de inicio");
+        }
     }
 
     private Set<Disciplina> disciplinasDaEscola(Set<Long> ids, UUID escolaId) {

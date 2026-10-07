@@ -10,6 +10,10 @@ export function listarAlocacoesDaTurma(turmaId: number, signal?: AbortSignal): P
   return apiRequest<Alocacao[]>(`/turmas/${turmaId}/alocacoes`, { signal })
 }
 
+export function listarAlocacoesDoProfessor(professorId: string, signal?: AbortSignal): Promise<Alocacao[]> {
+  return apiRequest<Alocacao[]>(`/professores/${professorId}/alocacoes`, { signal })
+}
+
 /** O backend recusa com 409 se a disciplina já tem professor na turma. */
 export function alocarProfessor(professorId: string, dados: AlocacaoRequest): Promise<Alocacao> {
   return apiRequest<Alocacao>(`/professores/${professorId}/alocacoes`, {

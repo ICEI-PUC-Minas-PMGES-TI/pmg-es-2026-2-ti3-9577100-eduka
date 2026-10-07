@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '../../../services/api'
 import {
+  atualizarProfessor,
   ativarProfessor,
   cadastrarProfessor,
   excluirProfessor,
@@ -49,6 +50,13 @@ export function useProfessores() {
     return criado
   }, [])
 
+  /** Salva a edição e atualiza a linha na lista; lança ApiError se falhar. */
+  const atualizar = useCallback(async (id: string, dados: ProfessorRequest) => {
+    const atualizado = await atualizarProfessor(id, dados)
+    setProfessores((atuais) => atuais.map((p) => (p.id === id ? atualizado : p)))
+    return atualizado
+  }, [])
+
   /** Inativa um professor ativo ou reativa um inativo; lança ApiError se falhar. */
   const alternarSituacao = useCallback(async (professor: Professor) => {
     const atualizado = professor.ativo
@@ -63,5 +71,5 @@ export function useProfessores() {
     setProfessores((atuais) => atuais.filter((p) => p.id !== professor.id))
   }, [])
 
-  return { professores, carregando, erro, recarregar, cadastrar, alternarSituacao, excluir }
+  return { professores, carregando, erro, recarregar, cadastrar, atualizar, alternarSituacao, excluir }
 }

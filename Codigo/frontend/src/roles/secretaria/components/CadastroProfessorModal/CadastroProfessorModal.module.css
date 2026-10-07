@@ -97,6 +97,11 @@
   grid-column: span 4;
 }
 
+.aviso {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
 .alerta {
   padding: 14px 20px;
   border-radius: var(--radius-lg);

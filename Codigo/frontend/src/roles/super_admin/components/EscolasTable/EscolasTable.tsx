@@ -44,6 +44,7 @@ type EscolasTableProps = {
   /** Escola com PATCH em andamento, para travar os botões da linha. */
   alternandoId: string | null
   onTentarNovamente: () => void
+  onVer: (escola: Escola) => void
   onEditar: (escola: Escola) => void
   onAlternarSituacao: (escola: Escola) => void
 }
@@ -55,6 +56,7 @@ export function EscolasTable({
   erro,
   alternandoId,
   onTentarNovamente,
+  onVer,
   onEditar,
   onAlternarSituacao,
 }: EscolasTableProps) {
@@ -154,6 +156,9 @@ export function EscolasTable({
                 <Badge tone="danger">Suspensa</Badge>
               )}
               <div className={styles.actions}>
+                <Button size="sm" icon="eye" onClick={() => onVer(escola)}>
+                  Ver
+                </Button>
                 <Button size="sm" icon="edit" onClick={() => onEditar(escola)}>
                   Editar
                 </Button>

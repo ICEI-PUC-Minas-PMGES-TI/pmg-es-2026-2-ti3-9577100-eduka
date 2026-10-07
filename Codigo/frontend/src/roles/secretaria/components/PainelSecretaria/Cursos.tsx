@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { Badge } from '../../../../components/Badge/Badge'
 import { Campo } from '../../../../components/Campo/Campo'
+import { ModalDetalhes } from '../../../../components/ModalDetalhes/ModalDetalhes'
 import type { Curso, CursoRequest } from '../../../../types/academico'
-import { CabecalhoAba, Tabela } from './comum'
+import { AcoesLinha, CabecalhoAba, Tabela } from './comum'
+import { ConfirmarExclusao } from './ConfirmarExclusao'
+import { mensagemErroAcademico } from './erros'
 import { opcional } from './formatacao'
 import { ModalCadastro } from './ModalCadastro'
 import styles from './PainelSecretaria.module.css'
@@ -15,23 +18,32 @@ const MAX_DESCRICAO = 500
 type CursosProps = {
   cursos: Curso[]
   onCadastrar: (dados: CursoRequest) => Promise<Curso>
+  onAtualizar: (id: number, dados: CursoRequest) => Promise<Curso>
+  onExcluir: (id: number) => Promise<void>
 }
 
-export function Cursos({ cursos, onCadastrar }: CursosProps) {
-  const [modalAberto, setModalAberto] = useState(false)
-  const [sucesso, setSucesso] = useState<string | null>(null)
+/** Formulário aberto: cadastro (sem curso) ou edição. */
+type Formulario = { aberto: false } | { aberto: true; curso?: Curso }
 
-  function abrir() {
+export function Cursos({ cursos, onCadastrar, onAtualizar, onExcluir }: CursosProps) {
+  const [formulario, setFormulario] = useState<Formulario>({ aberto: false })
+  const [sucesso, setSucesso] = useState<string | null>(null)
+  const [vendo, setVendo] = useState<Curso | null>(null)
+  const [excluindo, setExcluindo] = useState<Curso | null>(null)
+
+  function abrir(curso?: Curso) {
     setSucesso(null)
-    setModalAberto(true)
+    setFormulario({ aberto: true, curso })
   }
+
+  const editando = formulario.aberto ? formulario.curso : undefined
 
   return (
     <>
-      <CabecalhoAba titulo="Cursos" rotuloNovo="Novo curso" onNovo={abrir} sucesso={sucesso} />
+      <CabecalhoAba titulo="Cursos" rotuloNovo="Novo curso" onNovo={() => abrir()} sucesso={sucesso} />
 
       <Tabela
-        colunas={['Código', 'Nome do curso', 'Descrição', 'Situação']}
+        colunas={['Código', 'Nome do curso', 'Descrição', 'Situação', '']}
         vazio="Nenhum curso cadastrado ainda."
         linhas={cursos.map((c) => (
           <tr key={c.id}>
@@ -41,17 +53,60 @@ export function Cursos({ cursos, onCadastrar }: CursosProps) {
             <td>
               <Badge tone={c.ativo ? 'success' : 'neutral'}>{c.ativo ? 'Ativo' : 'Inativo'}</Badge>
             </td>
+            <td className={styles.acoes}>
+              <AcoesLinha
+                nome={c.nome}
+                onVer={() => setVendo(c)}
+                onEditar={() => abrir(c)}
+                onExcluir={() => {
+                  setSucesso(null)
+                  setExcluindo(c)
+                }}
+              />
+            </td>
           </tr>
         ))}
       />
 
-      {modalAberto && (
-        <CadastroCurso
-          onFechar={() => setModalAberto(false)}
+      {vendo && (
+        <ModalDetalhes
+          titulo={vendo.nome}
+          subtitulo={<Badge tone={vendo.ativo ? 'success' : 'neutral'}>{vendo.ativo ? 'Ativo' : 'Inativo'}</Badge>}
+          onFechar={() => setVendo(null)}
+          secoes={[
+            {
+              itens: [
+                { rotulo: 'Código', valor: vendo.codigo },
+                { rotulo: 'Nome do curso', valor: vendo.nome },
+                { rotulo: 'Descrição', valor: vendo.descricao, largo: true },
+              ],
+            },
+          ]}
+        />
+      )}
+
+      {formulario.aberto && (
+        <FormularioCurso
+          key={editando?.id ?? 'novo'}
+          curso={editando}
+          onFechar={() => setFormulario({ aberto: false })}
           onSalvar={async (dados) => {
-            const criado = await onCadastrar(dados)
-            setModalAberto(false)
-            setSucesso(`Curso "${criado.nome}" cadastrado.`)
+            const salvo = editando ? await onAtualizar(editando.id, dados) : await onCadastrar(dados)
+            setFormulario({ aberto: false })
+            setSucesso(editando ? `Curso "${salvo.nome}" atualizado.` : `Curso "${salvo.nome}" cadastrado.`)
+          }}
+        />
+      )}
+
+      {excluindo && (
+        <ConfirmarExclusao
+          titulo="Excluir curso"
+          nome={excluindo.nome}
+          onFechar={() => setExcluindo(null)}
+          onConfirmar={async () => {
+            await onExcluir(excluindo.id)
+            setExcluindo(null)
+            setSucesso(`Curso "${excluindo.nome}" excluído.`)
           }}
         />
       )}
@@ -61,8 +116,21 @@ export function Cursos({ cursos, onCadastrar }: CursosProps) {
 
 type Campos = { codigo: string; nome: string; descricao: string }
 
-function CadastroCurso({ onFechar, onSalvar }: { onFechar: () => void; onSalvar: (dados: CursoRequest) => Promise<void> }) {
-  const [campos, setCampos] = useState<Campos>({ codigo: '', nome: '', descricao: '' })
+function FormularioCurso({
+  curso,
+  onFechar,
+  onSalvar,
+}: {
+  /** Sem curso é cadastro; com curso, edição com os campos preenchidos. */
+  curso?: Curso
+  onFechar: () => void
+  onSalvar: (dados: CursoRequest) => Promise<void>
+}) {
+  const [campos, setCampos] = useState<Campos>({
+    codigo: curso?.codigo ?? '',
+    nome: curso?.nome ?? '',
+    descricao: curso?.descricao ?? '',
+  })
   const [erroNome, setErroNome] = useState<string | undefined>()
 
   function alterar<K extends keyof Campos>(campo: K, valor: string) {
@@ -78,10 +146,11 @@ function CadastroCurso({ onFechar, onSalvar }: { onFechar: () => void; onSalvar:
 
   return (
     <ModalCadastro
-      titulo="Novo curso"
-      rotuloSalvar="Salvar curso"
+      titulo={curso ? 'Editar curso' : 'Novo curso'}
+      rotuloSalvar={curso ? 'Salvar alterações' : 'Salvar curso'}
       onFechar={onFechar}
       validar={validar}
+      traduzirErro={mensagemErroAcademico}
       onEnviar={() =>
         onSalvar({ nome: campos.nome.trim(), codigo: opcional(campos.codigo), descricao: opcional(campos.descricao) })
       }

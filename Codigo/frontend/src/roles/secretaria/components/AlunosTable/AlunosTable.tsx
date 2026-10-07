@@ -15,6 +15,7 @@ type AlunosTableProps = {
   /** Aluno com reenvio de acesso em andamento. */
   reenviandoId: string | null
   onTentarNovamente: () => void
+  onVer: (aluno: AlunoResumo) => void
   onEditar: (aluno: AlunoResumo) => void
   onReenviarAcesso: (aluno: AlunoResumo) => void
 }
@@ -27,6 +28,7 @@ export function AlunosTable({
   mensagemVazia,
   reenviandoId,
   onTentarNovamente,
+  onVer,
   onEditar,
   onReenviarAcesso,
 }: AlunosTableProps) {
@@ -61,6 +63,9 @@ export function AlunosTable({
                   <td className={styles.secundario}>{aluno.genero ?? SEM_DADO}</td>
                   <td className={styles.colAcoes}>
                     <div className={styles.acoes}>
+                      <Button size="sm" icon="eye" onClick={() => onVer(aluno)}>
+                        Ver
+                      </Button>
                       <Button size="sm" icon="edit" onClick={() => onEditar(aluno)}>
                         Editar
                       </Button>

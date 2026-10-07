@@ -18,6 +18,8 @@ type ProfessoresTableProps = {
   /** Professor com inativação/reativação em andamento. */
   alternandoId: string | null
   onTentarNovamente: () => void
+  onVer: (professor: Professor) => void
+  onEditar: (professor: Professor) => void
   onAlternarSituacao: (professor: Professor) => void
   onExcluir: (professor: Professor) => void
 }
@@ -30,6 +32,8 @@ export function ProfessoresTable({
   mensagemVazia,
   alternandoId,
   onTentarNovamente,
+  onVer,
+  onEditar,
   onAlternarSituacao,
   onExcluir,
 }: ProfessoresTableProps) {
@@ -77,7 +81,10 @@ export function ProfessoresTable({
                   </td>
                   <td className={styles.colAcoes}>
                     <div className={styles.acoes}>
-                      <Button size="sm" icon="edit" disabled title="Em breve">
+                      <Button size="sm" icon="eye" onClick={() => onVer(professor)}>
+                        Ver
+                      </Button>
+                      <Button size="sm" icon="edit" onClick={() => onEditar(professor)}>
                         Editar
                       </Button>
                       <Button

@@ -41,6 +41,10 @@ export const paths = {
   },
   aluno: {
     raiz: '/aluno',
+    boletim: '/aluno/boletim',
+    /** Agenda de provas, trabalhos e tarefas. */
+    avaliacoes: '/aluno/avaliacoes',
+    meusDados: '/aluno/meus-dados',
   },
 } as const
 

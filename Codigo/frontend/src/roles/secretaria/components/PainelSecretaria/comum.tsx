@@ -57,3 +57,33 @@ export function Tabela({ colunas, vazio, linhas }: TabelaProps) {
     </div>
   )
 }
+
+type AcoesLinhaProps = {
+  /** Nome do registro, para o rótulo acessível do botão de excluir. */
+  nome: string
+  onVer: () => void
+  onEditar: () => void
+  onExcluir: () => void
+}
+
+/** Botões Ver, Editar e Excluir da linha de uma tabela do painel. */
+export function AcoesLinha({ nome, onVer, onEditar, onExcluir }: AcoesLinhaProps) {
+  return (
+    <span className={styles.acoesLinha}>
+      <Button size="sm" icon="eye" onClick={onVer}>
+        Ver
+      </Button>
+      <Button size="sm" icon="edit" onClick={onEditar}>
+        Editar
+      </Button>
+      <Button
+        size="sm"
+        icon="trash"
+        className={styles.botaoExcluir}
+        aria-label={`Excluir ${nome}`}
+        title="Excluir"
+        onClick={onExcluir}
+      />
+    </span>
+  )
+}

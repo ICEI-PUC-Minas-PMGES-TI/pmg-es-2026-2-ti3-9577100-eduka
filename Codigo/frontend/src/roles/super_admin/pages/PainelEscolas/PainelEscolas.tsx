@@ -5,6 +5,7 @@ import { paths } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
 import type { Escola } from '../../../../types/escola'
 import { CadastroEscolaModal } from '../../components/CadastroEscolaModal/CadastroEscolaModal'
+import { DetalhesEscolaModal } from '../../components/DetalhesEscolaModal/DetalhesEscolaModal'
 import { EscolasStats } from '../../components/EscolasStats/EscolasStats'
 import { EscolasTable } from '../../components/EscolasTable/EscolasTable'
 import { useEscolas } from '../../hooks/useEscolas'
@@ -21,6 +22,7 @@ export function PainelEscolas() {
   const [alternandoId, setAlternandoId] = useState<string | null>(null)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
   const [cadastroAberto, setCadastroAberto] = useState(false)
+  const [vendo, setVendo] = useState<Escola | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(estadoRecebido?.sucesso ?? null)
 
   // Descarta o estado já lido, para a mensagem não voltar ao recarregar a página.
@@ -88,9 +90,12 @@ export function PainelEscolas() {
         erro={erro}
         alternandoId={alternandoId}
         onTentarNovamente={recarregar}
+        onVer={setVendo}
         onEditar={editar}
         onAlternarSituacao={handleAlternarSituacao}
       />
+
+      {vendo && <DetalhesEscolaModal escola={vendo} onFechar={() => setVendo(null)} />}
 
       {cadastroAberto && (
         <CadastroEscolaModal
