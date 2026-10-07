@@ -1,9 +1,9 @@
 import { Colunas, EstadoDashboard, Indicadores, Linhas, Medidor, Painel, PainelVazio } from '../../../../components/Dashboard/Dashboard'
 import { StatCard } from '../../../../components/StatCard/StatCard'
+import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { obterDashboardEscola } from '../../../../services/dashboardService'
 import type { DashboardEscola } from '../../../../types/dashboard'
 import { plural } from '../../../../utils/formatters'
-import { useCarregamento } from '../../../professor/hooks/useCarregamento'
 import { MasterLayout } from '../../layouts/MasterLayout'
 import styles from './Inicio.module.css'
 
