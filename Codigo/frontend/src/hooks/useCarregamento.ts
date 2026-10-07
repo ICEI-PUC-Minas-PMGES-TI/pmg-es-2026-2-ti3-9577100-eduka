@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ApiError } from '../../../services/api'
+import { ApiError } from '../services/api'
 
 type Buscar<T> = (signal: AbortSignal) => Promise<T>
 
@@ -12,11 +12,11 @@ type Resultado<T> = {
 }
 
 /**
- * Carrega um recurso que depende do que o professor escolheu na tela (turma,
+ * Carrega um recurso da tela (um dashboard, ou o que o usuário escolheu: turma,
  * disciplina, avaliação). Trocar `buscar` (memorizado com useCallback) refaz a
  * busca; `null` deixa a tela sem carregar nada. `inicial` deve ser estável.
  *
- * @param mensagem404 texto do 404, que aqui é sempre "isso não é mais seu"
+ * @param mensagem404 texto mostrado no lugar do erro quando a API responde 404
  */
 export function useCarregamento<T>(buscar: Buscar<T> | null, inicial: T, mensagem404: string) {
   const [resultado, setResultado] = useState<Resultado<T> | null>(null)

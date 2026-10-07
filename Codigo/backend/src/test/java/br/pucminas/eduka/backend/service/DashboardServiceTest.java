@@ -200,7 +200,7 @@ class DashboardServiceTest {
 
         DashboardEscolaResponse resposta = service.escola();
 
-        assertThat(resposta.pessoas()).isEqualTo(new DashboardEscolaResponse.Pessoas(3, 2, 1, 1, 1, 0));
+        assertThat(resposta.pessoas()).isEqualTo(new DashboardEscolaResponse.Pessoas(3, 2, 1, 1, 1, 1, 0));
         assertThat(resposta.estrutura()).isEqualTo(new DashboardEscolaResponse.Estrutura(1, 2, 2, 3, "2026/2"));
         // Vagas so das turmas ativas: 2 + 4, com 2 matriculas ativas = 33%.
         assertThat(resposta.ocupacao()).isEqualTo(new DashboardEscolaResponse.Ocupacao(6, 2, 33));
@@ -295,10 +295,9 @@ class DashboardServiceTest {
         assertThat(resposta.avaliacoes()).isEqualTo(5);
         assertThat(resposta.proximasAvaliacoes()).extracting(AvaliacaoResumo::titulo)
                 .containsExactly("Trabalho", "Prova 2");
-        // Prova 1: falta o Bruno (o trancado nao conta). Trabalho de hoje: faltam os dois.
+        // Prova 1: falta o Bruno (o trancado nao conta). O trabalho de hoje ainda nao aconteceu: so em proximas.
         assertThat(resposta.avaliacoesPendentes()).extracting(AvaliacaoResumo::titulo, AvaliacaoResumo::notasFaltando)
-                .containsExactly(org.assertj.core.groups.Tuple.tuple("Prova 1", 1L),
-                        org.assertj.core.groups.Tuple.tuple("Trabalho", 2L));
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("Prova 1", 1L));
     }
 
     @Test

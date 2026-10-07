@@ -63,7 +63,7 @@ class DashboardControllerSecurityTest {
     @Test
     void soMasterVeOResumoDaEscola() throws Exception {
         when(dashboardService.escola()).thenReturn(new DashboardEscolaResponse(
-                new DashboardEscolaResponse.Pessoas(3, 2, 1, 0, 1, 0),
+                new DashboardEscolaResponse.Pessoas(3, 2, 1, 1, 0, 1, 0),
                 new DashboardEscolaResponse.Estrutura(1, 2, 2, 2, "2026/2"),
                 new DashboardEscolaResponse.Ocupacao(10, 2, 20),
                 new DashboardEscolaResponse.Desempenho(4, 6, 75)));
@@ -71,6 +71,7 @@ class DashboardControllerSecurityTest {
         mockMvc.perform(como("/dashboard/escola", "MASTER"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.pessoas.alunos").value(3))
+                .andExpect(jsonPath("$.pessoas.alunosSemTurma").value(1))
                 .andExpect(jsonPath("$.estrutura.periodoLetivoAtual").value("2026/2"))
                 .andExpect(jsonPath("$.desempenho.aproveitamento").value(75));
 
