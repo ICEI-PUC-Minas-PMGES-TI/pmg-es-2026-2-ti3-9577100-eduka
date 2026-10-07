@@ -1,6 +1,10 @@
 import { useState } from 'react'
+import { Badge } from '../../../../components/Badge/Badge'
 import { Campo } from '../../../../components/Campo/Campo'
+import { ModalDetalhes } from '../../../../components/ModalDetalhes/ModalDetalhes'
 import { Select } from '../../../../components/Select/Select'
+import { useDetalhe } from '../../../../hooks/useDetalhe'
+import { listarAlocacoesDaTurma } from '../../../../services/alocacaoService'
 import {
   OPCOES_TURNO,
   type Curso,
@@ -11,7 +15,9 @@ import {
 } from '../../../../types/academico'
 import { ROTULOS_TURNO, type Turno } from '../../../../types/alocacao'
 import { mascararInteiro } from '../../../../utils/formatters'
-import { CabecalhoAba, Tabela } from './comum'
+import { AcoesLinha, CabecalhoAba, Tabela } from './comum'
+import { ConfirmarExclusao } from './ConfirmarExclusao'
+import { mensagemErroAcademico } from './erros'
 import { opcional } from './formatacao'
 import { ModalCadastro } from './ModalCadastro'
 import styles from './PainelSecretaria.module.css'
@@ -26,23 +32,32 @@ type TurmasProps = {
   cursos: Curso[]
   disciplinas: Disciplina[]
   onCadastrar: (dados: TurmaRequest) => Promise<TurmaAcademica>
+  onAtualizar: (id: number, dados: TurmaRequest) => Promise<TurmaAcademica>
+  onExcluir: (id: number) => Promise<void>
 }
 
-export function Turmas({ turmas, periodos, cursos, disciplinas, onCadastrar }: TurmasProps) {
-  const [modalAberto, setModalAberto] = useState(false)
-  const [sucesso, setSucesso] = useState<string | null>(null)
+/** Formulário aberto: cadastro (sem turma) ou edição. */
+type Formulario = { aberto: false } | { aberto: true; turma?: TurmaAcademica }
 
-  function abrir() {
+export function Turmas({ turmas, periodos, cursos, disciplinas, onCadastrar, onAtualizar, onExcluir }: TurmasProps) {
+  const [formulario, setFormulario] = useState<Formulario>({ aberto: false })
+  const [sucesso, setSucesso] = useState<string | null>(null)
+  const [vendo, setVendo] = useState<TurmaAcademica | null>(null)
+  const [excluindo, setExcluindo] = useState<TurmaAcademica | null>(null)
+
+  function abrir(turma?: TurmaAcademica) {
     setSucesso(null)
-    setModalAberto(true)
+    setFormulario({ aberto: true, turma })
   }
+
+  const editando = formulario.aberto ? formulario.turma : undefined
 
   return (
     <>
-      <CabecalhoAba titulo="Turmas" rotuloNovo="Nova turma" onNovo={abrir} sucesso={sucesso} />
+      <CabecalhoAba titulo="Turmas" rotuloNovo="Nova turma" onNovo={() => abrir()} sucesso={sucesso} />
 
       <Tabela
-        colunas={['Turma', 'Curso', 'Período letivo', 'Turno', 'Vagas', 'Disciplinas']}
+        colunas={['Turma', 'Curso', 'Período letivo', 'Turno', 'Vagas', 'Disciplinas', '']}
         vazio="Nenhuma turma cadastrada ainda."
         linhas={turmas.map((t) => (
           <tr key={t.id}>
@@ -62,24 +77,101 @@ export function Turmas({ turmas, periodos, cursos, disciplinas, onCadastrar }: T
                     .sort((a, b) => a.localeCompare(b, 'pt-BR'))
                     .join(', ')}
             </td>
+            <td className={styles.acoes}>
+              <AcoesLinha
+                nome={t.nome}
+                onVer={() => setVendo(t)}
+                onEditar={() => abrir(t)}
+                onExcluir={() => {
+                  setSucesso(null)
+                  setExcluindo(t)
+                }}
+              />
+            </td>
           </tr>
         ))}
       />
 
-      {modalAberto && (
-        <CadastroTurma
+      {vendo && <DetalhesTurma turma={vendo} onFechar={() => setVendo(null)} />}
+
+      {formulario.aberto && (
+        <FormularioTurma
+          key={editando?.id ?? 'nova'}
+          turma={editando}
           periodos={periodos}
           cursos={cursos}
           disciplinas={disciplinas}
-          onFechar={() => setModalAberto(false)}
+          onFechar={() => setFormulario({ aberto: false })}
           onSalvar={async (dados) => {
-            const criada = await onCadastrar(dados)
-            setModalAberto(false)
-            setSucesso(`Turma "${criada.nome}" cadastrada.`)
+            const salva = editando ? await onAtualizar(editando.id, dados) : await onCadastrar(dados)
+            setFormulario({ aberto: false })
+            setSucesso(editando ? `Turma "${salva.nome}" atualizada.` : `Turma "${salva.nome}" cadastrada.`)
+          }}
+        />
+      )}
+
+      {excluindo && (
+        <ConfirmarExclusao
+          titulo="Excluir turma"
+          nome={excluindo.nome}
+          onFechar={() => setExcluindo(null)}
+          onConfirmar={async () => {
+            await onExcluir(excluindo.id)
+            setExcluindo(null)
+            setSucesso(`Turma "${excluindo.nome}" excluída.`)
           }}
         />
       )}
     </>
+  )
+}
+
+function alocacoesDaTurma(turmaId: string, signal: AbortSignal) {
+  return listarAlocacoesDaTurma(Number(turmaId), signal)
+}
+
+/** Dados da turma e a grade, com o professor alocado em cada disciplina. */
+function DetalhesTurma({ turma, onFechar }: { turma: TurmaAcademica; onFechar: () => void }) {
+  const { dados: alocacoes, erro } = useDetalhe(alocacoesDaTurma, String(turma.id))
+  const professorPorDisciplina = new Map((alocacoes ?? []).map((a) => [a.disciplinaId, a.professorNome]))
+
+  function professorDe(disciplinaId: number): string {
+    if (erro) return 'Não foi possível carregar o professor'
+    if (alocacoes === null) return 'Carregando…'
+    return professorPorDisciplina.get(disciplinaId) ?? 'Sem professor alocado'
+  }
+
+  const grade = [...turma.disciplinas].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+
+  return (
+    <ModalDetalhes
+      titulo={turma.nome}
+      subtitulo={
+        <>
+          {turma.codigo && <span>{turma.codigo}</span>}
+          <Badge tone={turma.ativa ? 'success' : 'neutral'}>{turma.ativa ? 'Ativa' : 'Inativa'}</Badge>
+        </>
+      }
+      onFechar={onFechar}
+      secoes={[
+        {
+          titulo: 'Dados da turma',
+          itens: [
+            { rotulo: 'Curso', valor: turma.cursoNome },
+            { rotulo: 'Período letivo', valor: turma.periodoLetivoNome },
+            { rotulo: 'Turno', valor: ROTULOS_TURNO[turma.turno] },
+            { rotulo: 'Vagas', valor: turma.vagas },
+          ],
+        },
+        {
+          titulo: 'Grade',
+          itens:
+            grade.length === 0
+              ? [{ rotulo: 'Disciplinas', valor: 'Sem grade cadastrada', largo: true }]
+              : grade.map((d) => ({ rotulo: `${d.nome} · ${d.cargaHoraria} h`, valor: professorDe(d.id) })),
+        },
+      ]}
+    />
   )
 }
 
@@ -94,13 +186,16 @@ type Campos = {
 }
 type Erros = Partial<Record<'nome' | 'periodoLetivoId' | 'cursoId' | 'turno' | 'vagas', string>>
 
-function CadastroTurma({
+function FormularioTurma({
+  turma,
   periodos,
   cursos,
   disciplinas,
   onFechar,
   onSalvar,
 }: {
+  /** Sem turma é cadastro; com turma, edição com os campos e a grade preenchidos. */
+  turma?: TurmaAcademica
   periodos: PeriodoLetivo[]
   cursos: Curso[]
   disciplinas: Disciplina[]
@@ -108,21 +203,30 @@ function CadastroTurma({
   onSalvar: (dados: TurmaRequest) => Promise<void>
 }) {
   const [campos, setCampos] = useState<Campos>({
-    nome: '',
-    codigo: '',
-    periodoLetivoId: '',
-    cursoId: '',
-    turno: '',
-    vagas: '',
-    disciplinaIds: [],
+    nome: turma?.nome ?? '',
+    codigo: turma?.codigo ?? '',
+    periodoLetivoId: turma ? String(turma.periodoLetivoId) : '',
+    cursoId: turma ? String(turma.cursoId) : '',
+    turno: turma?.turno ?? '',
+    vagas: turma ? String(turma.vagas) : '',
+    disciplinaIds: turma?.disciplinas.map((d) => d.id) ?? [],
   })
   const [erros, setErros] = useState<Erros>({})
 
-  const opcoesPeriodo = periodos.filter((p) => p.ativo).map((p) => ({ valor: String(p.id), rotulo: p.nome }))
-  const opcoesCurso = cursos.filter((c) => c.ativo).map((c) => ({ valor: String(c.id), rotulo: c.nome }))
+  // Na edição, o que já está escolhido aparece mesmo se estiver inativo.
+  const opcoesPeriodo = periodos
+    .filter((p) => p.ativo || String(p.id) === campos.periodoLetivoId)
+    .map((p) => ({ valor: String(p.id), rotulo: p.nome }))
+  const opcoesCurso = cursos
+    .filter((c) => c.ativo || String(c.id) === campos.cursoId)
+    .map((c) => ({ valor: String(c.id), rotulo: c.nome }))
   // A grade aceita as disciplinas do curso escolhido e as comuns a todos.
   const disciplinasDoCurso = campos.cursoId
-    ? disciplinas.filter((d) => d.ativa && (d.cursoId === null || String(d.cursoId) === campos.cursoId))
+    ? disciplinas.filter(
+        (d) =>
+          (d.ativa || campos.disciplinaIds.includes(d.id)) &&
+          (d.cursoId === null || String(d.cursoId) === campos.cursoId),
+      )
     : []
 
   function alterar<K extends keyof Campos>(campo: K, valor: Campos[K]) {
@@ -164,10 +268,11 @@ function CadastroTurma({
 
   return (
     <ModalCadastro
-      titulo="Nova turma"
-      rotuloSalvar="Salvar turma"
+      titulo={turma ? 'Editar turma' : 'Nova turma'}
+      rotuloSalvar={turma ? 'Salvar alterações' : 'Salvar turma'}
       onFechar={onFechar}
       validar={validar}
+      traduzirErro={mensagemErroAcademico}
       onEnviar={() =>
         onSalvar({
           nome: campos.nome.trim(),

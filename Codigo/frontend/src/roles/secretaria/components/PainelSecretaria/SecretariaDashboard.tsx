@@ -81,14 +81,28 @@ export function SecretariaDashboard() {
         {!estrutura.carregando && !estrutura.erro && (
           <>
             {aba === 'periodos' && (
-              <PeriodosLetivos periodos={estrutura.periodos} onCadastrar={estrutura.cadastrarPeriodo} />
+              <PeriodosLetivos
+                periodos={estrutura.periodos}
+                onCadastrar={estrutura.cadastrarPeriodo}
+                onAtualizar={estrutura.editarPeriodo}
+                onExcluir={estrutura.removerPeriodo}
+              />
             )}
-            {aba === 'cursos' && <Cursos cursos={estrutura.cursos} onCadastrar={estrutura.cadastrarCurso} />}
+            {aba === 'cursos' && (
+              <Cursos
+                cursos={estrutura.cursos}
+                onCadastrar={estrutura.cadastrarCurso}
+                onAtualizar={estrutura.editarCurso}
+                onExcluir={estrutura.removerCurso}
+              />
+            )}
             {aba === 'disciplinas' && (
               <Disciplinas
                 disciplinas={estrutura.disciplinas}
                 cursos={estrutura.cursos}
                 onCadastrar={estrutura.cadastrarDisciplina}
+                onAtualizar={estrutura.editarDisciplina}
+                onExcluir={estrutura.removerDisciplina}
               />
             )}
             {aba === 'turmas' && (
@@ -98,6 +112,8 @@ export function SecretariaDashboard() {
                 cursos={estrutura.cursos}
                 disciplinas={estrutura.disciplinas}
                 onCadastrar={estrutura.cadastrarTurma}
+                onAtualizar={estrutura.editarTurma}
+                onExcluir={estrutura.removerTurma}
               />
             )}
           </>

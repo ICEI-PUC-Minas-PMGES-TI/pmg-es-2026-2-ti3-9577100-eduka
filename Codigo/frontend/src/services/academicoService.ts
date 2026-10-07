@@ -51,3 +51,47 @@ export function listarTurmasAcademicas(signal?: AbortSignal): Promise<TurmaAcade
 export function cadastrarTurma(dados: TurmaRequest): Promise<TurmaAcademica> {
   return cadastrar('turmas', dados)
 }
+
+// Edição substitui o registro inteiro. Exclusão responde 409 quando outro
+// cadastro depende do registro (ver mensagemErroAcademico).
+
+function atualizar<T>(recurso: string, id: number, dados: unknown): Promise<T> {
+  return apiRequest<T>(`${BASE}/${recurso}/${id}`, { method: 'PUT', body: JSON.stringify(dados) })
+}
+
+function excluir(recurso: string, id: number): Promise<void> {
+  return apiRequest<void>(`${BASE}/${recurso}/${id}`, { method: 'DELETE' })
+}
+
+export function atualizarPeriodoLetivo(id: number, dados: PeriodoLetivoRequest): Promise<PeriodoLetivo> {
+  return atualizar('periodos-letivos', id, dados)
+}
+
+export function excluirPeriodoLetivo(id: number): Promise<void> {
+  return excluir('periodos-letivos', id)
+}
+
+export function atualizarCurso(id: number, dados: CursoRequest): Promise<Curso> {
+  return atualizar('cursos', id, dados)
+}
+
+export function excluirCurso(id: number): Promise<void> {
+  return excluir('cursos', id)
+}
+
+export function atualizarDisciplina(id: number, dados: DisciplinaRequest): Promise<Disciplina> {
+  return atualizar('disciplinas', id, dados)
+}
+
+export function excluirDisciplina(id: number): Promise<void> {
+  return excluir('disciplinas', id)
+}
+
+/** 400 se as vagas ficam abaixo das matrículas ativas; 409 se sai da grade disciplina com avaliação. */
+export function atualizarTurma(id: number, dados: TurmaRequest): Promise<TurmaAcademica> {
+  return atualizar('turmas', id, dados)
+}
+
+export function excluirTurma(id: number): Promise<void> {
+  return excluir('turmas', id)
+}

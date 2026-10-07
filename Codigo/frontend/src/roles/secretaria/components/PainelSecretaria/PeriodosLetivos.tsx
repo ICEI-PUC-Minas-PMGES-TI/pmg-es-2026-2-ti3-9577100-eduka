@@ -2,8 +2,11 @@ import { useState } from 'react'
 import { Badge } from '../../../../components/Badge/Badge'
 import { Campo } from '../../../../components/Campo/Campo'
 import { CampoData } from '../../../../components/CampoData/CampoData'
+import { ModalDetalhes } from '../../../../components/ModalDetalhes/ModalDetalhes'
 import type { PeriodoLetivo, PeriodoLetivoRequest } from '../../../../types/academico'
-import { CabecalhoAba, Tabela } from './comum'
+import { AcoesLinha, CabecalhoAba, Tabela } from './comum'
+import { ConfirmarExclusao } from './ConfirmarExclusao'
+import { mensagemErroAcademico } from './erros'
 import { formatarData, hojeIso } from './formatacao'
 import { ModalCadastro } from './ModalCadastro'
 import styles from './PainelSecretaria.module.css'
@@ -21,27 +24,42 @@ function situacao(periodo: PeriodoLetivo, hoje: string): Situacao {
   return { rotulo: 'Em andamento', tom: 'success' }
 }
 
+/** Dias corridos entre as datas ISO, contando o primeiro e o último. */
+function duracaoEmDias(inicio: string, fim: string): number {
+  const dia = 24 * 60 * 60 * 1000
+  return Math.round((Date.parse(`${fim}T00:00:00Z`) - Date.parse(`${inicio}T00:00:00Z`)) / dia) + 1
+}
+
 type PeriodosLetivosProps = {
   periodos: PeriodoLetivo[]
   onCadastrar: (dados: PeriodoLetivoRequest) => Promise<PeriodoLetivo>
+  onAtualizar: (id: number, dados: PeriodoLetivoRequest) => Promise<PeriodoLetivo>
+  onExcluir: (id: number) => Promise<void>
 }
 
-export function PeriodosLetivos({ periodos, onCadastrar }: PeriodosLetivosProps) {
-  const [modalAberto, setModalAberto] = useState(false)
+/** Formulário aberto: cadastro (sem período) ou edição. */
+type Formulario = { aberto: false } | { aberto: true; periodo?: PeriodoLetivo }
+
+export function PeriodosLetivos({ periodos, onCadastrar, onAtualizar, onExcluir }: PeriodosLetivosProps) {
+  const [formulario, setFormulario] = useState<Formulario>({ aberto: false })
   const [sucesso, setSucesso] = useState<string | null>(null)
+  const [vendo, setVendo] = useState<PeriodoLetivo | null>(null)
+  const [excluindo, setExcluindo] = useState<PeriodoLetivo | null>(null)
   const hoje = hojeIso()
 
-  function abrir() {
+  function abrir(periodo?: PeriodoLetivo) {
     setSucesso(null)
-    setModalAberto(true)
+    setFormulario({ aberto: true, periodo })
   }
+
+  const editando = formulario.aberto ? formulario.periodo : undefined
 
   return (
     <>
-      <CabecalhoAba titulo="Períodos letivos" rotuloNovo="Novo período" onNovo={abrir} sucesso={sucesso} />
+      <CabecalhoAba titulo="Períodos letivos" rotuloNovo="Novo período" onNovo={() => abrir()} sucesso={sucesso} />
 
       <Tabela
-        colunas={['Nome', 'Início', 'Término', 'Situação']}
+        colunas={['Nome', 'Início', 'Término', 'Situação', '']}
         vazio="Nenhum período letivo cadastrado ainda."
         linhas={periodos.map((p) => {
           const { rotulo, tom } = situacao(p, hoje)
@@ -53,18 +71,62 @@ export function PeriodosLetivos({ periodos, onCadastrar }: PeriodosLetivosProps)
               <td>
                 <Badge tone={tom}>{rotulo}</Badge>
               </td>
+              <td className={styles.acoes}>
+                <AcoesLinha
+                  nome={p.nome}
+                  onVer={() => setVendo(p)}
+                  onEditar={() => abrir(p)}
+                  onExcluir={() => {
+                    setSucesso(null)
+                    setExcluindo(p)
+                  }}
+                />
+              </td>
             </tr>
           )
         })}
       />
 
-      {modalAberto && (
-        <CadastroPeriodo
-          onFechar={() => setModalAberto(false)}
+      {vendo && (
+        <ModalDetalhes
+          titulo={vendo.nome}
+          subtitulo={<Badge tone={situacao(vendo, hoje).tom}>{situacao(vendo, hoje).rotulo}</Badge>}
+          onFechar={() => setVendo(null)}
+          secoes={[
+            {
+              itens: [
+                { rotulo: 'Início', valor: formatarData(vendo.dataInicio) },
+                { rotulo: 'Término', valor: formatarData(vendo.dataFim) },
+                { rotulo: 'Duração', valor: `${duracaoEmDias(vendo.dataInicio, vendo.dataFim)} dias` },
+                { rotulo: 'Cadastro', valor: vendo.ativo ? 'Ativo' : 'Inativo' },
+              ],
+            },
+          ]}
+        />
+      )}
+
+      {formulario.aberto && (
+        <FormularioPeriodo
+          key={editando?.id ?? 'novo'}
+          periodo={editando}
+          onFechar={() => setFormulario({ aberto: false })}
           onSalvar={async (dados) => {
-            const criado = await onCadastrar(dados)
-            setModalAberto(false)
-            setSucesso(`Período "${criado.nome}" cadastrado.`)
+            const salvo = editando ? await onAtualizar(editando.id, dados) : await onCadastrar(dados)
+            setFormulario({ aberto: false })
+            setSucesso(editando ? `Período "${salvo.nome}" atualizado.` : `Período "${salvo.nome}" cadastrado.`)
+          }}
+        />
+      )}
+
+      {excluindo && (
+        <ConfirmarExclusao
+          titulo="Excluir período letivo"
+          nome={excluindo.nome}
+          onFechar={() => setExcluindo(null)}
+          onConfirmar={async () => {
+            await onExcluir(excluindo.id)
+            setExcluindo(null)
+            setSucesso(`Período "${excluindo.nome}" excluído.`)
           }}
         />
       )}
@@ -75,14 +137,21 @@ export function PeriodosLetivos({ periodos, onCadastrar }: PeriodosLetivosProps)
 type Campos = { nome: string; dataInicio: string; dataFim: string }
 type Erros = Partial<Record<keyof Campos, string>>
 
-function CadastroPeriodo({
+function FormularioPeriodo({
+  periodo,
   onFechar,
   onSalvar,
 }: {
+  /** Sem período é cadastro; com período, edição com os campos preenchidos. */
+  periodo?: PeriodoLetivo
   onFechar: () => void
   onSalvar: (dados: PeriodoLetivoRequest) => Promise<void>
 }) {
-  const [campos, setCampos] = useState<Campos>({ nome: '', dataInicio: '', dataFim: '' })
+  const [campos, setCampos] = useState<Campos>({
+    nome: periodo?.nome ?? '',
+    dataInicio: periodo?.dataInicio ?? '',
+    dataFim: periodo?.dataFim ?? '',
+  })
   const [erros, setErros] = useState<Erros>({})
 
   function alterar<K extends keyof Campos>(campo: K, valor: Campos[K]) {
@@ -104,10 +173,11 @@ function CadastroPeriodo({
 
   return (
     <ModalCadastro
-      titulo="Novo período letivo"
-      rotuloSalvar="Salvar período"
+      titulo={periodo ? 'Editar período letivo' : 'Novo período letivo'}
+      rotuloSalvar={periodo ? 'Salvar alterações' : 'Salvar período'}
       onFechar={onFechar}
       validar={validar}
+      traduzirErro={mensagemErroAcademico}
       onEnviar={() => onSalvar({ nome: campos.nome.trim(), dataInicio: campos.dataInicio, dataFim: campos.dataFim })}
     >
       <Campo label="Nome" erro={erros.nome} obrigatorio largo>

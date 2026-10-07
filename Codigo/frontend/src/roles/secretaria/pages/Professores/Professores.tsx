@@ -4,6 +4,7 @@ import { Icon } from '../../../../components/Icon/Icon'
 import { ApiError } from '../../../../services/api'
 import type { Professor } from '../../../../types/professor'
 import { CadastroProfessorModal } from '../../components/CadastroProfessorModal/CadastroProfessorModal'
+import { DetalhesProfessorModal } from '../../components/DetalhesProfessorModal/DetalhesProfessorModal'
 import { ExcluirProfessorModal } from '../../components/ExcluirProfessorModal/ExcluirProfessorModal'
 import { ProfessoresTable } from '../../components/ProfessoresTable/ProfessoresTable'
 import { useProfessores } from '../../hooks/useProfessores'
@@ -18,13 +19,16 @@ function correspondeBusca(professor: Professor, busca: string): boolean {
 }
 
 export function Professores() {
-  const { professores, carregando, erro, recarregar, cadastrar, alternarSituacao, excluir } = useProfessores()
+  const { professores, carregando, erro, recarregar, cadastrar, atualizar, alternarSituacao, excluir } =
+    useProfessores()
   const [busca, setBusca] = useState('')
   const [cadastroAberto, setCadastroAberto] = useState(false)
+  const [editando, setEditando] = useState<Professor | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
   const [alternandoId, setAlternandoId] = useState<string | null>(null)
   const [excluindo, setExcluindo] = useState<Professor | null>(null)
+  const [vendo, setVendo] = useState<Professor | null>(null)
 
   const visiveis = professores.filter((p) => correspondeBusca(p, busca))
   const mensagemVazia =
@@ -72,6 +76,16 @@ export function Professores() {
     setSucesso(`"${professor.nome}" foi cadastrado com sucesso.`)
   }
 
+  function abrirEdicao(professor: Professor) {
+    limparAvisos()
+    setEditando(professor)
+  }
+
+  function handleEditado(professor: Professor) {
+    setEditando(null)
+    setSucesso(`Os dados de "${professor.nome}" foram atualizados.`)
+  }
+
   return (
     <SecretariaLayout
       titulo="Professores"
@@ -112,9 +126,23 @@ export function Professores() {
         mensagemVazia={mensagemVazia}
         alternandoId={alternandoId}
         onTentarNovamente={recarregar}
+        onVer={setVendo}
+        onEditar={abrirEdicao}
         onAlternarSituacao={handleAlternarSituacao}
         onExcluir={abrirExclusao}
       />
+
+      {vendo && <DetalhesProfessorModal professor={vendo} onFechar={() => setVendo(null)} />}
+
+      {editando && (
+        <CadastroProfessorModal
+          key={editando.id}
+          professorId={editando.id}
+          onFechar={() => setEditando(null)}
+          onSalvar={(dados) => atualizar(editando.id, dados)}
+          onCadastrado={handleEditado}
+        />
+      )}
 
       {cadastroAberto && (
         <CadastroProfessorModal
