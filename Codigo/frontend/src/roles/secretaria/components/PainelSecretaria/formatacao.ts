@@ -10,10 +10,11 @@ export function formatarData(iso: string): string {
   return ano && mes && dia ? `${dia}/${mes}/${ano}` : iso
 }
 
-/** Hoje no fuso local, em ISO, para comparar com as datas do backend. */
+// O mesmo fuso que o backend usa para "hoje" (FUSO_ESCOLA).
+const DATA_DA_ESCOLA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' })
+
+/** Hoje no fuso da escola, em ISO, para comparar com as datas do backend. */
 export function hojeIso(): string {
-  const hoje = new Date()
-  const mes = String(hoje.getMonth() + 1).padStart(2, '0')
-  const dia = String(hoje.getDate()).padStart(2, '0')
-  return `${hoje.getFullYear()}-${mes}-${dia}`
+  // en-CA formata como "AAAA-MM-DD".
+  return DATA_DA_ESCOLA.format(new Date())
 }
