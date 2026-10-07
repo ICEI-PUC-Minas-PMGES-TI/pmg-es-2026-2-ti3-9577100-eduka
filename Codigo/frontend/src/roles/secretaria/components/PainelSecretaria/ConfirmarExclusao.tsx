@@ -12,13 +12,21 @@ type ConfirmarExclusaoProps = {
   onFechar: () => void
   /** Exclui; deve lançar ApiError em caso de falha (ex.: 409 em uso). */
   onConfirmar: () => Promise<void>
+  /** Texto do erro do backend; o padrão é o do painel acadêmico. */
+  traduzirErro?: (erro: unknown) => string
 }
 
 /**
  * Pergunta antes de excluir um registro do painel acadêmico. Se o backend
  * recusar (registro em uso), mostra o motivo e continua aberto.
  */
-export function ConfirmarExclusao({ titulo, nome, onFechar, onConfirmar }: ConfirmarExclusaoProps) {
+export function ConfirmarExclusao({
+  titulo,
+  nome,
+  onFechar,
+  onConfirmar,
+  traduzirErro = mensagemErroAcademico,
+}: ConfirmarExclusaoProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const tituloId = useId()
   const [excluindo, setExcluindo] = useState(false)
@@ -40,7 +48,7 @@ export function ConfirmarExclusao({ titulo, nome, onFechar, onConfirmar }: Confi
     try {
       await onConfirmar()
     } catch (e) {
-      setErro(mensagemErroAcademico(e))
+      setErro(traduzirErro(e))
       setExcluindo(false)
     }
   }

@@ -1,7 +1,53 @@
+import type {
+  AvaliacaoDoProfessor,
+  AvaliacaoRequest,
+  DadosAvaliacao,
+  LancamentoNota,
+  NotaDoAluno,
+} from '../types/avaliacaoProfessor'
 import type { TurmaDoProfessor } from '../types/turmaProfessor'
 import { apiRequest } from './api'
+
+const AVALIACOES = '/portal/professor/avaliacoes'
 
 // Professor e escola saem do token: não há como pedir as turmas de outro professor.
 export function listarMinhasTurmas(signal?: AbortSignal): Promise<TurmaDoProfessor[]> {
   return apiRequest<TurmaDoProfessor[]>('/portal/professor/turmas', { signal })
+}
+
+/** Avaliações de uma disciplina na turma, por data. 404 se o professor não está alocado nela. */
+export function listarAvaliacoes(
+  turmaId: number,
+  disciplinaId: number,
+  signal?: AbortSignal,
+): Promise<AvaliacaoDoProfessor[]> {
+  const params = new URLSearchParams({ turmaId: String(turmaId), disciplinaId: String(disciplinaId) })
+  return apiRequest<AvaliacaoDoProfessor[]>(`${AVALIACOES}?${params}`, { signal })
+}
+
+export function cadastrarAvaliacao(dados: AvaliacaoRequest): Promise<AvaliacaoDoProfessor> {
+  return apiRequest<AvaliacaoDoProfessor>(AVALIACOES, { method: 'POST', body: JSON.stringify(dados) })
+}
+
+/** 400 se o novo valor fica abaixo de uma nota já lançada. */
+export function atualizarAvaliacao(id: string, dados: DadosAvaliacao): Promise<AvaliacaoDoProfessor> {
+  return apiRequest<AvaliacaoDoProfessor>(`${AVALIACOES}/${id}`, { method: 'PUT', body: JSON.stringify(dados) })
+}
+
+/** 409 se a avaliação já tem nota lançada. */
+export function excluirAvaliacao(id: string): Promise<void> {
+  return apiRequest<void>(`${AVALIACOES}/${id}`, { method: 'DELETE' })
+}
+
+/** Alunos ativos da turma (e os que já saíram mas têm nota), com a nota de cada um. */
+export function listarNotas(avaliacaoId: string, signal?: AbortSignal): Promise<NotaDoAluno[]> {
+  return apiRequest<NotaDoAluno[]>(`${AVALIACOES}/${avaliacaoId}/notas`, { signal })
+}
+
+/** Lança em lote, tudo ou nada; só os alunos enviados mudam. */
+export function lancarNotas(avaliacaoId: string, notas: LancamentoNota[]): Promise<NotaDoAluno[]> {
+  return apiRequest<NotaDoAluno[]>(`${AVALIACOES}/${avaliacaoId}/notas`, {
+    method: 'PUT',
+    body: JSON.stringify({ notas }),
+  })
 }
