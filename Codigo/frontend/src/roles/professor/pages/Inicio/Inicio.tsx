@@ -165,7 +165,8 @@ function ItemAvaliacao({ avaliacao, detalhe, alerta = false, acao }: ItemAvaliac
 
   return (
     <li className={styles.item}>
-      <div className={styles.data} aria-label={`Dia ${dia}/${mes}`}>
+      {/* role="img" para o leitor de tela ler "Dia dd/mm" no lugar de "07 out". */}
+      <div className={styles.data} role="img" aria-label={`Dia ${dia}/${mes}`}>
         <strong>{dia}</strong>
         <span>{MESES[Number(mes) - 1]}</span>
       </div>
