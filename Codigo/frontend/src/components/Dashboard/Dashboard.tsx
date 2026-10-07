@@ -53,15 +53,18 @@ type MedidorProps = {
 
 /** Barra horizontal de proporção (ocupação de vagas, parte de um total). */
 export function Medidor({ valor, maximo, rotulo, alerta = false }: MedidorProps) {
-  const percentual = maximo > 0 ? Math.min(100, (valor / maximo) * 100) : 0
+  // Acima do máximo (ou com máximo 0) a barra enche; o meter não aceita valor maior que o teto.
+  const teto = Math.max(maximo, valor)
+  const percentual = teto > 0 ? (valor / teto) * 100 : 0
   return (
     <div
       className={styles.medidor}
       role="meter"
       aria-label={rotulo}
       aria-valuemin={0}
-      aria-valuemax={maximo}
+      aria-valuemax={teto}
       aria-valuenow={valor}
+      aria-valuetext={`${valor} de ${maximo}`}
     >
       <div
         className={`${styles.preenchimento} ${alerta ? styles.preenchimentoAlerta : ''}`}
