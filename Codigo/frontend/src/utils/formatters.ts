@@ -96,3 +96,22 @@ export function cpfValido(valor: string): boolean {
 
   return digitoVerificador(9) === Number(digitos[9]) && digitoVerificador(10) === Number(digitos[10])
 }
+
+type EnderecoFormatavel = {
+  logradouro: string | null
+  numero: string | null
+  bairro: string | null
+  cidade: string | null
+  estado: string | null
+  cep: string | null
+}
+
+/** "Rua X, 268 · Centro · Belo Horizonte/MG · CEP 30140-000", ou null se vazio. */
+export function formatarEndereco(endereco: EnderecoFormatavel | null): string | null {
+  if (!endereco) return null
+  const rua = [endereco.logradouro, endereco.numero].filter(Boolean).join(', ')
+  const cidade = [endereco.cidade, endereco.estado].filter(Boolean).join('/')
+  const cep = endereco.cep ? `CEP ${mascararCep(endereco.cep)}` : ''
+  const partes = [rua, endereco.bairro, cidade, cep].filter(Boolean)
+  return partes.length > 0 ? partes.join(' · ') : null
+}

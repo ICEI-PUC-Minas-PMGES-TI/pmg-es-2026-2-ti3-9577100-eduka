@@ -1,0 +1,177 @@
+/* Mesmo diálogo de vidro dos modais de cadastro, só que de leitura. */
+.dialog {
+  width: min(680px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  overflow: hidden;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(145deg, #ffffff, #f8f3ff);
+  color: var(--color-text);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.dialog[open] {
+  animation: var(--animacao-surgir);
+}
+
+.dialog::backdrop {
+  background: rgba(34, 26, 51, 0.28);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: escurecer 0.2s ease backwards;
+}
+
+@keyframes escurecer {
+  from {
+    opacity: 0;
+  }
+}
+
+.conteudo {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 34px);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 26px 28px 14px;
+}
+
+.cabecalho {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.titulo {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  overflow-wrap: anywhere;
+}
+
+.subtitulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.fechar {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  color: var(--color-text);
+}
+
+.fechar:hover {
+  border-color: var(--color-mauve);
+  color: var(--color-primary-text);
+}
+
+.corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 4px 28px 22px;
+  overflow-y: auto;
+}
+
+.secao {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.secaoTitulo {
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+/* Cada valor numa caixinha translúcida, como no "Meus dados" do aluno. */
+.item,
+.itemLargo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.itemLargo {
+  grid-column: 1 / -1;
+}
+
+.item dt,
+.itemLargo dt {
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+}
+
+.item dd,
+.itemLargo dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.aviso {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.alerta {
+  padding: 14px 20px;
+  border-radius: var(--radius-lg);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-size: 14px;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 18px 28px 24px;
+  border-top: 1px solid rgba(212, 187, 252, 0.45);
+}
+
+@media (max-width: 520px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .footer > button {
+    width: 100%;
+  }
+}

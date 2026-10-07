@@ -10,6 +10,14 @@ export const ROTULOS_STATUS_MATRICULA: Record<StatusMatricula, string> = {
   CONCLUIDA: 'Concluída',
 }
 
+/** Cor do badge de cada situação. */
+export const TOM_DO_STATUS: Record<StatusMatricula, 'success' | 'danger' | 'neutral'> = {
+  ATIVA: 'success',
+  TRANCADA: 'neutral',
+  CANCELADA: 'danger',
+  CONCLUIDA: 'neutral',
+}
+
 /** CANCELADA e CONCLUIDA são finais: o backend recusa qualquer mudança de situação. */
 export function matriculaEncerrada(status: StatusMatricula): boolean {
   return status === 'CANCELADA' || status === 'CONCLUIDA'

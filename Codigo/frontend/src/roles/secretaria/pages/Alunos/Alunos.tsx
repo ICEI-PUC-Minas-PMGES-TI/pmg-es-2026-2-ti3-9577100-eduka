@@ -6,6 +6,7 @@ import { ApiError } from '../../../../services/api'
 import type { Aluno, AlunoResumo } from '../../../../types/aluno'
 import { AlunoModal } from '../../components/AlunoModal/AlunoModal'
 import { AlunosTable } from '../../components/AlunosTable/AlunosTable'
+import { DetalhesAlunoModal } from '../../components/DetalhesAlunoModal/DetalhesAlunoModal'
 import { useAlunos } from '../../hooks/useAlunos'
 import { SecretariaLayout } from '../../layouts/SecretariaLayout'
 import styles from './Alunos.module.css'
@@ -26,6 +27,7 @@ export function Alunos() {
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
   const [reenviandoId, setReenviandoId] = useState<string | null>(null)
+  const [vendo, setVendo] = useState<AlunoResumo | null>(null)
 
   const visiveis = alunos.filter((a) => correspondeBusca(a, busca))
   const mensagemVazia =
@@ -113,9 +115,12 @@ export function Alunos() {
         mensagemVazia={mensagemVazia}
         reenviandoId={reenviandoId}
         onTentarNovamente={recarregar}
+        onVer={setVendo}
         onEditar={abrirEdicao}
         onReenviarAcesso={handleReenviarAcesso}
       />
+
+      {vendo && <DetalhesAlunoModal aluno={vendo} onFechar={() => setVendo(null)} />}
 
       {modal.aberto && (
         <AlunoModal

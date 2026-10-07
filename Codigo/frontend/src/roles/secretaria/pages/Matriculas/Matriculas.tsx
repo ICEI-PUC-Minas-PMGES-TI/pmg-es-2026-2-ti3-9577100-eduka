@@ -10,6 +10,7 @@ import {
   type StatusMatricula,
 } from '../../../../types/matricula'
 import { AlterarMatriculaModal } from '../../components/AlterarMatriculaModal/AlterarMatriculaModal'
+import { DetalhesMatriculaModal } from '../../components/DetalhesMatriculaModal/DetalhesMatriculaModal'
 import {
   MatricularAlunosModal,
   type ResultadoMatriculas,
@@ -43,6 +44,7 @@ export function Matriculas() {
   const [filtro, setFiltro] = useState<StatusMatricula | ''>('')
   const [matriculando, setMatriculando] = useState(false)
   const [alterando, setAlterando] = useState<Matricula | null>(null)
+  const [vendo, setVendo] = useState<Matricula | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
 
@@ -197,6 +199,7 @@ export function Matriculas() {
                   ? 'Nenhum aluno matriculado nesta turma ainda.'
                   : `Nenhuma matrícula ${filtro ? ROTULOS_STATUS_MATRICULA[filtro].toLowerCase() : ''} nesta turma.`
               }
+              onVer={setVendo}
               onAlterar={(m) => {
                 limparAvisos()
                 setAlterando(m)
@@ -217,6 +220,8 @@ export function Matriculas() {
           onConcluido={handleMatriculados}
         />
       )}
+
+      {vendo && <DetalhesMatriculaModal matricula={vendo} onFechar={() => setVendo(null)} />}
 
       {alterando && (
         <AlterarMatriculaModal
