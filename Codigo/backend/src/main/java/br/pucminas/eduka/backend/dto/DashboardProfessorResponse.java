@@ -14,7 +14,7 @@ import br.pucminas.eduka.backend.domain.TipoAvaliacao;
  * @param alunos               alunos distintos com matricula ATIVA nas turmas
  *                             dele
  * @param proximasAvaliacoes   de hoje ate 30 dias, por data
- * @param avaliacoesPendentes  ja realizadas (data ate hoje) com aluno ativo
+ * @param avaliacoesPendentes  ja realizadas (data antes de hoje) com aluno ativo
  *                             ainda sem nota, da mais antiga para a mais
  *                             recente
  */

@@ -295,10 +295,9 @@ class DashboardServiceTest {
         assertThat(resposta.avaliacoes()).isEqualTo(5);
         assertThat(resposta.proximasAvaliacoes()).extracting(AvaliacaoResumo::titulo)
                 .containsExactly("Trabalho", "Prova 2");
-        // Prova 1: falta o Bruno (o trancado nao conta). Trabalho de hoje: faltam os dois.
+        // Prova 1: falta o Bruno (o trancado nao conta). O trabalho de hoje ainda nao aconteceu: so em proximas.
         assertThat(resposta.avaliacoesPendentes()).extracting(AvaliacaoResumo::titulo, AvaliacaoResumo::notasFaltando)
-                .containsExactly(org.assertj.core.groups.Tuple.tuple("Prova 1", 1L),
-                        org.assertj.core.groups.Tuple.tuple("Trabalho", 2L));
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("Prova 1", 1L));
     }
 
     @Test

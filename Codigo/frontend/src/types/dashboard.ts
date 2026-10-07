@@ -91,6 +91,6 @@ export type DashboardProfessor = {
   avaliacoes: number
   /** De hoje até 30 dias, por data. */
   proximasAvaliacoes: AvaliacaoResumo[]
-  /** Já realizadas e com aluno ativo sem nota, da mais antiga para a mais recente. */
+  /** Já realizadas (antes de hoje) e com aluno ativo sem nota, da mais antiga para a mais recente. */
   avaliacoesPendentes: AvaliacaoResumo[]
 }

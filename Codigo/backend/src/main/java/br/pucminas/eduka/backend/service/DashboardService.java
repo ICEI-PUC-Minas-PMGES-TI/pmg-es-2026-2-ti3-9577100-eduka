@@ -236,7 +236,7 @@ public class DashboardService {
                 .sorted(porData)
                 .toList();
         List<AvaliacaoResumo> pendentes = avaliacoes.stream()
-                .filter(a -> !a.getData().isAfter(hoje))
+                .filter(a -> a.getData().isBefore(hoje))
                 .map(resumo)
                 .filter(r -> r.notasFaltando() > 0)
                 .sorted(porData)
