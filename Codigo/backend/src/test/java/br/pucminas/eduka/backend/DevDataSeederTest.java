@@ -23,9 +23,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import br.pucminas.eduka.backend.domain.AlocacaoProfessor;
+import br.pucminas.eduka.backend.domain.Aluno;
+import br.pucminas.eduka.backend.domain.Avaliacao;
 import br.pucminas.eduka.backend.domain.Curso;
 import br.pucminas.eduka.backend.domain.Disciplina;
 import br.pucminas.eduka.backend.domain.Escola;
+import br.pucminas.eduka.backend.domain.MatriculaTurma;
+import br.pucminas.eduka.backend.domain.Nota;
 import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.PeriodoLetivo;
 import br.pucminas.eduka.backend.domain.Pessoa;
@@ -33,9 +37,13 @@ import br.pucminas.eduka.backend.domain.Professor;
 import br.pucminas.eduka.backend.domain.Turma;
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.repository.AlocacaoProfessorRepository;
+import br.pucminas.eduka.backend.repository.AlunoRepository;
+import br.pucminas.eduka.backend.repository.AvaliacaoRepository;
 import br.pucminas.eduka.backend.repository.CursoRepository;
 import br.pucminas.eduka.backend.repository.DisciplinaRepository;
 import br.pucminas.eduka.backend.repository.EscolaRepository;
+import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
+import br.pucminas.eduka.backend.repository.NotaRepository;
 import br.pucminas.eduka.backend.repository.PeriodoLetivoRepository;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
@@ -48,6 +56,7 @@ class DevDataSeederTest {
 
     private static final String LOGIN_SUPER_ADMIN = "admin@eduka.com.br";
     private static final String LOGIN_PROFESSOR = "professor@dev.eduka.com.br";
+    private static final String LOGIN_ALUNO = "aluno@dev.eduka.com.br";
 
     @Mock
     private UsuarioRepository usuarioRepository;
@@ -70,6 +79,14 @@ class DevDataSeederTest {
     @Mock
     private AlocacaoProfessorRepository alocacaoRepository;
     @Mock
+    private AlunoRepository alunoRepository;
+    @Mock
+    private MatriculaTurmaRepository matriculaRepository;
+    @Mock
+    private AvaliacaoRepository avaliacaoRepository;
+    @Mock
+    private NotaRepository notaRepository;
+    @Mock
     private PasswordEncoder passwordEncoder;
     @Mock
     private PlatformTransactionManager transactionManager;
@@ -80,7 +97,8 @@ class DevDataSeederTest {
     void setUp() {
         seeder = new DevDataSeeder(usuarioRepository, pessoaRepository, pessoaPapelRepository, escolaRepository,
                 professorRepository, periodoLetivoRepository, cursoRepository, disciplinaRepository,
-                turmaRepository, alocacaoRepository, passwordEncoder, transactionManager);
+                turmaRepository, alocacaoRepository, alunoRepository, matriculaRepository, avaliacaoRepository,
+                notaRepository, passwordEncoder, transactionManager);
     }
 
     @Test
@@ -202,6 +220,70 @@ class DevDataSeederTest {
         verify(professorRepository, never()).save(any());
         verify(turmaRepository, never()).saveAndFlush(any());
         verify(alocacaoRepository, never()).save(any());
+    }
+
+    @Test
+    void matriculaOAlunoDevNaTurmaDoProfessorComAvaliacoesENotas() {
+        Usuario alunoDev = alunoDev();
+        UUID escolaId = alunoDev.getEscolaId();
+        Turma turma = Turma.builder().id(1L).codigo("EM-1A").build();
+        Professor professor = Professor.builder().id(UUID.randomUUID()).build();
+        when(usuarioRepository.existsByLogin(anyString())).thenReturn(true);
+        // O seeder procura o professor dev antes do aluno: aqui ele nao existe.
+        when(usuarioRepository.findByLogin(anyString())).thenReturn(Optional.empty());
+        when(usuarioRepository.findByLogin(LOGIN_ALUNO)).thenReturn(Optional.of(alunoDev));
+        when(alunoRepository.findByUsuarioIdAndEscolaId(alunoDev.getId(), escolaId)).thenReturn(Optional.empty());
+        when(turmaRepository.findAllByEscolaId(escolaId)).thenReturn(List.of(
+                Turma.builder().id(2L).codigo("EM-2B").build(), turma));
+        when(alocacaoRepository.findAllByEscolaIdAndTurmaId(escolaId, 1L)).thenReturn(List.of(
+                alocacao(escolaId, professor, turma, "MAT"), alocacao(escolaId, professor, turma, "FIS")));
+        when(alunoRepository.save(any(Aluno.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(avaliacaoRepository.save(any(Avaliacao.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        seeder.run(null);
+
+        ArgumentCaptor<Aluno> alunoCaptor = ArgumentCaptor.forClass(Aluno.class);
+        verify(alunoRepository).save(alunoCaptor.capture());
+        assertThat(alunoCaptor.getValue().getUsuarioId()).isEqualTo(alunoDev.getId());
+        assertThat(alunoCaptor.getValue().getPessoaId()).isEqualTo(alunoDev.getPessoaId());
+        ArgumentCaptor<MatriculaTurma> matriculaCaptor = ArgumentCaptor.forClass(MatriculaTurma.class);
+        verify(matriculaRepository).save(matriculaCaptor.capture());
+        assertThat(matriculaCaptor.getValue().getTurma()).isSameAs(turma);
+        // Matematica: 3 avaliacoes (2 com nota); Fisica: 2 (1 com nota).
+        verify(avaliacaoRepository, times(5)).save(any(Avaliacao.class));
+        verify(notaRepository, times(3)).save(any(Nota.class));
+    }
+
+    @Test
+    void naoRecriaOAlunoDevQuandoJaTemCadastro() {
+        Usuario alunoDev = alunoDev();
+        when(usuarioRepository.existsByLogin(anyString())).thenReturn(true);
+        // O seeder procura o professor dev antes do aluno: aqui ele nao existe.
+        when(usuarioRepository.findByLogin(anyString())).thenReturn(Optional.empty());
+        when(usuarioRepository.findByLogin(LOGIN_ALUNO)).thenReturn(Optional.of(alunoDev));
+        when(alunoRepository.findByUsuarioIdAndEscolaId(alunoDev.getId(), alunoDev.getEscolaId()))
+                .thenReturn(Optional.of(Aluno.builder().id(UUID.randomUUID()).build()));
+
+        seeder.run(null);
+
+        verify(alunoRepository, never()).save(any());
+        verify(matriculaRepository, never()).save(any());
+        verify(avaliacaoRepository, never()).save(any());
+    }
+
+    private static AlocacaoProfessor alocacao(UUID escolaId, Professor professor, Turma turma, String codigo) {
+        return AlocacaoProfessor.builder().escolaId(escolaId).professor(professor).turma(turma)
+                .disciplina(Disciplina.builder().codigo(codigo).build()).build();
+    }
+
+    private static Usuario alunoDev() {
+        return Usuario.builder()
+                .id(UUID.randomUUID())
+                .escolaId(UUID.randomUUID())
+                .pessoaId(UUID.randomUUID())
+                .login(LOGIN_ALUNO)
+                .perfil(PerfilUsuario.ALUNO)
+                .build();
     }
 
     private static Usuario professorDev() {

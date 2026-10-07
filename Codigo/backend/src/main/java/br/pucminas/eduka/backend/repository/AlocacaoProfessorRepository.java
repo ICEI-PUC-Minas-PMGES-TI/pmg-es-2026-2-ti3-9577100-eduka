@@ -1,5 +1,6 @@
 package br.pucminas.eduka.backend.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,9 +22,15 @@ public interface AlocacaoProfessorRepository extends JpaRepository<AlocacaoProfe
 
     List<AlocacaoProfessor> findAllByEscolaIdAndTurmaId(UUID escolaId, Long turmaId);
 
+    /** Quem leciona cada disciplina de varias turmas, ja com o professor (portal do aluno). */
+    @EntityGraph(attributePaths = { "professor" })
+    List<AlocacaoProfessor> findAllComProfessorByEscolaIdAndTurmaIdIn(UUID escolaId, Collection<Long> turmaIds);
+
     Optional<AlocacaoProfessor> findByIdAndEscolaIdAndProfessorId(UUID id, UUID escolaId, UUID professorId);
 
     boolean existsByEscolaIdAndTurmaIdAndDisciplinaId(UUID escolaId, Long turmaId, Long disciplinaId);
+
+    boolean existsByEscolaIdAndTurmaId(UUID escolaId, Long turmaId);
 
     /** O professor leciona esta disciplina nesta turma? */
     boolean existsByEscolaIdAndProfessorIdAndTurmaIdAndDisciplinaId(UUID escolaId, UUID professorId, Long turmaId,

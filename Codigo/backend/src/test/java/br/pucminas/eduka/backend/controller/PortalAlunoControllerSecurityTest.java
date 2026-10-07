@@ -24,8 +24,12 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
+import br.pucminas.eduka.backend.repository.AlocacaoProfessorRepository;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
+import br.pucminas.eduka.backend.repository.AvaliacaoRepository;
+import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
+import br.pucminas.eduka.backend.repository.NotaRepository;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
@@ -33,6 +37,7 @@ import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.AcessoService;
 import br.pucminas.eduka.backend.service.AlunoService;
+import br.pucminas.eduka.backend.service.PortalAlunoService;
 
 /**
  * Contrato de seguranca de {@code /portal/aluno}, ponta a ponta: filter
@@ -41,7 +46,7 @@ import br.pucminas.eduka.backend.service.AlunoService;
  */
 @WebMvcTest(PortalAlunoController.class)
 @Import({ JwtConfig.class, JwtService.class, IsolamentoEscola.class, ApiExceptionHandler.class,
-        AlunoService.class })
+        AlunoService.class, PortalAlunoService.class })
 class PortalAlunoControllerSecurityTest {
 
     private static final UUID ESCOLA_A = UUID.randomUUID();
@@ -63,6 +68,14 @@ class PortalAlunoControllerSecurityTest {
     private AlunoResponsavelRepository alunoResponsavelRepository;
     @MockitoBean
     private AcessoService acessoService;
+    @MockitoBean
+    private MatriculaTurmaRepository matriculaRepository;
+    @MockitoBean
+    private AlocacaoProfessorRepository alocacaoRepository;
+    @MockitoBean
+    private AvaliacaoRepository avaliacaoRepository;
+    @MockitoBean
+    private NotaRepository notaRepository;
 
     private String accessToken(UUID usuarioId, String perfil, UUID escolaId) {
         return jwtService.generateAccessToken(usuarioId, perfil, escolaId);
@@ -80,12 +93,14 @@ class PortalAlunoControllerSecurityTest {
 
     @Test
     void soAlunoAcessa() throws Exception {
-        for (String perfil : List.of("MASTER", "SECRETARIA", "FINANCEIRO", "PROFESSOR")) {
-            mockMvc.perform(com(get(URL), accessToken(UUID.randomUUID(), perfil, ESCOLA_A)))
+        for (String url : List.of(URL, "/portal/aluno/turmas", "/portal/aluno/boletim", "/portal/aluno/avaliacoes")) {
+            for (String perfil : List.of("MASTER", "SECRETARIA", "FINANCEIRO", "PROFESSOR")) {
+                mockMvc.perform(com(get(url), accessToken(UUID.randomUUID(), perfil, ESCOLA_A)))
+                        .andExpect(status().isForbidden());
+            }
+            mockMvc.perform(com(get(url), accessToken(UUID.randomUUID(), "SUPER_ADMIN", null)))
                     .andExpect(status().isForbidden());
         }
-        mockMvc.perform(com(get(URL), accessToken(UUID.randomUUID(), "SUPER_ADMIN", null)))
-                .andExpect(status().isForbidden());
         verify(alunoRepository, never()).findByUsuarioIdAndEscolaId(any(), any());
     }
 
@@ -121,5 +136,19 @@ class PortalAlunoControllerSecurityTest {
         mockMvc.perform(com(get(URL), accessToken(usuarioId, "ALUNO", ESCOLA_A)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.detail").value("Aluno nao encontrado"));
+    }
+
+    @Test
+    void alunoSemMatriculaRecebeBoletimEAgendaVazios() throws Exception {
+        UUID usuarioId = UUID.randomUUID();
+        Aluno aluno = Aluno.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).pessoaId(UUID.randomUUID())
+                .usuarioId(usuarioId).matricula("2026-001").build();
+        when(alunoRepository.findByUsuarioIdAndEscolaId(usuarioId, ESCOLA_A)).thenReturn(Optional.of(aluno));
+
+        for (String url : List.of("/portal/aluno/turmas", "/portal/aluno/boletim", "/portal/aluno/avaliacoes")) {
+            mockMvc.perform(com(get(url), accessToken(usuarioId, "ALUNO", ESCOLA_A)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(0));
+        }
     }
 }

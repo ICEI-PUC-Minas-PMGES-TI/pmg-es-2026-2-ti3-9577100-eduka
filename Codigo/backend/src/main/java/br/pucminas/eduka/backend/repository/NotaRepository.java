@@ -18,6 +18,10 @@ public interface NotaRepository extends JpaRepository<Nota, UUID> {
     @EntityGraph(attributePaths = { "aluno" })
     List<Nota> findAllByEscolaIdAndAvaliacaoId(UUID escolaId, UUID avaliacaoId);
 
+    /** Todas as notas de um aluno (portal do aluno). */
+    @EntityGraph(attributePaths = { "avaliacao" })
+    List<Nota> findAllByEscolaIdAndAlunoId(UUID escolaId, UUID alunoId);
+
     boolean existsByEscolaIdAndAvaliacaoId(UUID escolaId, UUID avaliacaoId);
 
     /** Quantas notas ja foram lancadas em cada avaliacao, numa query so. */
