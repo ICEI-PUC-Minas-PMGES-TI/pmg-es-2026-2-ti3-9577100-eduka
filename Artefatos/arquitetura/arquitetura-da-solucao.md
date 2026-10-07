@@ -50,16 +50,20 @@ flowchart TB
     PR --> EDUKA
     AL --> EDUKA
 
-    EDUKA -.->|"<i>planejado</i>: emissão de boletos<br/>e confirmação de pagamentos"| GATE["<b>Gateway de pagamento</b><br/><i>fora do MVP</i>"]
+    EDUKA -->|"código do login e<br/>acesso inicial (API HTTP)"| BREVO["<b>Brevo</b><br/>E-mail transacional"]
+    EDUKA -.->|"<i>planejado</i>: emissão de boletos<br/>e confirmação de pagamentos"| GATE["<b>Gateway de pagamento</b><br/><i>planejado</i>"]
 
     style EDUKA fill:#1f6feb,stroke:#0d3d8f,color:#fff
+    style BREVO fill:#2da44e,stroke:#116329,color:#fff
     style GATE fill:#eee,stroke:#999,color:#555,stroke-dasharray: 5 5
     style atores fill:none,stroke:none
 ```
 
-No MVP o Eduka é um sistema fechado: **não há integração com sistemas externos**. Cobranças,
-pagamentos e despesas são de registro manual. O gateway de pagamento aparece acima apenas para
-sinalizar o ponto de extensão previsto no Documento de Visão.
+A única integração externa em funcionamento é o envio de e-mail pelo **Brevo**: o código de 6
+dígitos da verificação em duas etapas do login e o acesso inicial de quem a escola cadastra. O
+backend fala com ele por trás da interface `EmailSender`; sem `BREVO_API_KEY` (o padrão em dev),
+o `LogEmailSender` só escreve o e-mail no log. O gateway de pagamento aparece acima como ponto de
+extensão do módulo financeiro, que ainda não foi implementado.
 
 ---
 
@@ -131,9 +135,10 @@ O container Postgres executa `Codigo/postgres/init/01-create-app-role.sh` na pri
 criando o role restrito `DB_APP_USER` — o backend **nunca** conecta como superuser.
 
 Também só em dev, o serviço `mock` espera o backend aplicar as migrations, carrega as escolas de
-exemplo de `Codigo/postgres/mock/mock.sql` e encerra. O super admin de dev é criado pelo
-`DevDataSeeder` do backend (perfil `dev`), via JPA, para que os dados pessoais passem pela
-criptografia.
+exemplo de `Codigo/postgres/mock/mock.sql` e encerra. O super admin de dev e a "Escola Dev",
+com um usuário de cada perfil, são criados pelo `DevDataSeeder` do backend (perfil `dev`), via JPA,
+para que os dados pessoais passem pela criptografia. O `DevAcademicoSeeder` monta nessa escola
+uma estrutura acadêmica de exemplo (período letivo, cursos, disciplinas e turmas).
 
 ---
 
@@ -147,7 +152,7 @@ flowchart TB
     REQ(["Requisição HTTP"])
 
     subgraph sec["security — filtro transversal"]
-        CHAIN["<b>SecurityFilterChain</b><br/>stateless · CSRF off · CORS<br/>público: <code>/health</code>, <code>/login</code>, <code>/primeiro-acesso</code>, <code>OPTIONS</code>"]
+        CHAIN["<b>SecurityFilterChain</b><br/>stateless · CSRF off · CORS<br/>público: <code>/health</code>, <code>/login</code>, <code>/login/codigo</code>,<br/><code>/primeiro-acesso</code>, <code>OPTIONS</code> e Swagger (fora de prod)"]
         VALID["<b>AccessTokenValidator</b><br/>exige access token (recusa refresh)"]
         CONV["<b>PerfilAuthenticationConverter</b><br/>perfil do token → <code>ROLE_*</code>"]
         ROTAS["<b>RotasPorPerfil</b><br/>quais perfis entram em cada módulo"]
@@ -157,30 +162,26 @@ flowchart TB
     end
 
     subgraph ctrl["controller — @RestController"]
-        AUTHC["AuthController<br/><code>POST /login</code> · <code>/primeiro-acesso</code>"]
-        ESCC["EscolaController<br/><code>/escolas</code> · só SUPER_ADMIN"]
-        ALUC["AlunoController<br/><code>/alunos</code> · por perfil"]
-        PROFC["ProfessorController<br/><code>/professores</code> · MASTER, SECRETARIA"]
+        AUTHC["AuthController<br/><code>/login</code> · <code>/login/codigo</code> · <code>/primeiro-acesso</code>"]
+        CADC["Cadastros<br/><code>/escolas</code> · <code>/usuarios/secretarias</code><br/><code>/alunos</code> · <code>/professores</code>"]
+        ACADC["Acadêmico<br/><code>/academico/secretaria</code> · alocações<br/><code>/matriculas</code>"]
+        PORTC["Portais<br/><code>/portal/professor</code> (turmas, avaliações, notas)<br/><code>/portal/aluno</code>"]
+        DASHC["DashboardController<br/><code>/dashboard</code>"]
         HLTC["HealthController<br/><code>GET /health</code>"]
     end
 
     subgraph svc["service — regra de negócio"]
-        AUTHS["AuthService"]
-        USUS["UsuarioService"]
-        ESCS["EscolaService"]
-        ALUS["AlunoService"]
-        PROFS["ProfessorService"]
-        ACES["AcessoService<br/>login inicial + e-mail"]
+        AUTHS["AuthService · VerificacaoLoginService<br/>UsuarioService · AcessoService"]
+        CADS["EscolaService · SecretariaService<br/>AlunoService · ProfessorService"]
+        ACADS["AcademicoSecretariaService<br/>AlocacaoProfessorService<br/>MatriculaTurmaService · AvaliacaoService"]
+        PORTS["PortalProfessorService · PortalAlunoService<br/>DashboardService"]
     end
 
     subgraph repo["repository — Spring Data JPA"]
-        UR["UsuarioRepository"]
-        ER["EscolaRepository"]
-        PER["PessoaRepository · PessoaPapelRepository"]
-        AR["AlunoRepository · AlunoResponsavelRepository"]
-        PRR["ProfessorRepository"]
+        REPOS["Um repository por entidade<br/>(Escola, Usuario, Pessoa, Aluno, Professor,<br/>Turma, MatriculaTurma, Avaliacao, Nota...)"]
     end
 
+    MAIL["<b>email</b><br/>EmailSender → Brevo ou log<br/>enviado depois do commit"]
     DB[("PostgreSQL<br/>schema versionado por Flyway")]
     ERR["<b>ApiExceptionHandler</b><br/>RFC 9457 · <code>application/problem+json</code><br/>401 · 403 · 404 · 409 · 400 · 500"]
 
@@ -188,6 +189,7 @@ flowchart TB
     ctrl --> svc
     svc --> ISO
     svc --> repo --> DB
+    svc -.-> MAIL
     repo -.-> TEN
     repo -.-> PII
     ctrl -.-> ERR
@@ -200,32 +202,36 @@ flowchart TB
 
 ### Superfície da API hoje
 
+A documentação interativa fica no Swagger UI (`/swagger-ui.html`, desligado em produção). As
+tabelas abaixo resumem as rotas por módulo.
+
+**Acesso e plataforma**
+
 | Método | Rota | Perfis autorizados |
 |---|---|---|
 | `GET` | `/health` | público |
-| `POST` | `/login` | público |
+| `POST` | `/login` (com a verificação ligada, devolve só a `verificacao` pendente) | público |
+| `POST` | `/login/codigo` (confere o código de 6 dígitos e devolve os tokens) | público |
+| `POST` | `/login/codigo/reenvio` (troca o código; 429 se pedir cedo demais ou passar do limite de envios) | público |
 | `POST` | `/primeiro-acesso` (troca a senha provisória pela definitiva) | público |
 | `GET` | `/escolas` · `/escolas/{id}` | `SUPER_ADMIN` |
 | `POST` | `/escolas` | `SUPER_ADMIN` |
 | `PUT` | `/escolas/{id}` | `SUPER_ADMIN` |
 | `PATCH` | `/escolas/{id}/ativar` · `/suspender` | `SUPER_ADMIN` |
+| `GET` | `/usuarios/secretarias` · `/usuarios/secretarias/{id}` | `MASTER` |
+| `POST` | `/usuarios/secretarias` | `MASTER` |
+| `PUT` | `/usuarios/secretarias/{id}` | `MASTER` |
+| `DELETE` | `/usuarios/secretarias/{id}` (inativa) | `MASTER` |
+| `PATCH` | `/usuarios/secretarias/{id}/ativar` | `MASTER` |
+
+**Alunos e professores**
+
+| Método | Rota | Perfis autorizados |
+|---|---|---|
 | `GET` | `/alunos` · `/alunos/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO`, `PROFESSOR` |
 | `POST` | `/alunos` | `MASTER`, `SECRETARIA` |
 | `PUT` | `/alunos/{id}` (responsáveis não mudam; 409 se a matrícula ou o e-mail já estão em uso) | `MASTER`, `SECRETARIA` |
 | `POST` | `/alunos/{id}/primeiro-acesso` (reenvia o e-mail) | `MASTER`, `SECRETARIA` |
-| `GET` | `/portal/aluno/me` (dados do próprio aluno, pelo token) | `ALUNO` |
-| `GET` | `/portal/aluno/turmas` (turmas do aluno, com a grade e os professores) | `ALUNO` |
-| `GET` | `/portal/aluno/boletim` (notas por turma e disciplina, com os totais de pontos) | `ALUNO` |
-| `GET` | `/portal/aluno/avaliacoes` (agenda de provas, trabalhos e tarefas das turmas ativas) | `ALUNO` |
-| `GET` | `/portal/professor/avaliacoes?turmaId&disciplinaId` · `/portal/professor/avaliacoes/{id}` | `PROFESSOR` (só turma/disciplina alocada a ele) |
-| `POST` | `/portal/professor/avaliacoes` (prova, trabalho ou tarefa) | `PROFESSOR` |
-| `PUT` | `/portal/professor/avaliacoes/{id}` (400 se o novo valor fica abaixo de uma nota lançada) | `PROFESSOR` |
-| `DELETE` | `/portal/professor/avaliacoes/{id}` (409 se já tem nota) | `PROFESSOR` |
-| `GET` | `/portal/professor/avaliacoes/{id}/notas` (alunos ativos da turma com a nota) | `PROFESSOR` |
-| `PUT` | `/portal/professor/avaliacoes/{id}/notas` (lança em lote; nota nula apaga) | `PROFESSOR` |
-| `GET` | `/portal/professor/dashboard` (turmas, alunos, próximas avaliações e notas pendentes) | `PROFESSOR` |
-| `GET` | `/dashboard/escola` (pessoas, estrutura, ocupação de vagas e aproveitamento) | `MASTER` |
-| `GET` | `/dashboard/secretaria` (matrículas por situação, vagas e ocupação por turma) | `MASTER`, `SECRETARIA` |
 | `GET` | `/professores` · `/professores/{id}` | `MASTER`, `SECRETARIA` |
 | `POST` | `/professores` | `MASTER`, `SECRETARIA` |
 | `PUT` | `/professores/{id}` | `MASTER`, `SECRETARIA` |
@@ -233,6 +239,40 @@ flowchart TB
 | `PATCH` | `/professores/{id}/ativar` | `MASTER`, `SECRETARIA` |
 | `DELETE` | `/professores/{id}` (saída da escola: exclui; 409 se já tem histórico) | `MASTER`, `SECRETARIA` |
 | `POST` | `/professores/{id}/primeiro-acesso` (reenvia o e-mail) | `MASTER`, `SECRETARIA` |
+
+**Estrutura acadêmica, alocação e matrícula**
+
+| Método | Rota | Perfis autorizados |
+|---|---|---|
+| `GET` | `/academico/secretaria/{periodos-letivos, cursos, disciplinas, turmas}` | `MASTER`, `SECRETARIA`, `FINANCEIRO`, `PROFESSOR` |
+| `POST` | `/academico/secretaria/{periodos-letivos, cursos, disciplinas, turmas}` | `MASTER`, `SECRETARIA` |
+| `PUT` | `/academico/secretaria/{...}/{id}` | `MASTER`, `SECRETARIA` |
+| `DELETE` | `/academico/secretaria/{...}/{id}` (409 se o registro está em uso) | `MASTER`, `SECRETARIA` |
+| `GET` | `/professores/{professorId}/alocacoes` · `/turmas/{turmaId}/alocacoes` | `MASTER`, `SECRETARIA` |
+| `POST` | `/professores/{professorId}/alocacoes` (disciplina da grade da turma; 409 se já tem professor) | `MASTER`, `SECRETARIA` |
+| `DELETE` | `/professores/{professorId}/alocacoes/{alocacaoId}` | `MASTER`, `SECRETARIA` |
+| `GET` | `/matriculas?turmaId` · `/matriculas/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO`, `PROFESSOR` |
+| `POST` | `/matriculas` (409 se a turma está sem vagas ou o aluno já está nela) | `MASTER`, `SECRETARIA` |
+| `PATCH` | `/matriculas/{id}` (trancar, reativar, transferir, concluir, cancelar ou editar a observação) | `MASTER`, `SECRETARIA` |
+
+**Portais e dashboards**
+
+| Método | Rota | Perfis autorizados |
+|---|---|---|
+| `GET` | `/portal/professor/turmas` (turmas e disciplinas em que dá aula) | `PROFESSOR` |
+| `GET` | `/portal/professor/dashboard` (turmas, alunos, próximas avaliações e notas pendentes) | `PROFESSOR` |
+| `GET` | `/portal/professor/avaliacoes?turmaId&disciplinaId` · `/portal/professor/avaliacoes/{id}` | `PROFESSOR` (só turma/disciplina alocada a ele) |
+| `POST` | `/portal/professor/avaliacoes` (prova, trabalho ou tarefa) | `PROFESSOR` |
+| `PUT` | `/portal/professor/avaliacoes/{id}` (400 se o novo valor fica abaixo de uma nota lançada) | `PROFESSOR` |
+| `DELETE` | `/portal/professor/avaliacoes/{id}` (409 se já tem nota) | `PROFESSOR` |
+| `GET` | `/portal/professor/avaliacoes/{id}/notas` (alunos ativos da turma com a nota) | `PROFESSOR` |
+| `PUT` | `/portal/professor/avaliacoes/{id}/notas` (lança em lote; nota nula apaga) | `PROFESSOR` |
+| `GET` | `/portal/aluno/me` (dados do próprio aluno, pelo token) | `ALUNO` |
+| `GET` | `/portal/aluno/turmas` (turmas do aluno, com a grade e os professores) | `ALUNO` |
+| `GET` | `/portal/aluno/boletim` (notas por turma e disciplina, com os totais de pontos) | `ALUNO` |
+| `GET` | `/portal/aluno/avaliacoes` (agenda de provas, trabalhos e tarefas das turmas ativas) | `ALUNO` |
+| `GET` | `/dashboard/escola` (pessoas, estrutura, ocupação de vagas e aproveitamento) | `MASTER` |
+| `GET` | `/dashboard/secretaria` (matrículas por situação, vagas e ocupação por turma) | `MASTER`, `SECRETARIA` |
 
 Qualquer rota não listada como pública exige `Authorization: Bearer <access token>` e responde
 `401` sem ele. Perfil sem permissão recebe `403`.
@@ -286,7 +326,8 @@ O isolamento tem duas camadas:
 1. **Services.** Consultas filtram por `IsolamentoEscola.escolaIdAtual()` em vez de aceitar um
    `escolaId` do cliente. Quando o recurso é carregado por outro caminho,
    `IsolamentoEscola.exigirAcesso(escolaIdDoRecurso)` responde `403` se ele for de outra escola.
-2. **Persistência.** Entidades com o campo de escola anotado com `@TenantId` (hoje `Aluno`)
+2. **Persistência.** Entidades com o campo de escola anotado com `@TenantId` (hoje `Aluno`,
+   `Professor`, `AlocacaoProfessor`, `MatriculaTurma`, `Avaliacao` e `Nota`)
    recebem `escola_id = <escola do token>` automaticamente do Hibernate em toda consulta, e o
    campo é preenchido sozinho no insert. O tenant vem do `EscolaTenantIdentifierResolver`. Sem
    escola no contexto (login, subida da aplicação, `SUPER_ADMIN`), ele devolve um id que não
@@ -311,46 +352,58 @@ nem a chave. Alunos e seus responsáveis apontam para registros de `PESSOA`.
 
 Organização por **papel de usuário** (`roles/`), e não por tipo de arquivo: cada perfil tem suas
 próprias páginas, layouts, componentes e rotas, o que mantém os painéis independentes conforme
-novos perfis forem entrando.
+novos perfis forem entrando. O que é usado por mais de um perfil fica nas pastas compartilhadas.
 
 ```mermaid
 flowchart TB
     MAIN["<b>main.tsx</b> → <b>App.tsx</b>"]
     ROUTER["<b>routes/router.tsx</b><br/>createBrowserRouter · react-router"]
 
-    GUARD["<b>RotaProtegida</b><br/>sem sessão → /login<br/>outro perfil → área do próprio perfil"]
+    PUB["<b>Telas públicas</b><br/>Home <code>/</code> · Login <code>/login</code> · LoginDev (só dev)<br/>LoginAdmin <code>/login/admin</code> (em super_admin/)"]
+    GUARD["<b>RotaProtegida</b><br/>sem sessão → login<br/>outro perfil → área do próprio perfil"]
 
     subgraph roles["roles/ — um módulo por perfil"]
-        SAD["<b>super_admin/</b><br/>painel e edição de escolas<br/>routes · layouts · pages · hooks · components"]
-        NEXT["<i>master, secretaria, financeiro,<br/>professor, aluno — só a rota-mãe,<br/>com a tela Área em construção</i>"]
+        SAD["<b>super_admin/</b><br/>escolas"]
+        MAS["<b>master/</b><br/>início"]
+        SEC["<b>secretaria/</b><br/>início · alunos · professores<br/>acadêmico · alocação · matrículas"]
+        PROF["<b>professor/</b><br/>início · turmas · avaliações · notas"]
+        ALU["<b>aluno/</b><br/>boletim · provas e tarefas · meus dados"]
+        FIN["<i>financeiro/ — Área em construção</i>"]
     end
 
-    LOGIN["<b>LoginAdmin</b><br/>/login"]
-
     subgraph shared["Compartilhado"]
-        COMP["<b>components/</b><br/>Button · Badge · Campo · CampoData<br/>Select · StatCard · Switch · Icon"]
-        SRV["<b>services/</b><br/>api.ts · authService.ts · escolaService.ts"]
-        TYPES["<b>types/</b> · <b>utils/</b> · <b>hooks/</b> · <b>styles/</b>"]
+        COMP["<b>components/</b><br/>PainelLayout · Modal · ModalCadastro<br/>ModalDetalhes · ConfirmarExclusao<br/>StatCards · Dashboard · Button · campos"]
+        HOOKS["<b>hooks/</b><br/>useCarregamento · useDetalhe<br/>usePopoverFlutuante"]
+        SRV["<b>services/</b><br/>um service por recurso da API"]
+        TYPES["<b>types/</b> · <b>utils/</b> · <b>styles/</b>"]
     end
 
     API["<b>services/api.ts</b><br/>injeta <code>Bearer</code> do localStorage<br/>traduz erro HTTP → <code>ApiError</code><br/>base: <code>:8080</code> em dev, <code>/api</code> em prod"]
 
     MAIN --> ROUTER
-    ROUTER --> LOGIN
+    ROUTER --> PUB
     ROUTER --> GUARD --> roles
-    LOGIN -->|"authService.autenticar"| SRV
-    SAD --> COMP
-    SAD -->|"useEscolas → escolaService"| SRV
+    PUB -->|"authService.autenticar"| SRV
+    roles --> COMP
+    roles --> HOOKS
+    roles --> SRV
     SRV --> API
     API -->|"fetch"| BACK(["API Eduka"])
 
-    style SAD fill:#8250df,stroke:#4c2889,color:#fff
+    style SEC fill:#8250df,stroke:#4c2889,color:#fff
+    style PROF fill:#8250df,stroke:#4c2889,color:#fff
     style API fill:#ddf4ff,stroke:#1f6feb
-    style NEXT fill:#eee,stroke:#999,color:#555,stroke-dasharray: 5 5
+    style FIN fill:#eee,stroke:#999,color:#555,stroke-dasharray: 5 5
 ```
 
+Toda tela logada usa o mesmo esqueleto: o `PainelLayout` (marca, título, "Ajuda", "Sair" e o menu
+flutuante do perfil), o `StatCards` para os números do topo e o `Modal` para todo diálogo de
+cadastro, detalhe ou confirmação. Assim os perfis divergem só no conteúdo, não na aparência.
+
 O `apiRequest` centraliza autenticação, headers e tratamento de erro — nenhuma tela chama `fetch`
-diretamente. Após o `POST /login`, o `authService` grava o access token no `localStorage` (chave
+diretamente. O login da escola passa pela verificação em duas etapas (`POST /login` e depois
+`POST /login/codigo` com o código recebido por e-mail) e, na primeira entrada, pela troca da senha
+provisória (`POST /primeiro-acesso`). Com os tokens em mãos, o `authService` grava o access token no `localStorage` (chave
 `eduka.accessToken`) e leva o usuário para a área do próprio perfil. O id e o perfil do usuário
 são sempre lidos das claims do token, e não de um valor salvo à parte; só o login (e-mail) fica
 guardado separadamente. O `RotaProtegida` é só conveniência de navegação: quem garante o acesso é o
@@ -385,6 +438,12 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | `V11__criar_professor.sql` | Tabela `PROFESSOR`, ligada a `PESSOA` (dados pessoais cifrados) |
 | `V12__acesso_inicial_usuario.sql` | Senha provisória em `USUARIO` (flag + validade) e `PROFESSOR.USUARIO_ID` |
 | `V13__adiciona_vinculo_professor.sql` | `PROFESSOR.VINCULO` (regime e carga horária: CLT 40h, horista...) |
+| `V14__criar_estrutura_academica.sql` | `periodo_letivo`, `curso`, `disciplina`, `turma` e a grade da turma (`turma_disciplina`) |
+| `V15__criar_alocacao_professor.sql` | `ALOCACAO_PROFESSOR`: um professor por disciplina de cada turma |
+| `V16__adiciona_usuario_ao_aluno.sql` | `ALUNOS.USUARIO_ID`: login do aluno, criado junto com o cadastro |
+| `V17__criar_verificacao_login.sql` | `VERIFICACAO_LOGIN`: código da verificação em duas etapas (só o hash) |
+| `V18__criar_matricula_turma.sql` | `MATRICULA_TURMA`: aluno na turma, com situação (ativa, trancada, cancelada, concluída) |
+| `V19__criar_avaliacao_e_nota.sql` | `AVALIACAO` (prova, trabalho, tarefa) e `NOTA` de cada aluno |
 
 ---
 
@@ -412,7 +471,7 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 
 | RNF | Como a arquitetura atende |
 |---|---|
-| Autenticação | JWT HS256, rotas protegidas por padrão; só `/health`, `/login` e `/primeiro-acesso` são públicas |
+| Autenticação | JWT HS256 com verificação em duas etapas por e-mail; rotas protegidas por padrão, só `/health`, `/login`, `/login/codigo`, `/login/codigo/reenvio` e `/primeiro-acesso` são públicas |
 | Autorização por perfil | `@PreAuthorize` sobre `ROLE_*` derivado do claim de perfil |
 | Isolamento entre escolas | `IsolamentoEscola` nos services e `@TenantId` no Hibernate; escola vem do token |
 | Confidencialidade de senha | BCrypt custo 12; a coluna `senha_hash` nunca recebe texto puro |
@@ -430,13 +489,15 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
   o alvo em produção é `verify-full`.
 * **Refresh token.** O backend emite e sabe validar refresh tokens, mas ainda não há endpoint
   HTTP de renovação. Quando o access token expira, o usuário precisa fazer login de novo.
-* **Painéis dos demais perfis no frontend.** Só o Super Admin tem telas; `MASTER`,
-  `SECRETARIA`, `FINANCEIRO`, `PROFESSOR` e `ALUNO` já têm rota-mãe protegida, mas mostram
-  "Área em construção".
-* **`@TenantId` nas demais entidades.** Hoje só `Aluno` tem o filtro automático do Hibernate;
-  as próximas entidades de negócio devem seguir o mesmo padrão. `Pessoa` é exceção proposital:
+* **Módulo financeiro.** Cobranças, boletos, pagamentos, despesas e relatórios ainda não existem.
+  Os prefixos de rota já estão em `RotasPorPerfil` (só `MASTER` e `FINANCEIRO`), e o perfil
+  `FINANCEIRO` ainda vê "Área em construção" no frontend.
+* **Gestão de usuários pelo master.** A API de `/usuarios/secretarias` está pronta, mas o
+  `MASTER` ainda não tem tela para cadastrar e inativar a secretaria.
+* **`@TenantId` nas demais entidades.** Hoje têm o filtro automático do Hibernate `Aluno`,
+  `Professor`, `AlocacaoProfessor`, `MatriculaTurma`, `Avaliacao` e `Nota`. As tabelas da estrutura
+  acadêmica (`PeriodoLetivo`, `Curso`, `Disciplina`, `Turma`) filtram pela escola só nos services;
+  as próximas entidades de negócio devem usar `@TenantId`. `Pessoa` é exceção proposital:
   o `SUPER_ADMIN` cria pessoas em nome de outras escolas, o que o filtro não expressa. Por isso
   toda leitura de `Pessoa` passa pelos métodos escopados por escola do `PessoaRepository`
   (`findByIdAndEscolaId`, `findAllByIdInAndEscolaId`), nunca por `findById` puro.
-* **Demais módulos do MVP.** Professores, cursos, turmas, matrículas, cobranças, pagamentos e
-  despesas seguem o mesmo padrão de camadas já estabelecido por Escola e Aluno.
