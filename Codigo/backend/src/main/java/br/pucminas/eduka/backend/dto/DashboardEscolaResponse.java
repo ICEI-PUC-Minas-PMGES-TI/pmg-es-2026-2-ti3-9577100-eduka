@@ -11,11 +11,14 @@ public record DashboardEscolaResponse(
         Desempenho desempenho) {
 
     /**
-     * @param alunosAtivos alunos com pelo menos uma matricula ATIVA
+     * @param alunosAtivos   alunos com pelo menos uma matricula ATIVA
+     * @param alunosSemTurma alunos sem nenhuma matricula ATIVA (mesma conta
+     *                       do dashboard da secretaria)
      */
     public record Pessoas(
             long alunos,
             long alunosAtivos,
+            long alunosSemTurma,
             long professoresAtivos,
             long professoresInativos,
             long secretarias,

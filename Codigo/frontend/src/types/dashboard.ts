@@ -8,6 +8,8 @@ export type DashboardEscola = {
     alunos: number
     /** Alunos com pelo menos uma matrícula ATIVA. */
     alunosAtivos: number
+    /** Alunos sem nenhuma matrícula ATIVA. */
+    alunosSemTurma: number
     professoresAtivos: number
     professoresInativos: number
     secretarias: number

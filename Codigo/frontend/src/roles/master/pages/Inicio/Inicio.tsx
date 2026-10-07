@@ -25,7 +25,6 @@ export function Inicio() {
 
 function Resumo({ dados }: { dados: DashboardEscola }) {
   const { pessoas, estrutura, ocupacao, desempenho } = dados
-  const semTurma = pessoas.alunos - pessoas.alunosAtivos
   const vagasLivres = Math.max(0, ocupacao.vagasOfertadas - ocupacao.matriculasAtivas)
 
   return (
@@ -100,7 +99,7 @@ function Resumo({ dados }: { dados: DashboardEscola }) {
         <Painel titulo="Pessoas">
           <Linhas
             itens={[
-              { rotulo: 'Alunos sem turma', valor: semTurma },
+              { rotulo: 'Alunos sem turma', valor: pessoas.alunosSemTurma },
               { rotulo: 'Professores', valor: pessoas.professoresAtivos + pessoas.professoresInativos },
               { rotulo: 'Secretaria', valor: pessoas.secretarias },
               { rotulo: 'Financeiro', valor: pessoas.financeiro },

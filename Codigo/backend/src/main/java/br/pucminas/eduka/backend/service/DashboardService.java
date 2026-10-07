@@ -115,9 +115,12 @@ public class DashboardService {
         List<MatriculaTurma> matriculas = matriculaRepository.findAllByEscolaId(escolaId);
         List<Professor> professores = professorRepository.findAllByEscolaId(escolaId);
         long professoresAtivos = professores.stream().filter(Professor::isAtivo).count();
+        long alunos = alunoRepository.findAllByEscolaId(escolaId).size();
+        Set<UUID> alunosAtivos = alunosComMatriculaAtiva(matriculas);
         var pessoas = new DashboardEscolaResponse.Pessoas(
-                alunoRepository.findAllByEscolaId(escolaId).size(),
-                alunosComMatriculaAtiva(matriculas).size(),
+                alunos,
+                alunosAtivos.size(),
+                alunosSemTurma(alunos, alunosAtivos),
                 professoresAtivos,
                 professores.size() - professoresAtivos,
                 usuariosAtivos(escolaId, PerfilUsuario.SECRETARIA),
@@ -159,8 +162,8 @@ public class DashboardService {
         }
         matriculas.forEach(m -> porSituacao.merge(m.getStatus(), 1L, Long::sum));
         long recentes = matriculas.stream().filter(m -> !m.getDataMatricula().isBefore(desde)).count();
-        long alunosSemTurma = alunoRepository.findAllByEscolaId(escolaId).size()
-                - alunosComMatriculaAtiva(matriculas).size();
+        long alunosSemTurma = alunosSemTurma(alunoRepository.findAllByEscolaId(escolaId).size(),
+                alunosComMatriculaAtiva(matriculas));
 
         Map<Long, Long> ativasPorTurma = ativasPorTurma(matriculas);
         List<OcupacaoTurma> turmas = turmasAtivas(turmaRepository.findAllByEscolaId(escolaId)).stream()
@@ -278,6 +281,11 @@ public class DashboardService {
                 .filter(m -> m.getStatus() == StatusMatricula.ATIVA)
                 .map(m -> m.getAluno().getId())
                 .collect(Collectors.toSet());
+    }
+
+    /** Alunos cadastrados sem nenhuma matricula ATIVA; a mesma conta no MASTER e na SECRETARIA. */
+    private static long alunosSemTurma(long alunos, Set<UUID> comMatriculaAtiva) {
+        return alunos - comMatriculaAtiva.size();
     }
 
     private static Map<Long, Long> ativasPorTurma(List<MatriculaTurma> matriculas) {

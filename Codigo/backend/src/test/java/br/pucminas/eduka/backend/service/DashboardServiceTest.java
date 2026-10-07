@@ -200,7 +200,7 @@ class DashboardServiceTest {
 
         DashboardEscolaResponse resposta = service.escola();
 
-        assertThat(resposta.pessoas()).isEqualTo(new DashboardEscolaResponse.Pessoas(3, 2, 1, 1, 1, 0));
+        assertThat(resposta.pessoas()).isEqualTo(new DashboardEscolaResponse.Pessoas(3, 2, 1, 1, 1, 1, 0));
         assertThat(resposta.estrutura()).isEqualTo(new DashboardEscolaResponse.Estrutura(1, 2, 2, 3, "2026/2"));
         // Vagas so das turmas ativas: 2 + 4, com 2 matriculas ativas = 33%.
         assertThat(resposta.ocupacao()).isEqualTo(new DashboardEscolaResponse.Ocupacao(6, 2, 33));
