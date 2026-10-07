@@ -6,6 +6,9 @@ const API_URL =
 // Chave onde o fluxo de login deve gravar o accessToken retornado por POST /login.
 export const ACCESS_TOKEN_KEY = 'eduka.accessToken'
 
+// Rotas abertas do backend (ver SecurityConfig/JwtConfig): login e primeiro acesso.
+const ROTAS_PUBLICAS = new Set(['/health', '/login', '/login/codigo', '/login/codigo/reenvio', '/primeiro-acesso'])
+
 export class ApiError extends Error {
   readonly status: number
   /** Campo `detail` do ProblemDetail do backend, quando veio (ex.: qual dado já existe no 409). */
@@ -50,7 +53,9 @@ export async function apiRequest<T>(caminho: string, init: RequestInit = {}): Pr
   if (init.body !== undefined && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
-  const token = lerToken()
+  // Rota pública vai sem token: um token vencido ou de outra chave faria o
+  // backend responder 401 antes mesmo de conferir a senha.
+  const token = ROTAS_PUBLICAS.has(caminho.split('?')[0]) ? null : lerToken()
   if (token) headers.set('Authorization', `Bearer ${token}`)
 
   let resposta: Response
