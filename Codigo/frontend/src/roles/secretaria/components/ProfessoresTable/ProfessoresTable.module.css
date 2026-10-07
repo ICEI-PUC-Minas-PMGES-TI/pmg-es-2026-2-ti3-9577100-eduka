@@ -101,6 +101,18 @@
   color: var(--color-text-muted);
 }
 
+.acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Mesma largura para "Inativar" e "Reativar", para as colunas não pularem. */
+.alternar {
+  min-width: 112px;
+  justify-content: center;
+}
+
 /* Professor inativo fica apagado, como a escola suspensa no Super Admin. */
 .inativo .professor {
   opacity: 0.6;

@@ -52,7 +52,7 @@ public enum RotasPorPerfil {
             SUPER_ADMIN, MASTER, SECRETARIA),
 
     ACADEMICO(List.of("/alunos", "/responsaveis", "/professores", "/cursos", "/disciplinas",
-            "/periodos-letivos", "/turmas", "/matriculas"),
+            "/periodos-letivos", "/turmas", "/matriculas", "/academico"),
             MASTER, SECRETARIA, FINANCEIRO, PROFESSOR),
 
     FINANCEIRO_ESCOLA(List.of("/cobrancas", "/boletos", "/pagamentos", "/transacoes-pagamento",

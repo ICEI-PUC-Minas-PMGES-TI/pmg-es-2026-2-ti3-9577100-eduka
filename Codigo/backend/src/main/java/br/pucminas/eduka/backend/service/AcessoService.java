@@ -22,7 +22,7 @@ import br.pucminas.eduka.backend.security.PerfilNaoPermitidoException;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 
 /**
- * Login de quem e cadastrado pela escola (professor hoje; depois aluno,
+ * Login de quem e cadastrado pela escola (professor e aluno hoje; depois
  * funcionario...). Serve a qualquer perfil: quem chama passa a {@link Pessoa}
  * ja cadastrada e o perfil do novo usuario.
  *
@@ -117,6 +117,12 @@ public class AcessoService {
                 usuarioRepository.save(usuario);
             }
         });
+    }
+
+    /** Apaga o login da pessoa, quando existe (ex.: professor excluido). */
+    @Transactional
+    public void excluirLogin(Pessoa pessoa) {
+        usuarioRepository.findByPessoaId(pessoa.getId()).ifPresent(usuarioRepository::delete);
     }
 
     private boolean trocarLogin(Usuario usuario, String login) {

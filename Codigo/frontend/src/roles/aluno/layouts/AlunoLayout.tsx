@@ -1,43 +1,27 @@
 import type { ReactNode } from 'react'
-import { useNavigate } from 'react-router'
+import { PainelLayout, type ItemMenu } from '../../../components/PainelLayout/PainelLayout'
 import { paths } from '../../../routes/paths'
-import { limparSessao } from '../../../services/authService'
-import { AlunoHeader } from '../components/AlunoHeader/AlunoHeader'
-import { AlunoNav } from '../components/AlunoNav/AlunoNav'
-import styles from './AlunoLayout.module.css'
+
+const MENU: ItemMenu[] = [
+  { label: 'Boletim', icon: 'book', to: paths.aluno.boletim },
+  { label: 'Provas e tarefas', icon: 'calendar', to: paths.aluno.avaliacoes },
+  { label: 'Pagamentos', icon: 'card' },
+  { label: 'Meus dados', icon: 'user', to: paths.aluno.meusDados },
+]
+
+const AJUDA = (
+  <p>
+    Entre em contato com a secretaria da sua escola pelos canais de atendimento ou procure a coordenação
+    pedagógica.
+  </p>
+)
 
 type AlunoLayoutProps = {
   titulo: string
   subtitulo?: ReactNode
-  escola?: string
   children: ReactNode
 }
 
-export function AlunoLayout({ titulo, subtitulo, escola, children }: AlunoLayoutProps) {
-  const navigate = useNavigate()
-
-  function sair() {
-    limparSessao()
-    navigate(paths.login, { replace: true })
-  }
-
-  function handleAjuda() {
-    alert(
-      'Precisa de ajuda?\n\nEntre em contato com a secretaria da sua escola através dos canais de atendimento ou dirija-se à coordenação pedagógica.',
-    )
-  }
-
-  return (
-    <div className={styles.shell}>
-      <AlunoHeader
-        titulo={titulo}
-        subtitulo={subtitulo}
-        escola={escola}
-        onSair={sair}
-        onAjuda={handleAjuda}
-      />
-      <main className={styles.main}>{children}</main>
-      <AlunoNav />
-    </div>
-  )
+export function AlunoLayout(props: AlunoLayoutProps) {
+  return <PainelLayout contexto="Aluno" menu={MENU} menuRotulo="Navegação do portal do aluno" ajuda={AJUDA} {...props} />
 }

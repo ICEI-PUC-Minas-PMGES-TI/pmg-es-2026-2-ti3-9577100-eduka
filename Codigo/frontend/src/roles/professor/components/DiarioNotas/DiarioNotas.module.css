@@ -1,0 +1,241 @@
+/* Avaliação escolhida e o resumo das notas, lado a lado. */
+.cabecalho {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.avaliacao {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 18px 22px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.tipo {
+  color: var(--color-primary-text);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.titulo {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.4px;
+  overflow-wrap: anywhere;
+}
+
+.subtexto {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+/* ---------- Tabela do diário ---------- */
+
+.card {
+  padding: 8px 10px 0;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+/* Em telas estreitas a tabela rola dentro do card, sem rolar a página. */
+.rolagem {
+  overflow-x: auto;
+}
+
+.tabela {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+}
+
+.tabela th {
+  padding: 16px 14px 12px;
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tabela td {
+  padding: 10px 14px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-size: 14.5px;
+  vertical-align: middle;
+}
+
+.tabela td:first-child {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.tabela th:nth-child(3),
+.tabela td:nth-child(3) {
+  width: 1%;
+  white-space: nowrap;
+}
+
+/* Linha com alteração ainda não salva. */
+.alterado {
+  background: rgba(242, 235, 251, 0.6);
+}
+
+.inativo td {
+  color: var(--color-text-muted);
+}
+
+.secundario {
+  color: var(--color-text-muted);
+}
+
+.aluno {
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+
+.nota {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-muted);
+  font-size: 13.5px;
+}
+
+.campo {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.82);
+  font: inherit;
+  font-size: 14.5px;
+  color: var(--color-text);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.campo::placeholder {
+  color: var(--color-text-subtle);
+}
+
+.campo:hover {
+  border-color: var(--color-mauve);
+}
+
+.campo:focus {
+  border-color: var(--color-primary);
+  outline: 0;
+  box-shadow: 0 0 0 4px rgba(212, 187, 252, 0.5);
+}
+
+.campo[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.campoNota {
+  width: 76px;
+  text-align: right;
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+
+.erro {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-danger);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: normal;
+}
+
+.rodape {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 -10px;
+  padding: 16px 24px 18px;
+  border-top: 1px solid rgba(212, 187, 252, 0.45);
+}
+
+.status {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.sucesso {
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.erroEnvio {
+  color: var(--color-danger);
+  font-weight: 500;
+}
+
+.botoes {
+  display: flex;
+  gap: 12px;
+}
+
+.vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 36px 20px 30px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.vazio strong {
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+@media (max-width: 860px) {
+  .cabecalho {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .botoes {
+    flex-direction: column-reverse;
+    width: 100%;
+  }
+
+  .botoes > button {
+    width: 100%;
+  }
+}

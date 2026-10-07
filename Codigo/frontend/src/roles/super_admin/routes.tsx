@@ -8,9 +8,9 @@ export const superAdminRoutes: RouteObject = {
   path: paths.superAdmin.raiz,
   children: [
     // Fica fora do RotaProtegida: é o atalho antigo para o login.
-    { path: paths.superAdmin.login, element: <Navigate to={paths.login} replace /> },
+    { path: paths.superAdmin.login, element: <Navigate to={paths.loginAdmin} replace /> },
     {
-      element: <RotaProtegida perfis={['SUPER_ADMIN']} />,
+      element: <RotaProtegida perfis={['SUPER_ADMIN']} login={paths.loginAdmin} />,
       children: [
         { index: true, element: <Navigate to={paths.superAdmin.escolas} replace /> },
         { path: paths.superAdmin.escolas, element: <PainelEscolas /> },

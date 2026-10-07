@@ -1,0 +1,70 @@
+/* Turmas à esquerda, grade da turma aberta à direita. */
+.colunas {
+  display: grid;
+  grid-template-columns: 330px minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+
+/* A lista de turmas acompanha a rolagem de uma grade comprida. */
+.turmas {
+  position: sticky;
+  top: 24px;
+}
+
+.grade {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Carregando, erro e vazio da página inteira, num card de vidro. */
+.estado {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 36px 20px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* Mesmos avisos de sucesso e erro da tela de professores. */
+.alerta,
+.sucesso {
+  margin: 0;
+  padding: 14px 20px;
+  border: var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow-sm);
+  font-size: 14.5px;
+  font-weight: 500;
+  animation: var(--animacao-surgir);
+}
+
+.alerta {
+  background: linear-gradient(145deg, rgba(253, 227, 234, 0.95), rgba(253, 227, 234, 0.7));
+  color: var(--color-danger);
+}
+
+.sucesso {
+  background: linear-gradient(145deg, rgba(220, 242, 228, 0.95), rgba(220, 242, 228, 0.7));
+  color: var(--color-success);
+}
+
+@media (max-width: 860px) {
+  .colunas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .turmas {
+    position: static;
+  }
+}

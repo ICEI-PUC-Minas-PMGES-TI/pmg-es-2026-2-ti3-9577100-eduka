@@ -53,7 +53,6 @@ import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 class SecretariaServiceTest {
 
     private static final UUID ESCOLA_A = UUID.randomUUID();
-    private static final UUID ESCOLA_B = UUID.randomUUID();
     private static final String SENHA = "senha-forte-123";
 
     @Mock

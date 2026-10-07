@@ -135,8 +135,9 @@ public class JwtConfig {
 
 	/**
 	 * API stateless autenticada por JWT (RNF01/RNF02). Sem sessao nem cookie,
-	 * CSRF nao se aplica. Apenas o health check, o preflight de CORS, o login e
-	 * a troca da senha provisoria ficam publicos; todo o resto exige um access
+	 * CSRF nao se aplica. Apenas o health check, o preflight de CORS, o login
+	 * (com o codigo de verificacao), a troca da senha provisoria e o Swagger
+	 * ficam publicos; todo o resto exige um access
 	 * token valido, cujo perfil vira ROLE_* para {@code @PreAuthorize}.
 	 *
 	 * <p>
@@ -157,7 +158,10 @@ public class JwtConfig {
 				.authorizeHttpRequests(authorize -> {
 					authorize
 							.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-							.requestMatchers("/health", "/login", "/primeiro-acesso").permitAll();
+							.requestMatchers("/health", "/login", "/login/codigo", "/login/codigo/reenvio",
+									"/primeiro-acesso").permitAll()
+							// Swagger (OpenApiConfig). Em prod o springdoc fica desligado e estas rotas dao 404.
+							.requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll();
 					RotasPorPerfil.aplicar(authorize);
 					authorize.anyRequest().authenticated();
 				})

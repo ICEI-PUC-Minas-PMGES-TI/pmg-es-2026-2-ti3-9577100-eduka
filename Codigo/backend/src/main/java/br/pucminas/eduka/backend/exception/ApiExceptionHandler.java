@@ -13,6 +13,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /**
  * Traduz excecoes em respostas HTTP no formato ProblemDetail (RFC 9457).
@@ -54,6 +55,35 @@ public class ApiExceptionHandler {
                 .body(problema(HttpStatus.UNAUTHORIZED, ex.getMessage()));
     }
 
+    /**
+     * Cada desfecho do codigo de verificacao tem um status proprio, porque o
+     * front reage diferente a cada um: 401 deixa tentar de novo, 410 pede o
+     * reenvio, 404 manda de volta ao login e 429 pede para esperar.
+     */
+    @ExceptionHandler(CodigoVerificacaoIncorretoException.class)
+    public ResponseEntity<ProblemDetail> codigoIncorreto(CodigoVerificacaoIncorretoException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(problema(HttpStatus.UNAUTHORIZED, ex.getMessage()));
+    }
+
+    @ExceptionHandler(CodigoVerificacaoExpiradoException.class)
+    public ResponseEntity<ProblemDetail> codigoExpirado(CodigoVerificacaoExpiradoException ex) {
+        return ResponseEntity.status(HttpStatus.GONE)
+                .body(problema(HttpStatus.GONE, ex.getMessage()));
+    }
+
+    @ExceptionHandler(VerificacaoLoginEncerradaException.class)
+    public ResponseEntity<ProblemDetail> verificacaoEncerrada(VerificacaoLoginEncerradaException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(problema(HttpStatus.NOT_FOUND, ex.getMessage()));
+    }
+
+    @ExceptionHandler(ReenvioCodigoIndisponivelException.class)
+    public ResponseEntity<ProblemDetail> reenvioIndisponivel(ReenvioCodigoIndisponivelException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(problema(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage()));
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ProblemDetail> acessoNegado(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -67,7 +97,11 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler({ LoginJaCadastradoException.class, CnpjJaCadastradoException.class,
-            CpfJaCadastradoException.class, AcessoJaAtivadoException.class })
+            CpfJaCadastradoException.class, AcessoJaAtivadoException.class,
+            ProfessorComHistoricoException.class, AlocacaoJaExisteException.class,
+            MatriculaJaExisteException.class, TurmaSemVagasException.class,
+            NumeroMatriculaJaCadastradoException.class, AvaliacaoComNotasException.class,
+            RegistroEmUsoException.class })
     public ResponseEntity<ProblemDetail> recursoDuplicado(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(problema(HttpStatus.CONFLICT, ex.getMessage()));
@@ -87,6 +121,16 @@ public class ApiExceptionHandler {
     public ResponseEntity<ProblemDetail> corpoIlegivel(HttpMessageNotReadableException ex) {
         return ResponseEntity.badRequest()
                 .body(problema(HttpStatus.BAD_REQUEST, "corpo da requisição inválido"));
+    }
+
+    /**
+     * Parametro de URL ou de query que nao converte para o tipo esperado
+     * (UUID malformado, valor fora de um enum...). Sem isto viraria 500.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ProblemDetail> parametroInvalido(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.badRequest()
+                .body(problema(HttpStatus.BAD_REQUEST, "parâmetro inválido: " + ex.getName()));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

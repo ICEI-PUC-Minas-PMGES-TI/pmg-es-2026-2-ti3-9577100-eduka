@@ -2,6 +2,7 @@ package br.pucminas.eduka.backend.dto;
 
 import java.time.LocalDate;
 
+import br.pucminas.eduka.backend.domain.VinculoProfessor;
 import br.pucminas.eduka.backend.validation.Cpf;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -31,5 +32,6 @@ public record ProfessorRequest(
         @Size(max = 150, message = "email deve ter no máximo 150 caracteres") String email,
         @Size(max = 20, message = "telefone deve ter no máximo 20 caracteres") String telefone,
         @Size(max = 150, message = "formacao deve ter no máximo 150 caracteres") String formacao,
-        LocalDate dataAdmissao) {
+        LocalDate dataAdmissao,
+        VinculoProfessor vinculo) {
 }

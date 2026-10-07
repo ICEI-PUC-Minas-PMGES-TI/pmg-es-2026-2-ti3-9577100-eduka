@@ -1,0 +1,158 @@
+.secao {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.secaoTitulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.secaoTitulo span {
+  padding: 1px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg-tint);
+  color: var(--color-primary-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Cada avaliação numa faixa de vidro: data, o que é e os pontos. */
+.item {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 20px;
+  border: var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.data {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-md);
+  background: var(--glass-bg-tint);
+  color: var(--color-primary-text);
+  line-height: 1.1;
+}
+
+.data strong {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.data span {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.corpo {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tipo {
+  color: var(--color-primary-text);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.titulo {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.disciplina {
+  color: var(--color-text-muted);
+  font-size: 13.5px;
+}
+
+.descricao {
+  margin-top: 4px;
+  color: var(--color-text-muted);
+  font-size: 13.5px;
+}
+
+.pontos {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  align-items: flex-end;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  text-align: right;
+}
+
+.pontos strong {
+  color: var(--color-primary-text);
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.vazio {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.mensagem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 36px 20px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.mensagem strong {
+  color: var(--color-text);
+}
+
+@media (max-width: 520px) {
+  .item {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .pontos {
+    width: 100%;
+    flex-direction: row;
+    gap: 6px;
+    align-items: baseline;
+  }
+}

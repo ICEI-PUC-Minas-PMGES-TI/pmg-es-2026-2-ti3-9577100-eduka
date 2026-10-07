@@ -90,6 +90,11 @@ services:
       BREVO_API_KEY: ${BREVO_API_KEY:-}
       BREVO_REMETENTE_EMAIL: ${BREVO_REMETENTE_EMAIL:-nao-responda@eduka.com.br}
       BREVO_REMETENTE_NOME: ${BREVO_REMETENTE_NOME:-Eduka}
+      LOGIN_VERIFICACAO_HABILITADA: ${LOGIN_VERIFICACAO_HABILITADA:-true}
+      LOGIN_CODIGO_VALIDADE_MINUTOS: ${LOGIN_CODIGO_VALIDADE_MINUTOS:-5}
+      # Em dev o codigo de verificacao tambem sai no log do backend, porque sem
+      # BREVO_API_KEY o e-mail nao e enviado. Nao existe no compose de prod.
+      LOGIN_CODIGO_NO_LOG: ${LOGIN_CODIGO_NO_LOG:-true}
       SPRING_PROFILES_ACTIVE: dev
 
     ports:

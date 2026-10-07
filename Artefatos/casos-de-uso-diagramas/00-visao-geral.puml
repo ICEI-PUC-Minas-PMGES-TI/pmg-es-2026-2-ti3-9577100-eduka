@@ -26,18 +26,28 @@ rectangle "Eduka" {
     usecase "UC02\nGerenciar Escolas Cadastradas" as UC02
   }
 
-  package "Acesso e perfis" {
+  package "Autenticação e Dashboards" {
     usecase "UC03\nAutenticar Usuário" as UC03
+    usecase "Redirecionar para o\nPainel do Perfil" as UC03C
     usecase "Recuperar Senha" as UC03A
-    usecase "UC04\nGerenciar Usuários da Escola" as UC04
     usecase "UC16\nVisualizar Dashboard" as UC16
+  }
+
+  package "Gestão de Usuários" {
+    usecase "UC04\nGerenciar Usuários da Escola" as UC04
+    usecase "Criar Acesso do Aluno" as UC05C
+    usecase "Criar Acesso do Professor" as UC06C
   }
 
   package "Gestão acadêmica" {
     usecase "UC05\nGerenciar Alunos" as UC05
     usecase "UC06\nGerenciar Professores" as UC06
-    usecase "UC07\nGerenciar Cursos,\nDisciplinas e Turmas" as UC07
+    usecase "UC07\nGerenciar Estrutura Acadêmica" as UC07
+    usecase "UC18\nAlocar Professor em\nTurmas e Disciplinas" as UC18
     usecase "UC08\nRealizar Matrícula de Aluno" as UC08
+    usecase "UC19\nConsultar Turmas e\nDisciplinas Alocadas" as UC19
+    usecase "UC20\nCadastrar Avaliações" as UC20
+    usecase "UC21\nLançar Notas dos Alunos" as UC21
   }
 
   package "Gestão financeira" {
@@ -46,12 +56,17 @@ rectangle "Eduka" {
     usecase "UC11\nConsultar e Filtrar Cobranças" as UC11
     usecase "UC12\nRegistrar Pagamento" as UC12
     usecase "UC13\nConsultar Histórico\nFinanceiro do Aluno" as UC13
+    usecase "UC26\nPagar Cobrança Online" as UC26
     usecase "UC14\nGerenciar Despesas" as UC14
     usecase "UC15\nConsultar Relatórios Financeiros" as UC15
   }
 
   package "Portal do aluno" {
     usecase "UC17\nConsultar Informações Acadêmicas\ne Financeiras Próprias" as UC17
+    usecase "UC22\nVisualizar Meu Perfil" as UC22
+    usecase "UC23\nConsultar Boletim Acadêmico" as UC23
+    usecase "UC24\nConsultar Disciplinas e Turmas" as UC24
+    usecase "UC25\nConsultar Agenda de\nProvas e Tarefas" as UC25
   }
 }
 
@@ -69,6 +84,7 @@ MASTER --> UC15
 SECRETARIA --> UC05
 SECRETARIA --> UC06
 SECRETARIA --> UC07
+SECRETARIA --> UC18
 SECRETARIA --> UC08
 
 FINANCEIRO --> UC09
@@ -79,19 +95,31 @@ FINANCEIRO --> UC14
 FINANCEIRO --> UC15
 FINANCEIRO --> UC13
 
+PROFESSOR --> UC19
+PROFESSOR --> UC20
+PROFESSOR --> UC21
+
 ALUNO --> UC13
 ALUNO --> UC17
+ALUNO --> UC22
+ALUNO --> UC23
+ALUNO --> UC24
+ALUNO --> UC25
+ALUNO --> UC26
 
+UC03 ..> UC03C : <<include>>
 UC03A ..> UC03 : <<extend>>
+UC05 ..> UC05C : <<include>>
+UC06 ..> UC06C : <<include>>
 UC10 ..> UC09 : <<extend>>
 UC17 ..> UC13 : <<include>>
+UC26 ..> UC13 : <<extend>>
 
-note right of PROFESSOR
-  O perfil PROFESSOR herda apenas os
-  casos de uso comuns (UC03 e UC16);
-  funcionalidades específicas de docência
-  não estão previstas nos casos de uso
-  descritivos desta versão.
+note bottom of UC03
+  Isolamento por escola: o JWT carrega a Role
+  e o escola_id do usuário, e toda consulta e
+  gravação fica limitada à escola dele
+  (schema único com escola_id).
 end note
 
 @enduml

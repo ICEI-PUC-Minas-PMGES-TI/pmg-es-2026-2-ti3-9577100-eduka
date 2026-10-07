@@ -12,6 +12,7 @@ public record AlunoResponse(
         UUID escolaId,
         String nome,
         String cpf,
+        String email,
         LocalDate dataNascimento,
         EnderecoResponse endereco,
         String matricula,
@@ -20,13 +21,14 @@ public record AlunoResponse(
 
     /** Listagem (enturmacao): so o necessario para achar/identificar o aluno. */
     public static AlunoResponse deResumo(Aluno aluno, Pessoa pessoa) {
-        return new AlunoResponse(aluno.getId(), aluno.getEscolaId(), pessoa.getNome(), null, null, null,
+        return new AlunoResponse(aluno.getId(), aluno.getEscolaId(), pessoa.getNome(), null, null, null, null,
                 aluno.getMatricula(), aluno.getGenero(), List.of());
     }
 
     /** Detalhe de um aluno especifico: todo dado pessoal, ja decifrado. */
     public static AlunoResponse de(Aluno aluno, Pessoa pessoa, List<ResponsavelResponse> responsaveis) {
         return new AlunoResponse(aluno.getId(), aluno.getEscolaId(), pessoa.getNome(), pessoa.getCpf(),
+                pessoa.getEmail(),
                 pessoa.getDataNascimento() == null ? null : LocalDate.parse(pessoa.getDataNascimento()),
                 enderecoDe(pessoa), aluno.getMatricula(), aluno.getGenero(), responsaveis);
     }

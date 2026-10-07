@@ -1,6 +1,6 @@
 @startuml 04-gestao-financeira
 !include _estilo.puml
-title Eduka — Casos de Uso: Gestão Financeira (UC09 a UC15)
+title Eduka — Casos de Uso: Gestão Financeira (UC09 a UC15, UC26)
 
 left to right direction
 
@@ -16,6 +16,7 @@ rectangle "Eduka — Gestão financeira" {
   usecase "UC11\nConsultar e Filtrar Cobranças" as UC11
   usecase "UC12\nRegistrar Pagamento" as UC12
   usecase "UC13\nConsultar Histórico\nFinanceiro do Aluno" as UC13
+  usecase "UC26\nPagar Cobrança Online" as UC26
   usecase "UC14\nGerenciar Despesas" as UC14
   usecase "UC15\nConsultar Relatórios Financeiros" as UC15
 }
@@ -29,12 +30,15 @@ FINANCEIRO --> UC15
 
 MASTER --> UC15
 ALUNO --> UC13
+ALUNO --> UC26
 FINANCEIRO --> UC13
 
 UC09A ..> UC09 : <<extend>>
 UC10 ..> UC09 : <<extend>>
 UC10A ..> UC10 : <<extend>>
 UC12 ..> UC09 : pré-condição
+UC26 ..> UC13 : <<extend>>
+UC26 ..> UC09 : pré-condição
 
 note bottom of UC12
   Pré-condição: cobrança com status Pendente ou Em atraso.
@@ -45,6 +49,12 @@ note bottom of UC13
   Ator primário ALUNO, ator secundário FINANCEIRO.
   O acesso é bloqueado quando o aluno consultado
   não pertence à escola ou à permissão do usuário.
+end note
+
+note bottom of UC26
+  Pagamento online (RNF08.2) pelo próprio aluno,
+  a partir de uma cobrança Pendente ou Em atraso.
+  Confirmado o pagamento, o status passa para Paga.
 end note
 
 note bottom of UC15

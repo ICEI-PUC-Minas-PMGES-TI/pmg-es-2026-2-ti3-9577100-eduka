@@ -1,7 +1,7 @@
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Button } from '../../../../components/Button/Button'
 import { Campo } from '../../../../components/Campo/Campo'
-import { Icon } from '../../../../components/Icon/Icon'
+import { Modal, ModalAlerta } from '../../../../components/Modal/Modal'
 import { Select } from '../../../../components/Select/Select'
 import { Switch } from '../../../../components/Switch/Switch'
 import { ApiError } from '../../../../services/api'
@@ -98,25 +98,15 @@ type CadastroEscolaModalProps = {
  */
 export function CadastroEscolaModal({ onFechar, onSalvar, onCadastrada }: CadastroEscolaModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
-  const tituloId = useId()
+  const statusId = useId()
   const [campos, setCampos] = useState<Campos>(CAMPOS_INICIAIS)
   const [erros, setErros] = useState<Erros>({})
   const [erroEnvio, setErroEnvio] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
 
-  useEffect(() => {
-    const dialog = dialogRef.current
-    dialog?.showModal()
-    return () => dialog?.close()
-  }, [])
-
   function alterar<K extends keyof Campos>(campo: K, valor: Campos[K]) {
     setCampos((atuais) => ({ ...atuais, [campo]: valor }))
     if (erros[campo]) setErros((atuais) => ({ ...atuais, [campo]: undefined }))
-  }
-
-  function fechar() {
-    if (!salvando) onFechar()
   }
 
   async function handleSubmit(evento: FormEvent<HTMLFormElement>) {
@@ -149,135 +139,112 @@ export function CadastroEscolaModal({ onFechar, onSalvar, onCadastrada }: Cadast
   }
 
   return (
-    <dialog
-      ref={dialogRef}
-      className={styles.dialog}
-      aria-labelledby={tituloId}
-      onCancel={(e) => {
-        e.preventDefault()
-        fechar()
-      }}
-    >
-      <form className={styles.form} noValidate onSubmit={handleSubmit}>
-        <header className={styles.header}>
-          <h2 id={tituloId} className={styles.title}>
-            Cadastrar nova instituição
-          </h2>
-          <button
-            type="button"
-            className={styles.close}
-            aria-label="Fechar"
-            disabled={salvando}
-            onClick={fechar}
-          >
-            <Icon name="close" size={16} />
-          </button>
-        </header>
-
-        <div className={styles.body}>
-          <Secao titulo="Dados básicos">
-            <Campo label="Razão social" erro={erros.nome} obrigatorio>
-              {(props) => (
-                <input
-                  {...props}
-                  name="nome"
-                  maxLength={MAX_NOME}
-                  autoComplete="organization"
-                  placeholder="Ex.: Colégio Objetivo Matriz Ltda"
-                  value={campos.nome}
-                  onChange={(e) => alterar('nome', e.target.value)}
-                />
-              )}
-            </Campo>
-            <Campo label="CNPJ" erro={erros.cnpj} obrigatorio>
-              {(props) => (
-                <input
-                  {...props}
-                  name="cnpj"
-                  inputMode="numeric"
-                  placeholder="00.000.000/0000-00"
-                  value={campos.cnpj}
-                  onChange={(e) => alterar('cnpj', mascararCnpj(e.target.value))}
-                />
-              )}
-            </Campo>
-            <Campo label="E-mail do responsável" erro={erros.email} obrigatorio>
-              {(props) => (
-                <input
-                  {...props}
-                  name="email"
-                  type="email"
-                  maxLength={MAX_EMAIL}
-                  autoComplete="email"
-                  placeholder="diretoria@escola.com.br"
-                  value={campos.email}
-                  onChange={(e) => alterar('email', e.target.value)}
-                />
-              )}
-            </Campo>
-            <Campo label="Telefone" erro={erros.telefone} obrigatorio>
-              {(props) => (
-                <input
-                  {...props}
-                  name="telefone"
-                  type="tel"
-                  autoComplete="tel"
-                  placeholder="(31) 99999-9999"
-                  value={campos.telefone}
-                  onChange={(e) => alterar('telefone', mascararTelefone(e.target.value))}
-                />
-              )}
-            </Campo>
-          </Secao>
-
-          <Secao titulo="Endereço">
-            <CamposEndereco valores={campos} erros={erros} onAlterar={alterar} />
-          </Secao>
-
-          <Secao titulo="Assinatura">
-            <Campo label="Plano contratado" erro={erros.plano} obrigatorio>
-              {(props) => (
-                <Select<PlanoEscola | ''>
-                  {...props}
-                  name="plano"
-                  opcoes={OPCOES_PLANO}
-                  valor={campos.plano}
-                  onChange={(plano) => alterar('plano', plano)}
-                />
-              )}
-            </Campo>
-            <div className={styles.field}>
-              <span className={styles.label} id={`${tituloId}-status`}>
-                Status inicial
-              </span>
-              <Switch
-                name="ativo"
-                aria-labelledby={`${tituloId}-status`}
-                checked={campos.ativo}
-                onChange={(ativo) => alterar('ativo', ativo)}
-                rotuloLigado="Ativo"
-                rotuloDesligado="Inativo"
-              />
-            </div>
-          </Secao>
-
-          {erroEnvio && (
-            <p className={styles.alerta} role="alert">
-              {erroEnvio}
-            </p>
-          )}
-        </div>
-
-        <footer className={styles.footer}>
-          <Button disabled={salvando} onClick={fechar}>
+    <Modal
+      titulo="Cadastrar nova instituição"
+      tamanho="grande"
+      ocupado={salvando}
+      onFechar={onFechar}
+      onEnviar={handleSubmit}
+      dialogRef={dialogRef}
+      rodape={
+        <>
+          <Button disabled={salvando} onClick={onFechar}>
             Cancelar
           </Button>
           <Button type="submit" variant="accent" disabled={salvando}>
             {salvando ? 'Salvando…' : campos.ativo ? 'Salvar e ativar' : 'Salvar como inativa'}
           </Button>
-        </footer>
-      </form>
-    </dialog>
+        </>
+      }
+    >
+      <Secao titulo="Dados básicos">
+        <Campo label="Razão social" erro={erros.nome} obrigatorio>
+          {(props) => (
+            <input
+              {...props}
+              name="nome"
+              maxLength={MAX_NOME}
+              autoComplete="organization"
+              placeholder="Ex.: Colégio Objetivo Matriz Ltda"
+              value={campos.nome}
+              onChange={(e) => alterar('nome', e.target.value)}
+            />
+          )}
+        </Campo>
+        <Campo label="CNPJ" erro={erros.cnpj} obrigatorio>
+          {(props) => (
+            <input
+              {...props}
+              name="cnpj"
+              inputMode="numeric"
+              placeholder="00.000.000/0000-00"
+              value={campos.cnpj}
+              onChange={(e) => alterar('cnpj', mascararCnpj(e.target.value))}
+            />
+          )}
+        </Campo>
+        <Campo label="E-mail do responsável" erro={erros.email} obrigatorio>
+          {(props) => (
+            <input
+              {...props}
+              name="email"
+              type="email"
+              maxLength={MAX_EMAIL}
+              autoComplete="email"
+              placeholder="diretoria@escola.com.br"
+              value={campos.email}
+              onChange={(e) => alterar('email', e.target.value)}
+            />
+          )}
+        </Campo>
+        <Campo label="Telefone" erro={erros.telefone} obrigatorio>
+          {(props) => (
+            <input
+              {...props}
+              name="telefone"
+              type="tel"
+              autoComplete="tel"
+              placeholder="(31) 99999-9999"
+              value={campos.telefone}
+              onChange={(e) => alterar('telefone', mascararTelefone(e.target.value))}
+            />
+          )}
+        </Campo>
+      </Secao>
+
+      <Secao titulo="Endereço">
+        <CamposEndereco valores={campos} erros={erros} onAlterar={alterar} />
+      </Secao>
+
+      <Secao titulo="Assinatura">
+        <Campo label="Plano contratado" erro={erros.plano} obrigatorio>
+          {(props) => (
+            <Select<PlanoEscola | ''>
+              {...props}
+              name="plano"
+              opcoes={OPCOES_PLANO}
+              valor={campos.plano}
+              onChange={(plano) => alterar('plano', plano)}
+            />
+          )}
+        </Campo>
+        <div className={styles.field}>
+          <span className={styles.label} id={`${statusId}`}>
+            Status inicial
+          </span>
+          <Switch
+            name="ativo"
+            aria-labelledby={`${statusId}`}
+            checked={campos.ativo}
+            onChange={(ativo) => alterar('ativo', ativo)}
+            rotuloLigado="Ativo"
+            rotuloDesligado="Inativo"
+          />
+        </div>
+      </Secao>
+
+      {erroEnvio && <ModalAlerta>{erroEnvio}</ModalAlerta>}
+    </Modal>
   )
 }
 

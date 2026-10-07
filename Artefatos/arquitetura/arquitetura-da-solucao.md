@@ -211,11 +211,27 @@ flowchart TB
 | `PATCH` | `/escolas/{id}/ativar` · `/suspender` | `SUPER_ADMIN` |
 | `GET` | `/alunos` · `/alunos/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO`, `PROFESSOR` |
 | `POST` | `/alunos` | `MASTER`, `SECRETARIA` |
+| `PUT` | `/alunos/{id}` (responsáveis não mudam; 409 se a matrícula ou o e-mail já estão em uso) | `MASTER`, `SECRETARIA` |
+| `POST` | `/alunos/{id}/primeiro-acesso` (reenvia o e-mail) | `MASTER`, `SECRETARIA` |
+| `GET` | `/portal/aluno/me` (dados do próprio aluno, pelo token) | `ALUNO` |
+| `GET` | `/portal/aluno/turmas` (turmas do aluno, com a grade e os professores) | `ALUNO` |
+| `GET` | `/portal/aluno/boletim` (notas por turma e disciplina, com os totais de pontos) | `ALUNO` |
+| `GET` | `/portal/aluno/avaliacoes` (agenda de provas, trabalhos e tarefas das turmas ativas) | `ALUNO` |
+| `GET` | `/portal/professor/avaliacoes?turmaId&disciplinaId` · `/portal/professor/avaliacoes/{id}` | `PROFESSOR` (só turma/disciplina alocada a ele) |
+| `POST` | `/portal/professor/avaliacoes` (prova, trabalho ou tarefa) | `PROFESSOR` |
+| `PUT` | `/portal/professor/avaliacoes/{id}` (400 se o novo valor fica abaixo de uma nota lançada) | `PROFESSOR` |
+| `DELETE` | `/portal/professor/avaliacoes/{id}` (409 se já tem nota) | `PROFESSOR` |
+| `GET` | `/portal/professor/avaliacoes/{id}/notas` (alunos ativos da turma com a nota) | `PROFESSOR` |
+| `PUT` | `/portal/professor/avaliacoes/{id}/notas` (lança em lote; nota nula apaga) | `PROFESSOR` |
+| `GET` | `/portal/professor/dashboard` (turmas, alunos, próximas avaliações e notas pendentes) | `PROFESSOR` |
+| `GET` | `/dashboard/escola` (pessoas, estrutura, ocupação de vagas e aproveitamento) | `MASTER` |
+| `GET` | `/dashboard/secretaria` (matrículas por situação, vagas e ocupação por turma) | `MASTER`, `SECRETARIA` |
 | `GET` | `/professores` · `/professores/{id}` | `MASTER`, `SECRETARIA` |
 | `POST` | `/professores` | `MASTER`, `SECRETARIA` |
 | `PUT` | `/professores/{id}` | `MASTER`, `SECRETARIA` |
-| `DELETE` | `/professores/{id}` (inativa) | `MASTER`, `SECRETARIA` |
+| `PATCH` | `/professores/{id}/inativar` (afastamento: licença etc.) | `MASTER`, `SECRETARIA` |
 | `PATCH` | `/professores/{id}/ativar` | `MASTER`, `SECRETARIA` |
+| `DELETE` | `/professores/{id}` (saída da escola: exclui; 409 se já tem histórico) | `MASTER`, `SECRETARIA` |
 | `POST` | `/professores/{id}/primeiro-acesso` (reenvia o e-mail) | `MASTER`, `SECRETARIA` |
 
 Qualquer rota não listada como pública exige `Authorization: Bearer <access token>` e responde
@@ -368,6 +384,7 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | `V10__liga_alunos_a_pessoa.sql` | Aluno passa a apontar para `PESSOA`; responsáveis em `ALUNO_RESPONSAVEL` |
 | `V11__criar_professor.sql` | Tabela `PROFESSOR`, ligada a `PESSOA` (dados pessoais cifrados) |
 | `V12__acesso_inicial_usuario.sql` | Senha provisória em `USUARIO` (flag + validade) e `PROFESSOR.USUARIO_ID` |
+| `V13__adiciona_vinculo_professor.sql` | `PROFESSOR.VINCULO` (regime e carga horária: CLT 40h, horista...) |
 
 ---
 

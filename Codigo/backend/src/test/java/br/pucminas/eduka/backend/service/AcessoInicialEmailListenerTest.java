@@ -43,7 +43,18 @@ class AcessoInicialEmailListenerTest {
         assertThat(email.assunto()).isEqualTo(AcessoInicialEmailListener.ASSUNTO);
         assertThat(email.texto()).contains("Login: ana@escola.com", "seu CPF", "05/10/2026 às 12:00",
                 "https://eduka.com.br/login");
-        assertThat(email.html()).contains("ana@escola.com", "href=\"https://eduka.com.br/login\"");
+        assertThat(email.html()).contains("ana@escola.com", "href=\"https://eduka.com.br/login\"",
+                "05/10/2026 às 12:00");
+    }
+
+    @Test
+    void logoApontaParaOFrontComTextoAlternativo() {
+        AcessoInicialEmailListener listener = new AcessoInicialEmailListener(emailSender, "https://eduka.com.br/");
+
+        Email email = listener.montarEmail(acesso("Ana"));
+
+        assertThat(email.html()).contains("src=\"https://eduka.com.br/email/eduka-logo-branca.png\"",
+                "alt=\"Eduka\"");
     }
 
     @Test

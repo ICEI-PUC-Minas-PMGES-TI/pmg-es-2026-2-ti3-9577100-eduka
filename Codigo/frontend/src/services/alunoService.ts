@@ -1,48 +1,29 @@
-import { ALUNO_MOCK_PADRAO, type AlunoPerfil } from '../types/aluno'
+import type { Aluno, AlunoRequest } from '../types/aluno'
 import { apiRequest } from './api'
-import { obterUsuarioLogado } from './authService'
 
-export async function obterMeuPerfil(signal?: AbortSignal): Promise<AlunoPerfil> {
-  const usuario = obterUsuarioLogado()
+// O backend já limita os alunos à escola de quem está logado. A listagem
+// (resumo) fica em matriculaService.listarAlunos.
 
-  try {
-    // Tenta buscar da API caso o endpoint de perfil exista
-    const resposta = await apiRequest<Partial<AlunoPerfil>>('/alunos/me', { signal })
-    return {
-      ...ALUNO_MOCK_PADRAO,
-      ...resposta,
-      acesso: {
-        ...ALUNO_MOCK_PADRAO.acesso,
-        login: usuario?.login || ALUNO_MOCK_PADRAO.acesso.login,
-      },
-    }
-  } catch {
-    // Fallback gracioso com dados da especificação RF25
-    if (usuario?.login) {
-      return {
-        ...ALUNO_MOCK_PADRAO,
-        acesso: {
-          ...ALUNO_MOCK_PADRAO.acesso,
-          login: usuario.login,
-        },
-      }
-    }
-    return ALUNO_MOCK_PADRAO
-  }
+export function buscarAluno(id: string, signal?: AbortSignal): Promise<Aluno> {
+  return apiRequest<Aluno>(`/alunos/${id}`, { signal })
 }
 
-export async function solicitarCorrecaoDados(mensagem: string): Promise<{ sucesso: boolean; mensagem: string }> {
-  try {
-    await apiRequest('/alunos/solicitacao-correcao', {
-      method: 'POST',
-      body: JSON.stringify({ mensagem }),
-    })
-    return { sucesso: true, mensagem: 'Solicitação enviada com sucesso para a secretaria!' }
-  } catch {
-    // Simulação bem sucedida quando backend ainda não possui a fila de solicitações
-    return {
-      sucesso: true,
-      mensagem: 'Sua mensagem foi registrada e encaminhada para a secretaria da escola.',
-    }
-  }
+/** Cria também o login do aluno. 409 se a matrícula ou o e-mail já estão em uso. */
+export function cadastrarAluno(dados: AlunoRequest): Promise<Aluno> {
+  return apiRequest<Aluno>('/alunos', { method: 'POST', body: JSON.stringify(dados) })
+}
+
+/** Substitui os dados do aluno; os responsáveis não mudam. 409 como no cadastro. */
+export function atualizarAluno(id: string, dados: AlunoRequest): Promise<Aluno> {
+  return apiRequest<Aluno>(`/alunos/${id}`, { method: 'PUT', body: JSON.stringify(dados) })
+}
+
+/** Nova senha provisória por e-mail. 409 se o aluno já definiu a senha. */
+export function reenviarAcessoAluno(id: string): Promise<void> {
+  return apiRequest<void>(`/alunos/${id}/primeiro-acesso`, { method: 'POST' })
+}
+
+/** Portal do aluno: os dados do próprio aluno logado. */
+export function buscarMeusDados(signal?: AbortSignal): Promise<Aluno> {
+  return apiRequest<Aluno>('/portal/aluno/me', { signal })
 }

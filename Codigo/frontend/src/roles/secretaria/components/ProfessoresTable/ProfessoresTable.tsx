@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react'
 import { Badge } from '../../../../components/Badge/Badge'
 import { Button } from '../../../../components/Button/Button'
-import type { Professor } from '../../../../types/professor'
+import { ROTULOS_VINCULO, type Professor } from '../../../../types/professor'
 import { iniciais } from '../../../../utils/formatters'
 import styles from './ProfessoresTable.module.css'
 
-// Disciplinas, vínculo e turmas ainda não vêm no ProfessorResponse; as colunas
-// ficam com um traço até o backend expor esses dados.
+// Disciplinas e turmas ainda não vêm no ProfessorResponse (dependem da alocação);
+// as colunas ficam com um traço até o backend expor esses dados.
 const SEM_DADO = '—'
 
 type ProfessoresTableProps = {
@@ -15,7 +15,13 @@ type ProfessoresTableProps = {
   erro: string | null
   /** Mensagem quando a lista filtrada fica vazia. */
   mensagemVazia: string
+  /** Professor com inativação/reativação em andamento. */
+  alternandoId: string | null
   onTentarNovamente: () => void
+  onVer: (professor: Professor) => void
+  onEditar: (professor: Professor) => void
+  onAlternarSituacao: (professor: Professor) => void
+  onExcluir: (professor: Professor) => void
 }
 
 /** Tabela de professores num card de vidro, com os estados de carregando, erro e vazio. */
@@ -24,7 +30,12 @@ export function ProfessoresTable({
   carregando,
   erro,
   mensagemVazia,
+  alternandoId,
   onTentarNovamente,
+  onVer,
+  onEditar,
+  onAlternarSituacao,
+  onExcluir,
 }: ProfessoresTableProps) {
   return (
     <section className={styles.card} aria-label="Professores cadastrados">
@@ -59,7 +70,7 @@ export function ProfessoresTable({
                     </div>
                   </td>
                   <td className={styles.secundario}>{SEM_DADO}</td>
-                  <td>{SEM_DADO}</td>
+                  <td>{professor.vinculo ? ROTULOS_VINCULO[professor.vinculo] : SEM_DADO}</td>
                   <td>{SEM_DADO}</td>
                   <td>
                     {professor.ativo ? (
@@ -69,9 +80,32 @@ export function ProfessoresTable({
                     )}
                   </td>
                   <td className={styles.colAcoes}>
-                    <Button size="sm" icon="edit" disabled title="Em breve">
-                      Editar
-                    </Button>
+                    <div className={styles.acoes}>
+                      <Button size="sm" icon="eye" onClick={() => onVer(professor)}>
+                        Ver
+                      </Button>
+                      <Button size="sm" icon="edit" onClick={() => onEditar(professor)}>
+                        Editar
+                      </Button>
+                      <Button
+                        size="sm"
+                        className={styles.alternar}
+                        icon={professor.ativo ? 'pause' : 'check'}
+                        disabled={alternandoId === professor.id}
+                        title={professor.ativo ? 'Afastamento temporário, como licença' : undefined}
+                        onClick={() => onAlternarSituacao(professor)}
+                      >
+                        {professor.ativo ? 'Inativar' : 'Reativar'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="dangerOutline"
+                        icon="trash"
+                        aria-label={`Excluir ${professor.nome}`}
+                        title="Excluir (saiu da escola)"
+                        onClick={() => onExcluir(professor)}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}

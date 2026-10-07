@@ -4,11 +4,15 @@ import type { PerfilUsuario } from '../services/authService'
 // vez de strings soltas, para que renomear uma rota seja uma mudança só.
 // Cada perfil tem uma rota-mãe (raiz); as telas entram como subrotas dela.
 export const paths = {
+  /** Login da escola: master, secretaria, financeiro, professor e aluno. */
   login: '/login',
+  /** Login do console da plataforma (SUPER_ADMIN). */
+  loginAdmin: '/login/admin',
   /** Só existe em dev (import.meta.env.DEV). */
   loginDev: '/login/dev',
   superAdmin: {
     raiz: '/super-admin',
+    /** Atalho antigo: redireciona para loginAdmin. */
     login: '/super-admin/login',
     escolas: '/super-admin/escolas',
     /** Use com generatePath(paths.superAdmin.editarEscola, { id }). */
@@ -19,16 +23,35 @@ export const paths = {
   },
   secretaria: {
     raiz: '/secretaria',
+    /** Dashboard: resumo de matrículas e ocupação das turmas. */
+    inicio: '/secretaria/inicio',
+    alunos: '/secretaria/alunos',
     professores: '/secretaria/professores',
+    /** Painel acadêmico: períodos letivos, cursos, disciplinas e turmas (aba em ?aba=). */
+    academico: '/secretaria/academico',
+    /** Alocação de professores nas turmas, dentro do Acadêmico. */
+    alocacoes: '/secretaria/academico/alocacoes',
+    /** Matrícula de alunos nas turmas. */
+    matriculas: '/secretaria/matriculas',
   },
   financeiro: {
     raiz: '/financeiro',
   },
   professor: {
     raiz: '/professor',
+    /** Dashboard: turmas, alunos, próximas avaliações e notas a lançar. */
+    inicio: '/professor/inicio',
+    turmas: '/professor/turmas',
+    /** Provas, trabalhos e tarefas de uma turma/disciplina (?turma=&disciplina=). */
+    avaliacoes: '/professor/avaliacoes',
+    /** Lançamento de notas de uma avaliação (?turma=&disciplina=&avaliacao=). */
+    notas: '/professor/notas',
   },
   aluno: {
     raiz: '/aluno',
+    boletim: '/aluno/boletim',
+    /** Agenda de provas, trabalhos e tarefas. */
+    avaliacoes: '/aluno/avaliacoes',
     meusDados: '/aluno/meus-dados',
   },
 } as const
@@ -41,5 +64,5 @@ export const rotaInicialPorPerfil: Record<PerfilUsuario, string> = {
   SECRETARIA: paths.secretaria.raiz,
   FINANCEIRO: paths.financeiro.raiz,
   PROFESSOR: paths.professor.raiz,
-  ALUNO: paths.aluno.meusDados,
+  ALUNO: paths.aluno.raiz,
 }

@@ -4,7 +4,7 @@ import iconeEduka from '../../assets/eduka-icone.svg'
 import { Icon, type IconName } from '../../components/Icon/Icon'
 import { rotaInicialPorPerfil } from '../../routes/paths'
 import { ApiError } from '../../services/api'
-import { autenticar, salvarSessao, type PerfilUsuario } from '../../services/authService'
+import { autenticar, type PerfilUsuario } from '../../services/authService'
 import styles from './LoginDev.module.css'
 
 // Só existe em dev: a rota /login/dev nem entra no build de produção (ver
@@ -30,33 +30,26 @@ export function LoginDev() {
     setEntrando(conta.perfil)
     setErro(null)
     try {
-      const { perfil } = await autenticar(conta.login, conta.senha)
+      const { perfil, verificacao } = await autenticar(conta.login, conta.senha)
+      if (verificacao) {
+        // O backend pediu o código por e-mail, e estas contas não têm caixa de
+        // entrada. Um clique só funciona com a verificação desligada.
+        setErro(
+          'A verificação em duas etapas está ligada. Para entrar em um clique, defina ' +
+            'LOGIN_VERIFICACAO_HABILITADA=false no .env e recrie o backend. Para testar o ' +
+            'código, entre por /login e leia o código no log do backend.',
+        )
+        setEntrando(null)
+        return
+      }
       navigate(rotaInicialPorPerfil[perfil], { replace: true })
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
         setErro(`A conta de ${conta.rotulo} não existe. Confira se o backend subiu com o perfil "dev".`)
-        setEntrando(null)
-        return
-      }
-
-      // Se a API estiver offline no ambiente de dev, simula o token localmente para permitir testar a UI
-      try {
-        const payloadBase64 = btoa(JSON.stringify({ sub: 'dev-' + conta.perfil.toLowerCase(), perfil: conta.perfil }))
-        const mockToken = `dev.${payloadBase64}.dev`
-        salvarSessao(
-          {
-            accessToken: mockToken,
-            refreshToken: mockToken,
-            usuarioId: 'dev-' + conta.perfil.toLowerCase(),
-            perfil: conta.perfil,
-          },
-          conta.login,
-        )
-        navigate(rotaInicialPorPerfil[conta.perfil], { replace: true })
-      } catch {
+      } else {
         setErro(e instanceof ApiError ? e.message : 'Erro inesperado ao entrar.')
-        setEntrando(null)
       }
+      setEntrando(null)
     }
   }
 

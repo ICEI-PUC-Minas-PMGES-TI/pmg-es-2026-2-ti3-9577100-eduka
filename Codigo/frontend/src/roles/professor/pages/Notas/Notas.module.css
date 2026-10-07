@@ -1,0 +1,70 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Escolha da avaliação: mesma pílula de vidro dos filtros. */
+.filtro {
+  min-width: 240px;
+  max-width: 100%;
+  min-height: 46px;
+  padding: 10px 16px 10px 20px;
+  border: var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 14.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  transition: border-color 0.15s;
+}
+
+.filtro:hover {
+  border-color: var(--color-mauve);
+}
+
+.gerenciar {
+  margin-left: auto;
+}
+
+.mensagem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 36px 20px 30px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.mensagem strong {
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+@media (max-width: 640px) {
+  .filtro,
+  .gerenciar {
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+  }
+}
+
+.avisoSaida {
+  color: var(--color-text-muted);
+  font-size: 15px;
+  line-height: 1.5;
+}

@@ -15,6 +15,25 @@ export function formatarCnpjCpf(valor: string): string {
   return valor
 }
 
+/** Escolhe a forma pela quantidade: plural(1, 'turma', 'turmas') -> "turma". */
+export function plural(quantidade: number, singular: string, varios: string): string {
+  return quantidade === 1 ? singular : varios
+}
+
+/** Pontos com até duas casas e vírgula: 8.5 -> "8,5", 10 -> "10". */
+export function formatarPontos(valor: number): string {
+  return valor.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
+}
+
+// O mesmo fuso que o backend usa para "hoje" (FUSO_ESCOLA).
+const DATA_DA_ESCOLA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' })
+
+/** Hoje no fuso da escola, em ISO, para comparar com as datas do backend. */
+export function hojeIso(): string {
+  // en-CA formata como "AAAA-MM-DD".
+  return DATA_DA_ESCOLA.format(new Date())
+}
+
 /** Iniciais do primeiro e do último nome: "Lucas Silva" -> "LS". */
 export function iniciais(nome: string): string {
   const partes = nome.trim().split(/\s+/)
@@ -71,4 +90,47 @@ export function cnpjValido(valor: string): boolean {
 export function mascararInteiro(valor: string, maxDigitos: number): string {
   const digitos = somenteDigitos(valor).replace(/^0+/, '').slice(0, maxDigitos)
   return digitos.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}
+
+/** Máscara de CPF: "12345678909" -> "123.456.789-09". */
+export function mascararCpf(valor: string): string {
+  return somenteDigitos(valor)
+    .slice(0, 11)
+    .replace(/^(\d{3})(\d)/, '$1.$2')
+    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1-$2')
+}
+
+/** Confere tamanho e dígitos verificadores de um CPF (com ou sem máscara). */
+export function cpfValido(valor: string): boolean {
+  const digitos = somenteDigitos(valor)
+  if (digitos.length !== 11 || /^(\d)\1+$/.test(digitos)) return false
+
+  const digitoVerificador = (quantidade: number) => {
+    let soma = 0
+    for (let i = 0; i < quantidade; i++) soma += Number(digitos[i]) * (quantidade + 1 - i)
+    const resto = soma % 11
+    return resto < 2 ? 0 : 11 - resto
+  }
+
+  return digitoVerificador(9) === Number(digitos[9]) && digitoVerificador(10) === Number(digitos[10])
+}
+
+type EnderecoFormatavel = {
+  logradouro: string | null
+  numero: string | null
+  bairro: string | null
+  cidade: string | null
+  estado: string | null
+  cep: string | null
+}
+
+/** "Rua X, 268 · Centro · Belo Horizonte/MG · CEP 30140-000", ou null se vazio. */
+export function formatarEndereco(endereco: EnderecoFormatavel | null): string | null {
+  if (!endereco) return null
+  const rua = [endereco.logradouro, endereco.numero].filter(Boolean).join(', ')
+  const cidade = [endereco.cidade, endereco.estado].filter(Boolean).join('/')
+  const cep = endereco.cep ? `CEP ${mascararCep(endereco.cep)}` : ''
+  const partes = [rua, endereco.bairro, cidade, cep].filter(Boolean)
+  return partes.length > 0 ? partes.join(' · ') : null
 }

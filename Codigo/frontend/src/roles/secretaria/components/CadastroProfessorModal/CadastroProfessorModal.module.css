@@ -1,0 +1,30 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 16px;
+}
+
+/* Colunas de um grid de 6: nome + CPF, contato em três, vínculo + admissão. */
+.span2 {
+  grid-column: span 2;
+}
+
+.span3 {
+  grid-column: span 3;
+}
+
+.span4 {
+  grid-column: span 4;
+}
+
+@media (max-width: 520px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .span2,
+  .span3,
+  .span4 {
+    grid-column: auto;
+  }
+}

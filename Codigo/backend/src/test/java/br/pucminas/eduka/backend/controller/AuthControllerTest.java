@@ -1,6 +1,9 @@
 package br.pucminas.eduka.backend.controller;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -18,8 +21,13 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.dto.LoginResponse;
+import br.pucminas.eduka.backend.dto.VerificacaoLoginResponse;
+import br.pucminas.eduka.backend.exception.CodigoVerificacaoExpiradoException;
+import br.pucminas.eduka.backend.exception.CodigoVerificacaoIncorretoException;
 import br.pucminas.eduka.backend.exception.CredenciaisInvalidasException;
+import br.pucminas.eduka.backend.exception.ReenvioCodigoIndisponivelException;
 import br.pucminas.eduka.backend.exception.SenhaProvisoriaExpiradaException;
+import br.pucminas.eduka.backend.exception.VerificacaoLoginEncerradaException;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.service.AuthService;
 
@@ -132,6 +140,103 @@ class AuthControllerTest {
                                 """))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.detail").value(new SenhaProvisoriaExpiradaException().getMessage()));
+    }
+
+    @Test
+    void loginComVerificacaoPendenteRespondeSemTokens() throws Exception {
+        UUID verificacaoId = UUID.randomUUID();
+        when(authService.login("usuario@escola.com", "senha-correta"))
+                .thenReturn(LoginResponse.verificacaoPendente(UUID.randomUUID(), PerfilUsuario.SECRETARIA,
+                        new VerificacaoLoginResponse(verificacaoId, 300, 60)));
+
+        mockMvc.perform(post("/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"login":"usuario@escola.com","senha":"senha-correta"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.verificacao.id").value(verificacaoId.toString()))
+                .andExpect(jsonPath("$.verificacao.validadeSegundos").value(300))
+                .andExpect(jsonPath("$.verificacao.reenvioSegundos").value(60))
+                .andExpect(jsonPath("$.accessToken").doesNotExist());
+    }
+
+    @Test
+    void confirmarCodigoEhPublicoEDevolveTokens() throws Exception {
+        UUID verificacaoId = UUID.randomUUID();
+        when(authService.confirmarCodigo(verificacaoId, "123456"))
+                .thenReturn(LoginResponse.autenticado("access-token", "refresh-token", UUID.randomUUID(),
+                        PerfilUsuario.SECRETARIA));
+
+        mockMvc.perform(post("/login/codigo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"verificacaoId":"%s","codigo":"123456"}
+                                """.formatted(verificacaoId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("access-token"));
+    }
+
+    @Test
+    void confirmarCodigoForaDoFormatoResponde400SemChegarAoServico() throws Exception {
+        mockMvc.perform(post("/login/codigo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"verificacaoId":"%s","codigo":"12345a"}
+                                """.formatted(UUID.randomUUID())))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(authService);
+    }
+
+    @Test
+    void cadaDesfechoDoCodigoTemSeuStatus() throws Exception {
+        String corpo = """
+                {"verificacaoId":"%s","codigo":"123456"}
+                """.formatted(UUID.randomUUID());
+
+        when(authService.confirmarCodigo(any(), anyString())).thenThrow(new CodigoVerificacaoIncorretoException());
+        mockMvc.perform(post("/login/codigo").contentType(MediaType.APPLICATION_JSON).content(corpo))
+                .andExpect(status().isUnauthorized());
+
+        reset(authService);
+        when(authService.confirmarCodigo(any(), anyString())).thenThrow(new CodigoVerificacaoExpiradoException());
+        mockMvc.perform(post("/login/codigo").contentType(MediaType.APPLICATION_JSON).content(corpo))
+                .andExpect(status().isGone());
+
+        reset(authService);
+        when(authService.confirmarCodigo(any(), anyString())).thenThrow(new VerificacaoLoginEncerradaException());
+        mockMvc.perform(post("/login/codigo").contentType(MediaType.APPLICATION_JSON).content(corpo))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void reenvioEhPublicoEDevolveOsNovosPrazos() throws Exception {
+        UUID verificacaoId = UUID.randomUUID();
+        when(authService.reenviarCodigo(verificacaoId))
+                .thenReturn(new VerificacaoLoginResponse(verificacaoId, 300, 60));
+
+        mockMvc.perform(post("/login/codigo/reenvio")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"verificacaoId":"%s"}
+                                """.formatted(verificacaoId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(verificacaoId.toString()))
+                .andExpect(jsonPath("$.validadeSegundos").value(300));
+    }
+
+    @Test
+    void reenvioCedoDemaisResponde429() throws Exception {
+        when(authService.reenviarCodigo(any()))
+                .thenThrow(new ReenvioCodigoIndisponivelException("Aguarde 30 segundos para pedir um novo codigo"));
+
+        mockMvc.perform(post("/login/codigo/reenvio")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"verificacaoId":"%s"}
+                                """.formatted(UUID.randomUUID())))
+                .andExpect(status().isTooManyRequests());
     }
 
     @Test

@@ -1,0 +1,59 @@
+/* A casca (vidro, cabeçalho, rodapé) vem do Modal; aqui só as seções de leitura. */
+.secao {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.secaoTitulo {
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+/* Cada valor numa caixinha translúcida, como no "Meus dados" do aluno. */
+.item,
+.itemLargo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.itemLargo {
+  grid-column: 1 / -1;
+}
+
+.item dt,
+.itemLargo dt {
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+}
+
+.item dd,
+.itemLargo dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,11 +1,20 @@
-import type { RouteObject } from 'react-router'
-import { AreaEmConstrucao } from '../../pages/AreaEmConstrucao/AreaEmConstrucao'
+import { Navigate, type RouteObject } from 'react-router'
 import { paths } from '../../routes/paths'
 import { RotaProtegida } from '../../routes/RotaProtegida'
+import { Avaliacoes } from './pages/Avaliacoes/Avaliacoes'
+import { Inicio } from './pages/Inicio/Inicio'
+import { MinhasTurmas } from './pages/MinhasTurmas/MinhasTurmas'
+import { Notas } from './pages/Notas/Notas'
 
 // Rota-mãe do perfil PROFESSOR. As telas entram como children do RotaProtegida.
 export const professorRoutes: RouteObject = {
   path: paths.professor.raiz,
   element: <RotaProtegida perfis={['PROFESSOR']} />,
-  children: [{ index: true, element: <AreaEmConstrucao area="Portal do professor" /> }],
+  children: [
+    { index: true, element: <Navigate to={paths.professor.inicio} replace /> },
+    { path: paths.professor.inicio, element: <Inicio /> },
+    { path: paths.professor.turmas, element: <MinhasTurmas /> },
+    { path: paths.professor.avaliacoes, element: <Avaliacoes /> },
+    { path: paths.professor.notas, element: <Notas /> },
+  ],
 }

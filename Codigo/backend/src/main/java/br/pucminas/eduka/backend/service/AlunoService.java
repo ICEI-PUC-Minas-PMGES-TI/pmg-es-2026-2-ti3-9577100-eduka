@@ -1,6 +1,7 @@
 // Codigo/backend/src/main/java/br/pucminas/eduka/backend/service/AlunoService.java
 package br.pucminas.eduka.backend.service;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -15,19 +16,23 @@ import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.AlunoResponsavel;
 import br.pucminas.eduka.backend.domain.AlunoResponsavelId;
 import br.pucminas.eduka.backend.domain.PapelPessoa;
+import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.PessoaPapel;
+import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.AlunoRequest;
 import br.pucminas.eduka.backend.dto.AlunoResponse;
 import br.pucminas.eduka.backend.dto.EnderecoRequest;
 import br.pucminas.eduka.backend.dto.ResponsavelRequest;
 import br.pucminas.eduka.backend.dto.ResponsavelResponse;
+import br.pucminas.eduka.backend.exception.NumeroMatriculaJaCadastradoException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
+import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 
 /**
  * Regras de aluno com isolamento por escola (RF05, RNF03).
@@ -44,6 +49,11 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
  * primeiro por {@code escola_id} (indice existente) e so decifra em memoria
  * depois - nunca {@code LIKE} sobre coluna cifrada.
  * </p>
+ *
+ * <p>
+ * O login do aluno e criado junto com o cadastro, via {@link AcessoService}:
+ * login = e-mail, senha provisoria = CPF, enviada por e-mail.
+ * </p>
  */
 @Service
 public class AlunoService {
@@ -53,15 +63,17 @@ public class AlunoService {
     private final PessoaPapelRepository pessoaPapelRepository;
     private final AlunoResponsavelRepository alunoResponsavelRepository;
     private final IsolamentoEscola isolamentoEscola;
+    private final AcessoService acessoService;
 
     public AlunoService(AlunoRepository alunoRepository, PessoaRepository pessoaRepository,
             PessoaPapelRepository pessoaPapelRepository, AlunoResponsavelRepository alunoResponsavelRepository,
-            IsolamentoEscola isolamentoEscola) {
+            IsolamentoEscola isolamentoEscola, AcessoService acessoService) {
         this.alunoRepository = alunoRepository;
         this.pessoaRepository = pessoaRepository;
         this.pessoaPapelRepository = pessoaPapelRepository;
         this.alunoResponsavelRepository = alunoResponsavelRepository;
         this.isolamentoEscola = isolamentoEscola;
+        this.acessoService = acessoService;
     }
 
     public List<AlunoResponse> listar(String nome) {
@@ -88,24 +100,48 @@ public class AlunoService {
     }
 
     /**
+     * Dados do aluno dono do login (portal do aluno). O aluno nunca e
+     * parametro: sai do token, assim como a escola. Nao ha como pedir os
+     * dados de outro aluno por aqui.
+     *
+     * @throws RecursoNaoEncontradoException se o login nao e de um aluno
+     *         cadastrado na escola
+     */
+    public AlunoResponse buscarMeusDados() {
+        UsuarioAutenticado usuario = isolamentoEscola.usuarioAtual();
+        UUID escolaId = usuario.escolaId();
+        Aluno aluno = alunoRepository.findByUsuarioIdAndEscolaId(usuario.id(), escolaId)
+                .orElseThrow(AlunoService::naoEncontrado);
+        Pessoa pessoa = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
+                .orElseThrow(AlunoService::naoEncontrado);
+        return AlunoResponse.de(aluno, pessoa, responsaveisDe(aluno.getId(), escolaId));
+    }
+
+    /**
      * Cadastra o aluno (e, se informados, seus responsaveis) na escola do
-     * usuario autenticado. O request nao carrega escola: mesmo que
-     * carregasse, seria ignorado.
+     * usuario autenticado e cria o login dele. O request nao carrega escola:
+     * mesmo que carregasse, seria ignorado. E-mail ja usado como login barra
+     * o cadastro inteiro (409).
      */
     @Transactional
     public AlunoResponse cadastrar(AlunoRequest request) {
         validar(request);
         UUID escolaId = isolamentoEscola.escolaIdAtual();
+        if (alunoRepository.existsByEscolaIdAndMatricula(escolaId, request.matricula().trim())) {
+            throw new NumeroMatriculaJaCadastradoException();
+        }
 
         Pessoa pessoaAluno = criarPessoa(escolaId, request.nome(), request.cpf(), request.dataNascimento(),
-                null, null, request.endereco());
+                request.email() == null ? null : request.email().trim(), null, request.endereco());
         pessoaPapelRepository
                 .save(PessoaPapel.builder().pessoaId(pessoaAluno.getId()).papel(PapelPessoa.ALUNO).build());
+        Usuario usuario = acessoService.enviarAcessoInicial(pessoaAluno, PerfilUsuario.ALUNO);
 
         Aluno aluno = alunoRepository.save(Aluno.builder()
                 .escolaId(escolaId)
                 .pessoaId(pessoaAluno.getId())
-                .matricula(request.matricula())
+                .usuarioId(usuario.getId())
+                .matricula(request.matricula().trim())
                 .genero(request.genero())
                 .build());
 
@@ -126,6 +162,62 @@ public class AlunoService {
             }
         }
         return AlunoResponse.de(aluno, pessoaAluno, responsaveis);
+    }
+
+    /**
+     * Edita os dados do aluno: substitui o registro inteiro (campo opcional
+     * nulo apaga o valor anterior). Os responsaveis nao mudam por aqui: o que
+     * vier em {@code responsaveis} e ignorado. Trocar o e-mail troca o login.
+     */
+    @Transactional
+    public AlunoResponse atualizar(UUID id, AlunoRequest request) {
+        validar(request);
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        Aluno aluno = alunoRepository.findByIdAndEscolaId(id, escolaId).orElseThrow(AlunoService::naoEncontrado);
+        Pessoa pessoa = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
+                .orElseThrow(AlunoService::naoEncontrado);
+        String matricula = request.matricula().trim();
+        if (alunoRepository.existsByEscolaIdAndMatriculaAndIdNot(escolaId, matricula, aluno.getId())) {
+            throw new NumeroMatriculaJaCadastradoException();
+        }
+
+        EnderecoRequest endereco = request.endereco();
+        pessoa.setNome(request.nome().trim());
+        pessoa.setCpf(request.cpf());
+        pessoa.setEmail(request.email().trim());
+        pessoa.setDataNascimento(request.dataNascimento() == null ? null : request.dataNascimento().toString());
+        pessoa.setLogradouro(endereco == null ? null : endereco.logradouro());
+        pessoa.setNumero(endereco == null ? null : endereco.numero());
+        pessoa.setBairro(endereco == null ? null : endereco.bairro());
+        pessoa.setCidade(endereco == null ? null : endereco.cidade());
+        pessoa.setEstado(endereco == null ? null : endereco.estado());
+        pessoa.setCep(endereco == null ? null : endereco.cep());
+        aluno.setMatricula(matricula);
+        aluno.setGenero(request.genero());
+        aluno.setAtualizadoEm(Instant.now());
+
+        acessoService.sincronizarLogin(pessoa);
+        Pessoa pessoaSalva = pessoaRepository.save(pessoa);
+        return AlunoResponse.de(alunoRepository.save(aluno), pessoaSalva, responsaveisDe(aluno.getId(), escolaId));
+    }
+
+    /**
+     * Novo e-mail de primeiro acesso, com senha provisoria renovada: para
+     * quem perdeu o e-mail ou deixou a senha expirar. Recusado (409) se o
+     * aluno ja definiu a senha. Aluno anterior ao login automatico ganha o
+     * acesso aqui, desde que tenha e-mail e CPF.
+     */
+    @Transactional
+    public void reenviarAcesso(UUID id) {
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        Aluno aluno = alunoRepository.findByIdAndEscolaId(id, escolaId).orElseThrow(AlunoService::naoEncontrado);
+        Pessoa pessoa = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
+                .orElseThrow(AlunoService::naoEncontrado);
+        Usuario usuario = acessoService.enviarAcessoInicial(pessoa, PerfilUsuario.ALUNO);
+        if (!usuario.getId().equals(aluno.getUsuarioId())) {
+            aluno.setUsuarioId(usuario.getId());
+            alunoRepository.save(aluno);
+        }
     }
 
     private Pessoa criarPessoa(UUID escolaId, String nome, String cpf, java.time.LocalDate dataNascimento,

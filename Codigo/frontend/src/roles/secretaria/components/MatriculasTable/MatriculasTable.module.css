@@ -1,0 +1,23 @@
+.nome {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.numero {
+  display: block;
+  color: var(--color-text-subtle);
+  font-size: 12.5px;
+}
+
+.observacao {
+  max-width: 260px;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.acoes {
+  text-align: right;
+  white-space: nowrap;
+}
