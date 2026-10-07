@@ -15,6 +15,11 @@ export function formatarCnpjCpf(valor: string): string {
   return valor
 }
 
+/** Escolhe a forma pela quantidade: plural(1, 'turma', 'turmas') -> "turma". */
+export function plural(quantidade: number, singular: string, varios: string): string {
+  return quantidade === 1 ? singular : varios
+}
+
 /** Iniciais do primeiro e do último nome: "Lucas Silva" -> "LS". */
 export function iniciais(nome: string): string {
   const partes = nome.trim().split(/\s+/)

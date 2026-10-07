@@ -1,0 +1,19 @@
+.shell {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 40px 28px 56px;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 26px;
+  animation: var(--animacao-entrar);
+}
+
+@media (max-width: 720px) {
+  .shell {
+    padding: 24px 16px 40px;
+  }
+}

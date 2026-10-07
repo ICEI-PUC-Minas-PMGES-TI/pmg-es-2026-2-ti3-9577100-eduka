@@ -5,6 +5,7 @@ import type {
   LancamentoNota,
   NotaDoAluno,
 } from '../types/avaliacaoProfessor'
+import type { DashboardProfessor } from '../types/dashboard'
 import type { TurmaDoProfessor } from '../types/turmaProfessor'
 import { apiRequest } from './api'
 
@@ -13,6 +14,11 @@ const AVALIACOES = '/portal/professor/avaliacoes'
 // Professor e escola saem do token: não há como pedir as turmas de outro professor.
 export function listarMinhasTurmas(signal?: AbortSignal): Promise<TurmaDoProfessor[]> {
   return apiRequest<TurmaDoProfessor[]>('/portal/professor/turmas', { signal })
+}
+
+/** Turmas, alunos, próximas avaliações e notas pendentes. 404 se o login não é de um professor. */
+export function obterDashboardProfessor(signal?: AbortSignal): Promise<DashboardProfessor> {
+  return apiRequest<DashboardProfessor>('/portal/professor/dashboard', { signal })
 }
 
 /** Avaliações de uma disciplina na turma, por data. 404 se o professor não está alocado nela. */

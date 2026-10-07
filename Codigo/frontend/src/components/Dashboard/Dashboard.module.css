@@ -1,0 +1,155 @@
+.indicadores {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.colunas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 18px;
+}
+
+/* Mesmo vidro do StatCard, para o dashboard ler como um conjunto só. */
+.painel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 24px 26px;
+  border: var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.titulo {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: -0.2px;
+}
+
+.descricao {
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: 13.5px;
+}
+
+.medidor {
+  flex: 1;
+  min-width: 0;
+  height: 10px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-mist);
+}
+
+.preenchimento {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  transition: width 0.3s var(--curva);
+}
+
+.preenchimentoAlerta {
+  background: var(--color-danger);
+}
+
+.linhas {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.linha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.linha:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.linha:last-child {
+  padding-bottom: 0;
+}
+
+.linha dt {
+  color: var(--color-text-muted);
+  font-size: 14.5px;
+}
+
+.linha dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 800;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.vazio {
+  color: var(--color-text-muted);
+  font-size: 14.5px;
+}
+
+/* Estados de carregando e erro, igual ao das demais telas. */
+.mensagem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 36px 20px 30px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+@media (max-width: 960px) {
+  .indicadores {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .colunas {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .indicadores,
+  .colunas {
+    gap: 12px;
+  }
+
+  .painel {
+    padding: 20px 22px;
+  }
+}
+
+@media (max-width: 520px) {
+  .indicadores {
+    grid-template-columns: 1fr;
+  }
+}
