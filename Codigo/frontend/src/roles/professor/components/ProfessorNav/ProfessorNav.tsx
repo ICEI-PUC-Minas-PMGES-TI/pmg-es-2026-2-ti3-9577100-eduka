@@ -5,7 +5,7 @@ import styles from './ProfessorNav.module.css'
 
 // Itens sem `to` ainda não têm página e aparecem desabilitados.
 const itens: { label: string; icon: IconName; to?: string }[] = [
-  { label: 'Início', icon: 'home' },
+  { label: 'Início', icon: 'home', to: paths.professor.inicio },
   { label: 'Minhas turmas', icon: 'users', to: paths.professor.turmas },
   { label: 'Avaliações', icon: 'calendar', to: paths.professor.avaliacoes },
   { label: 'Notas', icon: 'check', to: paths.professor.notas },

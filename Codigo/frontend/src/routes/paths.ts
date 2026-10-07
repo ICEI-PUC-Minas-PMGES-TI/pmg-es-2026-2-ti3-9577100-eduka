@@ -23,6 +23,8 @@ export const paths = {
   },
   secretaria: {
     raiz: '/secretaria',
+    /** Dashboard: resumo de matrículas e ocupação das turmas. */
+    inicio: '/secretaria/inicio',
     alunos: '/secretaria/alunos',
     professores: '/secretaria/professores',
     /** Painel acadêmico: períodos letivos, cursos, disciplinas e turmas (aba em ?aba=). */
@@ -37,6 +39,8 @@ export const paths = {
   },
   professor: {
     raiz: '/professor',
+    /** Dashboard: turmas, alunos, próximas avaliações e notas a lançar. */
+    inicio: '/professor/inicio',
     turmas: '/professor/turmas',
     /** Provas, trabalhos e tarefas de uma turma/disciplina (?turma=&disciplina=). */
     avaliacoes: '/professor/avaliacoes',

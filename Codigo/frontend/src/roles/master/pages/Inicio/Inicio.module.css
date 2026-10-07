@@ -1,0 +1,38 @@
+.ocupacao {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.percentual {
+  flex-shrink: 0;
+  color: var(--color-primary-text);
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.8px;
+}
+
+.barra {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: 13.5px;
+}
+
+/* Na coluna o flex: 1 do medidor esticaria a altura dele. */
+.barra > [role='meter'] {
+  flex: none;
+}
+
+@media (max-width: 520px) {
+  .ocupacao {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+}
