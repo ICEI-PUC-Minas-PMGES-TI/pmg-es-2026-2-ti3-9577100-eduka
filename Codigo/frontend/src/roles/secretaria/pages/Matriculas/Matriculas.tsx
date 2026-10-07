@@ -9,6 +9,7 @@ import {
   type Matricula,
   type StatusMatricula,
 } from '../../../../types/matricula'
+import { plural } from '../../../../utils/formatters'
 import { AlterarMatriculaModal } from '../../components/AlterarMatriculaModal/AlterarMatriculaModal'
 import { DetalhesMatriculaModal } from '../../components/DetalhesMatriculaModal/DetalhesMatriculaModal'
 import {
@@ -31,10 +32,6 @@ const FILTROS: { valor: StatusMatricula | ''; rotulo: string }[] = [
 
 function porNomeDoAluno(a: Matricula, b: Matricula): number {
   return (a.alunoNome ?? '').localeCompare(b.alunoNome ?? '', 'pt-BR')
-}
-
-function plural(n: number, singular: string, pluralizado: string): string {
-  return `${n} ${n === 1 ? singular : pluralizado}`
 }
 
 export function Matriculas() {
@@ -77,7 +74,7 @@ export function Matriculas() {
     setMatriculando(false)
     setSucesso(
       matriculados.length > 0
-        ? `${plural(matriculados.length, 'aluno matriculado', 'alunos matriculados')} na turma ${turma?.nome}.`
+        ? `${matriculados.length} ${plural(matriculados.length, 'aluno matriculado', 'alunos matriculados')} na turma ${turma?.nome}.`
         : null,
     )
     setErroAcao(
