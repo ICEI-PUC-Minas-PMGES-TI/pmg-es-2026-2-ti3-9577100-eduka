@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Button } from '../Button/Button'
+import { Icon, type IconName } from '../Icon/Icon'
 import styles from './Dashboard.module.css'
 
 // Peças comuns das telas de "Início" (dashboard) de cada perfil.
@@ -62,6 +63,71 @@ export function Medidor({ valor, maximo, rotulo, alerta = false }: MedidorProps)
         style={{ width: `${percentual}%` }}
       />
     </div>
+  )
+}
+
+export type Atalho = {
+  rotulo: string
+  icon: IconName
+  /** Sem ação, o atalho ainda não tem tela e aparece desabilitado ("Em breve"). */
+  onClick?: () => void
+}
+
+type AtalhosProps = {
+  titulo: string
+  itens: Atalho[]
+  /** Botões lado a lado, para quando o card ocupa a linha inteira. */
+  horizontal?: boolean
+}
+
+/** Card lavanda com os atalhos do dia, um botão por linha (o primeiro em destaque). */
+export function Atalhos({ titulo, itens, horizontal = false }: AtalhosProps) {
+  return (
+    <section className={`${styles.atalhos} ${horizontal ? styles.atalhosHorizontal : ''}`} aria-label={titulo}>
+      <h2 className={styles.atalhosTitulo}>{titulo}</h2>
+      <div className={styles.atalhosLista}>
+        {itens.map((item, indice) => (
+          <button
+            key={item.rotulo}
+            type="button"
+            className={`${styles.atalho} ${indice === 0 ? styles.atalhoDestaque : ''}`}
+            disabled={!item.onClick}
+            title={item.onClick ? undefined : 'Em breve'}
+            onClick={item.onClick}
+          >
+            <Icon name={item.icon} size={16} />
+            <span>{item.rotulo}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+export type Barra = {
+  rotulo: string
+  valor: number
+  /** Texto acima da barra; o padrão é o próprio valor. */
+  legenda?: string
+}
+
+/** Gráfico de barras verticais simples, com a maior barra ocupando a altura toda. */
+export function GraficoBarras({ itens, rotulo }: { itens: Barra[]; rotulo: string }) {
+  const maximo = Math.max(1, ...itens.map((item) => item.valor))
+  return (
+    <ul className={styles.grafico} aria-label={rotulo}>
+      {itens.map((item) => (
+        <li key={item.rotulo} className={styles.colunaGrafico}>
+          <span className={styles.legendaBarra}>{item.legenda ?? item.valor}</span>
+          <div className={styles.trilho}>
+            <div className={styles.barra} style={{ height: `${(item.valor / maximo) * 100}%` }} />
+          </div>
+          <span className={styles.rotuloBarra} title={item.rotulo}>
+            {item.rotulo}
+          </span>
+        </li>
+      ))}
+    </ul>
   )
 }
 

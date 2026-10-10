@@ -1,0 +1,157 @@
+/* Card de vidro do passo "Matricule os alunos", como no protótipo. */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 24px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 16px;
+}
+
+.titulo {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: -0.2px;
+}
+
+.vagas {
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.busca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--color-text-muted);
+}
+
+.busca:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px rgba(212, 187, 252, 0.5);
+}
+
+.busca input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 14.5px;
+}
+
+/* A lista rola sozinha: escolas grandes têm centenas de alunos. */
+.lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 420px;
+  margin: 0;
+  padding: 2px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.linha {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.82);
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+}
+
+.marcada {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.avatar {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg-tint);
+  color: var(--color-primary-text);
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 900;
+}
+
+.aluno {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.nome {
+  font-family: var(--font-display);
+  font-size: 14.5px;
+  font-weight: 800;
+}
+
+.detalhe {
+  overflow: hidden;
+  color: var(--color-text-subtle);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vazio {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.rodape {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.contagem {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+@media (max-width: 520px) {
+  .rodape > button {
+    width: 100%;
+  }
+}

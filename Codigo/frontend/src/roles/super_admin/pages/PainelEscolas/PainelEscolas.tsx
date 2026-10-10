@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { generatePath, useLocation, useNavigate } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
+import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/ConfirmarExclusao'
 import { paths } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
 import type { Escola } from '../../../../types/escola'
@@ -23,6 +24,7 @@ export function PainelEscolas() {
   const [erroAcao, setErroAcao] = useState<string | null>(null)
   const [cadastroAberto, setCadastroAberto] = useState(false)
   const [vendo, setVendo] = useState<Escola | null>(null)
+  const [suspendendo, setSuspendendo] = useState<Escola | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(estadoRecebido?.sucesso ?? null)
 
   // Descarta o estado já lido, para a mensagem não voltar ao recarregar a página.
@@ -30,10 +32,17 @@ export function PainelEscolas() {
     if (location.state) navigate(location.pathname, { replace: true, state: null })
   }, [location.state, location.pathname, navigate])
 
-  async function handleAlternarSituacao(escola: Escola) {
-    setAlternandoId(escola.id)
+  // Suspender corta o acesso da escola inteira: pede confirmação antes.
+  // Reativar não tem risco e vai direto.
+  function handleAlternarSituacao(escola: Escola) {
     setErroAcao(null)
     setSucesso(null)
+    if (escola.ativo) setSuspendendo(escola)
+    else void alternar(escola)
+  }
+
+  async function alternar(escola: Escola) {
+    setAlternandoId(escola.id)
     try {
       await alternarSituacao(escola)
     } catch (e) {
@@ -96,6 +105,26 @@ export function PainelEscolas() {
       />
 
       {vendo && <DetalhesEscolaModal escola={vendo} onFechar={() => setVendo(null)} />}
+
+      {suspendendo && (
+        <ConfirmarExclusao
+          titulo="Suspender escola"
+          nome={suspendendo.nome}
+          rotuloConfirmar="Suspender"
+          iconeConfirmar="pause"
+          onFechar={() => setSuspendendo(null)}
+          onConfirmar={async () => {
+            await alternarSituacao(suspendendo)
+            setSuspendendo(null)
+            setSucesso(`"${suspendendo.nome}" foi suspensa.`)
+          }}
+        >
+          <p>
+            Suspender <strong>{suspendendo.nome}</strong>? A assinatura fica suspensa até a escola ser
+            reativada.
+          </p>
+        </ConfirmarExclusao>
+      )}
 
       {cadastroAberto && (
         <CadastroEscolaModal

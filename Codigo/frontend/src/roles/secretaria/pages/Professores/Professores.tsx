@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
+import type { EstadoAbrirCadastro } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
 import type { Professor } from '../../../../types/professor'
 import { CadastroProfessorModal } from '../../components/CadastroProfessorModal/CadastroProfessorModal'
@@ -20,16 +22,26 @@ function correspondeBusca(professor: Professor, busca: string): boolean {
 }
 
 export function Professores() {
+  const navigate = useNavigate()
+  const location = useLocation()
   const { professores, carregando, erro, recarregar, cadastrar, atualizar, alternarSituacao, excluir } =
     useProfessores()
   const [busca, setBusca] = useState('')
-  const [cadastroAberto, setCadastroAberto] = useState(false)
+  // O atalho "Cadastrar um professor" do Início chega com o modal já aberto.
+  const [cadastroAberto, setCadastroAberto] = useState(
+    (location.state as EstadoAbrirCadastro | null)?.abrirCadastro === true,
+  )
   const [editando, setEditando] = useState<Professor | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
   const [alternandoId, setAlternandoId] = useState<string | null>(null)
   const [excluindo, setExcluindo] = useState<Professor | null>(null)
   const [vendo, setVendo] = useState<Professor | null>(null)
+
+  // Descarta o estado já lido, para o modal não reabrir ao recarregar a página.
+  useEffect(() => {
+    if (location.state) navigate(location.pathname, { replace: true, state: null })
+  }, [location.state, location.pathname, navigate])
 
   const visiveis = professores.filter((p) => correspondeBusca(p, busca))
   const ativos = professores.filter((p) => p.ativo).length

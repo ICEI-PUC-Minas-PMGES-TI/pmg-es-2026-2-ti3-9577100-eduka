@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
-import { Colunas, EstadoDashboard, Painel, PainelVazio } from '../../../../components/Dashboard/Dashboard'
+import { Atalhos, Colunas, EstadoDashboard, Painel, PainelVazio } from '../../../../components/Dashboard/Dashboard'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
-import { paths } from '../../../../routes/paths'
+import { paths, type EstadoAbrirCadastro } from '../../../../routes/paths'
 import { obterDashboardProfessor } from '../../../../services/portalProfessorService'
 import type { AvaliacaoResumo, DashboardProfessor } from '../../../../types/dashboard'
 import { ROTULOS_TIPO_AVALIACAO } from '../../../../types/portalAluno'
@@ -41,7 +41,7 @@ function Resumo({ dados }: { dados: DashboardProfessor }) {
       turma: String(avaliacao.turmaId),
       disciplina: String(avaliacao.disciplinaId),
     })
-    navigate(`${paths.professor.avaliacoes}?${params}`)
+    navigate(`${paths.professor.notas}?${params}`)
   }
 
   function lancarNotas(avaliacao: AvaliacaoResumo) {
@@ -82,6 +82,23 @@ function Resumo({ dados }: { dados: DashboardProfessor }) {
             Assim que a secretaria alocar você em uma turma, o resumo dela aparece aqui.
           </PainelVazio>
         </Painel>
+      )}
+
+      {dados.turmas > 0 && (
+        <Atalhos
+          titulo="Atalhos do dia"
+          horizontal
+          itens={[
+            { rotulo: 'Lançar notas', icon: 'check', onClick: () => navigate(paths.professor.notas) },
+            {
+              rotulo: 'Criar uma avaliação',
+              icon: 'plus',
+              onClick: () =>
+                navigate(paths.professor.notas, { state: { abrirCadastro: true } satisfies EstadoAbrirCadastro }),
+            },
+            { rotulo: 'Ver minhas turmas', icon: 'users', onClick: () => navigate(paths.professor.turmas) },
+          ]}
+        />
       )}
 
       {dados.turmas > 0 && (

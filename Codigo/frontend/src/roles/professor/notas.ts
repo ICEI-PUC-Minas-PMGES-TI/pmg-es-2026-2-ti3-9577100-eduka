@@ -22,6 +22,17 @@ export function pontosParaCampo(valor: number | null): string {
 }
 
 /**
+ * Média de aprovação: 60% do que foi avaliado (6,0 numa escala de 10). As
+ * avaliações valem pontos, então a regra é a proporção, não a nota absoluta.
+ */
+export const PERCENTUAL_APROVACAO = 0.6
+
+/** A nota alcançou a média de aprovação do valor da avaliação? */
+export function atingiuMedia(nota: number, valor: number): boolean {
+  return valor > 0 && nota >= valor * PERCENTUAL_APROVACAO
+}
+
+/**
  * Texto de tela para o erro do backend nas avaliações e notas. O motivo vem
  * no `detail`, sem acento.
  */

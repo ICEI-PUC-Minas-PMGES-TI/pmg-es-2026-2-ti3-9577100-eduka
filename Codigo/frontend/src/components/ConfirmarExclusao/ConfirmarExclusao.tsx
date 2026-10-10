@@ -21,6 +21,8 @@ type ConfirmarExclusaoProps = {
   children?: ReactNode
   /** Rótulo do botão vermelho; o padrão é "Excluir". */
   rotuloConfirmar?: string
+  /** Ícone do botão vermelho; o padrão é a lixeira. */
+  iconeConfirmar?: IconName
   /** Caminho menos drástico oferecido no mesmo diálogo (ex.: inativar). */
   alternativa?: AcaoAlternativa
   onFechar: () => void
@@ -43,6 +45,7 @@ export function ConfirmarExclusao({
   nome,
   children,
   rotuloConfirmar = 'Excluir',
+  iconeConfirmar = 'trash',
   alternativa,
   onFechar,
   onConfirmar,
@@ -79,7 +82,7 @@ export function ConfirmarExclusao({
               {alternativa.rotulo}
             </Button>
           )}
-          <Button variant="danger" icon="trash" disabled={enviando} onClick={() => executar(onConfirmar)}>
+          <Button variant="danger" icon={iconeConfirmar} disabled={enviando} onClick={() => executar(onConfirmar)}>
             {enviando ? 'Aguarde…' : rotuloConfirmar}
           </Button>
         </>

@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router'
 import iconeEduka from '../../assets/eduka-icone.svg'
 import { paths } from '../../routes/paths'
 import { limparSessao } from '../../services/authService'
+import { iniciais } from '../../utils/formatters'
 import { Button } from '../Button/Button'
 import { Icon, type IconName } from '../Icon/Icon'
 import { Modal } from '../Modal/Modal'
@@ -32,6 +33,8 @@ type PainelLayoutProps = {
   ajuda?: ReactNode
   /** Para onde o "Sair" leva; o padrão é o login da escola. */
   rotaSaida?: string
+  /** Quem está logado, em um card antes de "Ajuda" (ex.: o login e o perfil). */
+  usuario?: { nome: string; papel: string }
   children: ReactNode
 }
 
@@ -49,6 +52,7 @@ export function PainelLayout({
   menuRotulo,
   ajuda,
   rotaSaida = paths.login,
+  usuario,
   children,
 }: PainelLayoutProps) {
   const navigate = useNavigate()
@@ -79,6 +83,17 @@ export function PainelLayout({
 
         <div className={styles.acoes}>
           {acao}
+          {usuario && (
+            <div className={styles.usuario}>
+              <span className={styles.avatar} aria-hidden="true">
+                {iniciais(usuario.nome)}
+              </span>
+              <span className={styles.usuarioTexto}>
+                <strong>{usuario.nome}</strong>
+                <span>{usuario.papel}</span>
+              </span>
+            </div>
+          )}
           <button
             type="button"
             className={styles.pilula}
