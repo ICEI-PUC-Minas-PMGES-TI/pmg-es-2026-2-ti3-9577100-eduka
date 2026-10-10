@@ -1,7 +1,6 @@
-import { Navigate, type RouteObject } from 'react-router'
+import { Navigate, redirect, type RouteObject } from 'react-router'
 import { paths } from '../../routes/paths'
 import { RotaProtegida } from '../../routes/RotaProtegida'
-import { Avaliacoes } from './pages/Avaliacoes/Avaliacoes'
 import { Inicio } from './pages/Inicio/Inicio'
 import { MinhasTurmas } from './pages/MinhasTurmas/MinhasTurmas'
 import { Notas } from './pages/Notas/Notas'
@@ -14,7 +13,11 @@ export const professorRoutes: RouteObject = {
     { index: true, element: <Navigate to={paths.professor.inicio} replace /> },
     { path: paths.professor.inicio, element: <Inicio /> },
     { path: paths.professor.turmas, element: <MinhasTurmas /> },
-    { path: paths.professor.avaliacoes, element: <Avaliacoes /> },
+    // Avaliações e notas viraram uma tela só: o endereço antigo cai nela, com os mesmos parâmetros.
+    {
+      path: paths.professor.avaliacoes,
+      loader: ({ request }) => redirect(`${paths.professor.notas}${new URL(request.url).search}`),
+    },
     { path: paths.professor.notas, element: <Notas /> },
   ],
 }

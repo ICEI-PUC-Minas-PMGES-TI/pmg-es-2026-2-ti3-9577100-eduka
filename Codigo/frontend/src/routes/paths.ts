@@ -42,19 +42,25 @@ export const paths = {
     /** Dashboard: turmas, alunos, próximas avaliações e notas a lançar. */
     inicio: '/professor/inicio',
     turmas: '/professor/turmas',
-    /** Provas, trabalhos e tarefas de uma turma/disciplina (?turma=&disciplina=). */
+    /** Endereço antigo: redireciona para `notas`, que juntou as duas telas. */
     avaliacoes: '/professor/avaliacoes',
-    /** Lançamento de notas de uma avaliação (?turma=&disciplina=&avaliacao=). */
+    /** Avaliações e notas de uma turma/disciplina (?turma=&disciplina=&avaliacao=). */
     notas: '/professor/notas',
   },
   aluno: {
     raiz: '/aluno',
     boletim: '/aluno/boletim',
-    /** Agenda de provas, trabalhos e tarefas. */
+    /** Endereço antigo: redireciona para a aba "Tarefas e provas" do boletim. */
     avaliacoes: '/aluno/avaliacoes',
     meusDados: '/aluno/meus-dados',
   },
 } as const
+
+/**
+ * Estado de navegação dos atalhos dos dashboards: a tela de destino (Alunos,
+ * Professores) já abre com o modal de cadastro aberto.
+ */
+export type EstadoAbrirCadastro = { abrirCadastro: true }
 
 // Para onde cada perfil vai depois do login, ou quando tenta abrir a área de
 // outro perfil.

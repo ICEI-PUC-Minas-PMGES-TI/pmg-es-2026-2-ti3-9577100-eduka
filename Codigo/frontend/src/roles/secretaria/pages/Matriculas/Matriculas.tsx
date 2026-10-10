@@ -13,10 +13,7 @@ import {
 import { plural } from '../../../../utils/formatters'
 import { AlterarMatriculaModal } from '../../components/AlterarMatriculaModal/AlterarMatriculaModal'
 import { DetalhesMatriculaModal } from '../../components/DetalhesMatriculaModal/DetalhesMatriculaModal'
-import {
-  MatricularAlunosModal,
-  type ResultadoMatriculas,
-} from '../../components/MatricularAlunosModal/MatricularAlunosModal'
+import { MatricularAlunos, type ResultadoMatriculas } from '../../components/MatricularAlunos/MatricularAlunos'
 import { MatriculasTable } from '../../components/MatriculasTable/MatriculasTable'
 import { TurmasMatricula } from '../../components/TurmasMatricula/TurmasMatricula'
 import { useMatriculas } from '../../hooks/useMatriculas'
@@ -40,7 +37,6 @@ export function Matriculas() {
   const { turmas, alunos, matriculas, carregando, erro, recarregar, matricular, atualizar } = useMatriculas()
   const [turmaId, setTurmaId] = useState<number | null>(null)
   const [filtro, setFiltro] = useState<StatusMatricula | ''>('')
-  const [matriculando, setMatriculando] = useState(false)
   const [alterando, setAlterando] = useState<Matricula | null>(null)
   const [vendo, setVendo] = useState<Matricula | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(null)
@@ -67,7 +63,6 @@ export function Matriculas() {
   const visiveis = filtro ? daTurma.filter((m) => m.status === filtro) : daTurma
   const ativas = turma ? (ativasPorTurma.get(turma.id) ?? 0) : 0
   const vagasLivres = turma ? Math.max(turma.vagas - ativas, 0) : 0
-  const podeMatricular = Boolean(turma?.ativa) && vagasLivres > 0
 
   function limparAvisos() {
     setSucesso(null)
@@ -81,7 +76,6 @@ export function Matriculas() {
   }
 
   function handleMatriculados({ matriculados, falhas }: ResultadoMatriculas) {
-    setMatriculando(false)
     setSucesso(
       matriculados.length > 0
         ? `${matriculados.length} ${plural(matriculados.length, 'aluno matriculado', 'alunos matriculados')} na turma ${turma?.nome}.`
@@ -101,7 +95,7 @@ export function Matriculas() {
   }
 
   return (
-    <SecretariaLayout titulo="Matrículas" subtitulo="Escolha a turma e matricule os alunos.">
+    <SecretariaLayout titulo="Matrículas" subtitulo="Coloque os alunos nas turmas do período letivo.">
       {carregando && <p className={styles.estado}>Carregando turmas, alunos e matrículas…</p>}
 
       {!carregando && erro && (
@@ -168,20 +162,6 @@ export function Matriculas() {
                   <dd className={vagasLivres === 0 ? styles.esgotado : undefined}>{vagasLivres}</dd>
                 </div>
               </dl>
-              <Button
-                variant="primary"
-                icon="plus"
-                disabled={!podeMatricular}
-                title={
-                  !turma.ativa ? 'Turma inativa' : vagasLivres === 0 ? 'Turma sem vagas livres' : undefined
-                }
-                onClick={() => {
-                  limparAvisos()
-                  setMatriculando(true)
-                }}
-              >
-                Matricular alunos
-              </Button>
             </section>
 
             {sucesso && (
@@ -194,6 +174,19 @@ export function Matriculas() {
                 {erroAcao}
               </p>
             )}
+
+            <MatricularAlunos
+              // Remonta ao trocar de turma, para não levar a seleção da anterior.
+              key={turma.id}
+              turma={turma}
+              alunos={alunos}
+              matriculas={matriculas}
+              vagasLivres={vagasLivres}
+              onMatricular={matricular}
+              onConcluido={handleMatriculados}
+            />
+
+            <h3 className={styles.secaoTitulo}>Matrículas da turma</h3>
 
             <div className={styles.filtros} role="group" aria-label="Filtrar por situação">
               {FILTROS.map((f) => {
@@ -228,18 +221,6 @@ export function Matriculas() {
             />
           </div>
         </div>
-      )}
-
-      {matriculando && turma && (
-        <MatricularAlunosModal
-          turma={turma}
-          alunos={alunos}
-          matriculas={matriculas}
-          vagasLivres={vagasLivres}
-          onFechar={() => setMatriculando(false)}
-          onMatricular={matricular}
-          onConcluido={handleMatriculados}
-        />
       )}
 
       {vendo && <DetalhesMatriculaModal matricula={vendo} onFechar={() => setVendo(null)} />}

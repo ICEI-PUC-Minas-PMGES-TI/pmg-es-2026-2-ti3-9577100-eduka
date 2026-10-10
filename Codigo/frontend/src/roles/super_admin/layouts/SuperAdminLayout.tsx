@@ -24,10 +24,11 @@ export function SuperAdminLayout(props: SuperAdminLayoutProps) {
   const login = obterUsuarioLogado()?.login
   return (
     <PainelLayout
-      contexto={login ? `Super Console · ${login}` : 'Super Console'}
+      contexto="Super Console"
       menu={MENU}
       menuRotulo="Navegação do super admin"
       rotaSaida={paths.loginAdmin}
+      usuario={login ? { nome: login, papel: 'Super Admin' } : undefined}
       {...props}
     />
   )

@@ -99,6 +99,133 @@
   overflow-wrap: anywhere;
 }
 
+/* ---------- Atalhos: card lavanda cheio, como no protótipo ---------- */
+
+.atalhos {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 24px 26px;
+  border-radius: var(--radius-lg);
+  background: var(--button-primary-bg);
+  box-shadow: var(--button-primary-shadow);
+  color: var(--color-on-primary);
+}
+
+.atalhosTitulo {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: -0.2px;
+}
+
+.atalhosLista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.atalhosHorizontal .atalhosLista {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.atalhosHorizontal .atalho {
+  flex: 1 1 200px;
+}
+
+.atalho {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 10px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--color-on-primary);
+  font-family: var(--font-display);
+  font-size: 14.5px;
+  font-weight: 800;
+  text-align: left;
+  transition:
+    background-color 0.15s,
+    transform 0.08s;
+}
+
+.atalho:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.atalho:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.atalho:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.atalhoDestaque,
+.atalhoDestaque:not(:disabled):hover {
+  background: #ffffff;
+  color: var(--color-primary-text);
+}
+
+/* ---------- Gráfico de barras verticais ---------- */
+
+.grafico {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  height: 200px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.colunaGrafico {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.legendaBarra {
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.trilho {
+  display: flex;
+  flex: 1;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+}
+
+.barra {
+  width: min(44px, 100%);
+  min-height: 6px;
+  border-radius: 12px;
+  background: var(--button-primary-bg);
+  transition: height 0.3s var(--curva);
+}
+
+.rotuloBarra {
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .vazio {
   color: var(--color-text-muted);
   font-size: 14.5px;

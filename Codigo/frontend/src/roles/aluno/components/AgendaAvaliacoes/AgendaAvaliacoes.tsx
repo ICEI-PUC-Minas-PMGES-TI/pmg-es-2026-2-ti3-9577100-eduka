@@ -3,14 +3,14 @@ import { listarMinhasAvaliacoes } from '../../../../services/portalAlunoService'
 import { ROTULOS_TIPO_AVALIACAO, type AvaliacaoDoAluno } from '../../../../types/portalAluno'
 import { formatarPontos, hojeIso } from '../../../../utils/formatters'
 import { useDadosDoAluno } from '../../hooks/useDadosDoAluno'
-import { AlunoLayout } from '../../layouts/AlunoLayout'
-import styles from './Avaliacoes.module.css'
+import styles from './AgendaAvaliacoes.module.css'
 
 const NENHUMA: AvaliacaoDoAluno[] = []
 
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 
-export function Avaliacoes() {
+/** Aba "Tarefas e provas" do boletim: o que vem pela frente e o que já foi feito. */
+export function AgendaAvaliacoes() {
   const { dados: avaliacoes, carregando, erro, recarregar } = useDadosDoAluno(listarMinhasAvaliacoes, NENHUMA)
 
   // O backend já manda por data; as realizadas aparecem da mais recente para trás.
@@ -19,10 +19,7 @@ export function Avaliacoes() {
   const realizadas = avaliacoes.filter((a) => a.data < hoje).reverse()
 
   return (
-    <AlunoLayout
-      titulo="Provas e tarefas"
-      subtitulo="O que vem pela frente e o que você já fez, em todas as disciplinas."
-    >
+    <>
       {carregando && <div className={styles.mensagem}>Carregando suas avaliações…</div>}
 
       {!carregando && erro && (
@@ -47,7 +44,7 @@ export function Avaliacoes() {
           <Secao titulo="Já realizadas" vazio="Nenhuma avaliação realizada ainda." avaliacoes={realizadas} />
         </>
       )}
-    </AlunoLayout>
+    </>
   )
 }
 

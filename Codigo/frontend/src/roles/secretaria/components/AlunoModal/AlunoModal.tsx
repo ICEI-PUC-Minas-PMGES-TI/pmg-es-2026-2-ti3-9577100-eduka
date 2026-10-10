@@ -3,7 +3,7 @@ import { Button } from '../../../../components/Button/Button'
 import { Campo } from '../../../../components/Campo/Campo'
 import { CampoData } from '../../../../components/CampoData/CampoData'
 import { Modal, ModalAlerta, ModalAviso } from '../../../../components/Modal/Modal'
-import { Select } from '../../../../components/Select/Select'
+import { Select, type OpcaoSelect } from '../../../../components/Select/Select'
 import { buscarAluno } from '../../../../services/alunoService'
 import { ApiError } from '../../../../services/api'
 import {
@@ -166,7 +166,10 @@ type AlunoModalProps = {
   onFechar: () => void
   /** Envia os dados; deve lançar ApiError em caso de falha. */
   onSalvar: (dados: AlunoRequest) => Promise<Aluno>
-  onSalvo: (aluno: Aluno) => void
+  /** Recebe a turma escolhida no cadastro (ou null), para a tela matricular em seguida. */
+  onSalvo: (aluno: Aluno, turmaId: number | null) => void
+  /** Turmas com vaga, oferecidas só no cadastro (valor = id da turma). */
+  turmas?: OpcaoSelect<string>[]
 }
 
 /**
@@ -175,7 +178,7 @@ type AlunoModalProps = {
  * envia a senha provisória; os responsáveis só entram no cadastro. Montado só
  * enquanto está aberto, então cada abertura começa limpa.
  */
-export function AlunoModal({ alunoId, onFechar, onSalvar, onSalvo }: AlunoModalProps) {
+export function AlunoModal({ alunoId, onFechar, onSalvar, onSalvo, turmas = [] }: AlunoModalProps) {
   const edicao = alunoId !== undefined
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [campos, setCampos] = useState<Campos>(CAMPOS_INICIAIS)
@@ -187,6 +190,8 @@ export function AlunoModal({ alunoId, onFechar, onSalvar, onSalvo }: AlunoModalP
   const [erroCarga, setErroCarga] = useState<string | null>(null)
   const [erroEnvio, setErroEnvio] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
+  // '' = sem turma por enquanto.
+  const [turmaId, setTurmaId] = useState('')
 
   useEffect(() => {
     if (!alunoId) return
@@ -252,7 +257,7 @@ export function AlunoModal({ alunoId, onFechar, onSalvar, onSalvo }: AlunoModalP
     setSalvando(true)
     try {
       const aluno = await onSalvar(paraRequest(campos, edicao ? [] : responsaveis))
-      onSalvo(aluno)
+      onSalvo(aluno, turmaId ? Number(turmaId) : null)
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
         // O 409 vem da matrícula repetida na escola ou do e-mail já usado como login.
@@ -390,6 +395,33 @@ export function AlunoModal({ alunoId, onFechar, onSalvar, onSalvo }: AlunoModalP
               </Campo>
             </div>
           </fieldset>
+
+          {!edicao && (
+            <fieldset className={styles.secao}>
+              <legend className={styles.legenda}>Turma</legend>
+              <div className={styles.grid}>
+                <Campo
+                  label="Turma"
+                  dica={
+                    turmas.length === 0
+                      ? 'Nenhuma turma ativa com vaga. Matricule depois, em Matrículas.'
+                      : 'Opcional: o aluno já sai matriculado nela.'
+                  }
+                  className={styles.span4}
+                >
+                  {(props) => (
+                    <Select<string>
+                      {...props}
+                      name="turma"
+                      opcoes={[{ valor: '', rotulo: 'Sem turma por enquanto' }, ...turmas]}
+                      valor={turmaId}
+                      onChange={setTurmaId}
+                    />
+                  )}
+                </Campo>
+              </div>
+            </fieldset>
+          )}
 
           <fieldset className={styles.secao}>
             <legend className={styles.legenda}>Endereço</legend>
