@@ -118,6 +118,56 @@
   transform: scale(0.97);
 }
 
+/* Card de quem está logado: iniciais + nome e perfil, na mesma pílula de vidro. */
+.usuario {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  max-width: 280px;
+  min-height: 46px;
+  padding: 5px 18px 5px 5px;
+  border: var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.avatar {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--button-primary-bg);
+  color: var(--color-on-primary);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.usuarioTexto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.usuarioTexto strong {
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usuarioTexto span {
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+}
+
 .ajuda {
   color: var(--color-text-muted);
   font-size: 15px;

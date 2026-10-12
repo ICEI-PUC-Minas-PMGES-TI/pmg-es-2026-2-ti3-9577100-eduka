@@ -8,7 +8,7 @@ import { ROTULOS_STATUS_MATRICULA } from '../../../../types/matricula'
 import { ROTULOS_TIPO_AVALIACAO } from '../../../../types/portalAluno'
 import { formatarPontos } from '../../../../utils/formatters'
 import { formatarData, opcional } from '../../../secretaria/components/PainelSecretaria/formatacao'
-import { lerPontos, mascararPontos, mensagemErroAvaliacao, pontosParaCampo } from '../../notas'
+import { atingiuMedia, lerPontos, mascararPontos, mensagemErroAvaliacao, pontosParaCampo } from '../../notas'
 import styles from './DiarioNotas.module.css'
 
 // Limite da coluna OBSERVACAO de NOTA (V19).
@@ -27,6 +27,16 @@ type DiarioNotasProps = {
 
 function linhaDe(nota: NotaDoAluno): Linha {
   return { nota: pontosParaCampo(nota.valor), observacao: nota.observacao ?? '' }
+}
+
+/** Etiqueta de resultado do aluno na avaliação; sem nota (ou nota inválida), nada. */
+function Situacao({ nota, valor }: { nota: number | null; valor: number }) {
+  if (nota === null || Number.isNaN(nota)) return <span className={styles.secundario}>—</span>
+  return atingiuMedia(nota, valor) ? (
+    <Badge tone="success">Aprovado na avaliação</Badge>
+  ) : (
+    <Badge tone="danger">Abaixo da média</Badge>
+  )
 }
 
 /** Só aluno com matrícula ativa recebe nota; os demais aparecem para consulta. */
@@ -172,6 +182,7 @@ export function DiarioNotas({ avaliacao, notas, onPendente, onSalvo }: DiarioNot
                   <th>Matrícula</th>
                   <th>Aluno</th>
                   <th>Nota</th>
+                  <th>Situação</th>
                   <th>Observação</th>
                 </tr>
               </thead>
@@ -192,6 +203,9 @@ export function DiarioNotas({ avaliacao, notas, onPendente, onSalvo }: DiarioNot
                           </Badge>
                         </td>
                         <td>{n.valor === null ? '—' : formatarPontos(n.valor)}</td>
+                        <td>
+                          <Situacao nota={n.valor} valor={avaliacao.valor} />
+                        </td>
                         <td className={styles.secundario}>{n.observacao ?? '—'}</td>
                       </tr>
                     )
@@ -222,6 +236,9 @@ export function DiarioNotas({ avaliacao, notas, onPendente, onSalvo }: DiarioNot
                             {erro}
                           </span>
                         )}
+                      </td>
+                      <td>
+                        <Situacao nota={lerPontos(linha.nota)} valor={avaliacao.valor} />
                       </td>
                       <td>
                         <input
