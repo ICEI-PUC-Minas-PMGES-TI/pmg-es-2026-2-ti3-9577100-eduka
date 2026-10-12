@@ -165,6 +165,7 @@ flowchart TB
         AUTHC["AuthController<br/><code>/login</code> · <code>/login/codigo</code> · <code>/primeiro-acesso</code>"]
         CADC["Cadastros<br/><code>/escolas</code> · <code>/usuarios/secretarias</code><br/><code>/alunos</code> · <code>/professores</code>"]
         ACADC["Acadêmico<br/><code>/academico/secretaria</code> · alocações<br/><code>/matriculas</code>"]
+        FINC["Financeiro<br/><code>/cobrancas</code>"]
         PORTC["Portais<br/><code>/portal/professor</code> (turmas, avaliações, notas)<br/><code>/portal/aluno</code>"]
         DASHC["DashboardController<br/><code>/dashboard</code>"]
         HLTC["HealthController<br/><code>GET /health</code>"]
@@ -254,6 +255,15 @@ tabelas abaixo resumem as rotas por módulo.
 | `GET` | `/matriculas?turmaId` · `/matriculas/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO`, `PROFESSOR` |
 | `POST` | `/matriculas` (409 se a turma está sem vagas ou o aluno já está nela) | `MASTER`, `SECRETARIA` |
 | `PATCH` | `/matriculas/{id}` (trancar, reativar, transferir, concluir, cancelar ou editar a observação) | `MASTER`, `SECRETARIA` |
+
+**Financeiro**
+
+| Método | Rota | Perfis autorizados |
+|---|---|---|
+| `GET` | `/cobrancas?alunoId&status&vencimentoDe&vencimentoAte` · `/cobrancas/{id}` | `MASTER`, `FINANCEIRO` |
+| `POST` | `/cobrancas` (aluno, descrição, valor e vencimento; matrícula e responsável opcionais, mas têm de ser do aluno) | `MASTER`, `FINANCEIRO` |
+| `PUT` | `/cobrancas/{id}` (400 se a cobrança já foi paga ou cancelada) | `MASTER`, `FINANCEIRO` |
+| `PATCH` | `/cobrancas/{id}/cancelar` (a cobrança fica no histórico como `CANCELADA`) | `MASTER`, `FINANCEIRO` |
 
 **Portais e dashboards**
 
@@ -444,6 +454,7 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | `V17__criar_verificacao_login.sql` | `VERIFICACAO_LOGIN`: código da verificação em duas etapas (só o hash) |
 | `V18__criar_matricula_turma.sql` | `MATRICULA_TURMA`: aluno na turma, com situação (ativa, trancada, cancelada, concluída) |
 | `V19__criar_avaliacao_e_nota.sql` | `AVALIACAO` (prova, trabalho, tarefa) e `NOTA` de cada aluno |
+| `V20__criar_cobranca.sql` | `COBRANCA`: cobrança de um aluno, com matrícula e responsável opcionais, valor, vencimento e situação (pendente, paga, cancelada) |
 
 ---
 
@@ -489,9 +500,10 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
   o alvo em produção é `verify-full`.
 * **Refresh token.** O backend emite e sabe validar refresh tokens, mas ainda não há endpoint
   HTTP de renovação. Quando o access token expira, o usuário precisa fazer login de novo.
-* **Módulo financeiro.** Cobranças, boletos, pagamentos, despesas e relatórios ainda não existem.
-  Os prefixos de rota já estão em `RotasPorPerfil` (só `MASTER` e `FINANCEIRO`), e o perfil
-  `FINANCEIRO` ainda vê "Área em construção" no frontend.
+* **Módulo financeiro.** Só as cobranças (`/cobrancas`) têm API; boletos, pagamentos, despesas e
+  relatórios ainda não existem, e nada marca uma cobrança como paga. Os prefixos de rota já estão
+  em `RotasPorPerfil` (só `MASTER` e `FINANCEIRO`), e o perfil `FINANCEIRO` ainda vê
+  "Área em construção" no frontend.
 * **Gestão de usuários pelo master.** A API de `/usuarios/secretarias` está pronta, mas o
   `MASTER` ainda não tem tela para cadastrar e inativar a secretaria.
 * **`@TenantId` nas demais entidades.** Hoje têm o filtro automático do Hibernate `Aluno`,
