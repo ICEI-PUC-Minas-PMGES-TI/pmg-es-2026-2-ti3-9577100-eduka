@@ -45,8 +45,12 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
  * <li>A matricula, se informada, precisa ser do aluno; o responsavel, se
  * informado, precisa estar ligado ao aluno.</li>
  * <li>So cobranca em aberto (pendente ou em atraso) e editada ou cancelada;
- * PAGA e CANCELADA sao finais.</li>
+ * PAGA e CANCELADA sao finais. Toda troca de situacao passa por
+ * {@link StatusCobranca#podeMudarPara}.</li>
  * <li>Cancelar nao apaga: a cobranca fica no historico como CANCELADA.</li>
+ * <li>A cobranca vencida vira EM_ATRASO pela rotina diaria
+ * ({@link #marcarVencidasComoEmAtraso}); adiar o vencimento na edicao a
+ * devolve para PENDENTE.</li>
  * </ul>
  */
 @Service
@@ -131,7 +135,9 @@ public class CobrancaService {
     }
 
     /**
-     * Substitui os dados editaveis de uma cobranca em aberto.
+     * Substitui os dados editaveis de uma cobranca em aberto. A situacao
+     * acompanha o novo vencimento: adiar tira do atraso, antecipar para o
+     * passado poe em atraso.
      *
      * @throws IllegalArgumentException se a cobranca ja foi paga ou cancelada,
      *                                  ou se a matricula ou o responsavel nao
@@ -149,6 +155,7 @@ public class CobrancaService {
         cobranca.setDescricao(request.descricao().trim());
         cobranca.setValor(request.valor());
         cobranca.setDataVencimento(request.dataVencimento());
+        mudarStatus(cobranca, StatusCobranca.emAbertoCom(request.dataVencimento(), hoje()));
         cobranca.setAtualizadoEm(clock.instant());
         return paraResposta(cobrancaRepository.saveAndFlush(cobranca), escolaId);
     }
@@ -164,15 +171,39 @@ public class CobrancaService {
         Cobranca cobranca = buscarCobranca(id, escolaId);
         exigirEmAberto(cobranca, "cancelada");
 
-        cobranca.setStatus(StatusCobranca.CANCELADA);
+        mudarStatus(cobranca, StatusCobranca.CANCELADA);
         cobranca.setCanceladaEm(clock.instant());
         cobranca.setAtualizadoEm(clock.instant());
         return paraResposta(cobrancaRepository.saveAndFlush(cobranca), escolaId);
     }
 
+    /**
+     * Marca como EM_ATRASO as cobrancas pendentes que venceram, de todas as
+     * escolas. Chamado pela rotina diaria, sem usuario autenticado; rodar de
+     * novo no mesmo dia nao muda nada.
+     *
+     * @return quantas cobrancas entraram em atraso
+     */
+    @Transactional
+    public int marcarVencidasComoEmAtraso() {
+        return cobrancaRepository.marcarVencidasComoEmAtraso(hoje(), clock.instant());
+    }
+
     private Cobranca buscarCobranca(UUID id, UUID escolaId) {
         return cobrancaRepository.findByIdAndEscolaId(id, escolaId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Cobranca nao encontrada"));
+    }
+
+    /** Unico ponto que troca a situacao; manter a mesma nao e mudanca. */
+    private static void mudarStatus(Cobranca cobranca, StatusCobranca novo) {
+        StatusCobranca atual = cobranca.getStatus();
+        if (atual == novo) {
+            return;
+        }
+        if (!atual.podeMudarPara(novo)) {
+            throw new IllegalArgumentException("Cobranca %s nao pode passar para %s".formatted(atual, novo));
+        }
+        cobranca.setStatus(novo);
     }
 
     private static void exigirEmAberto(Cobranca cobranca, String acao) {
