@@ -262,8 +262,14 @@ tabelas abaixo resumem as rotas por módulo.
 |---|---|---|
 | `GET` | `/cobrancas?alunoId&status&vencimentoDe&vencimentoAte` · `/cobrancas/{id}` | `MASTER`, `FINANCEIRO` |
 | `POST` | `/cobrancas` (aluno, descrição, valor e vencimento; matrícula e responsável opcionais, mas têm de ser do aluno) | `MASTER`, `FINANCEIRO` |
-| `PUT` | `/cobrancas/{id}` (400 se a cobrança já foi paga ou cancelada) | `MASTER`, `FINANCEIRO` |
+| `PUT` | `/cobrancas/{id}` (400 se a cobrança já foi paga ou cancelada; a situação acompanha o novo vencimento) | `MASTER`, `FINANCEIRO` |
 | `PATCH` | `/cobrancas/{id}/cancelar` (a cobrança fica no histórico como `CANCELADA`) | `MASTER`, `FINANCEIRO` |
+
+Situação da cobrança (`StatusCobranca`): `PENDENTE` pode passar para `EM_ATRASO`, `PAGA` ou
+`CANCELADA`; `EM_ATRASO` pode voltar para `PENDENTE` (vencimento adiado) ou passar para `PAGA` ou
+`CANCELADA`; `PAGA` e `CANCELADA` são finais. Uma rotina diária (`CobrancaAtrasoRotina`, 00:05 de
+`America/Sao_Paulo`, cron em `app.cobranca.atraso.cron`) grava `EM_ATRASO` nas pendentes vencidas
+de todas as escolas. Até ela rodar, a leitura já mostra a pendente vencida como em atraso.
 
 **Portais e dashboards**
 
@@ -455,6 +461,7 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | `V18__criar_matricula_turma.sql` | `MATRICULA_TURMA`: aluno na turma, com situação (ativa, trancada, cancelada, concluída) |
 | `V19__criar_avaliacao_e_nota.sql` | `AVALIACAO` (prova, trabalho, tarefa) e `NOTA` de cada aluno |
 | `V20__criar_cobranca.sql` | `COBRANCA`: cobrança de um aluno, com matrícula e responsável opcionais, valor, vencimento e situação (pendente, paga, cancelada) |
+| `V21__cobranca_em_atraso.sql` | `COBRANCA.STATUS` passa a aceitar `EM_ATRASO`; marca as pendentes já vencidas e cria o índice da rotina diária |
 
 ---
 
@@ -501,7 +508,8 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 * **Refresh token.** O backend emite e sabe validar refresh tokens, mas ainda não há endpoint
   HTTP de renovação. Quando o access token expira, o usuário precisa fazer login de novo.
 * **Módulo financeiro.** Só as cobranças (`/cobrancas`) têm API; boletos, pagamentos, despesas e
-  relatórios ainda não existem, e nada marca uma cobrança como paga. Os prefixos de rota já estão
+  relatórios ainda não existem, e nada marca uma cobrança como paga (a regra de mudança para
+  `PAGA` já está em `StatusCobranca`). Os prefixos de rota já estão
   em `RotasPorPerfil` (só `MASTER` e `FINANCEIRO`), e o perfil `FINANCEIRO` ainda vê
   "Área em construção" no frontend.
 * **Gestão de usuários pelo master.** A API de `/usuarios/secretarias` está pronta, mas o

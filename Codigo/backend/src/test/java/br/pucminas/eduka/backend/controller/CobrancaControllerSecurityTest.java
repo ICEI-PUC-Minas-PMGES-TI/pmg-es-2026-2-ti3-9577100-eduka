@@ -275,6 +275,28 @@ class CobrancaControllerSecurityTest {
     }
 
     @Test
+    void adiarOVencimentoTiraACobrancaDoAtraso() throws Exception {
+        Cobranca cobranca = cobrancaDaAna(StatusCobranca.EM_ATRASO, VENCIDA);
+
+        mockMvc.perform(json(put("/cobrancas/" + cobranca.getId()), accessToken("FINANCEIRO", ESCOLA_A),
+                "{" + DADOS + "}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDENTE"));
+        assertThat(cobranca.getStatus()).isEqualTo(StatusCobranca.PENDENTE);
+    }
+
+    @Test
+    void vencimentoNoPassadoPoeACobrancaEmAtraso() throws Exception {
+        Cobranca cobranca = cobrancaDaAna(StatusCobranca.PENDENTE, NO_PRAZO);
+
+        mockMvc.perform(json(put("/cobrancas/" + cobranca.getId()), accessToken("FINANCEIRO", ESCOLA_A),
+                "{\"descricao\":\"Mensalidade\",\"valor\":850.50,\"dataVencimento\":\"2020-01-10\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("EM_ATRASO"));
+        assertThat(cobranca.getStatus()).isEqualTo(StatusCobranca.EM_ATRASO);
+    }
+
+    @Test
     void cobrancaPagaOuCanceladaNaoEEditadaNemCancelada() throws Exception {
         String token = accessToken("FINANCEIRO", ESCOLA_A);
         for (StatusCobranca status : List.of(StatusCobranca.PAGA, StatusCobranca.CANCELADA)) {
@@ -293,13 +315,16 @@ class CobrancaControllerSecurityTest {
 
     @Test
     void cancelaCobrancaEmAberto() throws Exception {
-        Cobranca cobranca = cobrancaDaAna(StatusCobranca.PENDENTE, VENCIDA);
+        for (StatusCobranca status : List.of(StatusCobranca.PENDENTE, StatusCobranca.EM_ATRASO)) {
+            Cobranca cobranca = cobrancaDaAna(status, VENCIDA);
 
-        mockMvc.perform(com(patch("/cobrancas/" + cobranca.getId() + "/cancelar"), accessToken("MASTER", ESCOLA_A)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("CANCELADA"))
-                .andExpect(jsonPath("$.canceladaEm").isNotEmpty());
-        assertThat(cobranca.getStatus()).isEqualTo(StatusCobranca.CANCELADA);
+            mockMvc.perform(com(patch("/cobrancas/" + cobranca.getId() + "/cancelar"),
+                    accessToken("MASTER", ESCOLA_A)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value("CANCELADA"))
+                    .andExpect(jsonPath("$.canceladaEm").isNotEmpty());
+            assertThat(cobranca.getStatus()).isEqualTo(StatusCobranca.CANCELADA);
+        }
     }
 
     @Test
@@ -331,19 +356,23 @@ class CobrancaControllerSecurityTest {
     void listaFiltrandoPorSituacaoEVencimento() throws Exception {
         Cobranca noPrazo = cobrancaDaAna(StatusCobranca.PENDENTE, NO_PRAZO);
         Cobranca vencida = cobrancaDaAna(StatusCobranca.PENDENTE, VENCIDA);
+        Cobranca marcadaPelaRotina = cobrancaDaAna(StatusCobranca.EM_ATRASO, VENCIDA.minusDays(1));
         Cobranca paga = cobrancaDaAna(StatusCobranca.PAGA, VENCIDA);
-        when(cobrancaRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of(noPrazo, vencida, paga));
+        when(cobrancaRepository.findAllByEscolaId(ESCOLA_A))
+                .thenReturn(List.of(noPrazo, vencida, marcadaPelaRotina, paga));
         String token = accessToken("FINANCEIRO", ESCOLA_A);
 
         mockMvc.perform(com(get("/cobrancas"), token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(3))
-                .andExpect(jsonPath("$[2].id").value(noPrazo.getId().toString()));
+                .andExpect(jsonPath("$.length()").value(4))
+                .andExpect(jsonPath("$[3].id").value(noPrazo.getId().toString()));
 
+        // Em atraso: a que a rotina ja gravou e a pendente vencida que ela ainda nao pegou.
         mockMvc.perform(com(get("/cobrancas").param("status", "EM_ATRASO"), token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].id").value(vencida.getId().toString()));
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].id").value(marcadaPelaRotina.getId().toString()))
+                .andExpect(jsonPath("$[1].id").value(vencida.getId().toString()));
 
         mockMvc.perform(com(get("/cobrancas").param("vencimentoDe", "2099-01-10").param("vencimentoAte",
                 "2099-01-10"), token))

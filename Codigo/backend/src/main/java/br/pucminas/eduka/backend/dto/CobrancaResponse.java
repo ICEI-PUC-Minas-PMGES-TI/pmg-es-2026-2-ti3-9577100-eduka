@@ -25,7 +25,7 @@ public record CobrancaResponse(
         String descricao,
         BigDecimal valor,
         LocalDate dataVencimento,
-        /** Ja com EM_ATRASO no lugar de PENDENTE vencida. */
+        /** Ja com EM_ATRASO no lugar de PENDENTE vencida que a rotina diaria ainda nao marcou. */
         StatusCobranca status,
         Instant canceladaEm,
         Instant criadoEm,

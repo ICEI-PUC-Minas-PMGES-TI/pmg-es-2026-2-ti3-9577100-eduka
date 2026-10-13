@@ -27,7 +27,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Cobranca lancada para um aluno. Mapeia a tabela {@code COBRANCA} (V20):
+ * Cobranca lancada para um aluno. Mapeia a tabela {@code COBRANCA} (V20, V21):
  * cancelar muda o {@link StatusCobranca} em vez de apagar o registro.
  *
  * <p>
@@ -75,7 +75,11 @@ public class Cobranca {
     @Column(name = "DATA_VENCIMENTO", nullable = false)
     private LocalDate dataVencimento;
 
-    /** Nunca {@link StatusCobranca#EM_ATRASO}, que e calculado na leitura. */
+    /**
+     * So muda pelas regras de {@link StatusCobranca#podeMudarPara}.
+     * {@link StatusCobranca#EM_ATRASO} e gravado pela rotina diaria; ate ela
+     * rodar, a PENDENTE vencida ja e exibida como em atraso.
+     */
     @Enumerated(EnumType.STRING)
     @Column(name = "STATUS", nullable = false, length = 20)
     private StatusCobranca status;
