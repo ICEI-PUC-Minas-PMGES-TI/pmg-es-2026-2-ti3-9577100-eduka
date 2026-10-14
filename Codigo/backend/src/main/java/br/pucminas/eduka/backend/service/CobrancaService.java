@@ -24,6 +24,7 @@ import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.dto.AtualizarCobrancaRequest;
 import br.pucminas.eduka.backend.dto.CobrancaRequest;
 import br.pucminas.eduka.backend.dto.CobrancaResponse;
+import br.pucminas.eduka.backend.dto.HistoricoFinanceiroResponse;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
@@ -31,6 +32,7 @@ import br.pucminas.eduka.backend.repository.CobrancaRepository;
 import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
+import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 
 /**
  * Cobrancas dos alunos, com isolamento por escola (RF05, RNF03): cobranca,
@@ -107,6 +109,33 @@ public class CobrancaService {
     public CobrancaResponse buscar(UUID id) {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         return paraResposta(buscarCobranca(id, escolaId), escolaId);
+    }
+
+    /**
+     * Historico financeiro de um aluno da escola, para a gestao/financeiro.
+     *
+     * @throws RecursoNaoEncontradoException se o aluno nao e da escola
+     */
+    @Transactional(readOnly = true)
+    public HistoricoFinanceiroResponse historicoDoAluno(UUID alunoId) {
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        Aluno aluno = alunoRepository.findByIdAndEscolaId(alunoId, escolaId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Aluno nao encontrado"));
+        return historico(aluno, escolaId);
+    }
+
+    /**
+     * Historico financeiro do aluno dono do login (portal do aluno). O aluno
+     * sai do token: nao ha como pedir o historico de outro.
+     *
+     * @throws RecursoNaoEncontradoException se o login nao e de um aluno da escola
+     */
+    @Transactional(readOnly = true)
+    public HistoricoFinanceiroResponse meuHistorico() {
+        UsuarioAutenticado usuario = isolamentoEscola.usuarioAtual();
+        Aluno aluno = alunoRepository.findByUsuarioIdAndEscolaId(usuario.id(), usuario.escolaId())
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Aluno nao encontrado"));
+        return historico(aluno, usuario.escolaId());
     }
 
     /**
@@ -187,6 +216,19 @@ public class CobrancaService {
     @Transactional
     public int marcarVencidasComoEmAtraso() {
         return cobrancaRepository.marcarVencidasComoEmAtraso(hoje(), clock.instant());
+    }
+
+    /** Todas as cobrancas do aluno, inclusive canceladas, da mais recente para a mais antiga. */
+    private HistoricoFinanceiroResponse historico(Aluno aluno, UUID escolaId) {
+        List<Cobranca> cobrancas = cobrancaRepository.findAllByEscolaIdAndAlunoId(escolaId, aluno.getId()).stream()
+                .sorted(Comparator.comparing(Cobranca::getDataVencimento).reversed())
+                .toList();
+        List<CobrancaResponse> respostas = paraRespostas(cobrancas, escolaId, hoje());
+        String alunoNome = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
+                .map(Pessoa::getNome)
+                .orElse(null);
+        return new HistoricoFinanceiroResponse(aluno.getId(), alunoNome, aluno.getMatricula(),
+                HistoricoFinanceiroResponse.Resumo.de(respostas), respostas);
     }
 
     private Cobranca buscarCobranca(UUID id, UUID escolaId) {

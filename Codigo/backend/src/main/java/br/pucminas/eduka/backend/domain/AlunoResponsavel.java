@@ -11,6 +11,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * Vinculo entre aluno e {@link Responsavel} (pela pessoa do responsavel).
+ * {@code financeiro} marca quem paga as cobrancas do aluno: no maximo um por
+ * aluno (indice unico parcial na V22).
+ */
 @Entity
 @Table(name = "ALUNO_RESPONSAVEL")
 @Getter
@@ -25,4 +30,7 @@ public class AlunoResponsavel {
 
     @Column(name = "PARENTESCO", length = 30)
     private String parentesco;
+
+    @Column(name = "FINANCEIRO", nullable = false)
+    private boolean financeiro;
 }

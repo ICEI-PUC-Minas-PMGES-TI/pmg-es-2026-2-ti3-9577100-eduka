@@ -2,6 +2,7 @@ package br.pucminas.eduka.backend.repository;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -14,6 +15,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import br.pucminas.eduka.backend.domain.Cobranca;
+import br.pucminas.eduka.backend.domain.StatusCobranca;
 
 @Repository
 public interface CobrancaRepository extends JpaRepository<Cobranca, UUID> {
@@ -29,6 +31,12 @@ public interface CobrancaRepository extends JpaRepository<Cobranca, UUID> {
 
     @EntityGraph(attributePaths = { "aluno", "matricula", "matricula.turma" })
     Optional<Cobranca> findByIdAndEscolaId(UUID id, UUID escolaId);
+
+    /** {@code responsavelId} e o id da pessoa do responsavel, como na coluna. */
+    boolean existsByEscolaIdAndResponsavelId(UUID escolaId, UUID responsavelId);
+
+    boolean existsByEscolaIdAndAluno_IdAndResponsavelIdAndStatusIn(UUID escolaId, UUID alunoId,
+            UUID responsavelId, Collection<StatusCobranca> status);
 
     /**
      * Passa para EM_ATRASO as pendentes com vencimento anterior a {@code hoje},

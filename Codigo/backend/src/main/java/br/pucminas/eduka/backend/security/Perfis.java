@@ -39,6 +39,13 @@ public final class Perfis {
     public static final String LEITURA_ACADEMICA =
             "hasAnyRole('MASTER', 'SECRETARIA', 'FINANCEIRO', 'PROFESSOR')";
 
+    /**
+     * Responsaveis dos alunos (cadastro e vinculo): secretaria cadastra junto
+     * com o aluno, financeiro define quem paga. Professor fica de fora: o
+     * cadastro traz CPF e contato.
+     */
+    public static final String RESPONSAVEIS = "hasAnyRole('MASTER', 'SECRETARIA', 'FINANCEIRO')";
+
     /** Cobrancas, pagamentos, despesas. */
     public static final String FINANCEIRO = "hasAnyRole('MASTER', 'FINANCEIRO')";
 
