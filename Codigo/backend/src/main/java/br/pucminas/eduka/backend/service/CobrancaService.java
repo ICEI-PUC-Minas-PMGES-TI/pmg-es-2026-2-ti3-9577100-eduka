@@ -18,7 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.AlunoResponsavelId;
 import br.pucminas.eduka.backend.domain.Cobranca;
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.MatriculaTurma;
+import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.dto.AtualizarCobrancaRequest;
@@ -51,6 +53,9 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
  * <li>A cobranca vencida vira EM_ATRASO pela rotina diaria
  * ({@link #marcarVencidasComoEmAtraso}); adiar o vencimento na edicao a
  * devolve para PENDENTE.</li>
+ * <li>Criar, editar e cancelar ficam no LOG_AUDITORIA com o usuario do token
+ * ({@link AuditoriaService}). A rotina de atraso nao tem autor e nao e
+ * auditada.</li>
  * </ul>
  */
 @Service
@@ -65,17 +70,20 @@ public class CobrancaService {
     private final AlunoResponsavelRepository alunoResponsavelRepository;
     private final PessoaRepository pessoaRepository;
     private final IsolamentoEscola isolamentoEscola;
+    private final AuditoriaService auditoriaService;
     private final Clock clock;
 
     public CobrancaService(CobrancaRepository cobrancaRepository, AlunoRepository alunoRepository,
             MatriculaTurmaRepository matriculaRepository, AlunoResponsavelRepository alunoResponsavelRepository,
-            PessoaRepository pessoaRepository, IsolamentoEscola isolamentoEscola, Clock clock) {
+            PessoaRepository pessoaRepository, IsolamentoEscola isolamentoEscola,
+            AuditoriaService auditoriaService, Clock clock) {
         this.cobrancaRepository = cobrancaRepository;
         this.alunoRepository = alunoRepository;
         this.matriculaRepository = matriculaRepository;
         this.alunoResponsavelRepository = alunoResponsavelRepository;
         this.pessoaRepository = pessoaRepository;
         this.isolamentoEscola = isolamentoEscola;
+        this.auditoriaService = auditoriaService;
         this.clock = clock;
     }
 
@@ -131,7 +139,7 @@ public class CobrancaService {
                 .dataVencimento(request.dataVencimento())
                 .status(StatusCobranca.PENDENTE)
                 .build();
-        return paraResposta(cobrancaRepository.saveAndFlush(cobranca), escolaId);
+        return salvarEAuditar(cobranca, OperacaoAuditoria.CRIAR, escolaId);
     }
 
     /**
@@ -157,7 +165,7 @@ public class CobrancaService {
         cobranca.setDataVencimento(request.dataVencimento());
         mudarStatus(cobranca, StatusCobranca.emAbertoCom(request.dataVencimento(), hoje()));
         cobranca.setAtualizadoEm(clock.instant());
-        return paraResposta(cobrancaRepository.saveAndFlush(cobranca), escolaId);
+        return salvarEAuditar(cobranca, OperacaoAuditoria.EDITAR, escolaId);
     }
 
     /**
@@ -174,7 +182,7 @@ public class CobrancaService {
         mudarStatus(cobranca, StatusCobranca.CANCELADA);
         cobranca.setCanceladaEm(clock.instant());
         cobranca.setAtualizadoEm(clock.instant());
-        return paraResposta(cobrancaRepository.saveAndFlush(cobranca), escolaId);
+        return salvarEAuditar(cobranca, OperacaoAuditoria.CANCELAR, escolaId);
     }
 
     /**
@@ -187,6 +195,13 @@ public class CobrancaService {
     @Transactional
     public int marcarVencidasComoEmAtraso() {
         return cobrancaRepository.marcarVencidasComoEmAtraso(hoje(), clock.instant());
+    }
+
+    /** Grava a cobranca e o log da operacao na mesma transacao. */
+    private CobrancaResponse salvarEAuditar(Cobranca cobranca, OperacaoAuditoria operacao, UUID escolaId) {
+        Cobranca salva = cobrancaRepository.saveAndFlush(cobranca);
+        auditoriaService.registrar(operacao, EntidadeAuditada.COBRANCA, salva.getId());
+        return paraResposta(salva, escolaId);
     }
 
     private Cobranca buscarCobranca(UUID id, UUID escolaId) {

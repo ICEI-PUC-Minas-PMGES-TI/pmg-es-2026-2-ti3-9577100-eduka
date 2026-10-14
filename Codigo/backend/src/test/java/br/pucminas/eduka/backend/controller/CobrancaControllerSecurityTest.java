@@ -35,7 +35,10 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.AlunoResponsavelId;
 import br.pucminas.eduka.backend.domain.Cobranca;
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.LogAuditoria;
 import br.pucminas.eduka.backend.domain.MatriculaTurma;
+import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.domain.StatusMatricula;
@@ -44,11 +47,13 @@ import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
+import br.pucminas.eduka.backend.repository.LogAuditoriaRepository;
 import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
+import br.pucminas.eduka.backend.service.AuditoriaService;
 import br.pucminas.eduka.backend.service.CobrancaService;
 
 /**
@@ -58,7 +63,7 @@ import br.pucminas.eduka.backend.service.CobrancaService;
  */
 @WebMvcTest(CobrancaController.class)
 @Import({ JwtConfig.class, JwtService.class, IsolamentoEscola.class, ApiExceptionHandler.class,
-        CobrancaService.class })
+        CobrancaService.class, AuditoriaService.class })
 class CobrancaControllerSecurityTest {
 
     private static final UUID ESCOLA_A = UUID.randomUUID();
@@ -81,6 +86,8 @@ class CobrancaControllerSecurityTest {
     private AlunoResponsavelRepository alunoResponsavelRepository;
     @MockitoBean
     private PessoaRepository pessoaRepository;
+    @MockitoBean
+    private LogAuditoriaRepository logAuditoriaRepository;
 
     private Pessoa pessoaAna;
     private Pessoa maeDaAna;
@@ -338,6 +345,81 @@ class CobrancaControllerSecurityTest {
                 .andExpect(status().isNotFound());
         mockMvc.perform(com(patch("/cobrancas/" + id + "/cancelar"), token))
                 .andExpect(status().isNotFound());
+    }
+
+    // ---------- Auditoria ----------
+
+    /** Unico log gravado ate aqui. */
+    private LogAuditoria logGravado() {
+        ArgumentCaptor<LogAuditoria> log = ArgumentCaptor.forClass(LogAuditoria.class);
+        verify(logAuditoriaRepository).save(log.capture());
+        return log.getValue();
+    }
+
+    @Test
+    void criarRegistraNoLogQuemLancouACobranca() throws Exception {
+        UUID usuario = UUID.randomUUID();
+        String token = jwtService.generateAccessToken(usuario, "FINANCEIRO", ESCOLA_A);
+
+        mockMvc.perform(json(post("/cobrancas"), token, cobrarAna("")))
+                .andExpect(status().isCreated());
+
+        ArgumentCaptor<Cobranca> salva = ArgumentCaptor.forClass(Cobranca.class);
+        verify(cobrancaRepository).saveAndFlush(salva.capture());
+        LogAuditoria log = logGravado();
+        assertThat(log.getUsuarioId()).isEqualTo(usuario);
+        assertThat(log.getEscolaId()).isEqualTo(ESCOLA_A);
+        assertThat(log.getOperacao()).isEqualTo(OperacaoAuditoria.CRIAR);
+        assertThat(log.getEntidade()).isEqualTo(EntidadeAuditada.COBRANCA);
+        assertThat(log.getRegistroId()).isEqualTo(salva.getValue().getId());
+        assertThat(log.getDataHora()).isNotNull();
+    }
+
+    @Test
+    void editarRegistraNoLogQuemEditouACobranca() throws Exception {
+        UUID usuario = UUID.randomUUID();
+        Cobranca cobranca = cobrancaDaAna(StatusCobranca.PENDENTE, NO_PRAZO);
+
+        mockMvc.perform(json(put("/cobrancas/" + cobranca.getId()),
+                jwtService.generateAccessToken(usuario, "FINANCEIRO", ESCOLA_A), "{" + DADOS + "}"))
+                .andExpect(status().isOk());
+
+        LogAuditoria log = logGravado();
+        assertThat(log.getUsuarioId()).isEqualTo(usuario);
+        assertThat(log.getOperacao()).isEqualTo(OperacaoAuditoria.EDITAR);
+        assertThat(log.getRegistroId()).isEqualTo(cobranca.getId());
+    }
+
+    @Test
+    void cancelarRegistraNoLogQuemCancelouACobranca() throws Exception {
+        UUID usuario = UUID.randomUUID();
+        Cobranca cobranca = cobrancaDaAna(StatusCobranca.PENDENTE, NO_PRAZO);
+
+        mockMvc.perform(com(patch("/cobrancas/" + cobranca.getId() + "/cancelar"),
+                jwtService.generateAccessToken(usuario, "MASTER", ESCOLA_A)))
+                .andExpect(status().isOk());
+
+        LogAuditoria log = logGravado();
+        assertThat(log.getUsuarioId()).isEqualTo(usuario);
+        assertThat(log.getOperacao()).isEqualTo(OperacaoAuditoria.CANCELAR);
+        assertThat(log.getRegistroId()).isEqualTo(cobranca.getId());
+    }
+
+    @Test
+    void operacaoRecusadaOuSoDeLeituraNaoGeraLog() throws Exception {
+        String token = accessToken("FINANCEIRO", ESCOLA_A);
+        Cobranca paga = cobrancaDaAna(StatusCobranca.PAGA, NO_PRAZO);
+
+        mockMvc.perform(json(put("/cobrancas/" + paga.getId()), token, "{" + DADOS + "}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(com(patch("/cobrancas/" + paga.getId() + "/cancelar"), token))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(json(post("/cobrancas"), token, "{}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(com(get("/cobrancas/" + paga.getId()), token))
+                .andExpect(status().isOk());
+
+        verify(logAuditoriaRepository, never()).save(any());
     }
 
     // ---------- Consulta ----------

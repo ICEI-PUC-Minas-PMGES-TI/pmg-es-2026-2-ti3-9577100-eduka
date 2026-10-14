@@ -1,6 +1,7 @@
 package br.pucminas.eduka.backend.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -35,10 +36,12 @@ class CobrancaAtrasoRotinaTest {
     private AlunoResponsavelRepository alunoResponsavelRepository;
     @Mock
     private PessoaRepository pessoaRepository;
+    @Mock
+    private AuditoriaService auditoriaService;
 
     private CobrancaService serviceEm(Instant agora) {
         return new CobrancaService(cobrancaRepository, alunoRepository, matriculaRepository,
-                alunoResponsavelRepository, pessoaRepository, new IsolamentoEscola(),
+                alunoResponsavelRepository, pessoaRepository, new IsolamentoEscola(), auditoriaService,
                 Clock.fixed(agora, ZoneOffset.UTC));
     }
 
@@ -50,6 +53,8 @@ class CobrancaAtrasoRotinaTest {
         new CobrancaAtrasoRotina(serviceEm(agora)).marcarVencidas();
 
         verify(cobrancaRepository).marcarVencidasComoEmAtraso(LocalDate.of(2026, 10, 10), agora);
+        // Sem autor, a rotina nao entra no log de auditoria.
+        verifyNoInteractions(auditoriaService);
     }
 
     @Test
