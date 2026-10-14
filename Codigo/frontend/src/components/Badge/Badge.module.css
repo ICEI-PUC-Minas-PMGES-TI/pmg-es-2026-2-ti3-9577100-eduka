@@ -27,3 +27,13 @@
   background: var(--color-neutral-bg);
   color: var(--color-neutral);
 }
+
+.primary {
+  background: var(--color-veil);
+  color: var(--color-primary-text);
+}
+
+.warning {
+  background: #fef3c7;
+  color: #92400e;
+}

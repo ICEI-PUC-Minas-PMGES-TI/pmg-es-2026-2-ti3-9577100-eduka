@@ -36,6 +36,7 @@ export const paths = {
   },
   financeiro: {
     raiz: '/financeiro',
+    cobrancas: '/financeiro/cobrancas',
   },
   professor: {
     raiz: '/professor',
@@ -68,7 +69,7 @@ export const rotaInicialPorPerfil: Record<PerfilUsuario, string> = {
   SUPER_ADMIN: paths.superAdmin.escolas,
   MASTER: paths.master.raiz,
   SECRETARIA: paths.secretaria.raiz,
-  FINANCEIRO: paths.financeiro.raiz,
+  FINANCEIRO: paths.financeiro.cobrancas,
   PROFESSOR: paths.professor.raiz,
   ALUNO: paths.aluno.raiz,
 }
