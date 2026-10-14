@@ -10,9 +10,11 @@ import org.springframework.web.bind.annotation.RestController;
 import br.pucminas.eduka.backend.dto.AlunoResponse;
 import br.pucminas.eduka.backend.dto.AvaliacaoDoAlunoResponse;
 import br.pucminas.eduka.backend.dto.BoletimTurmaResponse;
+import br.pucminas.eduka.backend.dto.HistoricoFinanceiroResponse;
 import br.pucminas.eduka.backend.dto.TurmaDoAlunoResponse;
 import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.AlunoService;
+import br.pucminas.eduka.backend.service.CobrancaService;
 import br.pucminas.eduka.backend.service.PortalAlunoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -30,10 +32,13 @@ public class PortalAlunoController {
 
     private final AlunoService alunoService;
     private final PortalAlunoService portalAlunoService;
+    private final CobrancaService cobrancaService;
 
-    public PortalAlunoController(AlunoService alunoService, PortalAlunoService portalAlunoService) {
+    public PortalAlunoController(AlunoService alunoService, PortalAlunoService portalAlunoService,
+            CobrancaService cobrancaService) {
         this.alunoService = alunoService;
         this.portalAlunoService = portalAlunoService;
+        this.cobrancaService = cobrancaService;
     }
 
     /** Dados cadastrais do proprio aluno, com endereco e responsaveis. */
@@ -62,5 +67,12 @@ public class PortalAlunoController {
     @Operation(summary = "Agenda de avaliacoes do aluno autenticado", description = "Avaliacoes das turmas em que o aluno esta ativo, por data, com a nota quando ja lancada.")
     public List<AvaliacaoDoAlunoResponse> agenda() {
         return portalAlunoService.agenda();
+    }
+
+    /** Cobrancas do aluno (todas, inclusive canceladas) com o resumo do que esta em aberto, em atraso e pago. */
+    @GetMapping("/financeiro")
+    @Operation(summary = "Historico financeiro do aluno autenticado", description = "Resumo e cobrancas, da mais recente para a mais antiga pelo vencimento. Responde 404 se o login nao e de um aluno cadastrado na escola.")
+    public HistoricoFinanceiroResponse financeiro() {
+        return cobrancaService.meuHistorico();
     }
 }
