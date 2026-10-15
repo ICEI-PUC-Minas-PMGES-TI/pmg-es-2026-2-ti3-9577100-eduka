@@ -271,6 +271,13 @@ Situação da cobrança (`StatusCobranca`): `PENDENTE` pode passar para `EM_ATRA
 `America/Sao_Paulo`, cron em `app.cobranca.atraso.cron`) grava `EM_ATRASO` nas pendentes vencidas
 de todas as escolas. Até ela rodar, a leitura já mostra a pendente vencida como em atraso.
 
+Auditoria: criar, editar e cancelar uma cobrança gravam uma linha em `LOG_AUDITORIA` com o
+usuário e a escola do token, a operação, a entidade (`COBRANCA`), o id do registro e a data/hora
+(`AuditoriaService`). O log é gravado na mesma transação da operação: se ela falha, o log não
+fica; operação recusada (400, 404) ou só de leitura não gera log. A rotina de atraso não tem autor
+e não é auditada. O banco já aceita as entidades `PAGAMENTO` e `DESPESA` e a operação `ESTORNAR`,
+para os módulos que ainda vão existir.
+
 **Portais e dashboards**
 
 | Método | Rota | Perfis autorizados |
@@ -462,6 +469,7 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | `V19__criar_avaliacao_e_nota.sql` | `AVALIACAO` (prova, trabalho, tarefa) e `NOTA` de cada aluno |
 | `V20__criar_cobranca.sql` | `COBRANCA`: cobrança de um aluno, com matrícula e responsável opcionais, valor, vencimento e situação (pendente, paga, cancelada) |
 | `V21__cobranca_em_atraso.sql` | `COBRANCA.STATUS` passa a aceitar `EM_ATRASO`; marca as pendentes já vencidas e cria o índice da rotina diária |
+| `V22__criar_log_auditoria.sql` | `LOG_AUDITORIA`: quem criou, editou, cancelou ou estornou cobrança, pagamento ou despesa, com escola, registro afetado e data/hora |
 
 ---
 
@@ -494,6 +502,7 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | Isolamento entre escolas | `IsolamentoEscola` nos services e `@TenantId` no Hibernate; escola vem do token |
 | Confidencialidade de senha | BCrypt custo 12; a coluna `senha_hash` nunca recebe texto puro |
 | Confidencialidade de dados pessoais | `PESSOA` cifrada com AES-256-GCM pela aplicação; o banco nunca vê a chave |
+| Auditoria (RNF05) | Operações financeiras gravam autor, operação, entidade, registro e data/hora em `LOG_AUDITORIA`, na mesma transação |
 | Não vazamento de informação | Login inexistente, senha errada e usuário inativo devolvem a mesma mensagem |
 | Portabilidade de ambiente | Todo o stack sobe por Docker Compose, em dev e em prod |
 
@@ -509,7 +518,10 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
   HTTP de renovação. Quando o access token expira, o usuário precisa fazer login de novo.
 * **Módulo financeiro.** Só as cobranças (`/cobrancas`) têm API; boletos, pagamentos, despesas e
   relatórios ainda não existem, e nada marca uma cobrança como paga (a regra de mudança para
-  `PAGA` já está em `StatusCobranca`). Os prefixos de rota já estão
+  `PAGA` já está em `StatusCobranca`). Pagamentos e despesas, quando existirem, devem chamar
+  `AuditoriaService.registrar` em criar, editar, cancelar e estornar. Ainda não há tela nem
+  endpoint para consultar o `LOG_AUDITORIA` (a rota `/auditoria` já está reservada para
+  `MASTER` em `RotasPorPerfil`). Os prefixos de rota já estão
   em `RotasPorPerfil` (só `MASTER` e `FINANCEIRO`), e o perfil `FINANCEIRO` ainda vê
   "Área em construção" no frontend.
 * **Gestão de usuários pelo master.** A API de `/usuarios/secretarias` está pronta, mas o
