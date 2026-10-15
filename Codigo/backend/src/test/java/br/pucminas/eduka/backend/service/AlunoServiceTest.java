@@ -31,6 +31,7 @@ import br.pucminas.eduka.backend.domain.PapelPessoa;
 import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.PessoaPapel;
+import br.pucminas.eduka.backend.domain.Responsavel;
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.AlunoRequest;
 import br.pucminas.eduka.backend.dto.AlunoResponse;
@@ -41,6 +42,8 @@ import br.pucminas.eduka.backend.exception.NumeroMatriculaJaCadastradoException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
+import br.pucminas.eduka.backend.repository.CobrancaRepository;
+import br.pucminas.eduka.backend.repository.ResponsavelRepository;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
@@ -67,6 +70,10 @@ class AlunoServiceTest {
     @Mock
     private AlunoResponsavelRepository alunoResponsavelRepository;
     @Mock
+    private ResponsavelRepository responsavelRepository;
+    @Mock
+    private CobrancaRepository cobrancaRepository;
+    @Mock
     private AcessoService acessoService;
 
     private AlunoService alunoService;
@@ -75,8 +82,12 @@ class AlunoServiceTest {
     void setUp() {
         // IsolamentoEscola real: o ponto e provar que o servico consulta o
         // contexto de seguranca, nao um mock que devolve o que quisermos.
+        IsolamentoEscola isolamentoEscola = new IsolamentoEscola();
+        ResponsavelService responsavelService = new ResponsavelService(responsavelRepository,
+                alunoResponsavelRepository, alunoRepository, pessoaRepository, pessoaPapelRepository,
+                cobrancaRepository, isolamentoEscola);
         alunoService = new AlunoService(alunoRepository, pessoaRepository, pessoaPapelRepository,
-                alunoResponsavelRepository, new IsolamentoEscola(), acessoService);
+                responsavelService, isolamentoEscola, acessoService);
     }
 
     @AfterEach
@@ -227,14 +238,22 @@ class AlunoServiceTest {
         });
         stubAcessoCriado(UUID.randomUUID());
 
+        when(responsavelRepository.save(any(Responsavel.class))).thenAnswer(inv -> {
+            Responsavel responsavel = inv.getArgument(0);
+            responsavel.setId(UUID.randomUUID());
+            return responsavel;
+        });
+
         AlunoResponse resultado = alunoService.cadastrar(request("Ana", "2026-001", null,
-                List.of(new ResponsavelRequest("Maria Silva", null, "maria@example.com", "31999998888", "MAE"))));
+                List.of(new ResponsavelRequest("Maria Silva", null, "maria@example.com", "31999998888", "MAE", true))));
 
         assertThat(resultado.responsaveis()).hasSize(1);
         assertThat(resultado.responsaveis().get(0).nome()).isEqualTo("Maria Silva");
         assertThat(resultado.responsaveis().get(0).email()).isEqualTo("maria@example.com");
         assertThat(resultado.responsaveis().get(0).telefone()).isEqualTo("31999998888");
         assertThat(resultado.responsaveis().get(0).parentesco()).isEqualTo("MAE");
+        assertThat(resultado.responsaveis().get(0).financeiro()).isTrue();
+        assertThat(resultado.responsaveis().get(0).responsavelId()).isNotNull();
 
         ArgumentCaptor<Pessoa> pessoaCaptor = ArgumentCaptor.forClass(Pessoa.class);
         verify(pessoaRepository, times(2)).save(pessoaCaptor.capture());
@@ -257,6 +276,64 @@ class AlunoServiceTest {
         assertThat(vinculo.getId().pessoaId()).isEqualTo(pessoaResponsavelId);
         assertThat(vinculo.getId().pessoaId()).isNotEqualTo(pessoaAlunoId);
         assertThat(vinculo.getParentesco()).isEqualTo("MAE");
+        assertThat(vinculo.isFinanceiro()).isTrue();
+
+        ArgumentCaptor<Responsavel> responsavelCaptor = ArgumentCaptor.forClass(Responsavel.class);
+        verify(responsavelRepository).save(responsavelCaptor.capture());
+        assertThat(responsavelCaptor.getValue().getEscolaId()).isEqualTo(ESCOLA_A);
+        assertThat(responsavelCaptor.getValue().getPessoaId()).isEqualTo(pessoaResponsavelId);
+    }
+
+    @Test
+    void cadastrarComCpfDeResponsavelExistenteReaproveitaOCadastro() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(inv -> {
+            Pessoa pessoa = inv.getArgument(0);
+            pessoa.setId(UUID.randomUUID());
+            return pessoa;
+        });
+        when(alunoRepository.save(any(Aluno.class))).thenAnswer(inv -> {
+            Aluno aluno = inv.getArgument(0);
+            aluno.setId(UUID.randomUUID());
+            return aluno;
+        });
+        stubAcessoCriado(UUID.randomUUID());
+        Pessoa maeExistente = Pessoa.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).nome("Maria Silva")
+                .cpf("52998224725").ativo(true).build();
+        Responsavel existente = Responsavel.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A)
+                .pessoaId(maeExistente.getId()).build();
+        when(responsavelRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of(existente));
+        when(pessoaRepository.findAllByIdInAndEscolaId(List.of(maeExistente.getId()), ESCOLA_A))
+                .thenReturn(List.of(maeExistente));
+
+        AlunoResponse resultado = alunoService.cadastrar(request("Ana", "2026-001", null,
+                List.of(new ResponsavelRequest("Outro Nome", "52998224725", null, null, "MAE", null))));
+
+        assertThat(resultado.responsaveis()).singleElement().satisfies(r -> {
+            assertThat(r.responsavelId()).isEqualTo(existente.getId());
+            assertThat(r.nome()).isEqualTo("Maria Silva");
+            assertThat(r.financeiro()).isFalse();
+        });
+        verify(responsavelRepository, never()).save(any());
+        verify(pessoaRepository, times(1)).save(any(Pessoa.class));
+    }
+
+    @Test
+    void cadastrarComDoisResponsaveisFinanceirosRecusa() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(inv -> {
+            Pessoa pessoa = inv.getArgument(0);
+            pessoa.setId(UUID.randomUUID());
+            return pessoa;
+        });
+        when(alunoRepository.save(any(Aluno.class))).thenAnswer(inv -> inv.getArgument(0));
+        stubAcessoCriado(UUID.randomUUID());
+
+        assertThatThrownBy(() -> alunoService.cadastrar(request("Ana", "2026-001", null, List.of(
+                new ResponsavelRequest("Maria", null, null, null, "MAE", true),
+                new ResponsavelRequest("Joao", null, null, null, "PAI", true)))))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(alunoResponsavelRepository, never()).save(any());
     }
 
     @Test

@@ -22,10 +22,14 @@ export type Endereco = {
 
 export type Responsavel = {
   pessoaId: string
+  // Id do cadastro em /responsaveis (pessoaId é o que as cobranças usam).
+  responsavelId: string | null
   nome: string
   email: string | null
   telefone: string | null
   parentesco: string | null
+  // Quem paga as cobranças do aluno; no máximo um por aluno.
+  financeiro: boolean
 }
 
 // Espelha o AlunoResponse do backend no detalhe (GET /alunos/{id} e
@@ -47,6 +51,7 @@ export type ResponsavelRequest = {
   email: string | null
   telefone: string | null
   parentesco: string | null
+  financeiro?: boolean | null
 }
 
 // Espelha o AlunoRequest do backend. A escola vem do token, não do corpo.
