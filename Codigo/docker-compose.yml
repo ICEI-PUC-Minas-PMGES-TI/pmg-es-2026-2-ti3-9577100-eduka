@@ -90,6 +90,11 @@ services:
       BREVO_API_KEY: ${BREVO_API_KEY:-}
       BREVO_REMETENTE_EMAIL: ${BREVO_REMETENTE_EMAIL:-nao-responda@eduka.com.br}
       BREVO_REMETENTE_NOME: ${BREVO_REMETENTE_NOME:-Eduka}
+      ASAAS_API_URL: ${ASAAS_API_URL:-https://api-sandbox.asaas.com}
+      ASAAS_API_KEY: ${ASAAS_API_KEY:-}
+      ASAAS_WEBHOOK_URL: ${ASAAS_WEBHOOK_URL:-}
+      ASAAS_WEBHOOK_TOKEN: ${ASAAS_WEBHOOK_TOKEN:-}
+      ASAAS_WEBHOOK_EMAIL: ${ASAAS_WEBHOOK_EMAIL:-}
       LOGIN_VERIFICACAO_HABILITADA: ${LOGIN_VERIFICACAO_HABILITADA:-true}
       LOGIN_CODIGO_VALIDADE_MINUTOS: ${LOGIN_CODIGO_VALIDADE_MINUTOS:-5}
       # Em dev o codigo de verificacao tambem sai no log do backend, porque sem
