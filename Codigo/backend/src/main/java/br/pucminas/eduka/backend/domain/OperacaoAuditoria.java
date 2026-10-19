@@ -8,6 +8,8 @@ public enum OperacaoAuditoria {
     CRIAR,
     EDITAR,
     CANCELAR,
+    /** Baixa manual de pagamento (V24). */
+    PAGAR,
     /** Desfazer um pagamento ja registrado. */
     ESTORNAR
 }

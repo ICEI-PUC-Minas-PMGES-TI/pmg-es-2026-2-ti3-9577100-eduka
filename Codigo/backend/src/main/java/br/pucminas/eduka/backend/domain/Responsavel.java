@@ -21,7 +21,7 @@ import lombok.Setter;
 
 /**
  * Responsavel (legal e/ou financeiro) de alunos da escola. Mapeia a tabela
- * {@code RESPONSAVEL} (V22). Dado pessoal (nome, cpf, e-mail, telefone,
+ * {@code RESPONSAVEL} (V23). Dado pessoal (nome, cpf, e-mail, telefone,
  * endereco) fica em {@link Pessoa}, referenciada por {@code pessoaId}.
  *
  * <p>

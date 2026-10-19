@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -54,6 +55,9 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.AuditoriaService;
+import br.pucminas.eduka.backend.service.AvisoCobranca;
+import br.pucminas.eduka.backend.service.AvisoCobrancaService;
+import br.pucminas.eduka.backend.service.CobrancaParaAviso;
 import br.pucminas.eduka.backend.service.CobrancaService;
 
 /**
@@ -88,6 +92,8 @@ class CobrancaControllerSecurityTest {
     private PessoaRepository pessoaRepository;
     @MockitoBean
     private LogAuditoriaRepository logAuditoriaRepository;
+    @MockitoBean
+    private AvisoCobrancaService avisoCobrancaService;
 
     private Pessoa pessoaAna;
     private Pessoa maeDaAna;
@@ -174,6 +180,8 @@ class CobrancaControllerSecurityTest {
             mockMvc.perform(json(post("/cobrancas"), token, cobrarAna("")))
                     .andExpect(status().isForbidden());
             mockMvc.perform(com(patch("/cobrancas/" + UUID.randomUUID() + "/cancelar"), token))
+                    .andExpect(status().isForbidden());
+            mockMvc.perform(com(patch("/cobrancas/" + UUID.randomUUID() + "/pagar"), token))
                     .andExpect(status().isForbidden());
         }
         mockMvc.perform(json(post("/cobrancas"), accessToken("SUPER_ADMIN", null), cobrarAna("")))
@@ -482,5 +490,87 @@ class CobrancaControllerSecurityTest {
                 .andExpect(status().isBadRequest());
         mockMvc.perform(com(get("/cobrancas").param("vencimentoDe", "10/01/2099"), token))
                 .andExpect(status().isBadRequest());
+    }
+
+    // ---------- Baixa manual e avisos por e-mail ----------
+
+    @Test
+    void pagarMarcaComoPagaAuditaEAvisa() throws Exception {
+        UUID usuario = UUID.randomUUID();
+        Cobranca cobranca = cobrancaDaAna(StatusCobranca.EM_ATRASO, VENCIDA);
+        cobranca.setResponsavelId(maeDaAna.getId());
+
+        mockMvc.perform(com(patch("/cobrancas/" + cobranca.getId() + "/pagar"),
+                jwtService.generateAccessToken(usuario, "FINANCEIRO", ESCOLA_A)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PAGA"))
+                .andExpect(jsonPath("$.pagaEm").isNotEmpty());
+
+        assertThat(cobranca.getStatus()).isEqualTo(StatusCobranca.PAGA);
+        LogAuditoria log = logGravado();
+        assertThat(log.getUsuarioId()).isEqualTo(usuario);
+        assertThat(log.getOperacao()).isEqualTo(OperacaoAuditoria.PAGAR);
+
+        ArgumentCaptor<CobrancaParaAviso> aviso = ArgumentCaptor.forClass(CobrancaParaAviso.class);
+        verify(avisoCobrancaService).publicar(eq(AvisoCobranca.Tipo.PAGAMENTO_CONFIRMADO), aviso.capture());
+        assertThat(aviso.getValue().id()).isEqualTo(cobranca.getId());
+        assertThat(aviso.getValue().responsavelPessoaId()).isEqualTo(maeDaAna.getId());
+        assertThat(aviso.getValue().pagaEm()).isEqualTo(cobranca.getPagaEm());
+    }
+
+    @Test
+    void pagarCobrancaPagaOuCanceladaResponde400SemAviso() throws Exception {
+        String token = accessToken("MASTER", ESCOLA_A);
+        for (StatusCobranca status : List.of(StatusCobranca.PAGA, StatusCobranca.CANCELADA)) {
+            Cobranca cobranca = cobrancaDaAna(status, NO_PRAZO);
+            mockMvc.perform(com(patch("/cobrancas/" + cobranca.getId() + "/pagar"), token))
+                    .andExpect(status().isBadRequest());
+        }
+        mockMvc.perform(com(patch("/cobrancas/" + UUID.randomUUID() + "/pagar"), token))
+                .andExpect(status().isNotFound());
+        verifyNoInteractions(avisoCobrancaService);
+        verify(logAuditoriaRepository, never()).save(any());
+    }
+
+    @Test
+    void criarAvisaQuemPagaEGuardaOLembreteParaPerto() throws Exception {
+        mockMvc.perform(json(post("/cobrancas"), accessToken("FINANCEIRO", ESCOLA_A), cobrarAna("")))
+                .andExpect(status().isCreated());
+
+        ArgumentCaptor<Cobranca> salva = ArgumentCaptor.forClass(Cobranca.class);
+        verify(cobrancaRepository).saveAndFlush(salva.capture());
+        // Vence em 2099: o lembrete de vencimento ainda vai sair pela rotina.
+        assertThat(salva.getValue().getLembreteVencimentoEm()).isNull();
+
+        ArgumentCaptor<CobrancaParaAviso> aviso = ArgumentCaptor.forClass(CobrancaParaAviso.class);
+        verify(avisoCobrancaService).publicar(eq(AvisoCobranca.Tipo.COBRANCA_CRIADA), aviso.capture());
+        assertThat(aviso.getValue().id()).isEqualTo(salva.getValue().getId());
+        assertThat(aviso.getValue().alunoPessoaId()).isEqualTo(pessoaAna.getId());
+    }
+
+    @Test
+    void criarComVencimentoDentroDaJanelaDispensaOLembrete() throws Exception {
+        String corpo = "{\"alunoId\":\"" + ana.getId() + "\",\"descricao\":\"Taxa\",\"valor\":10,"
+                + "\"dataVencimento\":\"" + LocalDate.now().plusDays(1) + "\"}";
+
+        mockMvc.perform(json(post("/cobrancas"), accessToken("FINANCEIRO", ESCOLA_A), corpo))
+                .andExpect(status().isCreated());
+
+        ArgumentCaptor<Cobranca> salva = ArgumentCaptor.forClass(Cobranca.class);
+        verify(cobrancaRepository).saveAndFlush(salva.capture());
+        assertThat(salva.getValue().getLembreteVencimentoEm()).isNotNull();
+    }
+
+    @Test
+    void editarComNovoVencimentoReabreOLembrete() throws Exception {
+        Cobranca cobranca = cobrancaDaAna(StatusCobranca.PENDENTE, LocalDate.of(2099, 1, 5));
+        cobranca.setLembreteVencimentoEm(java.time.Instant.now());
+
+        mockMvc.perform(json(put("/cobrancas/" + cobranca.getId()), accessToken("FINANCEIRO", ESCOLA_A),
+                "{" + DADOS + "}"))
+                .andExpect(status().isOk());
+
+        assertThat(cobranca.getLembreteVencimentoEm()).isNull();
+        verifyNoInteractions(avisoCobrancaService);
     }
 }

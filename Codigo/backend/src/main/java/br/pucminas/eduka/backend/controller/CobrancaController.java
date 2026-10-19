@@ -88,4 +88,13 @@ public class CobrancaController {
     public CobrancaResponse cancelar(@PathVariable UUID id) {
         return cobrancaService.cancelar(id);
     }
+
+    @PatchMapping("/{id}/pagar")
+    @PreAuthorize(Perfis.FINANCEIRO)
+    @Operation(summary = "Da baixa manual no pagamento de uma cobranca",
+            description = "Marca a cobranca como PAGA, registra no LOG_AUDITORIA e envia o e-mail de pagamento "
+                    + "confirmado ao responsavel financeiro (ou ao aluno). 400 se ja foi paga ou cancelada.")
+    public CobrancaResponse pagar(@PathVariable UUID id) {
+        return cobrancaService.confirmarPagamento(id);
+    }
 }

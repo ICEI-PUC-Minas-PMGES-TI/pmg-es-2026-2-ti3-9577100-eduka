@@ -48,4 +48,21 @@ public interface CobrancaRepository extends JpaRepository<Cobranca, UUID> {
     @Query(value = "UPDATE COBRANCA SET STATUS = 'EM_ATRASO', ATUALIZADO_EM = :agora "
             + "WHERE STATUS = 'PENDENTE' AND DATA_VENCIMENTO < :hoje", nativeQuery = true)
     int marcarVencidasComoEmAtraso(@Param("hoje") LocalDate hoje, @Param("agora") Instant agora);
+
+    /**
+     * Pendentes de todas as escolas que vencem entre {@code hoje} e
+     * {@code limite} (inclusive) e ainda nao receberam o lembrete. Nativo
+     * pelo mesmo motivo de {@link #marcarVencidasComoEmAtraso}. Colunas na
+     * ordem de {@link br.pucminas.eduka.backend.service.CobrancaParaAviso#deLinha}.
+     */
+    @Query(value = "SELECT c.ID_COBRANCA, c.ESCOLA_ID, a.pessoa_id, c.RESPONSAVEL_ID, c.DESCRICAO, c.VALOR, "
+            + "c.DATA_VENCIMENTO FROM COBRANCA c JOIN alunos a ON a.id_aluno = c.ALUNO_ID "
+            + "WHERE c.STATUS = 'PENDENTE' AND c.LEMBRETE_VENCIMENTO_EM IS NULL "
+            + "AND c.DATA_VENCIMENTO BETWEEN :hoje AND :limite", nativeQuery = true)
+    List<Object[]> buscarParaLembreteDeVencimento(@Param("hoje") LocalDate hoje, @Param("limite") LocalDate limite);
+
+    @Modifying(clearAutomatically = true)
+    @Query(value = "UPDATE COBRANCA SET LEMBRETE_VENCIMENTO_EM = :agora WHERE ID_COBRANCA IN (:ids)",
+            nativeQuery = true)
+    int marcarLembreteDeVencimentoEnviado(@Param("ids") Collection<UUID> ids, @Param("agora") Instant agora);
 }

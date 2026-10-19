@@ -44,6 +44,8 @@ import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.AcessoService;
 import br.pucminas.eduka.backend.service.AlunoService;
+import br.pucminas.eduka.backend.service.AuditoriaService;
+import br.pucminas.eduka.backend.service.AvisoCobrancaService;
 import br.pucminas.eduka.backend.service.CobrancaService;
 import br.pucminas.eduka.backend.service.ResponsavelService;
 import br.pucminas.eduka.backend.service.PortalAlunoService;
@@ -75,6 +77,10 @@ class PortalAlunoControllerSecurityTest {
     private PessoaPapelRepository pessoaPapelRepository;
     @MockitoBean
     private AlunoResponsavelRepository alunoResponsavelRepository;
+    @MockitoBean
+    private AuditoriaService auditoriaService;
+    @MockitoBean
+    private AvisoCobrancaService avisoCobrancaService;
     @MockitoBean
     private ResponsavelRepository responsavelRepository;
     @MockitoBean

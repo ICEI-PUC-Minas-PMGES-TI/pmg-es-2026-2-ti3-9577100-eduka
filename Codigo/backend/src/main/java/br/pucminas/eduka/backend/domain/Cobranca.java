@@ -87,6 +87,17 @@ public class Cobranca {
     @Column(name = "CANCELADA_EM")
     private Instant canceladaEm;
 
+    /** Quando a cobranca foi dada como paga (V24). Nula enquanto nao paga. */
+    @Column(name = "PAGA_EM")
+    private Instant pagaEm;
+
+    /**
+     * Quando saiu o e-mail de vencimento proximo para o vencimento atual
+     * (V24). Nulo enquanto nao avisado; mudar o vencimento zera.
+     */
+    @Column(name = "LEMBRETE_VENCIMENTO_EM")
+    private Instant lembreteVencimentoEm;
+
     /** Preenchido pelo DEFAULT da coluna e relido apos o insert. */
     @Generated(event = EventType.INSERT)
     @Column(name = "CRIADO_EM", nullable = false, updatable = false)

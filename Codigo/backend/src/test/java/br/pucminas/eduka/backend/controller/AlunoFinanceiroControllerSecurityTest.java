@@ -38,6 +38,8 @@ import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
+import br.pucminas.eduka.backend.service.AuditoriaService;
+import br.pucminas.eduka.backend.service.AvisoCobrancaService;
 import br.pucminas.eduka.backend.service.CobrancaService;
 
 /**
@@ -66,6 +68,10 @@ class AlunoFinanceiroControllerSecurityTest {
     private MatriculaTurmaRepository matriculaRepository;
     @MockitoBean
     private AlunoResponsavelRepository alunoResponsavelRepository;
+    @MockitoBean
+    private AuditoriaService auditoriaService;
+    @MockitoBean
+    private AvisoCobrancaService avisoCobrancaService;
     @MockitoBean
     private PessoaRepository pessoaRepository;
 

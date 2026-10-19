@@ -1,6 +1,7 @@
 package br.pucminas.eduka.backend.service;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Comparator;
@@ -66,6 +67,9 @@ public class CobrancaService {
     /** "Em atraso" segue o calendario da escola, nao o de UTC. */
     private static final ZoneId FUSO_ESCOLA = ZoneId.of("America/Sao_Paulo");
 
+    /** Com quantos dias de antecedencia sai o lembrete de vencimento. */
+    static final int DIAS_LEMBRETE_VENCIMENTO = 3;
+
     private final CobrancaRepository cobrancaRepository;
     private final AlunoRepository alunoRepository;
     private final MatriculaTurmaRepository matriculaRepository;
@@ -73,12 +77,13 @@ public class CobrancaService {
     private final PessoaRepository pessoaRepository;
     private final IsolamentoEscola isolamentoEscola;
     private final AuditoriaService auditoriaService;
+    private final AvisoCobrancaService avisoCobrancaService;
     private final Clock clock;
 
     public CobrancaService(CobrancaRepository cobrancaRepository, AlunoRepository alunoRepository,
             MatriculaTurmaRepository matriculaRepository, AlunoResponsavelRepository alunoResponsavelRepository,
             PessoaRepository pessoaRepository, IsolamentoEscola isolamentoEscola,
-            AuditoriaService auditoriaService, Clock clock) {
+            AuditoriaService auditoriaService, AvisoCobrancaService avisoCobrancaService, Clock clock) {
         this.cobrancaRepository = cobrancaRepository;
         this.alunoRepository = alunoRepository;
         this.matriculaRepository = matriculaRepository;
@@ -86,6 +91,7 @@ public class CobrancaService {
         this.pessoaRepository = pessoaRepository;
         this.isolamentoEscola = isolamentoEscola;
         this.auditoriaService = auditoriaService;
+        this.avisoCobrancaService = avisoCobrancaService;
         this.clock = clock;
     }
 
@@ -167,8 +173,11 @@ public class CobrancaService {
                 .valor(request.valor())
                 .dataVencimento(request.dataVencimento())
                 .status(StatusCobranca.PENDENTE)
+                .lembreteVencimentoEm(dispensaLembrete(request.dataVencimento()))
                 .build();
-        return salvarEAuditar(cobranca, OperacaoAuditoria.CRIAR, escolaId);
+        CobrancaResponse resposta = salvarEAuditar(cobranca, OperacaoAuditoria.CRIAR, escolaId);
+        avisoCobrancaService.publicar(AvisoCobranca.Tipo.COBRANCA_CRIADA, CobrancaParaAviso.de(cobranca));
+        return resposta;
     }
 
     /**
@@ -191,6 +200,10 @@ public class CobrancaService {
         cobranca.setResponsavelId(exigirResponsavelDoAluno(request.responsavelId(), aluno, escolaId));
         cobranca.setDescricao(request.descricao().trim());
         cobranca.setValor(request.valor());
+        if (!request.dataVencimento().equals(cobranca.getDataVencimento())) {
+            // Novo vencimento, novo lembrete.
+            cobranca.setLembreteVencimentoEm(null);
+        }
         cobranca.setDataVencimento(request.dataVencimento());
         mudarStatus(cobranca, StatusCobranca.emAbertoCom(request.dataVencimento(), hoje()));
         cobranca.setAtualizadoEm(clock.instant());
@@ -215,6 +228,50 @@ public class CobrancaService {
     }
 
     /**
+     * Baixa manual: marca a cobranca em aberto como PAGA e avisa quem paga.
+     * Um futuro retorno de gateway de pagamento deve passar por aqui.
+     *
+     * @throws IllegalArgumentException se a cobranca ja foi paga ou cancelada
+     */
+    @Transactional
+    public CobrancaResponse confirmarPagamento(UUID id) {
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        Cobranca cobranca = buscarCobranca(id, escolaId);
+        exigirEmAberto(cobranca, "paga");
+
+        mudarStatus(cobranca, StatusCobranca.PAGA);
+        cobranca.setPagaEm(clock.instant());
+        cobranca.setAtualizadoEm(clock.instant());
+        CobrancaResponse resposta = salvarEAuditar(cobranca, OperacaoAuditoria.PAGAR, escolaId);
+        avisoCobrancaService.publicar(AvisoCobranca.Tipo.PAGAMENTO_CONFIRMADO, CobrancaParaAviso.de(cobranca));
+        return resposta;
+    }
+
+    /**
+     * Lembrete de vencimento proximo, de todas as escolas: pendentes que
+     * vencem de hoje ate {@value #DIAS_LEMBRETE_VENCIMENTO} dias e ainda nao
+     * foram avisadas. Chamado pela rotina diaria, sem usuario autenticado.
+     * Marca antes de enviar (o envio e depois do commit), entao rodar de novo
+     * nao repete e-mail; um dia perdido e recuperado na execucao seguinte.
+     *
+     * @return quantos lembretes foram publicados
+     */
+    @Transactional
+    public int avisarVencimentosProximos() {
+        LocalDate hoje = hoje();
+        List<CobrancaParaAviso> cobrancas = cobrancaRepository
+                .buscarParaLembreteDeVencimento(hoje, hoje.plusDays(DIAS_LEMBRETE_VENCIMENTO)).stream()
+                .map(CobrancaParaAviso::deLinha)
+                .toList();
+        if (cobrancas.isEmpty()) {
+            return 0;
+        }
+        cobrancaRepository.marcarLembreteDeVencimentoEnviado(cobrancas.stream().map(CobrancaParaAviso::id).toList(),
+                clock.instant());
+        return avisoCobrancaService.publicar(AvisoCobranca.Tipo.VENCIMENTO_PROXIMO, cobrancas);
+    }
+
+    /**
      * Marca como EM_ATRASO as cobrancas pendentes que venceram, de todas as
      * escolas. Chamado pela rotina diaria, sem usuario autenticado; rodar de
      * novo no mesmo dia nao muda nada.
@@ -231,6 +288,8 @@ public class CobrancaService {
         Cobranca salva = cobrancaRepository.saveAndFlush(cobranca);
         auditoriaService.registrar(operacao, EntidadeAuditada.COBRANCA, salva.getId());
         return paraResposta(salva, escolaId);
+    }
+
     /** Todas as cobrancas do aluno, inclusive canceladas, da mais recente para a mais antiga. */
     private HistoricoFinanceiroResponse historico(Aluno aluno, UUID escolaId) {
         List<Cobranca> cobrancas = cobrancaRepository.findAllByEscolaIdAndAlunoId(escolaId, aluno.getId()).stream()
@@ -242,6 +301,14 @@ public class CobrancaService {
                 .orElse(null);
         return new HistoricoFinanceiroResponse(aluno.getId(), alunoNome, aluno.getMatricula(),
                 HistoricoFinanceiroResponse.Resumo.de(respostas), respostas);
+    }
+
+    /**
+     * Cobranca que ja nasce dentro da janela do lembrete nao recebe o lembrete:
+     * o e-mail de cobranca criada ja traz o vencimento.
+     */
+    private Instant dispensaLembrete(LocalDate vencimento) {
+        return vencimento.isAfter(hoje().plusDays(DIAS_LEMBRETE_VENCIMENTO)) ? null : clock.instant();
     }
 
     private Cobranca buscarCobranca(UUID id, UUID escolaId) {

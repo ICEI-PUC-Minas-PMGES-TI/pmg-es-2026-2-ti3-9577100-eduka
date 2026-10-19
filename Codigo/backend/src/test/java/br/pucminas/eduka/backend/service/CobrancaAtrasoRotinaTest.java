@@ -38,11 +38,13 @@ class CobrancaAtrasoRotinaTest {
     private PessoaRepository pessoaRepository;
     @Mock
     private AuditoriaService auditoriaService;
+    @Mock
+    private AvisoCobrancaService avisoCobrancaService;
 
     private CobrancaService serviceEm(Instant agora) {
         return new CobrancaService(cobrancaRepository, alunoRepository, matriculaRepository,
                 alunoResponsavelRepository, pessoaRepository, new IsolamentoEscola(), auditoriaService,
-                Clock.fixed(agora, ZoneOffset.UTC));
+                avisoCobrancaService, Clock.fixed(agora, ZoneOffset.UTC));
     }
 
     @Test

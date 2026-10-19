@@ -28,6 +28,7 @@ public record CobrancaResponse(
         /** Ja com EM_ATRASO no lugar de PENDENTE vencida que a rotina diaria ainda nao marcou. */
         StatusCobranca status,
         Instant canceladaEm,
+        Instant pagaEm,
         Instant criadoEm,
         Instant atualizadoEm) {
 
@@ -46,6 +47,7 @@ public record CobrancaResponse(
                 cobranca.getResponsavelId(), responsavel != null ? responsavel.getNome() : null,
                 cobranca.getDescricao(), cobranca.getValor(), cobranca.getDataVencimento(),
                 StatusCobranca.efetivo(cobranca.getStatus(), cobranca.getDataVencimento(), hoje),
-                cobranca.getCanceladaEm(), cobranca.getCriadoEm(), cobranca.getAtualizadoEm());
+                cobranca.getCanceladaEm(), cobranca.getPagaEm(), cobranca.getCriadoEm(),
+                cobranca.getAtualizadoEm());
     }
 }

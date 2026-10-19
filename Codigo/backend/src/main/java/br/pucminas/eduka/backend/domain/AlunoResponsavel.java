@@ -14,7 +14,7 @@ import lombok.Setter;
 /**
  * Vinculo entre aluno e {@link Responsavel} (pela pessoa do responsavel).
  * {@code financeiro} marca quem paga as cobrancas do aluno: no maximo um por
- * aluno (indice unico parcial na V22).
+ * aluno (indice unico parcial na V23).
  */
 @Entity
 @Table(name = "ALUNO_RESPONSAVEL")
