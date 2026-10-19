@@ -1,0 +1,60 @@
+{
+  "id": "evt_05b708f961d739ea7eba7e4db318f621&22696482",
+  "event": "PAYMENT_CREATED",
+  "dateCreated": "2026-10-19 11:14:11",
+  "account": {
+    "id": "0c77b0ad-ba53-48c7-a7de-e22f7bd09b29",
+    "ownerId": null
+  },
+  "payment": {
+    "object": "payment",
+    "id": "pay_8hxv4pskhodx6m57",
+    "dateCreated": "2026-10-19",
+    "customer": "cus_000009569905",
+    "checkoutSession": null,
+    "paymentLink": null,
+    "value": 99.9,
+    "netValue": 98.91,
+    "originalValue": null,
+    "interestValue": null,
+    "description": "Webhook teste eduka-spike-cob-4",
+    "billingType": "PIX",
+    "pixTransaction": null,
+    "status": "PENDING",
+    "dueDate": "2026-10-24",
+    "originalDueDate": "2026-10-24",
+    "paymentDate": null,
+    "clientPaymentDate": null,
+    "installmentNumber": null,
+    "invoiceUrl": "https://sandbox.asaas.com/i/8hxv4pskhodx6m57",
+    "invoiceNumber": "19096112",
+    "externalReference": "eduka-spike-cob-4",
+    "deleted": false,
+    "anticipated": false,
+    "anticipable": false,
+    "creditDate": null,
+    "estimatedCreditDate": null,
+    "transactionReceiptUrl": null,
+    "nossoNumero": null,
+    "bankSlipUrl": null,
+    "lastInvoiceViewedDate": null,
+    "lastBankSlipViewedDate": null,
+    "discount": {
+      "value": 0.0,
+      "limitDate": null,
+      "dueDateLimitDays": 0,
+      "type": "FIXED"
+    },
+    "fine": {
+      "value": 0.0,
+      "type": "FIXED"
+    },
+    "interest": {
+      "value": 0.0,
+      "type": "PERCENTAGE"
+    },
+    "postalService": false,
+    "escrow": null,
+    "refunds": null
+  }
+}
