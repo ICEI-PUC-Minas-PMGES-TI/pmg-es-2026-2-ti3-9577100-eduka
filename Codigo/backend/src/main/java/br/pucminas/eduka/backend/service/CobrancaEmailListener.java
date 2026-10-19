@@ -2,6 +2,7 @@ package br.pucminas.eduka.backend.service;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -9,56 +10,65 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.util.HtmlUtils;
 
+import br.pucminas.eduka.backend.domain.TipoNotificacao;
 import br.pucminas.eduka.backend.email.Email;
-import br.pucminas.eduka.backend.email.EmailSender;
+import br.pucminas.eduka.backend.email.NotificacaoService;
 
 /**
- * Manda os e-mails de cobranca (criada, vencimento proximo, pagamento
- * confirmado) so depois do commit: se a operacao der rollback, ninguem recebe
- * aviso de cobranca que nao existe.
+ * Monta os e-mails de cobranca (criada, vencimento proximo, pagamento
+ * confirmado) e os poe na fila de notificacoes, na transacao da operacao: se
+ * ela der rollback, ninguem recebe aviso de cobranca que nao existe. Envio e
+ * novas tentativas ficam com {@link NotificacaoService}.
  *
  * <p>
- * Falha no envio nao desfaz nada e nao chega ao cliente: fica no log, sem
- * dado pessoal. O lembrete de vencimento ja foi marcado como enviado e nao e
- * repetido.
+ * O lembrete de vencimento deixa de sair quando o vencimento passa.
  * </p>
  */
 @Component
 public class CobrancaEmailListener {
 
-    private static final Logger log = LoggerFactory.getLogger(CobrancaEmailListener.class);
-
     private static final Locale PT_BR = Locale.of("pt", "BR");
     private static final DateTimeFormatter DATA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final ZoneId FUSO_ESCOLA = ZoneId.of("America/Sao_Paulo");
     private static final DateTimeFormatter DATA_HORA = DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm")
-            .withZone(ZoneId.of("America/Sao_Paulo"));
+            .withZone(FUSO_ESCOLA);
 
-    private final EmailSender emailSender;
+    private final NotificacaoService notificacaoService;
     private final String urlLogin;
     private final String urlLogo;
 
-    public CobrancaEmailListener(EmailSender emailSender, @Value("${app.frontend-url}") String frontendUrl) {
-        this.emailSender = emailSender;
+    public CobrancaEmailListener(NotificacaoService notificacaoService,
+            @Value("${app.frontend-url}") String frontendUrl) {
+        this.notificacaoService = notificacaoService;
         String base = frontendUrl.replaceAll("/+$", "");
         this.urlLogin = base + "/login";
         this.urlLogo = base + AcessoInicialEmailListener.CAMINHO_LOGO;
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT, fallbackExecution = true)
     public void enviar(AvisoCobranca aviso) {
-        try {
-            emailSender.enviar(montarEmail(aviso));
-        } catch (RuntimeException ex) {
-            log.error("Falha ao enviar e-mail {} da cobranca {}", aviso.tipo(), aviso.cobrancaId(), ex);
-        }
+        notificacaoService.enfileirar(tipoDe(aviso), aviso.cobrancaId(), montarEmail(aviso), validaAte(aviso));
+    }
+
+    private static TipoNotificacao tipoDe(AvisoCobranca aviso) {
+        return switch (aviso.tipo()) {
+            case COBRANCA_CRIADA -> TipoNotificacao.COBRANCA_CRIADA;
+            case VENCIMENTO_PROXIMO -> TipoNotificacao.VENCIMENTO_PROXIMO;
+            case PAGAMENTO_CONFIRMADO -> TipoNotificacao.PAGAMENTO_CONFIRMADO;
+        };
+    }
+
+    /** Lembrete de vencimento so faz sentido ate o fim do dia do vencimento, no fuso da escola. */
+    private static Instant validaAte(AvisoCobranca aviso) {
+        return aviso.tipo() == AvisoCobranca.Tipo.VENCIMENTO_PROXIMO
+                ? aviso.dataVencimento().plusDays(1).atStartOfDay(FUSO_ESCOLA).toInstant()
+                : null;
     }
 
     Email montarEmail(AvisoCobranca aviso) {

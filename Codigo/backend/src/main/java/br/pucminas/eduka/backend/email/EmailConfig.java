@@ -17,14 +17,15 @@ import org.springframework.web.client.RestClient;
  * e-mail nao sai. Basta preencher a chave para passar a enviar de verdade.
  */
 @Configuration
-@EnableConfigurationProperties(BrevoProperties.class)
+@EnableConfigurationProperties({ BrevoProperties.class, NotificacaoProperties.class })
 public class EmailConfig {
 
     private static final Logger log = LoggerFactory.getLogger(EmailConfig.class);
 
     /**
-     * Timeouts curtos: o envio acontece depois do commit, na thread da
-     * requisicao, e um Brevo lento nao pode segurar a resposta da API.
+     * Timeouts curtos: a tentativa imediata da fila de notificacoes acontece
+     * depois do commit, na thread da requisicao, e um Brevo lento nao pode
+     * segurar a resposta da API (ver {@link NotificacaoService}).
      */
     private static final Duration TIMEOUT_CONEXAO = Duration.ofSeconds(5);
     private static final Duration TIMEOUT_LEITURA = Duration.ofSeconds(10);

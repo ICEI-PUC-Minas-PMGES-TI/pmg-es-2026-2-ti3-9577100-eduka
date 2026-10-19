@@ -2,6 +2,10 @@ package br.pucminas.eduka.backend.service;
 
 import static org.springframework.web.util.HtmlUtils.htmlEscape;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,16 +13,19 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import br.pucminas.eduka.backend.domain.TipoNotificacao;
 import br.pucminas.eduka.backend.email.Email;
-import br.pucminas.eduka.backend.email.EmailSender;
+import br.pucminas.eduka.backend.email.NotificacaoService;
 
 /**
- * Manda o codigo de verificacao do login so depois do commit: o codigo que
- * chega por e-mail e sempre o que esta gravado.
+ * Monta o e-mail do codigo de verificacao do login e o poe na fila de
+ * notificacoes, na transacao que gravou o codigo: o codigo que chega por
+ * e-mail e sempre o que esta gravado.
  *
  * <p>
- * Falha no envio nao desfaz nada e nao chega ao cliente: fica no log, e a
- * tela oferece o reenvio.
+ * O envio sai logo apos o commit ({@link NotificacaoService}); se falhar, a
+ * fila tenta de novo enquanto o codigo valer. Codigo vencido nao e enviado, e
+ * a tela continua oferecendo o reenvio.
  * </p>
  */
 @Component
@@ -28,28 +35,28 @@ public class CodigoLoginEmailListener {
 
     static final String ASSUNTO = "Seu código de acesso ao Eduka";
 
-    private final EmailSender emailSender;
+    private final NotificacaoService notificacaoService;
     private final VerificacaoLoginProperties properties;
+    private final Clock clock;
     private final String urlLogo;
 
-    public CodigoLoginEmailListener(EmailSender emailSender, VerificacaoLoginProperties properties,
-            @Value("${app.frontend-url}") String frontendUrl) {
-        this.emailSender = emailSender;
+    public CodigoLoginEmailListener(NotificacaoService notificacaoService, VerificacaoLoginProperties properties,
+            Clock clock, @Value("${app.frontend-url}") String frontendUrl) {
+        this.notificacaoService = notificacaoService;
         this.properties = properties;
+        this.clock = clock;
         this.urlLogo = frontendUrl.replaceAll("/+$", "") + AcessoInicialEmailListener.CAMINHO_LOGO;
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT, fallbackExecution = true)
     public void enviar(CodigoLoginGerado gerado) {
         if (properties.codigoNoLog()) {
             // So em dev sem Brevo (LOGIN_CODIGO_NO_LOG): sem isto nao ha como ler o codigo.
             log.info("Codigo de verificacao do usuario {}: {}", gerado.usuarioId(), gerado.codigo());
         }
-        try {
-            emailSender.enviar(montarEmail(gerado));
-        } catch (RuntimeException ex) {
-            log.error("Falha ao enviar codigo de verificacao do usuario {}", gerado.usuarioId(), ex);
-        }
+        Instant validaAte = clock.instant().plus(Duration.ofMinutes(properties.validadeMinutos()));
+        notificacaoService.enfileirar(TipoNotificacao.CODIGO_LOGIN, gerado.usuarioId(), montarEmail(gerado),
+                validaAte);
     }
 
     /**

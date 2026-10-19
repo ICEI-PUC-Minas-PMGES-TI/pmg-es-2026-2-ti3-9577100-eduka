@@ -1,11 +1,12 @@
 package br.pucminas.eduka.backend.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -14,30 +15,36 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import br.pucminas.eduka.backend.domain.TipoNotificacao;
 import br.pucminas.eduka.backend.email.Email;
-import br.pucminas.eduka.backend.email.EmailSender;
+import br.pucminas.eduka.backend.email.NotificacaoService;
 
 @ExtendWith(MockitoExtension.class)
 class CodigoLoginEmailListenerTest {
 
     private static final VerificacaoLoginProperties REGRAS = new VerificacaoLoginProperties(true, 5, 5, 60, 5, false);
+    private static final Instant AGORA = Instant.parse("2026-10-19T12:00:00Z");
+    private static final Clock CLOCK = Clock.fixed(AGORA, ZoneOffset.UTC);
 
     @Mock
-    private EmailSender emailSender;
+    private NotificacaoService notificacaoService;
 
-    private CodigoLoginGerado gerado(String nome) {
-        return new CodigoLoginGerado(UUID.randomUUID(), nome, "Ana@Escola.com", "048213");
+    private CodigoLoginGerado gerado(UUID usuarioId, String nome) {
+        return new CodigoLoginGerado(usuarioId, nome, "Ana@Escola.com", "048213");
     }
 
     @Test
-    void enviaOCodigoEAValidadeParaOEmailDoUsuario() {
-        CodigoLoginEmailListener listener = new CodigoLoginEmailListener(emailSender, REGRAS,
+    void enfileiraOCodigoValendoSoEnquantoOCodigoVale() {
+        CodigoLoginEmailListener listener = new CodigoLoginEmailListener(notificacaoService, REGRAS, CLOCK,
                 "https://eduka.com.br/");
+        UUID usuarioId = UUID.randomUUID();
 
-        listener.enviar(gerado("Ana"));
+        listener.enviar(gerado(usuarioId, "Ana"));
 
         ArgumentCaptor<Email> captor = ArgumentCaptor.forClass(Email.class);
-        verify(emailSender).enviar(captor.capture());
+        // Codigo de 5 minutos: depois disso a fila nao envia mais.
+        verify(notificacaoService).enfileirar(eq(TipoNotificacao.CODIGO_LOGIN), eq(usuarioId), captor.capture(),
+                eq(AGORA.plusSeconds(5 * 60)));
         Email email = captor.getValue();
         assertThat(email.destinatario()).isEqualTo("Ana@Escola.com");
         assertThat(email.nomeDestinatario()).isEqualTo("Ana");
@@ -49,20 +56,11 @@ class CodigoLoginEmailListenerTest {
 
     @Test
     void nomeComHtmlEhEscapadoNoCorpoHtml() {
-        CodigoLoginEmailListener listener = new CodigoLoginEmailListener(emailSender, REGRAS,
+        CodigoLoginEmailListener listener = new CodigoLoginEmailListener(notificacaoService, REGRAS, CLOCK,
                 "http://localhost:5173");
 
-        Email email = listener.montarEmail(gerado("<script>x</script>"));
+        Email email = listener.montarEmail(gerado(UUID.randomUUID(), "<script>x</script>"));
 
         assertThat(email.html()).doesNotContain("<script>").contains("&lt;script&gt;");
-    }
-
-    @Test
-    void falhaNoEnvioNaoPropaga() {
-        CodigoLoginEmailListener listener = new CodigoLoginEmailListener(emailSender, REGRAS,
-                "http://localhost:5173");
-        doThrow(new IllegalStateException("Brevo fora do ar")).when(emailSender).enviar(any());
-
-        assertThatCode(() -> listener.enviar(gerado("Ana"))).doesNotThrowAnyException();
     }
 }
