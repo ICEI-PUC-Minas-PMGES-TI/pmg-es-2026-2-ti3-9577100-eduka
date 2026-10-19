@@ -1,0 +1,62 @@
+{
+  "id": "evt_d26e303b238e509335ac9ba210e51b0f&22699815",
+  "event": "PAYMENT_RECEIVED",
+  "dateCreated": "2026-10-19 11:41:54",
+  "account": {
+    "id": "3d134583-fe86-4aad-800f-6c6e63629478",
+    "ownerId": "0c77b0ad-ba53-48c7-a7de-e22f7bd09b29"
+  },
+  "payment": {
+    "object": "payment",
+    "id": "pay_mfqkh82qhahsoakx",
+    "dateCreated": "2026-10-19",
+    "customer": "cus_000009570357",
+    "checkoutSession": null,
+    "paymentLink": null,
+    "value": 150.0,
+    "netValue": 149.01,
+    "originalValue": null,
+    "interestValue": null,
+    "description": "Mensalidade teste subconta",
+    "billingType": "PIX",
+    "confirmedDate": "2026-10-19",
+    "pixTransaction": "9e2a38d3-7aa7-44e7-b68e-b9b98a6213a6",
+    "pixQrCodeId": "f49ec1ae-824a-4acb-a6b7-e2f5ef0451a7",
+    "status": "RECEIVED",
+    "dueDate": "2026-10-24",
+    "originalDueDate": "2026-10-24",
+    "paymentDate": "2026-10-19",
+    "clientPaymentDate": "2026-10-19",
+    "installmentNumber": null,
+    "invoiceUrl": "https://sandbox.asaas.com/i/mfqkh82qhahsoakx",
+    "invoiceNumber": "19096884",
+    "externalReference": "eduka-spike-sub-cob-1",
+    "deleted": false,
+    "anticipated": false,
+    "anticipable": false,
+    "creditDate": "2026-10-19",
+    "estimatedCreditDate": "2026-10-19",
+    "transactionReceiptUrl": "https://sandbox.asaas.com/000/comprovantes/h/UEFZTUVOVF9SRUNFSVZFRDpwYXlfbWZxa2g4MnFoYWhzb2FreA%3D%3D",
+    "nossoNumero": null,
+    "bankSlipUrl": null,
+    "lastInvoiceViewedDate": null,
+    "lastBankSlipViewedDate": null,
+    "discount": {
+      "value": 0.0,
+      "limitDate": null,
+      "dueDateLimitDays": 0,
+      "type": "FIXED"
+    },
+    "fine": {
+      "value": 0.0,
+      "type": "FIXED"
+    },
+    "interest": {
+      "value": 0.0,
+      "type": "PERCENTAGE"
+    },
+    "postalService": false,
+    "escrow": null,
+    "refunds": null
+  }
+}

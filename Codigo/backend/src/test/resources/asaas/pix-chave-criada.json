@@ -1,0 +1,13 @@
+{
+  "id": "b5051c65-2550-44d8-972e-5978dd1d5f40",
+  "key": "ae8108b9-e91e-4eff-ab7c-021180120ecd",
+  "type": "EVP",
+  "status": "ACTIVE",
+  "dateCreated": "2026-10-19 11:44:51",
+  "canBeDeleted": true,
+  "cannotBeDeletedReason": null,
+  "qrCode": {
+    "payload": "00020126580014br.gov.bcb.pix0136ae8108b9-e91e-4eff-ab7c-021180120ecd5204000053039865802BR5925Escola Teste Eduka Dois L6014Belo Horizonte62290525ESCOLATE00000002074793ASA63041239",
+    "encodedImage": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": "evt_47666c74c276474a2a62c32755b7778e&22699698",
+  "event": "ACCOUNT_STATUS_GENERAL_APPROVAL_AWAITING_APPROVAL",
+  "dateCreated": "2026-10-19 11:40:18",
+  "account": {
+    "id": "3d134583-fe86-4aad-800f-6c6e63629478",
+    "ownerId": "0c77b0ad-ba53-48c7-a7de-e22f7bd09b29"
+  },
+  "accountStatus": {
+    "id": "3d134583-fe86-4aad-800f-6c6e63629478",
+    "commercialInfo": "APPROVED",
+    "bankAccountInfo": "APPROVED",
+    "documentation": "APPROVED",
+    "general": "APPROVED"
+  }
+}

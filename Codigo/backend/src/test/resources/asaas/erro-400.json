@@ -1,0 +1,8 @@
+{
+  "errors": [
+    {
+      "code": "invalid_billingType",
+      "description": "Não é possível alterar a forma de pagamento de cobranças recebidas ou confirmadas."
+    }
+  ]
+}

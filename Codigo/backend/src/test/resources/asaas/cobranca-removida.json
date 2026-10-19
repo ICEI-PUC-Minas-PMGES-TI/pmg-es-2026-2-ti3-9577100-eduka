@@ -1,0 +1,51 @@
+{
+  "object": "payment",
+  "id": "pay_zfqdvuxl0xciwdfb",
+  "dateCreated": "2026-10-19",
+  "customer": "cus_000009569905",
+  "checkoutSession": null,
+  "paymentLink": null,
+  "value": 200.0,
+  "netValue": 199.01,
+  "originalValue": null,
+  "interestValue": null,
+  "description": "Mensalidade teste boleto",
+  "billingType": "PIX",
+  "pixTransaction": null,
+  "status": "OVERDUE",
+  "dueDate": "2026-10-16",
+  "originalDueDate": "2026-10-24",
+  "paymentDate": null,
+  "clientPaymentDate": null,
+  "installmentNumber": null,
+  "invoiceUrl": "https://sandbox.asaas.com/i/zfqdvuxl0xciwdfb",
+  "invoiceNumber": "19095858",
+  "externalReference": "eduka-spike-cob-2",
+  "deleted": true,
+  "anticipated": false,
+  "anticipable": false,
+  "creditDate": null,
+  "estimatedCreditDate": null,
+  "transactionReceiptUrl": "https://sandbox.asaas.com/000/comprovantes/h/UEFZTUVOVF9ERUxFVEVEOnBheV96ZnFkdnV4bDB4Y2l3ZGZi",
+  "nossoNumero": "13638720",
+  "bankSlipUrl": null,
+  "lastInvoiceViewedDate": null,
+  "lastBankSlipViewedDate": null,
+  "discount": {
+    "value": 0.0,
+    "limitDate": null,
+    "dueDateLimitDays": 0,
+    "type": "FIXED"
+  },
+  "fine": {
+    "value": 0.0,
+    "type": "FIXED"
+  },
+  "interest": {
+    "value": 0.0,
+    "type": "PERCENTAGE"
+  },
+  "postalService": false,
+  "escrow": null,
+  "refunds": null
+}
