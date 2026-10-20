@@ -164,6 +164,37 @@ public class ApiExceptionHandler {
                         "PROVEDOR_NAO_CONFIGURADO"));
     }
 
+    /** Pagar (spec §10.3): cada recusa leva o {@code codigo} que a tela trata. */
+    @ExceptionHandler(FormaPagamentoInvalidaException.class)
+    public ResponseEntity<ProblemDetail> formaPagamentoInvalida(FormaPagamentoInvalidaException ex) {
+        return ResponseEntity.badRequest()
+                .body(problema(HttpStatus.BAD_REQUEST, ex.getMessage(), "FORMA_INVALIDA"));
+    }
+
+    @ExceptionHandler(PagadorSemCpfException.class)
+    public ResponseEntity<ProblemDetail> pagadorSemCpf(PagadorSemCpfException ex) {
+        return ResponseEntity.badRequest()
+                .body(problema(HttpStatus.BAD_REQUEST, ex.getMessage(), "PAGADOR_SEM_CPF"));
+    }
+
+    @ExceptionHandler(CobrancaNaoPagavelException.class)
+    public ResponseEntity<ProblemDetail> cobrancaNaoPagavel(CobrancaNaoPagavelException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "COBRANCA_NAO_PAGAVEL"));
+    }
+
+    @ExceptionHandler(RecebimentosIndisponiveisException.class)
+    public ResponseEntity<ProblemDetail> recebimentosIndisponiveis(RecebimentosIndisponiveisException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "RECEBIMENTOS_INDISPONIVEIS"));
+    }
+
+    @ExceptionHandler(PagamentoEmProcessamentoException.class)
+    public ResponseEntity<ProblemDetail> pagamentoEmProcessamento(PagamentoEmProcessamentoException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "PAGAMENTO_EM_PROCESSAMENTO"));
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ProblemDetail> violacaoDeIntegridade(DataIntegrityViolationException ex) {
         return ResponseEntity.badRequest()

@@ -38,10 +38,13 @@ public class PaymentRoutingService {
 
     private final ChamadorProvedor provedor;
     private final RoteadorConta roteadorConta;
+    private final RoteadorPagamento roteadorPagamento;
 
-    PaymentRoutingService(ChamadorProvedor provedor, RoteadorConta roteadorConta) {
+    PaymentRoutingService(ChamadorProvedor provedor, RoteadorConta roteadorConta,
+            RoteadorPagamento roteadorPagamento) {
         this.provedor = provedor;
         this.roteadorConta = roteadorConta;
+        this.roteadorPagamento = roteadorPagamento;
     }
 
     // ---- Conta de recebimento (MASTER da escola do token) ----
@@ -69,7 +72,7 @@ public class PaymentRoutingService {
 
     /** ALUNO dono da cobranca; spec §8.2. */
     public DadosPagamentoResponse pagarCobranca(UUID cobrancaId, FormaPagamento forma) {
-        throw naoImplementado("PO.2");
+        return roteadorPagamento.pagarCobranca(cobrancaId, forma);
     }
 
     /** MASTER da escola; spec §8.2. */
