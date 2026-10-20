@@ -264,6 +264,14 @@ tabelas abaixo resumem as rotas por módulo.
 | `POST` | `/cobrancas` (aluno, descrição, valor e vencimento; matrícula e responsável opcionais, mas têm de ser do aluno) | `MASTER`, `FINANCEIRO` |
 | `PUT` | `/cobrancas/{id}` (400 se a cobrança já foi paga ou cancelada; a situação acompanha o novo vencimento) | `MASTER`, `FINANCEIRO` |
 | `PATCH` | `/cobrancas/{id}/cancelar` (a cobrança fica no histórico como `CANCELADA`) | `MASTER`, `FINANCEIRO` |
+| `POST` | `/webhooks/asaas` (avisos do Asaas; sem JWT, exige o token do webhook no header `Asaas-Access-Token`) | público (token do webhook) |
+
+Webhook do gateway: o aviso é gravado em `EVENTO_PROVEDOR` antes de ser aplicado, e o id do aviso
+é único, então o mesmo aviso chegando de novo responde 200 sem efeito. O pagamento confirmado
+(`PAYMENT_RECEIVED`/`PAYMENT_CONFIRMED`) grava `PAGAMENTO_COBRANCA` com origem `ONLINE` e marca a
+cobrança como `PAGA` na mesma transação, desde que a conta que mandou o aviso seja a conta de
+recebimento da escola da cobrança. Se a aplicação falhar, o aviso fica em `ERRO` para nova tentativa
+e o webhook continua respondendo 200.
 
 Situação da cobrança (`StatusCobranca`): `PENDENTE` pode passar para `EM_ATRASO`, `PAGA` ou
 `CANCELADA`; `EM_ATRASO` pode voltar para `PENDENTE` (vencimento adiado) ou passar para `PAGA` ou

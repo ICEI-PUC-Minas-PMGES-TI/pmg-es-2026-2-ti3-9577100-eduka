@@ -18,6 +18,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import br.pucminas.eduka.backend.pagamento.ProvedorIndisponivelException;
 import br.pucminas.eduka.backend.pagamento.ProvedorNaoConfiguradoException;
 import br.pucminas.eduka.backend.pagamento.ProvedorRecusouException;
+import br.pucminas.eduka.backend.pagamento.WebhookNaoAutorizadoException;
 
 /**
  * Traduz excecoes em respostas HTTP no formato ProblemDetail (RFC 9457).
@@ -162,6 +163,12 @@ public class ApiExceptionHandler {
                 .body(problema(HttpStatus.SERVICE_UNAVAILABLE,
                         "Pagamentos indisponiveis no momento. Fale com o suporte do Eduka",
                         "PROVEDOR_NAO_CONFIGURADO"));
+    }
+
+    @ExceptionHandler(WebhookNaoAutorizadoException.class)
+    public ResponseEntity<ProblemDetail> webhookNaoAutorizado(WebhookNaoAutorizadoException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(problema(HttpStatus.UNAUTHORIZED, "Autenticacao necessaria"));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
