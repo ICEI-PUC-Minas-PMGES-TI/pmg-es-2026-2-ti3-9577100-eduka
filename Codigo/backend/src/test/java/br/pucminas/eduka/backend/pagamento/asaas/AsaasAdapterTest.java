@@ -516,6 +516,23 @@ class AsaasAdapterTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void webhookSoEAutenticoComOTokenCadastrado() {
+        assertThat(adapter.webhookAutentico(TOKEN_WEBHOOK)).isTrue();
+        assertThat(adapter.webhookAutentico("outro-token")).isFalse();
+        assertThat(adapter.webhookAutentico("")).isFalse();
+        assertThat(adapter.webhookAutentico(null)).isFalse();
+    }
+
+    @Test
+    void semTokenConfiguradoNenhumWebhookEAutentico() {
+        AsaasAdapter semToken = adapterCom(new AsaasProperties(URL, CHAVE_PAI,
+                "https://tunel.example.com/webhooks/asaas", "", "falhas@example.com"));
+
+        assertThat(semToken.webhookAutentico("")).isFalse();
+        assertThat(semToken.webhookAutentico(null)).isFalse();
+    }
+
     // ---- A03: erros HTTP ----
 
     @Test

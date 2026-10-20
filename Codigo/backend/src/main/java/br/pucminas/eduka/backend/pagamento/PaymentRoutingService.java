@@ -1,7 +1,11 @@
 package br.pucminas.eduka.backend.pagamento;
 
+import java.util.Optional;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import br.pucminas.eduka.backend.domain.Cobranca;
@@ -12,6 +16,7 @@ import br.pucminas.eduka.backend.dto.DadosPagamentoResponse;
 import br.pucminas.eduka.backend.dto.FaturaPlataformaResponse;
 import br.pucminas.eduka.backend.dto.HabilitacaoRecebimentos;
 import br.pucminas.eduka.backend.dto.LancarFaturaRequest;
+import br.pucminas.eduka.backend.pagamento.tipos.EventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 
 /**
@@ -36,15 +41,19 @@ import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 @Service
 public class PaymentRoutingService {
 
+    private static final Logger log = LoggerFactory.getLogger(PaymentRoutingService.class);
+
     private final ChamadorProvedor provedor;
     private final RoteadorConta roteadorConta;
     private final RoteadorPagamento roteadorPagamento;
+    private final RoteadorEventos eventos;
 
     PaymentRoutingService(ChamadorProvedor provedor, RoteadorConta roteadorConta,
-            RoteadorPagamento roteadorPagamento) {
+            RoteadorPagamento roteadorPagamento, RoteadorEventos eventos) {
         this.provedor = provedor;
         this.roteadorConta = roteadorConta;
         this.roteadorPagamento = roteadorPagamento;
+        this.eventos = eventos;
     }
 
     // ---- Conta de recebimento (MASTER da escola do token) ----
@@ -114,14 +123,71 @@ public class PaymentRoutingService {
 
     // ---- Eventos e consistencia ----
 
-    /** Webhook; spec §8.3. */
+    /**
+     * Webhook; spec §8.3. Confere o token, grava o aviso e o aplica. Aviso
+     * repetido e descartado sem erro. Uma falha ao aplicar nao falha o
+     * webhook: o aviso ja esta gravado e fica em ERRO para o agendador.
+     *
+     * @throws WebhookNaoAutorizadoException token ausente ou diferente
+     * @throws IllegalArgumentException      corpo ilegivel ou sem id do aviso
+     */
     public void registrarEvento(String tokenRecebido, String corpoJson) {
-        throw naoImplementado("PO.3");
+        if (!provedor.chamar(p -> p.webhookAutentico(tokenRecebido))) {
+            throw new WebhookNaoAutorizadoException();
+        }
+        EventoProvedor evento = provedor.chamar(p -> p.interpretarEvento(corpoJson));
+        if (evento.idEvento() == null || evento.idEvento().isBlank()) {
+            throw new IllegalArgumentException("Aviso do provedor sem id");
+        }
+
+        Optional<UUID> eventoId;
+        try {
+            eventoId = eventos.gravar(evento);
+        } catch (DataIntegrityViolationException e) {
+            // O mesmo aviso chegando em paralelo esbarra na chave unica.
+            if (!eventos.jaRecebido(evento.idEvento())) {
+                throw e;
+            }
+            eventoId = Optional.empty();
+        }
+        eventoId.ifPresentOrElse(id -> aplicar(id, evento),
+                () -> log.info("Aviso {} do provedor repetido; descartado", evento.idEvento()));
     }
 
-    /** Aplica o evento uma vez, com o tenant da escola dele. */
+    /**
+     * Aplica o evento uma vez. A escola sai da cobranca do evento, nao do
+     * usuario (o webhook nao tem usuario). Nunca lanca excecao: a falha deixa o
+     * evento em ERRO.
+     */
     public void processarEvento(UUID eventoId) {
-        throw naoImplementado("PO.3");
+        try {
+            Optional<String> payload = eventos.payloadPendente(eventoId);
+            if (payload.isEmpty()) {
+                return;
+            }
+            EventoProvedor evento = provedor.chamar(p -> p.interpretarEvento(payload.get()));
+            aplicar(eventoId, evento);
+        } catch (RuntimeException e) {
+            falhou(eventoId, e);
+        }
+    }
+
+    private void aplicar(UUID eventoId, EventoProvedor evento) {
+        try {
+            eventos.aplicar(eventoId, evento);
+        } catch (RuntimeException e) {
+            falhou(eventoId, e);
+        }
+    }
+
+    private void falhou(UUID eventoId, RuntimeException erro) {
+        log.error("Falha ao aplicar o evento {} do provedor", eventoId, erro);
+        try {
+            eventos.marcarErro(eventoId, erro);
+        } catch (RuntimeException e) {
+            // Continua RECEBIDO ou PROCESSANDO; o agendador pega do mesmo jeito.
+            log.error("Nao foi possivel marcar o evento {} com ERRO", eventoId, e);
+        }
     }
 
     /** Agendador. */

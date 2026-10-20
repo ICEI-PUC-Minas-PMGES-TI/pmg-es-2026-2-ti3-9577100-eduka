@@ -75,4 +75,29 @@ public interface CobrancaRepository
     @Query(value = "UPDATE COBRANCA SET LEMBRETE_VENCIMENTO_EM = :agora WHERE ID_COBRANCA IN (:ids)",
             nativeQuery = true)
     int marcarLembreteDeVencimentoEnviado(@Param("ids") Collection<UUID> ids, @Param("agora") Instant agora);
+
+    // ---- Pagamento confirmado pelo provedor (webhook) ----
+    // Nativos pelo mesmo motivo de marcarVencidasComoEmAtraso: o webhook chega
+    // sem usuario autenticado. Colunas na ordem de CobrancaParaAviso#deLinha,
+    // seguidas de STATUS e FORMA_PAGAMENTO.
+
+    String COLUNAS_PAGAMENTO_ONLINE = "SELECT c.ID_COBRANCA, c.ESCOLA_ID, a.pessoa_id, c.RESPONSAVEL_ID, "
+            + "c.DESCRICAO, c.VALOR, c.DATA_VENCIMENTO, c.STATUS, c.FORMA_PAGAMENTO "
+            + "FROM COBRANCA c JOIN alunos a ON a.id_aluno = c.ALUNO_ID ";
+
+    @Query(value = COLUNAS_PAGAMENTO_ONLINE + "WHERE c.ID_COBRANCA_EXTERNA = :idExterno", nativeQuery = true)
+    List<Object[]> buscarParaPagamentoOnlinePorIdExterno(@Param("idExterno") String idExterno);
+
+    @Query(value = COLUNAS_PAGAMENTO_ONLINE + "WHERE c.ID_COBRANCA = :id", nativeQuery = true)
+    List<Object[]> buscarParaPagamentoOnlinePorId(@Param("id") UUID id);
+
+    /**
+     * Marca como PAGA a cobranca ainda em aberto. Devolve 0 se ela ja estava
+     * paga ou cancelada: a condicao no WHERE evita corrida com a baixa manual.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query(value = "UPDATE COBRANCA SET STATUS = 'PAGA', PAGA_EM = :agora, ATUALIZADO_EM = :agora, "
+            + "VERSAO = VERSAO + 1 WHERE ID_COBRANCA = :id AND STATUS IN ('PENDENTE', 'EM_ATRASO')",
+            nativeQuery = true)
+    int marcarPagaPeloProvedor(@Param("id") UUID id, @Param("agora") Instant agora);
 }

@@ -160,6 +160,8 @@ public class JwtConfig {
 							.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 							.requestMatchers("/health", "/login", "/login/codigo", "/login/codigo/reenvio",
 									"/primeiro-acesso").permitAll()
+							// Avisos do provedor: autenticados pelo token do webhook (WebhookController).
+							.requestMatchers(HttpMethod.POST, "/webhooks/asaas").permitAll()
 							// Swagger (OpenApiConfig). Em prod o springdoc fica desligado e estas rotas dao 404.
 							.requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll();
 					RotasPorPerfil.aplicar(authorize);
