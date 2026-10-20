@@ -38,6 +38,7 @@ export const paths = {
     raiz: '/financeiro',
     cobrancas: '/financeiro/cobrancas',
     novaCobranca: '/financeiro/cobrancas/nova',
+    despesas: '/financeiro/despesas',
   },
   professor: {
     raiz: '/professor',
