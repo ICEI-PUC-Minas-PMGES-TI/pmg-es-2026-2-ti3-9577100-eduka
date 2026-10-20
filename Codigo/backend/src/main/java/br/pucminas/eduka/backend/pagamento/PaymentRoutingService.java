@@ -37,9 +37,11 @@ import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 public class PaymentRoutingService {
 
     private final ChamadorProvedor provedor;
+    private final RoteadorConta roteadorConta;
 
-    PaymentRoutingService(ChamadorProvedor provedor) {
+    PaymentRoutingService(ChamadorProvedor provedor, RoteadorConta roteadorConta) {
         this.provedor = provedor;
+        this.roteadorConta = roteadorConta;
     }
 
     // ---- Conta de recebimento (MASTER da escola do token) ----
@@ -60,7 +62,7 @@ public class PaymentRoutingService {
 
     /** R11. Nunca lanca excecao: devolve o motivo quando nao habilitado. */
     public HabilitacaoRecebimentos habilitacao(UUID escolaId) {
-        throw naoImplementado("NOVA-3");
+        return roteadorConta.habilitacao(escolaId);
     }
 
     // ---- Pagar ----
