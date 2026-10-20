@@ -32,6 +32,7 @@ import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.dto.AtualizarCobrancaRequest;
+import br.pucminas.eduka.backend.dto.CobrancaAlunoResponse;
 import br.pucminas.eduka.backend.dto.CobrancaRequest;
 import br.pucminas.eduka.backend.dto.CobrancaResponse;
 import br.pucminas.eduka.backend.dto.HistoricoFinanceiroResponse;
@@ -197,6 +198,26 @@ public class CobrancaService {
         Aluno aluno = alunoRepository.findByUsuarioIdAndEscolaId(usuario.id(), usuario.escolaId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Aluno nao encontrado"));
         return historico(aluno, usuario.escolaId());
+    }
+
+    /**
+     * Uma cobranca do aluno dono do login (portal do aluno), com a situacao do
+     * pagamento e as acoes da tela.
+     *
+     * @throws RecursoNaoEncontradoException se a cobranca nao existe, e de
+     *                                       outra escola ou de outro aluno
+     */
+    @Transactional(readOnly = true)
+    public CobrancaAlunoResponse minhaCobranca(UUID id) {
+        UsuarioAutenticado usuario = isolamentoEscola.usuarioAtual();
+        UUID alunoId = alunoRepository.findByUsuarioIdAndEscolaId(usuario.id(), usuario.escolaId())
+                .map(Aluno::getId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Cobranca nao encontrada"));
+        Cobranca cobranca = buscarCobranca(id, usuario.escolaId());
+        if (!cobranca.getAluno().getId().equals(alunoId)) {
+            throw new RecursoNaoEncontradoException("Cobranca nao encontrada");
+        }
+        return CobrancaAlunoResponse.de(cobranca, hoje());
     }
 
     /**
