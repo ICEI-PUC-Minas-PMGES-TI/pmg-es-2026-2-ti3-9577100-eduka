@@ -1,6 +1,8 @@
 package br.pucminas.eduka.backend.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -27,6 +29,10 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -48,6 +54,7 @@ import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
+import br.pucminas.eduka.backend.repository.CobrancaTotaisRepository;
 import br.pucminas.eduka.backend.repository.LogAuditoriaRepository;
 import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
@@ -490,6 +497,111 @@ class CobrancaControllerSecurityTest {
                 .andExpect(status().isBadRequest());
         mockMvc.perform(com(get("/cobrancas").param("vencimentoDe", "10/01/2099"), token))
                 .andExpect(status().isBadRequest());
+    }
+
+    // ---------- Listagem paginada ----------
+
+    private static CobrancaTotaisRepository.Grupo grupo(StatusCobranca status, LocalDate vencimento,
+            long quantidade, String valor) {
+        return new CobrancaTotaisRepository.Grupo(status, vencimento, quantidade, new BigDecimal(valor));
+    }
+
+    @Test
+    void paginaTrazAsCobrancasEOsTotaisPorStatusEfetivo() throws Exception {
+        Cobranca noPrazo = cobrancaDaAna(StatusCobranca.PENDENTE, NO_PRAZO);
+        Cobranca vencida = cobrancaDaAna(StatusCobranca.PENDENTE, VENCIDA);
+        when(cobrancaRepository.findAll(anySpecification(), any(Pageable.class)))
+                .thenAnswer(inv -> new PageImpl<>(List.of(vencida, noPrazo), inv.getArgument(1), 7));
+        // A pendente vencida (2020) soma em EM_ATRASO junto com a ja marcada pela rotina.
+        when(cobrancaRepository.agruparPorStatusEVencimento(anySpecification())).thenReturn(List.of(
+                grupo(StatusCobranca.PENDENTE, NO_PRAZO, 2, "1000.00"),
+                grupo(StatusCobranca.PENDENTE, VENCIDA, 1, "850.50"),
+                grupo(StatusCobranca.EM_ATRASO, VENCIDA.minusDays(1), 2, "300.00"),
+                grupo(StatusCobranca.PAGA, VENCIDA, 2, "99.90")));
+
+        mockMvc.perform(com(get("/cobrancas/pagina").param("pagina", "1").param("tamanho", "2"),
+                accessToken("FINANCEIRO", ESCOLA_A)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.conteudo.length()").value(2))
+                .andExpect(jsonPath("$.conteudo[0].id").value(vencida.getId().toString()))
+                .andExpect(jsonPath("$.conteudo[0].status").value("EM_ATRASO"))
+                .andExpect(jsonPath("$.conteudo[0].alunoNome").value("Ana"))
+                .andExpect(jsonPath("$.pagina").value(1))
+                .andExpect(jsonPath("$.tamanho").value(2))
+                .andExpect(jsonPath("$.totalElementos").value(7))
+                .andExpect(jsonPath("$.totalPaginas").value(4))
+                .andExpect(jsonPath("$.totaisPorStatus.length()").value(4))
+                .andExpect(jsonPath("$.totaisPorStatus[0].status").value("PENDENTE"))
+                .andExpect(jsonPath("$.totaisPorStatus[0].quantidade").value(2))
+                .andExpect(jsonPath("$.totaisPorStatus[0].valor").value(1000.00))
+                .andExpect(jsonPath("$.totaisPorStatus[1].status").value("EM_ATRASO"))
+                .andExpect(jsonPath("$.totaisPorStatus[1].quantidade").value(3))
+                .andExpect(jsonPath("$.totaisPorStatus[1].valor").value(1150.50))
+                .andExpect(jsonPath("$.totaisPorStatus[2].status").value("PAGA"))
+                .andExpect(jsonPath("$.totaisPorStatus[2].quantidade").value(2))
+                .andExpect(jsonPath("$.totaisPorStatus[3].status").value("CANCELADA"))
+                .andExpect(jsonPath("$.totaisPorStatus[3].quantidade").value(0))
+                .andExpect(jsonPath("$.totaisPorStatus[3].valor").value(0));
+
+        ArgumentCaptor<Pageable> pedido = ArgumentCaptor.forClass(Pageable.class);
+        verify(cobrancaRepository).findAll(anySpecification(), pedido.capture());
+        assertThat(pedido.getValue().getPageNumber()).isEqualTo(1);
+        assertThat(pedido.getValue().getPageSize()).isEqualTo(2);
+        assertThat(pedido.getValue().getSort()).isEqualTo(Sort.by("dataVencimento", "id"));
+    }
+
+    @Test
+    void paginaVaziaAindaTrazTodosOsStatusZerados() throws Exception {
+        when(cobrancaRepository.findAll(anySpecification(), any(Pageable.class)))
+                .thenAnswer(inv -> new PageImpl<>(List.of(), inv.getArgument(1), 0));
+        when(cobrancaRepository.agruparPorStatusEVencimento(anySpecification())).thenReturn(List.of());
+
+        mockMvc.perform(com(get("/cobrancas/pagina").param("alunoId", UUID.randomUUID().toString())
+                .param("periodoLetivoId", "3").param("status", "PAGA").param("vencimentoDe", "2026-01-01")
+                .param("vencimentoAte", "2026-12-31"), accessToken("MASTER", ESCOLA_A)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.conteudo.length()").value(0))
+                .andExpect(jsonPath("$.pagina").value(0))
+                .andExpect(jsonPath("$.tamanho").value(20))
+                .andExpect(jsonPath("$.totalElementos").value(0))
+                .andExpect(jsonPath("$.totaisPorStatus.length()").value(4))
+                .andExpect(jsonPath("$.totaisPorStatus[*].quantidade").value(everyItem(is(0))));
+    }
+
+    @Test
+    void paginaComParametroInvalidoResponde400() throws Exception {
+        String token = accessToken("FINANCEIRO", ESCOLA_A);
+        for (String[] parametro : List.of(
+                new String[] { "pagina", "-1" },
+                new String[] { "tamanho", "0" },
+                new String[] { "tamanho", "101" },
+                new String[] { "status", "XPTO" },
+                new String[] { "periodoLetivoId", "abc" },
+                new String[] { "vencimentoAte", "31/12/2026" })) {
+            mockMvc.perform(com(get("/cobrancas/pagina").param(parametro[0], parametro[1]), token))
+                    .andExpect(status().isBadRequest());
+        }
+        mockMvc.perform(com(get("/cobrancas/pagina").param("vencimentoDe", "2026-02-01")
+                .param("vencimentoAte", "2026-01-01"), token))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("vencimentoDe nao pode ser depois de vencimentoAte"));
+        verify(cobrancaRepository, never()).findAll(anySpecification(), any(Pageable.class));
+    }
+
+    @Test
+    void paginaSoParaGestaoEFinanceiro() throws Exception {
+        mockMvc.perform(get("/cobrancas/pagina"))
+                .andExpect(status().isUnauthorized());
+        for (String perfil : List.of("SECRETARIA", "PROFESSOR", "ALUNO")) {
+            mockMvc.perform(com(get("/cobrancas/pagina"), accessToken(perfil, ESCOLA_A)))
+                    .andExpect(status().isForbidden());
+        }
+        verify(cobrancaRepository, never()).findAll(anySpecification(), any(Pageable.class));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Specification<Cobranca> anySpecification() {
+        return any(Specification.class);
     }
 
     // ---------- Baixa manual e avisos por e-mail ----------

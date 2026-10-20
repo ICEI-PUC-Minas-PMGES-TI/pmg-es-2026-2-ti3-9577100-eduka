@@ -1,0 +1,106 @@
+.painel {
+  position: sticky;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+  padding: 36px 32px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.cabecalhoStatus {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 14px;
+}
+
+.valor {
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -1px;
+  color: var(--color-text);
+  margin-bottom: 12px;
+}
+
+.alunoNome {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.descricao {
+  font-size: 14px;
+  color: var(--color-text-subtle);
+  margin-top: 4px;
+}
+
+.responsavel {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-top: 8px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid rgba(235, 217, 252, 0.7);
+}
+
+.infoPagamento {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-success);
+}
+
+.acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.botaoBoleto {
+  width: 100%;
+  justify-content: center;
+  gap: 8px;
+}
+
+.botaoRegistrar {
+  width: 100%;
+  justify-content: center;
+}
+
+.sucessoRegistro {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  font-size: 14px;
+  font-weight: 700;
+  animation: var(--animacao-surgir);
+}
+
+@media (max-width: 900px) {
+  .painel {
+    position: static;
+    padding: 24px 20px;
+  }
+
+  .valor {
+    font-size: 32px;
+  }
+}
+

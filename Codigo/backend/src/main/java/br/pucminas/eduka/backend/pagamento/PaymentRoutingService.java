@@ -44,10 +44,15 @@ public class PaymentRoutingService {
     private static final Logger log = LoggerFactory.getLogger(PaymentRoutingService.class);
 
     private final ChamadorProvedor provedor;
+    private final RoteadorConta roteadorConta;
+    private final RoteadorPagamento roteadorPagamento;
     private final RoteadorEventos eventos;
 
-    PaymentRoutingService(ChamadorProvedor provedor, RoteadorEventos eventos) {
+    PaymentRoutingService(ChamadorProvedor provedor, RoteadorConta roteadorConta,
+            RoteadorPagamento roteadorPagamento, RoteadorEventos eventos) {
         this.provedor = provedor;
+        this.roteadorConta = roteadorConta;
+        this.roteadorPagamento = roteadorPagamento;
         this.eventos = eventos;
     }
 
@@ -69,14 +74,14 @@ public class PaymentRoutingService {
 
     /** R11. Nunca lanca excecao: devolve o motivo quando nao habilitado. */
     public HabilitacaoRecebimentos habilitacao(UUID escolaId) {
-        throw naoImplementado("NOVA-3");
+        return roteadorConta.habilitacao(escolaId);
     }
 
     // ---- Pagar ----
 
     /** ALUNO dono da cobranca; spec §8.2. */
     public DadosPagamentoResponse pagarCobranca(UUID cobrancaId, FormaPagamento forma) {
-        throw naoImplementado("PO.2");
+        return roteadorPagamento.pagarCobranca(cobrancaId, forma);
     }
 
     /** MASTER da escola; spec §8.2. */

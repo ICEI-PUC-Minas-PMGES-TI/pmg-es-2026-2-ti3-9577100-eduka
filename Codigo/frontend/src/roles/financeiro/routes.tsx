@@ -1,11 +1,18 @@
-import type { RouteObject } from 'react-router'
-import { AreaEmConstrucao } from '../../pages/AreaEmConstrucao/AreaEmConstrucao'
+import { Navigate, type RouteObject } from 'react-router'
 import { paths } from '../../routes/paths'
 import { RotaProtegida } from '../../routes/RotaProtegida'
+import { Cobrancas } from './pages/Cobrancas/Cobrancas'
+import { Despesas } from './pages/Despesas/Despesas'
+import { NovaCobranca } from './pages/NovaCobranca/NovaCobranca'
 
 // Rota-mãe do perfil FINANCEIRO. As telas entram como children do RotaProtegida.
 export const financeiroRoutes: RouteObject = {
   path: paths.financeiro.raiz,
   element: <RotaProtegida perfis={['FINANCEIRO']} />,
-  children: [{ index: true, element: <AreaEmConstrucao area="Financeiro" /> }],
+  children: [
+    { index: true, element: <Navigate to={paths.financeiro.cobrancas} replace /> },
+    { path: paths.financeiro.cobrancas, element: <Cobrancas /> },
+    { path: paths.financeiro.novaCobranca, element: <NovaCobranca /> },
+    { path: paths.financeiro.despesas, element: <Despesas /> },
+  ],
 }

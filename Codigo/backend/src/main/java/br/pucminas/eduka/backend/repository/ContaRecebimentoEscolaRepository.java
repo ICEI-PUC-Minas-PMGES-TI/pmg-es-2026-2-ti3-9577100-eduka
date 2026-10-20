@@ -13,6 +13,9 @@ import br.pucminas.eduka.backend.domain.ContaRecebimentoEscola;
 @Repository
 public interface ContaRecebimentoEscolaRepository extends JpaRepository<ContaRecebimentoEscola, UUID> {
 
+    /** Conta da escola; vazio enquanto o MASTER nao ativou os recebimentos. */
+    Optional<ContaRecebimentoEscola> findByEscolaId(UUID escolaId);
+
     /**
      * Escola dona da conta no provedor. Nativo: o webhook chega sem usuario
      * autenticado, e o {@code @TenantId} filtraria por uma escola que nao existe.

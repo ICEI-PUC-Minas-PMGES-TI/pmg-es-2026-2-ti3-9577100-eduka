@@ -25,6 +25,11 @@ export function formatarPontos(valor: number): string {
   return valor.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
 }
 
+/** Formata valor monetário em reais: 890 -> "R$ 890,00". */
+export function formatarMoeda(valor: number): string {
+  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
 // O mesmo fuso que o backend usa para "hoje" (FUSO_ESCOLA).
 const DATA_DA_ESCOLA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' })
 

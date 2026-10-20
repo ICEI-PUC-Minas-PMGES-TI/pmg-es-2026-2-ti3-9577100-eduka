@@ -50,9 +50,6 @@ class RoteadorEventos {
 
     private static final Logger log = LoggerFactory.getLogger(RoteadorEventos.class);
 
-    /** Referencia externa da cobranca de aluno no provedor (Fluxo B): {@code EDK-B-<id da cobranca>}. */
-    static final String PREFIXO_REFERENCIA_COBRANCA = "EDK-B-";
-
     private static final int MAX_MOTIVO = 500;
     private static final int MAX_REFERENCIA = 60;
 
@@ -212,11 +209,11 @@ class RoteadorEventos {
     }
 
     static Optional<UUID> idDaReferencia(String referencia) {
-        if (referencia == null || !referencia.startsWith(PREFIXO_REFERENCIA_COBRANCA)) {
+        if (referencia == null || !referencia.startsWith(RoteadorPagamento.PREFIXO_COBRANCA)) {
             return Optional.empty();
         }
         try {
-            return Optional.of(UUID.fromString(referencia.substring(PREFIXO_REFERENCIA_COBRANCA.length())));
+            return Optional.of(UUID.fromString(referencia.substring(RoteadorPagamento.PREFIXO_COBRANCA.length())));
         } catch (IllegalArgumentException e) {
             return Optional.empty();
         }
