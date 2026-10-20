@@ -5,7 +5,7 @@ import { paths } from '../../../routes/paths'
 const MENU: ItemMenu[] = [
   { label: 'Início', icon: 'home' },
   { label: 'Cobranças', icon: 'card', to: paths.financeiro.cobrancas },
-  { label: 'Despesas', icon: 'dollarSign' },
+  { label: 'Despesas', icon: 'dollarSign', to: paths.financeiro.despesas },
   { label: 'Relatórios', icon: 'barChart' },
   { label: 'Alunos', icon: 'users' },
 ]
@@ -30,11 +30,10 @@ export function FinanceiroLayout({ titulo, subtitulo, acao, children }: Financei
         <div>
           <p>
             No módulo financeiro, você pode consultar o status das cobranças emitidas pela escola,
-            filtrar por situação, visualizar boletos bancários e registrar pagamentos de mensalidades
-            e taxas.
+            acompanhar e lançar despesas mensais, visualizar boletos bancários e gerenciar o fluxo de caixa.
           </p>
           <p style={{ marginTop: '8px' }}>
-            Para adicionar uma nova mensalidade ou taxa, utilize o botão <strong>+ Nova cobrança</strong>.
+            Utilize a tela de <strong>Despesas</strong> para lançar contas, salários, materiais e consertos da escola.
           </p>
         </div>
       }
@@ -43,4 +42,3 @@ export function FinanceiroLayout({ titulo, subtitulo, acao, children }: Financei
     </PainelLayout>
   )
 }
-
