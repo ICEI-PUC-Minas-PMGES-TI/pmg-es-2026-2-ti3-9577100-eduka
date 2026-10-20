@@ -5,16 +5,19 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.pucminas.eduka.backend.dto.CobrancaAlunoResponse;
 import br.pucminas.eduka.backend.dto.DadosPagamentoResponse;
 import br.pucminas.eduka.backend.dto.PagarRequest;
 import br.pucminas.eduka.backend.pagamento.PaymentRoutingService;
 import br.pucminas.eduka.backend.security.Perfis;
+import br.pucminas.eduka.backend.service.CobrancaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -29,9 +32,21 @@ import jakarta.validation.Valid;
 public class PagamentoAlunoController {
 
     private final PaymentRoutingService paymentRoutingService;
+    private final CobrancaService cobrancaService;
 
-    public PagamentoAlunoController(PaymentRoutingService paymentRoutingService) {
+    public PagamentoAlunoController(PaymentRoutingService paymentRoutingService, CobrancaService cobrancaService) {
         this.paymentRoutingService = paymentRoutingService;
+        this.cobrancaService = cobrancaService;
+    }
+
+    /** Uma cobranca do aluno, com a situacao do pagamento. A tela consulta enquanto espera a confirmacao. */
+    @GetMapping("/{id}")
+    @PreAuthorize(Perfis.ALUNO)
+    @Operation(summary = "Cobranca do aluno autenticado", description = "Perfil: ALUNO, dono da cobranca. Traz "
+            + "situacaoPagamento (AGUARDANDO_PAGAMENTO, PROCESSANDO, PAGA, CANCELADA) e as acoes da tela. "
+            + "Responde 404 se a cobranca nao e do aluno.")
+    public CobrancaAlunoResponse buscar(@PathVariable UUID id) {
+        return cobrancaService.minhaCobranca(id);
     }
 
     /** Gera (ou reaproveita) o pagamento da cobranca na forma escolhida. */

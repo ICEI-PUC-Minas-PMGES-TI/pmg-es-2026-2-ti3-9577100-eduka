@@ -5,6 +5,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -15,6 +16,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.hamcrest.Matchers;
@@ -28,6 +30,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import br.pucminas.eduka.backend.domain.Aluno;
+import br.pucminas.eduka.backend.domain.Cobranca;
+import br.pucminas.eduka.backend.domain.SituacaoProvedor;
+import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.dto.BoletoResponse;
 import br.pucminas.eduka.backend.dto.DadosPagamentoResponse;
 import br.pucminas.eduka.backend.dto.PixResponse;
@@ -41,22 +47,32 @@ import br.pucminas.eduka.backend.pagamento.PaymentRoutingService;
 import br.pucminas.eduka.backend.pagamento.ProvedorIndisponivelException;
 import br.pucminas.eduka.backend.pagamento.ProvedorRecusouException;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
+import br.pucminas.eduka.backend.repository.AlunoRepository;
+import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
+import br.pucminas.eduka.backend.repository.CobrancaRepository;
+import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
+import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
+import br.pucminas.eduka.backend.service.AuditoriaService;
+import br.pucminas.eduka.backend.service.AvisoCobrancaService;
+import br.pucminas.eduka.backend.service.CobrancaService;
 
 /**
- * Contrato de {@code POST /portal/aluno/cobrancas/{id}/pagar} (P3): so ALUNO,
- * status por situacao e o {@code codigo} de cada recusa (spec §10). As regras
- * ficam no roteador, que aqui e mock.
+ * Contrato de {@code /portal/aluno/cobrancas} (spec §10, P2 e P3): so ALUNO,
+ * status por situacao e o {@code codigo} de cada recusa. As regras do pagar
+ * ficam no roteador, que aqui e mock; a consulta usa o servico real.
  */
 @WebMvcTest(PagamentoAlunoController.class)
-@Import({ JwtConfig.class, JwtService.class, IsolamentoEscola.class, ApiExceptionHandler.class })
+@Import({ JwtConfig.class, JwtService.class, IsolamentoEscola.class, ApiExceptionHandler.class,
+        CobrancaService.class })
 class PagamentoAlunoControllerSecurityTest {
 
     private static final UUID ESCOLA = UUID.randomUUID();
     private static final UUID COBRANCA = UUID.randomUUID();
-    private static final String PAGAR = "/portal/aluno/cobrancas/" + COBRANCA + "/pagar";
+    private static final String CONSULTA = "/portal/aluno/cobrancas/" + COBRANCA;
+    private static final String PAGAR = CONSULTA + "/pagar";
     private static final BigDecimal VALOR = new BigDecimal("500.00");
     private static final LocalDate VENCIMENTO = LocalDate.of(2026, 10, 25);
 
@@ -68,6 +84,20 @@ class PagamentoAlunoControllerSecurityTest {
 
     @MockitoBean
     private PaymentRoutingService paymentRoutingService;
+    @MockitoBean
+    private CobrancaRepository cobrancaRepository;
+    @MockitoBean
+    private AlunoRepository alunoRepository;
+    @MockitoBean
+    private MatriculaTurmaRepository matriculaRepository;
+    @MockitoBean
+    private AlunoResponsavelRepository alunoResponsavelRepository;
+    @MockitoBean
+    private PessoaRepository pessoaRepository;
+    @MockitoBean
+    private AuditoriaService auditoriaService;
+    @MockitoBean
+    private AvisoCobrancaService avisoCobrancaService;
 
     private String token(String perfil, UUID escolaId) {
         return jwtService.generateAccessToken(UUID.randomUUID(), perfil, escolaId);
@@ -163,6 +193,60 @@ class PagamentoAlunoControllerSecurityTest {
         mockMvc.perform(alunoPaga("PIX"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.detail").value("Cobranca nao encontrada"));
+    }
+
+    // ---- P2: GET /portal/aluno/cobrancas/{id} ----
+
+    @Test
+    void consultaSemTokenResponde401ESoAlunoConsulta() throws Exception {
+        mockMvc.perform(get(CONSULTA)).andExpect(status().isUnauthorized());
+        for (String perfil : List.of("MASTER", "SECRETARIA", "FINANCEIRO", "PROFESSOR")) {
+            mockMvc.perform(get(CONSULTA).header(HttpHeaders.AUTHORIZATION, "Bearer " + token(perfil, ESCOLA)))
+                    .andExpect(status().isForbidden());
+        }
+        verify(cobrancaRepository, never()).findByIdAndEscolaId(any(), any());
+    }
+
+    @Test
+    void alunoVeASituacaoDoPagamentoESemNadaDoProvedor() throws Exception {
+        UUID usuario = UUID.randomUUID();
+        Aluno aluno = alunoDoLogin(usuario);
+        Cobranca cobranca = Cobranca.builder().id(COBRANCA).escolaId(ESCOLA).aluno(aluno).descricao("Mensalidade")
+                .valor(VALOR).dataVencimento(LocalDate.of(2099, 10, 25)).status(StatusCobranca.PENDENTE)
+                .situacaoProvedor(SituacaoProvedor.EMITIDA).formaPagamento(FormaPagamento.PIX)
+                .idCobrancaExterna("pay_secreto").build();
+        when(cobrancaRepository.findByIdAndEscolaId(COBRANCA, ESCOLA)).thenReturn(Optional.of(cobranca));
+
+        mockMvc.perform(get(CONSULTA).header(HttpHeaders.AUTHORIZATION,
+                "Bearer " + jwtService.generateAccessToken(usuario, "ALUNO", ESCOLA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(COBRANCA.toString()))
+                .andExpect(jsonPath("$.status").value("PENDENTE"))
+                .andExpect(jsonPath("$.situacaoPagamento").value("AGUARDANDO_PAGAMENTO"))
+                .andExpect(jsonPath("$.formaPagamento").value("PIX"))
+                .andExpect(jsonPath("$.acoes[0]").value("PAGAR"))
+                .andExpect(content().string(Matchers.not(Matchers.containsString("pay_secreto"))));
+    }
+
+    @Test
+    void cobrancaDeOutroAlunoNaConsultaResponde404() throws Exception {
+        UUID usuario = UUID.randomUUID();
+        alunoDoLogin(usuario);
+        Aluno outro = Aluno.builder().id(UUID.randomUUID()).escolaId(ESCOLA).build();
+        when(cobrancaRepository.findByIdAndEscolaId(COBRANCA, ESCOLA)).thenReturn(Optional.of(Cobranca.builder()
+                .id(COBRANCA).escolaId(ESCOLA).aluno(outro).descricao("Mensalidade").valor(VALOR)
+                .dataVencimento(LocalDate.of(2099, 10, 25)).status(StatusCobranca.PENDENTE).build()));
+
+        mockMvc.perform(get(CONSULTA).header(HttpHeaders.AUTHORIZATION,
+                "Bearer " + jwtService.generateAccessToken(usuario, "ALUNO", ESCOLA)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Cobranca nao encontrada"));
+    }
+
+    private Aluno alunoDoLogin(UUID usuario) {
+        Aluno aluno = Aluno.builder().id(UUID.randomUUID()).escolaId(ESCOLA).usuarioId(usuario).build();
+        when(alunoRepository.findByUsuarioIdAndEscolaId(usuario, ESCOLA)).thenReturn(Optional.of(aluno));
+        return aluno;
     }
 
     private void recusa(RuntimeException erro, int status, String codigo) throws Exception {
