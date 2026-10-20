@@ -21,6 +21,8 @@ import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.dto.AtualizarCobrancaRequest;
 import br.pucminas.eduka.backend.dto.CobrancaRequest;
 import br.pucminas.eduka.backend.dto.CobrancaResponse;
+import br.pucminas.eduka.backend.dto.PaginaCobrancasResponse;
+import br.pucminas.eduka.backend.repository.CobrancaFiltro;
 import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.CobrancaService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -52,6 +54,25 @@ public class CobrancaController {
             @RequestParam(required = false) LocalDate vencimentoDe,
             @RequestParam(required = false) LocalDate vencimentoAte) {
         return cobrancaService.listar(alunoId, status, vencimentoDe, vencimentoAte);
+    }
+
+    @GetMapping("/pagina")
+    @PreAuthorize(Perfis.FINANCEIRO)
+    @Operation(summary = "Lista as cobrancas em paginas, com os totais por situacao",
+            description = "Filtros opcionais por aluno, periodo letivo (pela turma da matricula; cobranca avulsa "
+                    + "fica de fora), situacao (PENDENTE, EM_ATRASO, PAGA, CANCELADA) e intervalo de vencimento "
+                    + "(inclusivo). Ordenado pelo vencimento. `pagina` comeca em 0; `tamanho` vai de 1 a 100. "
+                    + "`totaisPorStatus` traz quantidade e valor de cada situacao com os mesmos filtros, menos o "
+                    + "de situacao. 400 se a pagina, o tamanho ou o intervalo forem invalidos.")
+    public PaginaCobrancasResponse listarPaginado(@RequestParam(required = false) UUID alunoId,
+            @RequestParam(required = false) Long periodoLetivoId,
+            @RequestParam(required = false) StatusCobranca status,
+            @RequestParam(required = false) LocalDate vencimentoDe,
+            @RequestParam(required = false) LocalDate vencimentoAte,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = "20") int tamanho) {
+        return cobrancaService.listarPaginado(
+                new CobrancaFiltro(alunoId, periodoLetivoId, status, vencimentoDe, vencimentoAte), pagina, tamanho);
     }
 
     @GetMapping("/{id}")
