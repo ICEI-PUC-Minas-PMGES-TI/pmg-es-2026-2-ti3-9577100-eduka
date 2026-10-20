@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
+import { paths } from '../../../../routes/paths'
 import {
-  criarCobranca,
   listarCobrancas,
   registrarPagamento,
 } from '../../../../services/cobrancaService'
@@ -10,25 +11,22 @@ import {
   COBRANCAS_MOCK_INICIAIS,
   type Cobranca,
   type FiltroCobranca,
-  type NovaCobrancaRequest,
 } from '../../../../types/cobranca'
 import { CobrancaCard } from '../../components/CobrancaCard/CobrancaCard'
 import { CobrancaDetalhe } from '../../components/CobrancaDetalhe/CobrancaDetalhe'
 import { ModalBoleto } from '../../components/ModalBoleto/ModalBoleto'
-import { ModalNovaCobranca } from '../../components/ModalNovaCobranca/ModalNovaCobranca'
 import { FinanceiroLayout } from '../../layouts/FinanceiroLayout'
 import styles from './Cobrancas.module.css'
 
 export function Cobrancas() {
+  const navigate = useNavigate()
   const [cobrancas, setCobrancas] = useState<Cobranca[]>(COBRANCAS_MOCK_INICIAIS)
   const [idSelecionado, setIdSelecionado] = useState<string>(
     COBRANCAS_MOCK_INICIAIS[0]?.id || '',
   )
   const [termoBusca, setTermoBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<FiltroCobranca>('TODAS')
-
   const [boletoModalCobranca, setBoletoModalCobranca] = useState<Cobranca | null>(null)
-  const [modalNovaAberto, setModalNovaAberto] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -80,18 +78,16 @@ export function Cobrancas() {
     setCobrancas((prev) => prev.map((c) => (c.id === id ? atualizada : c)))
   }
 
-  async function handleCriarCobranca(dados: NovaCobrancaRequest) {
-    const nova = await criarCobranca(dados)
-    setCobrancas((prev) => [nova, ...prev])
-    setIdSelecionado(nova.id)
-  }
-
   return (
     <FinanceiroLayout
       titulo="Cobranças"
       subtitulo="Clique em uma cobrança para ver os detalhes ou registrar o pagamento."
       acao={
-        <Button variant="primary" icon="plus" onClick={() => setModalNovaAberto(true)}>
+        <Button
+          variant="primary"
+          icon="plus"
+          onClick={() => navigate(paths.financeiro.novaCobranca)}
+        >
           Nova cobrança
         </Button>
       }
@@ -120,9 +116,9 @@ export function Cobrancas() {
             className={`${styles.pillBtn} ${filtroStatus === 'TODAS' ? styles.pillAtivo : ''}`}
             onClick={() => setFiltroStatus('TODAS')}
           >
-            Todas ({contadores.todas})
+            Todas
+            <span className={styles.badge}>{contadores.todas}</span>
           </button>
-
           <button
             type="button"
             role="tab"
@@ -130,9 +126,9 @@ export function Cobrancas() {
             className={`${styles.pillBtn} ${filtroStatus === 'A_PAGAR' ? styles.pillAtivo : ''}`}
             onClick={() => setFiltroStatus('A_PAGAR')}
           >
-            A pagar ({contadores.aPagar})
+            A pagar
+            <span className={styles.badge}>{contadores.aPagar}</span>
           </button>
-
           <button
             type="button"
             role="tab"
@@ -140,9 +136,9 @@ export function Cobrancas() {
             className={`${styles.pillBtn} ${filtroStatus === 'EM_ATRASO' ? styles.pillAtivo : ''}`}
             onClick={() => setFiltroStatus('EM_ATRASO')}
           >
-            Em atraso ({contadores.emAtraso})
+            Atrasadas
+            <span className={styles.badge}>{contadores.emAtraso}</span>
           </button>
-
           <button
             type="button"
             role="tab"
@@ -150,17 +146,19 @@ export function Cobrancas() {
             className={`${styles.pillBtn} ${filtroStatus === 'PAGA' ? styles.pillAtivo : ''}`}
             onClick={() => setFiltroStatus('PAGA')}
           >
-            Pagas ({contadores.pagas})
+            Pagas
+            <span className={styles.badge}>{contadores.pagas}</span>
           </button>
         </div>
       </div>
 
-      {/* Grid Master-Detail */}
-      <div className={styles.layoutGrid}>
-        <div className={styles.listaCards} role="list" aria-label="Lista de cobranças">
+      {/* Conteúdo Master-Detail em Split Screen */}
+      <div className={styles.conteudoSplit}>
+        <div className={styles.listaCobrancas}>
           {cobrancasFiltradas.length === 0 ? (
-            <div className={styles.mensagemVazia}>
-              <p>Nenhuma cobrança encontrada para os filtros aplicados.</p>
+            <div className={styles.vazio}>
+              <Icon name="fileText" size={32} />
+              <p>Nenhuma cobrança encontrada para este filtro.</p>
             </div>
           ) : (
             cobrancasFiltradas.map((c) => (
@@ -187,12 +185,6 @@ export function Cobrancas() {
       <ModalBoleto
         cobranca={boletoModalCobranca}
         onFechar={() => setBoletoModalCobranca(null)}
-      />
-
-      <ModalNovaCobranca
-        aberto={modalNovaAberto}
-        onFechar={() => setModalNovaAberto(false)}
-        onSalvar={handleCriarCobranca}
       />
     </FinanceiroLayout>
   )
