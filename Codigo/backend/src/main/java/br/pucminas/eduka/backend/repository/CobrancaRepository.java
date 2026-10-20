@@ -7,8 +7,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,13 +22,19 @@ import br.pucminas.eduka.backend.domain.Cobranca;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 
 @Repository
-public interface CobrancaRepository extends JpaRepository<Cobranca, UUID> {
+public interface CobrancaRepository
+        extends JpaRepository<Cobranca, UUID>, JpaSpecificationExecutor<Cobranca>, CobrancaTotaisRepository {
 
     // Os EntityGraph trazem aluno e matricula (com a turma) numa query so,
     // para montar a resposta sem N+1.
 
     @EntityGraph(attributePaths = { "aluno", "matricula", "matricula.turma" })
     List<Cobranca> findAllByEscolaId(UUID escolaId);
+
+    /** Listagem paginada: os filtros vem de {@link CobrancaFiltro}. */
+    @Override
+    @EntityGraph(attributePaths = { "aluno", "matricula", "matricula.turma" })
+    Page<Cobranca> findAll(Specification<Cobranca> filtro, Pageable pageable);
 
     @EntityGraph(attributePaths = { "aluno", "matricula", "matricula.turma" })
     List<Cobranca> findAllByEscolaIdAndAlunoId(UUID escolaId, UUID alunoId);
