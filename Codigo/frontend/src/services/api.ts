@@ -13,12 +13,15 @@ export class ApiError extends Error {
   readonly status: number
   /** Campo `detail` do ProblemDetail do backend, quando veio (ex.: qual dado já existe no 409). */
   readonly detalhe: string | null
+  /** Propriedade `codigo` do ProblemDetail, quando veio (ex.: PAGADOR_SEM_CPF no pagamento). */
+  readonly codigo: string | null
 
-  constructor(status: number, message: string, detalhe: string | null = null) {
+  constructor(status: number, message: string, detalhe: string | null = null, codigo: string | null = null) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.detalhe = detalhe
+    this.codigo = codigo
   }
 }
 
@@ -37,13 +40,15 @@ function mensagemPadrao(status: number): string {
   return 'Não foi possível completar a requisição.'
 }
 
-async function lerDetalhe(resposta: Response): Promise<string | null> {
+async function lerProblema(resposta: Response): Promise<{ detalhe: string | null; codigo: string | null }> {
   try {
-    const corpo: unknown = await resposta.json()
-    const detalhe = (corpo as { detail?: unknown } | null)?.detail
-    return typeof detalhe === 'string' ? detalhe : null
+    const corpo = (await resposta.json()) as { detail?: unknown; codigo?: unknown } | null
+    return {
+      detalhe: typeof corpo?.detail === 'string' ? corpo.detail : null,
+      codigo: typeof corpo?.codigo === 'string' ? corpo.codigo : null,
+    }
   } catch {
-    return null
+    return { detalhe: null, codigo: null }
   }
 }
 
@@ -66,7 +71,8 @@ export async function apiRequest<T>(caminho: string, init: RequestInit = {}): Pr
   }
 
   if (!resposta.ok) {
-    throw new ApiError(resposta.status, mensagemPadrao(resposta.status), await lerDetalhe(resposta))
+    const { detalhe, codigo } = await lerProblema(resposta)
+    throw new ApiError(resposta.status, mensagemPadrao(resposta.status), detalhe, codigo)
   }
 
   if (resposta.status === 204) return undefined as T

@@ -3,6 +3,7 @@ import { paths } from '../../routes/paths'
 import { RotaProtegida } from '../../routes/RotaProtegida'
 import { Boletim } from './pages/Boletim/Boletim'
 import { MeusDados } from './pages/MeusDados/MeusDados'
+import { Pagamentos } from './pages/Pagamentos/Pagamentos'
 
 // Rota-mãe do perfil ALUNO. As telas entram como children do RotaProtegida.
 export const alunoRoutes: RouteObject = {
@@ -15,5 +16,6 @@ export const alunoRoutes: RouteObject = {
     // A agenda virou a aba "Tarefas e provas" do boletim.
     { path: paths.aluno.avaliacoes, element: <Navigate to={`${paths.aluno.boletim}?aba=provas`} replace /> },
     { path: paths.aluno.meusDados, element: <MeusDados /> },
+    { path: paths.aluno.pagamentos, element: <Pagamentos /> },
   ],
 }

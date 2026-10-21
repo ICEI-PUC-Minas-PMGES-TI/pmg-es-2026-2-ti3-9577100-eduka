@@ -56,6 +56,8 @@ export const paths = {
     /** Endereço antigo: redireciona para a aba "Tarefas e provas" do boletim. */
     avaliacoes: '/aluno/avaliacoes',
     meusDados: '/aluno/meus-dados',
+    /** Cobranças do aluno, com o Pagar por PIX. */
+    pagamentos: '/aluno/pagamentos',
   },
 } as const
 
