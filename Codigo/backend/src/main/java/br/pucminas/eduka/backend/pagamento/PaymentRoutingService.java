@@ -84,6 +84,11 @@ public class PaymentRoutingService {
         return roteadorPagamento.pagarCobranca(cobrancaId, forma);
     }
 
+    /** ALUNO dono da cobranca: PDF do boleto ja emitido, sem expor o link do provedor. */
+    public byte[] baixarBoleto(UUID cobrancaId) {
+        return roteadorPagamento.baixarBoleto(cobrancaId);
+    }
+
     /** MASTER da escola; spec §8.2. */
     public DadosPagamentoResponse pagarFatura(UUID faturaId, FormaPagamento forma) {
         throw naoImplementado("NOVA-5");

@@ -73,6 +73,7 @@ import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.PiiCryptoService;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
+import br.pucminas.eduka.backend.exception.BoletoNaoGeradoException;
 
 /**
  * Pagar cobranca (spec §8.2, R12–R19; TST-U05 a U14). O provedor e mock, mas
@@ -543,5 +544,56 @@ class RoteadorPagamentoTest {
         public void rollback(TransactionStatus status) {
             TransactionSynchronizationManager.setActualTransactionActive(false);
         }
+    }
+
+    // ---- PDF do boleto ----
+
+    @Test
+    void baixarBoletoEmitidoChamaOProvedorComACredencialDaEscola() {
+        emitida(FormaPagamento.BOLETO);
+        byte[] pdf = { '%', 'P', 'D', 'F' };
+        when(provider.baixarBoletoPdf(CREDENCIAL, "pay_1")).thenReturn(pdf);
+
+        assertThat(roteador(AGORA).baixarBoleto(COBRANCA)).isEqualTo(pdf);
+    }
+
+    @Test
+    void boletoNaoGeradoOuEmitidoComoPixERecusadoSemChamarOProvedor() {
+        assertThatThrownBy(() -> roteador(AGORA).baixarBoleto(COBRANCA))
+                .isInstanceOf(BoletoNaoGeradoException.class);
+
+        emitida(FormaPagamento.PIX);
+        assertThatThrownBy(() -> roteador(AGORA).baixarBoleto(COBRANCA))
+                .isInstanceOf(BoletoNaoGeradoException.class);
+        verifyNoInteractions(provider);
+    }
+
+    @Test
+    void boletoDeCobrancaCanceladaERecusado() {
+        emitida(FormaPagamento.BOLETO);
+        cobranca.setStatus(StatusCobranca.CANCELADA);
+
+        assertThatThrownBy(() -> roteador(AGORA).baixarBoleto(COBRANCA))
+                .isInstanceOf(CobrancaNaoPagavelException.class);
+        verifyNoInteractions(provider);
+    }
+
+    @Test
+    void boletoDeCobrancaPagaContinuaBaixavel() {
+        emitida(FormaPagamento.BOLETO);
+        cobranca.setStatus(StatusCobranca.PAGA);
+        when(provider.baixarBoletoPdf(CREDENCIAL, "pay_1")).thenReturn(new byte[] { '%', 'P', 'D', 'F' });
+
+        assertThat(roteador(AGORA).baixarBoleto(COBRANCA)).isNotEmpty();
+    }
+
+    @Test
+    void boletoDeOutroAlunoNaoEncontrado() {
+        emitida(FormaPagamento.BOLETO);
+        cobranca.setAluno(Aluno.builder().id(UUID.randomUUID()).escolaId(ESCOLA).pessoaId(UUID.randomUUID()).build());
+
+        assertThatThrownBy(() -> roteador(AGORA).baixarBoleto(COBRANCA))
+                .isInstanceOf(RecursoNaoEncontradoException.class);
+        verifyNoInteractions(provider);
     }
 }

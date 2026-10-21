@@ -38,6 +38,14 @@
   font-size: 13px;
 }
 
+/* Botão do PDF em destaque, com o vencimento logo abaixo. */
+.boletoAcao {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
 .copiaECola {
   display: flex;
   flex-direction: column;

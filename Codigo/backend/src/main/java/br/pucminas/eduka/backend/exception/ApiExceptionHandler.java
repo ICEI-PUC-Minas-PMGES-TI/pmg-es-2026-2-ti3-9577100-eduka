@@ -184,6 +184,12 @@ public class ApiExceptionHandler {
                 .body(problema(HttpStatus.BAD_REQUEST, ex.getMessage(), "PAGADOR_SEM_CPF"));
     }
 
+    @ExceptionHandler(BoletoNaoGeradoException.class)
+    public ResponseEntity<ProblemDetail> boletoNaoGerado(BoletoNaoGeradoException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "BOLETO_NAO_GERADO"));
+    }
+
     @ExceptionHandler(CobrancaNaoPagavelException.class)
     public ResponseEntity<ProblemDetail> cobrancaNaoPagavel(CobrancaNaoPagavelException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)

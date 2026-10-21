@@ -92,11 +92,19 @@ export type DadosPix = {
   validade: string | null
 }
 
+export type DadosBoleto = {
+  /** 47 dígitos, sem pontuação. */
+  linhaDigitavel: string
+  codigoBarras: string
+}
+
 export type DadosPagamento = {
-  /** PROCESSANDO: o provedor ainda não respondeu e o PIX ainda não existe. */
+  /** PROCESSANDO: o provedor ainda não respondeu e o PIX/boleto ainda não existe. */
   situacao: 'PRONTO' | 'PROCESSANDO'
   forma: FormaPagamento
   valor: number
+  /** Vencimento enviado ao provedor: o de hoje, se a cobrança já venceu. */
   vencimento: string
   pix: DadosPix | null
+  boleto: DadosBoleto | null
 }

@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -59,6 +60,7 @@ import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.AuditoriaService;
 import br.pucminas.eduka.backend.service.AvisoCobrancaService;
 import br.pucminas.eduka.backend.service.CobrancaService;
+import br.pucminas.eduka.backend.exception.BoletoNaoGeradoException;
 
 /**
  * Contrato de {@code /portal/aluno/cobrancas} (spec §10, P2 e P3): so ALUNO,
@@ -258,5 +260,44 @@ class PagamentoAlunoControllerSecurityTest {
         mockMvc.perform(alunoPaga("PIX"))
                 .andExpect(status().is(status))
                 .andExpect(jsonPath("$.codigo").value(codigo));
+    }
+
+    // ---- PDF do boleto ----
+
+    private String urlBoleto() {
+        return "/portal/aluno/cobrancas/" + COBRANCA + "/boleto";
+    }
+
+    @Test
+    void boletoDevolveOPdfComoAnexoSemCache() throws Exception {
+        byte[] pdf = "%PDF-1.4".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        when(paymentRoutingService.baixarBoleto(COBRANCA)).thenReturn(pdf);
+
+        mockMvc.perform(get(urlBoleto()).header(HttpHeaders.AUTHORIZATION, "Bearer " + token("ALUNO", ESCOLA)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(content().bytes(pdf))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
+                        org.hamcrest.Matchers.startsWith("attachment")))
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"));
+    }
+
+    @Test
+    void soAlunoBaixaOBoleto() throws Exception {
+        for (String perfil : List.of("MASTER", "SECRETARIA", "FINANCEIRO", "PROFESSOR")) {
+            mockMvc.perform(get(urlBoleto()).header(HttpHeaders.AUTHORIZATION, "Bearer " + token(perfil, ESCOLA)))
+                    .andExpect(status().isForbidden());
+        }
+        mockMvc.perform(get(urlBoleto())).andExpect(status().isUnauthorized());
+        verify(paymentRoutingService, never()).baixarBoleto(any());
+    }
+
+    @Test
+    void boletoAindaNaoGeradoResponde409ComCodigo() throws Exception {
+        when(paymentRoutingService.baixarBoleto(COBRANCA)).thenThrow(new BoletoNaoGeradoException());
+
+        mockMvc.perform(get(urlBoleto()).header(HttpHeaders.AUTHORIZATION, "Bearer " + token("ALUNO", ESCOLA)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.codigo").value("BOLETO_NAO_GERADO"));
     }
 }

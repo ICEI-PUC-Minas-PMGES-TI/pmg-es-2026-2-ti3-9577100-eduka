@@ -2,7 +2,11 @@ package br.pucminas.eduka.backend.controller;
 
 import java.util.UUID;
 
+import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -47,6 +51,26 @@ public class PagamentoAlunoController {
             + "Responde 404 se a cobranca nao e do aluno.")
     public CobrancaAlunoResponse buscar(@PathVariable UUID id) {
         return cobrancaService.minhaCobranca(id);
+    }
+
+    /**
+     * PDF oficial do boleto, buscado no provedor na hora. O link do provedor
+     * nunca chega ao navegador.
+     */
+    @GetMapping("/{id}/boleto")
+    @PreAuthorize(Perfis.ALUNO)
+    @Operation(summary = "Baixar o PDF do boleto", description = "Perfil: ALUNO, dono da cobranca. So depois de "
+            + "Pagar com BOLETO. 409 BOLETO_NAO_GERADO se o boleto ainda nao foi gerado ou COBRANCA_NAO_PAGAVEL "
+            + "se foi cancelada; 503 PROVEDOR_INDISPONIVEL; 404 se a cobranca nao e do aluno.")
+    public ResponseEntity<byte[]> baixarBoleto(@PathVariable UUID id) {
+        byte[] pdf = paymentRoutingService.baixarBoleto(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename("boleto-" + id + ".pdf").build().toString())
+                // Documento de pagamento: nao fica em cache compartilhado.
+                .cacheControl(CacheControl.noStore())
+                .body(pdf);
     }
 
     /** Gera (ou reaproveita) o pagamento da cobranca na forma escolhida. */

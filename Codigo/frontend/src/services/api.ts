@@ -52,9 +52,14 @@ async function lerProblema(resposta: Response): Promise<{ detalhe: string | null
   }
 }
 
-export async function apiRequest<T>(caminho: string, init: RequestInit = {}): Promise<T> {
+/**
+ * Envia a requisição com o token (exceto rotas públicas) e transforma resposta
+ * de erro em ApiError. `accept` diz o que se espera de volta no sucesso; o
+ * ProblemDetail de erro é aceito sempre.
+ */
+async function enviar(caminho: string, init: RequestInit, accept: string): Promise<Response> {
   const headers = new Headers(init.headers)
-  headers.set('Accept', 'application/json')
+  headers.set('Accept', `${accept}, application/problem+json`)
   if (init.body !== undefined && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
@@ -74,7 +79,17 @@ export async function apiRequest<T>(caminho: string, init: RequestInit = {}): Pr
     const { detalhe, codigo } = await lerProblema(resposta)
     throw new ApiError(resposta.status, mensagemPadrao(resposta.status), detalhe, codigo)
   }
+  return resposta
+}
 
+export async function apiRequest<T>(caminho: string, init: RequestInit = {}): Promise<T> {
+  const resposta = await enviar(caminho, init, 'application/json')
   if (resposta.status === 204) return undefined as T
   return (await resposta.json()) as T
+}
+
+/** Baixa um arquivo (ex.: PDF do boleto). Erros chegam como ApiError, igual ao apiRequest. */
+export async function apiBaixarArquivo(caminho: string, accept: string, signal?: AbortSignal): Promise<Blob> {
+  const resposta = await enviar(caminho, { signal }, accept)
+  return resposta.blob()
 }

@@ -12,6 +12,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.headerDoesNotExist;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -759,5 +760,65 @@ class AsaasAdapterTest {
         assertThat(PROPERTIES.configurado()).isTrue();
         assertThat(PROPERTIES.sandbox()).isTrue();
         assertThat(new AsaasProperties(URL, " ", null, null, null).configurado()).isFalse();
+    }
+
+    // ---- PDF do boleto ----
+
+    private static final byte[] PDF = "%PDF-1.4 boleto".getBytes(StandardCharsets.US_ASCII);
+
+    private void linkDoBoleto(String bankSlipUrl) {
+        servidor.expect(requestTo(URL + "/v3/payments/pay_boleto"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("access_token", CREDENCIAL.valor()))
+                .andRespond(withSuccess("{\"id\":\"pay_boleto\",\"bankSlipUrl\":\"" + bankSlipUrl + "\"}",
+                        MediaType.APPLICATION_JSON));
+    }
+
+    @Test
+    void baixarBoletoPdfSegueOLinkSemMandarAChave() {
+        linkDoBoleto("https://sandbox.asaas.com/b/pdf/abc123");
+        servidor.expect(requestTo("https://sandbox.asaas.com/b/pdf/abc123"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(headerDoesNotExist("access_token"))
+                .andRespond(withSuccess(PDF, MediaType.APPLICATION_PDF));
+
+        assertThat(adapter.baixarBoletoPdf(CREDENCIAL, "pay_boleto")).isEqualTo(PDF);
+        servidor.verify();
+    }
+
+    @Test
+    void baixarBoletoPdfRecusaLinkForaDoDominioDoAsaas() {
+        linkDoBoleto("https://asaas.com.exemplo-malicioso.com/boleto.pdf");
+
+        assertThatThrownBy(() -> adapter.baixarBoletoPdf(CREDENCIAL, "pay_boleto"))
+                .isInstanceOf(ProvedorIndisponivelException.class);
+        servidor.verify();
+    }
+
+    @Test
+    void baixarBoletoPdfRecusaLinkSemHttps() {
+        linkDoBoleto("http://sandbox.asaas.com/b/pdf/abc123");
+
+        assertThatThrownBy(() -> adapter.baixarBoletoPdf(CREDENCIAL, "pay_boleto"))
+                .isInstanceOf(ProvedorIndisponivelException.class);
+    }
+
+    @Test
+    void cobrancaSemBoletoNoProvedorERecusada() {
+        servidor.expect(requestTo(URL + "/v3/payments/pay_boleto"))
+                .andRespond(withSuccess("{\"id\":\"pay_boleto\",\"bankSlipUrl\":null}", MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> adapter.baixarBoletoPdf(CREDENCIAL, "pay_boleto"))
+                .isInstanceOf(ProvedorRecusouException.class);
+    }
+
+    @Test
+    void respostaQueNaoEPdfEInconclusiva() {
+        linkDoBoleto("https://sandbox.asaas.com/b/pdf/abc123");
+        servidor.expect(requestTo("https://sandbox.asaas.com/b/pdf/abc123"))
+                .andRespond(withSuccess("<html>erro</html>", MediaType.TEXT_HTML));
+
+        assertThatThrownBy(() -> adapter.baixarBoletoPdf(CREDENCIAL, "pay_boleto"))
+                .isInstanceOf(ProvedorIndisponivelException.class);
     }
 }

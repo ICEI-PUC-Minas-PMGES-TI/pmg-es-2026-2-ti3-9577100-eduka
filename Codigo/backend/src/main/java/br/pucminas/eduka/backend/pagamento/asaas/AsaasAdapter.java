@@ -1,5 +1,7 @@
 package br.pucminas.eduka.backend.pagamento.asaas;
 
+import java.util.Locale;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDate;
@@ -40,6 +42,7 @@ import br.pucminas.eduka.backend.pagamento.asaas.dto.ContaAsaas;
 import br.pucminas.eduka.backend.pagamento.asaas.dto.ErroAsaas;
 import br.pucminas.eduka.backend.pagamento.asaas.dto.EventoAsaas;
 import br.pucminas.eduka.backend.pagamento.asaas.dto.LinhaDigitavelAsaas;
+import br.pucminas.eduka.backend.pagamento.asaas.dto.LinkBoletoAsaas;
 import br.pucminas.eduka.backend.pagamento.asaas.dto.ListaAsaas;
 import br.pucminas.eduka.backend.pagamento.asaas.dto.NovaChavePixAsaas;
 import br.pucminas.eduka.backend.pagamento.asaas.dto.NovaCobrancaAsaas;
@@ -328,6 +331,55 @@ public class AsaasAdapter implements PaymentProvider {
                 .retrieve()
                 .toEntity(LinhaDigitavelAsaas.class));
         return new BoletoProvedor(linha.identificationField(), linha.barCode(), linha.nossoNumero());
+    }
+
+    /**
+     * Le o {@code bankSlipUrl} da cobranca e baixa o PDF por ele. O link e
+     * publico: a chave da conta nao vai junto. So segue link https de dominio
+     * do Asaas, para uma resposta adulterada nao fazer o backend buscar outro
+     * endereco.
+     */
+    @Override
+    public byte[] baixarBoletoPdf(CredencialProvedor credencial, String idCobrancaExterna) {
+        String chave = exigir(credencial);
+        LinkBoletoAsaas link = corpo("linkBoleto", idCobrancaExterna, () -> restClient.get()
+                .uri("/v3/payments/{id}", idCobrancaExterna)
+                .header(HEADER_CHAVE, chave)
+                .retrieve()
+                .toEntity(LinkBoletoAsaas.class));
+        URI pdf = linkConfiavel(link.bankSlipUrl());
+        byte[] conteudo = corpo("baixarBoletoPdf", idCobrancaExterna, () -> restClient.get()
+                .uri(pdf)
+                .accept(MediaType.APPLICATION_PDF, MediaType.APPLICATION_OCTET_STREAM)
+                .retrieve()
+                .toEntity(byte[].class));
+        if (!ehPdf(conteudo)) {
+            throw new ProvedorIndisponivelException("Provedor de pagamento nao devolveu o PDF do boleto");
+        }
+        return conteudo;
+    }
+
+    private static URI linkConfiavel(String bankSlipUrl) {
+        if (bankSlipUrl == null || bankSlipUrl.isBlank()) {
+            throw new ProvedorRecusouException("Cobranca sem boleto no provedor");
+        }
+        URI uri;
+        try {
+            uri = URI.create(bankSlipUrl.trim());
+        } catch (IllegalArgumentException e) {
+            throw new ProvedorIndisponivelException("Link do boleto invalido");
+        }
+        String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
+        if (!"https".equalsIgnoreCase(uri.getScheme()) || !(host.equals("asaas.com") || host.endsWith(".asaas.com"))) {
+            throw new ProvedorIndisponivelException("Link do boleto fora do dominio do provedor");
+        }
+        return uri;
+    }
+
+    /** Todo PDF comeca com {@code %PDF}. */
+    private static boolean ehPdf(byte[] conteudo) {
+        return conteudo.length > 4 && conteudo[0] == '%' && conteudo[1] == 'P' && conteudo[2] == 'D'
+                && conteudo[3] == 'F';
     }
 
     // ---- Webhook ----

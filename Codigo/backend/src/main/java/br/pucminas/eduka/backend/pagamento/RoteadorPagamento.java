@@ -21,10 +21,12 @@ import br.pucminas.eduka.backend.domain.ContaProvedorCliente;
 import br.pucminas.eduka.backend.domain.ContaRecebimentoEscola;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
+import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.dto.BoletoResponse;
 import br.pucminas.eduka.backend.dto.DadosPagamentoResponse;
 import br.pucminas.eduka.backend.dto.HabilitacaoRecebimentos;
 import br.pucminas.eduka.backend.dto.PixResponse;
+import br.pucminas.eduka.backend.exception.BoletoNaoGeradoException;
 import br.pucminas.eduka.backend.exception.CobrancaNaoPagavelException;
 import br.pucminas.eduka.backend.exception.FormaPagamentoInvalidaException;
 import br.pucminas.eduka.backend.exception.PagadorSemCpfException;
@@ -139,6 +141,45 @@ class RoteadorPagamento {
             }
         }
         return dadosDePagamento(reserva, forma, credencial, idCobrancaExterna);
+    }
+
+    /**
+     * PDF do boleto da cobranca do aluno do token. Le a cobranca numa
+     * transacao curta e chama o provedor sem transacao, como o pagar.
+     *
+     * @throws BoletoNaoGeradoException    se a cobranca ainda nao foi emitida
+     *                                     como boleto
+     * @throws CobrancaNaoPagavelException se a cobranca foi cancelada
+     */
+    byte[] baixarBoleto(UUID cobrancaId) {
+        BoletoEmitido boleto = transacao.execute(status -> boletoEmitido(cobrancaId));
+        CredencialProvedor credencial = new CredencialProvedor(piiCryptoService.decifrar(boleto.credencialCifrada()));
+        return provedor.chamar(p -> p.baixarBoletoPdf(credencial, boleto.idCobrancaExterna()));
+    }
+
+    private BoletoEmitido boletoEmitido(UUID cobrancaId) {
+        UsuarioAutenticado usuario = isolamentoEscola.usuarioAtual();
+        UUID escolaId = usuario.escolaId();
+        // R2: cobranca de outro aluno ou de outra escola responde 404, como se nao existisse.
+        Aluno aluno = alunoRepository.findByUsuarioIdAndEscolaId(usuario.id(), escolaId)
+                .orElseThrow(RoteadorPagamento::cobrancaNaoEncontrada);
+        Cobranca cobranca = cobrancaRepository.findByIdAndEscolaId(cobrancaId, escolaId)
+                .filter(c -> c.getAluno().getId().equals(aluno.getId()))
+                .orElseThrow(RoteadorPagamento::cobrancaNaoEncontrada);
+        // Cancelada nao deve ser paga; paga continua baixavel, como registro.
+        if (cobranca.getStatus() == StatusCobranca.CANCELADA) {
+            throw new CobrancaNaoPagavelException();
+        }
+        if (cobranca.getSituacaoProvedor() != SituacaoProvedor.EMITIDA
+                || cobranca.getFormaPagamento() != FormaPagamento.BOLETO) {
+            throw new BoletoNaoGeradoException();
+        }
+        ContaRecebimentoEscola conta = contaRepository.findByEscolaId(escolaId)
+                .orElseThrow(() -> new IllegalStateException("Cobranca emitida sem conta de recebimento"));
+        return new BoletoEmitido(cobranca.getIdCobrancaExterna(), conta.getCredencialCifrada());
+    }
+
+    private record BoletoEmitido(String idCobrancaExterna, byte[] credencialCifrada) {
     }
 
     // ---- Passo 1: reservar [T] ----

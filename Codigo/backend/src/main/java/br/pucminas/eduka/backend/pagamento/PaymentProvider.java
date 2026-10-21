@@ -64,6 +64,12 @@ public interface PaymentProvider {
 
     BoletoProvedor obterLinhaDigitavel(CredencialProvedor credencial, String idCobrancaExterna);
 
+    /**
+     * PDF do boleto gerado pelo provedor, em bytes. O link do PDF nao sai do
+     * adaptador. Cobranca que nao e boleto lanca {@link ProvedorRecusouException}.
+     */
+    byte[] baixarBoletoPdf(CredencialProvedor credencial, String idCobrancaExterna);
+
     // Webhook
 
     /**
