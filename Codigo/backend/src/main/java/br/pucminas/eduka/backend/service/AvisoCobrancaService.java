@@ -1,5 +1,6 @@
 package br.pucminas.eduka.backend.service;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import br.pucminas.eduka.backend.domain.Escola;
 import br.pucminas.eduka.backend.domain.Pessoa;
+import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.EscolaRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 
@@ -24,9 +26,11 @@ import br.pucminas.eduka.backend.repository.PessoaRepository;
  * {@link CobrancaEmailListener}, depois do commit.
  *
  * <p>
- * Destinatario: o responsavel financeiro da cobranca, se ela tem um e ele tem
- * e-mail; senao, o proprio aluno. Sem e-mail nenhum, o aviso e descartado
- * (fica so no log, sem dado pessoal).
+ * Destinatario: quem paga a cobranca, pela mesma regra do provedor de
+ * pagamento (R18, {@code RoteadorPagamento}): o responsavel informado na
+ * cobranca; senao o responsavel financeiro do aluno; senao o proprio aluno.
+ * Se quem paga nao tem e-mail, vai para o aluno. Sem e-mail nenhum, o aviso e
+ * descartado (fica so no log, sem dado pessoal).
  * </p>
  *
  * <p>
@@ -41,12 +45,14 @@ public class AvisoCobrancaService {
 
     private final PessoaRepository pessoaRepository;
     private final EscolaRepository escolaRepository;
+    private final AlunoResponsavelRepository alunoResponsavelRepository;
     private final ApplicationEventPublisher eventos;
 
     public AvisoCobrancaService(PessoaRepository pessoaRepository, EscolaRepository escolaRepository,
-            ApplicationEventPublisher eventos) {
+            AlunoResponsavelRepository alunoResponsavelRepository, ApplicationEventPublisher eventos) {
         this.pessoaRepository = pessoaRepository;
         this.escolaRepository = escolaRepository;
+        this.alunoResponsavelRepository = alunoResponsavelRepository;
         this.eventos = eventos;
     }
 
@@ -62,13 +68,14 @@ public class AvisoCobrancaService {
         Map<UUID, String> escolas = escolaRepository
                 .findAllById(cobrancas.stream().map(CobrancaParaAviso::escolaId).distinct().toList()).stream()
                 .collect(Collectors.toMap(Escola::getId, Escola::getNome));
-        Map<UUID, Pessoa> pessoas = pessoasDe(cobrancas);
+        Map<UUID, UUID> pagadores = pagadoresDe(cobrancas);
+        Map<UUID, Pessoa> pessoas = pessoasDe(cobrancas, pagadores);
 
         int publicados = 0;
         for (CobrancaParaAviso cobranca : cobrancas) {
             Pessoa aluno = pessoas.get(cobranca.alunoPessoaId());
-            Pessoa responsavel = cobranca.responsavelPessoaId() == null ? null
-                    : pessoas.get(cobranca.responsavelPessoaId());
+            UUID pagadorId = pagadores.get(cobranca.id());
+            Pessoa responsavel = pagadorId == null ? null : pessoas.get(pagadorId);
             boolean paraResponsavel = temEmail(responsavel);
             Pessoa destinatario = paraResponsavel ? responsavel : aluno;
             if (!temEmail(destinatario)) {
@@ -84,14 +91,40 @@ public class AvisoCobrancaService {
         return publicados;
     }
 
-    /** Aluno e responsavel de todas as cobrancas, buscados por escola (Pessoa nao tem filtro de tenant). */
-    private Map<UUID, Pessoa> pessoasDe(List<CobrancaParaAviso> cobrancas) {
+    /**
+     * Cobranca -> pessoa do responsavel que paga (R18). Fica de fora a
+     * cobranca que o proprio aluno paga. O responsavel financeiro de todos os
+     * alunos sem responsavel na cobranca vem numa consulta so.
+     */
+    private Map<UUID, UUID> pagadoresDe(List<CobrancaParaAviso> cobrancas) {
+        List<UUID> semResponsavel = cobrancas.stream()
+                .filter(c -> c.responsavelPessoaId() == null)
+                .map(CobrancaParaAviso::alunoPessoaId)
+                .distinct()
+                .toList();
+        Map<UUID, UUID> financeiros = alunoResponsavelRepository.financeiroPorPessoaDoAluno(semResponsavel);
+        Map<UUID, UUID> pagadores = new HashMap<>();
+        for (CobrancaParaAviso c : cobrancas) {
+            UUID pagador = c.responsavelPessoaId() != null ? c.responsavelPessoaId()
+                    : financeiros.get(c.alunoPessoaId());
+            if (pagador != null) {
+                pagadores.put(c.id(), pagador);
+            }
+        }
+        return pagadores;
+    }
+
+    /**
+     * Aluno e pagador de todas as cobrancas, buscados por escola (Pessoa nao tem
+     * filtro de tenant): pessoa de outra escola nao volta e nao recebe aviso.
+     */
+    private Map<UUID, Pessoa> pessoasDe(List<CobrancaParaAviso> cobrancas, Map<UUID, UUID> pagadores) {
         return cobrancas.stream()
                 .collect(Collectors.groupingBy(CobrancaParaAviso::escolaId))
                 .entrySet().stream()
                 .flatMap(porEscola -> {
                     List<UUID> ids = porEscola.getValue().stream()
-                            .flatMap(c -> Stream.of(c.alunoPessoaId(), c.responsavelPessoaId()))
+                            .flatMap(c -> Stream.of(c.alunoPessoaId(), pagadores.get(c.id())))
                             .filter(Objects::nonNull)
                             .distinct()
                             .toList();

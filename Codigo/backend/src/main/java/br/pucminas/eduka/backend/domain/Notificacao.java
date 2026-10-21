@@ -22,7 +22,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * E-mail na fila de envio (tabela {@code NOTIFICACAO}, V25). Quem cria e
+ * E-mail na fila de envio (tabela {@code NOTIFICACAO}, V29). Quem cria e
  * {@link br.pucminas.eduka.backend.email.NotificacaoService}; quem envia e
  * {@link br.pucminas.eduka.backend.email.NotificacaoProcessador}.
  *

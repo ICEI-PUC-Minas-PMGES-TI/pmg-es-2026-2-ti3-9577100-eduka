@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -23,10 +24,15 @@ import org.springframework.context.ApplicationEventPublisher;
 
 import br.pucminas.eduka.backend.domain.Escola;
 import br.pucminas.eduka.backend.domain.Pessoa;
+import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.EscolaRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 
-/** Quem recebe o aviso: responsavel financeiro com e-mail, senao o aluno, senao ninguem. */
+/**
+ * Quem recebe o aviso: quem paga pela regra R18 do provedor (responsavel da
+ * cobranca, senao o responsavel financeiro do aluno), com e-mail; senao o
+ * aluno; senao ninguem.
+ */
 @ExtendWith(MockitoExtension.class)
 class AvisoCobrancaServiceTest {
 
@@ -37,6 +43,8 @@ class AvisoCobrancaServiceTest {
     @Mock
     private EscolaRepository escolaRepository;
     @Mock
+    private AlunoResponsavelRepository alunoResponsavelRepository;
+    @Mock
     private ApplicationEventPublisher eventos;
     @Mock
     private Escola escola;
@@ -45,7 +53,7 @@ class AvisoCobrancaServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AvisoCobrancaService(pessoaRepository, escolaRepository, eventos);
+        service = new AvisoCobrancaService(pessoaRepository, escolaRepository, alunoResponsavelRepository, eventos);
     }
 
     private void comEscola() {
@@ -119,5 +127,69 @@ class AvisoCobrancaServiceTest {
                 "marta@exemplo.com", "Marta", false, "Ana", "Escola", "Mensalidade", BigDecimal.TEN,
                 LocalDate.of(2026, 11, 10), null);
         assertThat(aviso.toString()).doesNotContain("marta", "Marta", "Ana");
+    }
+
+    // ---- R18: o responsavel financeiro do aluno quando a cobranca nao tem responsavel ----
+
+    @Test
+    void semResponsavelNaCobrancaVaiParaOResponsavelFinanceiroDoAluno() {
+        comEscola();
+        Pessoa aluno = pessoa("Ana", "ana@escola.com");
+        Pessoa mae = pessoa("Marta", "marta@exemplo.com");
+        when(alunoResponsavelRepository.financeiroPorPessoaDoAluno(List.of(aluno.getId())))
+                .thenReturn(Map.of(aluno.getId(), mae.getId()));
+        when(pessoaRepository.findAllByIdInAndEscolaId(anyCollection(), eq(ESCOLA_A))).thenReturn(List.of(aluno, mae));
+
+        service.publicar(AvisoCobranca.Tipo.VENCIMENTO_PROXIMO, cobranca(aluno, null));
+
+        AvisoCobranca aviso = publicado();
+        assertThat(aviso.destinatarioEmail()).isEqualTo("marta@exemplo.com");
+        assertThat(aviso.destinatarioEhAluno()).isFalse();
+        assertThat(aviso.alunoNome()).isEqualTo("Ana");
+    }
+
+    @Test
+    void responsavelDaCobrancaTemPrecedenciaSobreOFinanceiroDoAluno() {
+        comEscola();
+        Pessoa aluno = pessoa("Ana", "ana@escola.com");
+        Pessoa avo = pessoa("Lucia", "lucia@exemplo.com");
+        when(pessoaRepository.findAllByIdInAndEscolaId(anyCollection(), eq(ESCOLA_A))).thenReturn(List.of(aluno, avo));
+
+        service.publicar(AvisoCobranca.Tipo.COBRANCA_CRIADA, cobranca(aluno, avo));
+
+        assertThat(publicado().destinatarioEmail()).isEqualTo("lucia@exemplo.com");
+        // A cobranca ja diz quem paga: nem procura o financeiro.
+        verify(alunoResponsavelRepository).financeiroPorPessoaDoAluno(List.of());
+    }
+
+    @Test
+    void financeiroSemEmailVaiParaOAluno() {
+        comEscola();
+        Pessoa aluno = pessoa("Ana", "ana@escola.com");
+        Pessoa pai = pessoa("Joao", null);
+        when(alunoResponsavelRepository.financeiroPorPessoaDoAluno(List.of(aluno.getId())))
+                .thenReturn(Map.of(aluno.getId(), pai.getId()));
+        when(pessoaRepository.findAllByIdInAndEscolaId(anyCollection(), eq(ESCOLA_A))).thenReturn(List.of(aluno, pai));
+
+        service.publicar(AvisoCobranca.Tipo.COBRANCA_CRIADA, cobranca(aluno, null));
+
+        AvisoCobranca aviso = publicado();
+        assertThat(aviso.destinatarioEmail()).isEqualTo("ana@escola.com");
+        assertThat(aviso.destinatarioEhAluno()).isTrue();
+    }
+
+    @Test
+    void financeiroDeOutraEscolaNaoRecebe() {
+        comEscola();
+        Pessoa aluno = pessoa("Ana", "ana@escola.com");
+        UUID pessoaDeOutraEscola = UUID.randomUUID();
+        when(alunoResponsavelRepository.financeiroPorPessoaDoAluno(List.of(aluno.getId())))
+                .thenReturn(Map.of(aluno.getId(), pessoaDeOutraEscola));
+        // A busca por escola nao devolve a pessoa de outra escola.
+        when(pessoaRepository.findAllByIdInAndEscolaId(anyCollection(), eq(ESCOLA_A))).thenReturn(List.of(aluno));
+
+        service.publicar(AvisoCobranca.Tipo.COBRANCA_CRIADA, cobranca(aluno, null));
+
+        assertThat(publicado().destinatarioEmail()).isEqualTo("ana@escola.com");
     }
 }
