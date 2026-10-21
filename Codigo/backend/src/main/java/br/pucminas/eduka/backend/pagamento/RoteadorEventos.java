@@ -219,11 +219,17 @@ class RoteadorEventos {
         }
     }
 
+    /**
+     * Grava o fim do evento com {@code save} explicito: os UPDATE nativos da
+     * cobranca ({@code clearAutomatically}) desanexam o registro, e a mudanca
+     * so no objeto se perderia.
+     */
     private void encerrar(br.pucminas.eduka.backend.domain.EventoProvedor registro, StatusEventoProvedor status,
             String motivo) {
         registro.setStatus(status);
         registro.setMotivo(motivo);
         registro.setProcessadoEm(clock.instant());
+        eventoRepository.save(registro);
     }
 
     private static boolean terminado(StatusEventoProvedor status) {

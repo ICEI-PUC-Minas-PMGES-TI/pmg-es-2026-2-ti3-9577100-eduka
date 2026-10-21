@@ -143,6 +143,8 @@ class RoteadorEventosTest {
         assertThat(registro.getEscolaId()).isEqualTo(ESCOLA);
         assertThat(registro.getTentativas()).isEqualTo(1);
         assertThat(registro.getProcessadoEm()).isEqualTo(AGORA);
+        // O UPDATE nativo da cobranca desanexa o registro: o fim do evento precisa de save explicito.
+        verify(eventoRepository).save(registro);
     }
 
     @Test
