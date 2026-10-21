@@ -17,6 +17,8 @@ export const paths = {
     escolas: '/super-admin/escolas',
     /** Use com generatePath(paths.superAdmin.editarEscola, { id }). */
     editarEscola: '/super-admin/escolas/:id/editar',
+    /** Faturas que a escola paga ao Eduka. Use com generatePath(paths.superAdmin.faturasEscola, { id }). */
+    faturasEscola: '/super-admin/escolas/:id/faturas',
   },
   master: {
     raiz: '/master',
