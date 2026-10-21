@@ -41,7 +41,7 @@ class PaymentRoutingServiceEventosTest {
         provider = mock(PaymentProvider.class);
         eventos = mock(RoteadorEventos.class);
         roteador = new PaymentRoutingService(new ChamadorProvedor(provider), mock(RoteadorConta.class),
-                mock(RoteadorPagamento.class), eventos);
+                mock(RoteadorPagamento.class), eventos, mock(RoteadorFatura.class));
     }
 
     @Test

@@ -1,5 +1,6 @@
 package br.pucminas.eduka.backend.pagamento;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -47,13 +48,15 @@ public class PaymentRoutingService {
     private final RoteadorConta roteadorConta;
     private final RoteadorPagamento roteadorPagamento;
     private final RoteadorEventos eventos;
+    private final RoteadorFatura roteadorFatura;
 
     PaymentRoutingService(ChamadorProvedor provedor, RoteadorConta roteadorConta,
-            RoteadorPagamento roteadorPagamento, RoteadorEventos eventos) {
+            RoteadorPagamento roteadorPagamento, RoteadorEventos eventos, RoteadorFatura roteadorFatura) {
         this.provedor = provedor;
         this.roteadorConta = roteadorConta;
         this.roteadorPagamento = roteadorPagamento;
         this.eventos = eventos;
+        this.roteadorFatura = roteadorFatura;
     }
 
     // ---- Conta de recebimento (MASTER da escola do token) ----
@@ -118,12 +121,24 @@ public class PaymentRoutingService {
 
     // ---- Fluxo A (SUPER_ADMIN) ----
 
+    /** R26. */
     public FaturaPlataformaResponse lancarFatura(UUID escolaId, LancarFaturaRequest dados) {
-        throw naoImplementado("NOVA-5");
+        return roteadorFatura.lancar(escolaId, dados);
     }
 
-    public void cancelarFatura(UUID faturaId) {
-        throw naoImplementado("NOVA-5");
+    public List<FaturaPlataformaResponse> listarFaturas(UUID escolaId) {
+        return roteadorFatura.listarDaEscola(escolaId);
+    }
+
+    /** R26, com a regra do R25 para fatura ja emitida. */
+    public FaturaPlataformaResponse cancelarFatura(UUID escolaId, UUID faturaId) {
+        return roteadorFatura.cancelar(escolaId, faturaId);
+    }
+
+    // ---- Fluxo A (MASTER da escola do token) ----
+
+    public List<FaturaPlataformaResponse> listarMinhasFaturas() {
+        return roteadorFatura.listarMinhas();
     }
 
     // ---- Eventos e consistencia ----
