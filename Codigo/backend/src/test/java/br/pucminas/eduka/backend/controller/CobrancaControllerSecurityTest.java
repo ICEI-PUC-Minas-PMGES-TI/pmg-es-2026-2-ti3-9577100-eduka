@@ -57,6 +57,7 @@ import br.pucminas.eduka.backend.repository.CobrancaRepository;
 import br.pucminas.eduka.backend.repository.CobrancaTotaisRepository;
 import br.pucminas.eduka.backend.repository.LogAuditoriaRepository;
 import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
+import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
@@ -97,6 +98,8 @@ class CobrancaControllerSecurityTest {
     private AlunoResponsavelRepository alunoResponsavelRepository;
     @MockitoBean
     private PessoaRepository pessoaRepository;
+    @MockitoBean
+    private PagamentoCobrancaRepository pagamentoRepository;
     @MockitoBean
     private LogAuditoriaRepository logAuditoriaRepository;
     @MockitoBean

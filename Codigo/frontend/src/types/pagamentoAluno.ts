@@ -1,5 +1,6 @@
-// Tipos do pagamento no portal do aluno. Espelham os DTOs do backend:
-// HistoricoFinanceiroResponse (GET /portal/aluno/financeiro),
+// Tipos do pagamento no portal do aluno e do histórico financeiro do aluno.
+// Espelham os DTOs do backend:
+// HistoricoFinanceiroResponse (GET /portal/aluno/financeiro e GET /alunos/{id}/financeiro),
 // CobrancaAlunoResponse (GET /portal/aluno/cobrancas/{id}) e
 // DadosPagamentoResponse (POST /portal/aluno/cobrancas/{id}/pagar).
 
@@ -18,6 +19,21 @@ export function podePagar(status: StatusCobrancaAluno): boolean {
   return status === 'PENDENTE' || status === 'EM_ATRASO'
 }
 
+export type FormaPagamento = 'PIX' | 'BOLETO'
+
+export const ROTULOS_FORMA_PAGAMENTO: Record<FormaPagamento, string> = {
+  PIX: 'PIX',
+  BOLETO: 'Boleto',
+}
+
+/** Pagamento registrado (online). */
+export type PagamentoResumo = {
+  valorPago: number
+  /** ISO (yyyy-MM-dd). */
+  dataPagamento: string
+  forma: FormaPagamento
+}
+
 export type CobrancaDoHistorico = {
   id: string
   descricao: string
@@ -28,6 +44,8 @@ export type CobrancaDoHistorico = {
   turmaNome: string | null
   /** Instante (ISO) da baixa; nulo enquanto não paga. */
   pagaEm: string | null
+  /** Pagamento registrado (online); nulo na baixa manual e enquanto não paga. */
+  pagamento: PagamentoResumo | null
 }
 
 export type HistoricoFinanceiro = {
@@ -61,8 +79,8 @@ export type CobrancaAluno = {
   dataVencimento: string
   status: StatusCobrancaAluno
   situacaoPagamento: SituacaoPagamento
-  formaPagamento: 'PIX' | 'BOLETO' | null
-  pagamento: { valorPago: number; dataPagamento: string; forma: 'PIX' | 'BOLETO' } | null
+  formaPagamento: FormaPagamento | null
+  pagamento: PagamentoResumo | null
   acoes: string[]
 }
 
@@ -77,7 +95,7 @@ export type DadosPix = {
 export type DadosPagamento = {
   /** PROCESSANDO: o provedor ainda não respondeu e o PIX ainda não existe. */
   situacao: 'PRONTO' | 'PROCESSANDO'
-  forma: 'PIX' | 'BOLETO'
+  forma: FormaPagamento
   valor: number
   vencimento: string
   pix: DadosPix | null

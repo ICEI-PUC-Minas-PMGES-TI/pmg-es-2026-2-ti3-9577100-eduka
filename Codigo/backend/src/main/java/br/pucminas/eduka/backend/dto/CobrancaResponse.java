@@ -29,6 +29,8 @@ public record CobrancaResponse(
         StatusCobranca status,
         Instant canceladaEm,
         Instant pagaEm,
+        /** Pagamento registrado (online); nulo na baixa manual e enquanto nao paga. */
+        PagamentoResumoResponse pagamento,
         Instant criadoEm,
         Instant atualizadoEm) {
 
@@ -37,6 +39,11 @@ public record CobrancaResponse(
      * {@code hoje} decide se a cobranca pendente ja esta em atraso.
      */
     public static CobrancaResponse de(Cobranca cobranca, Pessoa pessoaAluno, Pessoa responsavel, LocalDate hoje) {
+        return de(cobranca, pessoaAluno, responsavel, null, hoje);
+    }
+
+    public static CobrancaResponse de(Cobranca cobranca, Pessoa pessoaAluno, Pessoa responsavel,
+            PagamentoResumoResponse pagamento, LocalDate hoje) {
         Aluno aluno = cobranca.getAluno();
         MatriculaTurma matricula = cobranca.getMatricula();
         return new CobrancaResponse(cobranca.getId(), aluno.getId(),
@@ -47,7 +54,7 @@ public record CobrancaResponse(
                 cobranca.getResponsavelId(), responsavel != null ? responsavel.getNome() : null,
                 cobranca.getDescricao(), cobranca.getValor(), cobranca.getDataVencimento(),
                 StatusCobranca.efetivo(cobranca.getStatus(), cobranca.getDataVencimento(), hoje),
-                cobranca.getCanceladaEm(), cobranca.getPagaEm(), cobranca.getCriadoEm(),
+                cobranca.getCanceladaEm(), cobranca.getPagaEm(), pagamento, cobranca.getCriadoEm(),
                 cobranca.getAtualizadoEm());
     }
 }

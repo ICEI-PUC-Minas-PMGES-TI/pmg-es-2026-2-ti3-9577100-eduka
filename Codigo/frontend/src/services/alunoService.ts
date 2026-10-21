@@ -1,4 +1,5 @@
 import type { Aluno, AlunoRequest } from '../types/aluno'
+import type { HistoricoFinanceiro } from '../types/pagamentoAluno'
 import { apiRequest } from './api'
 
 // O backend já limita os alunos à escola de quem está logado. A listagem
@@ -21,6 +22,11 @@ export function atualizarAluno(id: string, dados: AlunoRequest): Promise<Aluno> 
 /** Nova senha provisória por e-mail. 409 se o aluno já definiu a senha. */
 export function reenviarAcessoAluno(id: string): Promise<void> {
   return apiRequest<void>(`/alunos/${id}/primeiro-acesso`, { method: 'POST' })
+}
+
+/** Resumo, cobranças e pagamentos de um aluno. Só MASTER e FINANCEIRO; os demais recebem 403. */
+export function buscarHistoricoFinanceiroDoAluno(id: string, signal?: AbortSignal): Promise<HistoricoFinanceiro> {
+  return apiRequest<HistoricoFinanceiro>(`/alunos/${id}/financeiro`, { signal })
 }
 
 /** Portal do aluno: os dados do próprio aluno logado. */

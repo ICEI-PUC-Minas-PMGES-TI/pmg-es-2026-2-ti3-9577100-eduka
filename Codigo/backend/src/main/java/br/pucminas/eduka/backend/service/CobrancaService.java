@@ -47,6 +47,9 @@ import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
+import br.pucminas.eduka.backend.domain.PagamentoCobranca;
+import br.pucminas.eduka.backend.dto.PagamentoResumoResponse;
+import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
 
 /**
  * Cobrancas dos alunos, com isolamento por escola (RF05, RNF03): cobranca,
@@ -94,12 +97,14 @@ public class CobrancaService {
     private final IsolamentoEscola isolamentoEscola;
     private final AuditoriaService auditoriaService;
     private final AvisoCobrancaService avisoCobrancaService;
+    private final PagamentoCobrancaRepository pagamentoRepository;
     private final Clock clock;
 
     public CobrancaService(CobrancaRepository cobrancaRepository, AlunoRepository alunoRepository,
             MatriculaTurmaRepository matriculaRepository, AlunoResponsavelRepository alunoResponsavelRepository,
             PessoaRepository pessoaRepository, IsolamentoEscola isolamentoEscola,
-            AuditoriaService auditoriaService, AvisoCobrancaService avisoCobrancaService, Clock clock) {
+            AuditoriaService auditoriaService, AvisoCobrancaService avisoCobrancaService,
+            PagamentoCobrancaRepository pagamentoRepository, Clock clock) {
         this.cobrancaRepository = cobrancaRepository;
         this.alunoRepository = alunoRepository;
         this.matriculaRepository = matriculaRepository;
@@ -108,6 +113,7 @@ public class CobrancaService {
         this.isolamentoEscola = isolamentoEscola;
         this.auditoriaService = auditoriaService;
         this.avisoCobrancaService = avisoCobrancaService;
+        this.pagamentoRepository = pagamentoRepository;
         this.clock = clock;
     }
 
@@ -460,9 +466,18 @@ public class CobrancaService {
                 .toList();
         Map<UUID, Pessoa> pessoasPorId = pessoaRepository.findAllByIdInAndEscolaId(pessoaIds, escolaId).stream()
                 .collect(Collectors.toMap(Pessoa::getId, Function.identity()));
+        // So as pagas podem ter pagamento registrado: as demais nem entram na consulta.
+        List<UUID> pagas = cobrancas.stream()
+                .filter(c -> c.getStatus() == StatusCobranca.PAGA)
+                .map(Cobranca::getId)
+                .toList();
+        Map<UUID, PagamentoResumoResponse> pagamentos = pagas.isEmpty() ? Map.of()
+                : pagamentoRepository.findAllByEscolaIdAndCobrancaIdIn(escolaId, pagas).stream()
+                        .collect(Collectors.toMap(PagamentoCobranca::getCobrancaId, PagamentoResumoResponse::de));
         return cobrancas.stream()
                 .map(c -> CobrancaResponse.de(c, pessoasPorId.get(c.getAluno().getPessoaId()),
-                        c.getResponsavelId() != null ? pessoasPorId.get(c.getResponsavelId()) : null, hoje))
+                        c.getResponsavelId() != null ? pessoasPorId.get(c.getResponsavelId()) : null,
+                        pagamentos.get(c.getId()), hoje))
                 .toList();
     }
 

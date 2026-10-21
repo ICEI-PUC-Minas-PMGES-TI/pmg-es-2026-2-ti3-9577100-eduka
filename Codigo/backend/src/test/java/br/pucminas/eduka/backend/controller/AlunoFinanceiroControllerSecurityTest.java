@@ -27,6 +27,8 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.Cobranca;
+import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
+import br.pucminas.eduka.backend.domain.PagamentoCobranca;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
@@ -34,6 +36,7 @@ import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
 import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
+import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
@@ -74,6 +77,8 @@ class AlunoFinanceiroControllerSecurityTest {
     private AvisoCobrancaService avisoCobrancaService;
     @MockitoBean
     private PessoaRepository pessoaRepository;
+    @MockitoBean
+    private PagamentoCobrancaRepository pagamentoRepository;
 
     private Pessoa pessoaAna;
     private Aluno ana;
@@ -153,5 +158,28 @@ class AlunoFinanceiroControllerSecurityTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.detail").value("Aluno nao encontrado"));
         verify(cobrancaRepository, never()).findAllByEscolaIdAndAlunoId(any(), any());
+    }
+
+    @Test
+    void cobrancaPagaTrazOPagamentoRegistrado() throws Exception {
+        Cobranca paga = Cobranca.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).aluno(ana).descricao("Fevereiro")
+                .valor(new BigDecimal("450.00")).dataVencimento(LocalDate.of(2026, 2, 10))
+                .status(StatusCobranca.PAGA).build();
+        Cobranca aberta = Cobranca.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).aluno(ana).descricao("Marco")
+                .valor(new BigDecimal("450.00")).dataVencimento(LocalDate.of(2099, 3, 10))
+                .status(StatusCobranca.PENDENTE).build();
+        when(cobrancaRepository.findAllByEscolaIdAndAlunoId(ESCOLA_A, ana.getId())).thenReturn(List.of(paga, aberta));
+        when(pagamentoRepository.findAllByEscolaIdAndCobrancaIdIn(ESCOLA_A, List.of(paga.getId()))).thenReturn(List.of(
+                PagamentoCobranca.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).cobrancaId(paga.getId())
+                        .valorPago(new BigDecimal("450.00")).dataPagamento(LocalDate.of(2026, 2, 8))
+                        .formaPagamento(FormaPagamento.PIX).build()));
+
+        mockMvc.perform(com(get(url(ana)), token("FINANCEIRO", ESCOLA_A)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cobrancas[0].descricao").value("Marco"))
+                .andExpect(jsonPath("$.cobrancas[0].pagamento").doesNotExist())
+                .andExpect(jsonPath("$.cobrancas[1].pagamento.forma").value("PIX"))
+                .andExpect(jsonPath("$.cobrancas[1].pagamento.dataPagamento").value("2026-02-08"))
+                .andExpect(jsonPath("$.cobrancas[1].pagamento.valorPago").value(450.00));
     }
 }

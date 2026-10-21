@@ -30,6 +30,7 @@ import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
 import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
+import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 
@@ -51,11 +52,13 @@ class CobrancaVencimentoRotinaTest {
     private AuditoriaService auditoriaService;
     @Mock
     private AvisoCobrancaService avisoCobrancaService;
+    @Mock
+    private PagamentoCobrancaRepository pagamentoRepository;
 
     private CobrancaService serviceEm(Instant agora) {
         return new CobrancaService(cobrancaRepository, alunoRepository, matriculaRepository,
                 alunoResponsavelRepository, pessoaRepository, new IsolamentoEscola(), auditoriaService,
-                avisoCobrancaService, Clock.fixed(agora, ZoneOffset.UTC));
+                avisoCobrancaService, pagamentoRepository, Clock.fixed(agora, ZoneOffset.UTC));
     }
 
     @Test

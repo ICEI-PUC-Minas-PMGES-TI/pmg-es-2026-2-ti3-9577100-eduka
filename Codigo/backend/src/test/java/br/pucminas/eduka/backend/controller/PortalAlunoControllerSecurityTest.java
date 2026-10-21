@@ -38,6 +38,7 @@ import br.pucminas.eduka.backend.repository.AvaliacaoRepository;
 import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.NotaRepository;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
+import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
@@ -73,6 +74,8 @@ class PortalAlunoControllerSecurityTest {
     private AlunoRepository alunoRepository;
     @MockitoBean
     private PessoaRepository pessoaRepository;
+    @MockitoBean
+    private PagamentoCobrancaRepository pagamentoRepository;
     @MockitoBean
     private PessoaPapelRepository pessoaPapelRepository;
     @MockitoBean

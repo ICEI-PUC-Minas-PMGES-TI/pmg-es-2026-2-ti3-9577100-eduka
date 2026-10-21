@@ -1,9 +1,21 @@
 import { ModalDetalhes } from '../../../../components/ModalDetalhes/ModalDetalhes'
 import { useDetalhe } from '../../../../hooks/useDetalhe'
 import { buscarAluno } from '../../../../services/alunoService'
+import { obterUsuarioLogado } from '../../../../services/authService'
 import type { AlunoResumo } from '../../../../types/aluno'
 import { formatarCnpjCpf, formatarEndereco, mascararTelefone } from '../../../../utils/formatters'
+import { FinanceiroAluno } from '../FinanceiroAluno/FinanceiroAluno'
 import { formatarData } from '../PainelSecretaria/formatacao'
+
+/**
+ * A aba Financeiro só aparece para quem o backend deixa ler o histórico
+ * financeiro (GET /alunos/{id}/financeiro: MASTER e FINANCEIRO). A secretaria
+ * não vê: para ela a rota responde 403.
+ */
+function podeVerFinanceiro(): boolean {
+  const perfil = obterUsuarioLogado()?.perfil
+  return perfil === 'MASTER' || perfil === 'FINANCEIRO'
+}
 
 type DetalhesAlunoModalProps = {
   /** Da listagem: mostra nome e matrícula enquanto o detalhe carrega. */
@@ -11,9 +23,12 @@ type DetalhesAlunoModalProps = {
   onFechar: () => void
 }
 
-/** Dados completos do aluno (GET /alunos/{id}), com os responsáveis. */
+/** Dados completos do aluno (GET /alunos/{id}), com os responsáveis e, para o financeiro, as cobranças. */
 export function DetalhesAlunoModal({ aluno, onFechar }: DetalhesAlunoModalProps) {
   const { dados, carregando, erro } = useDetalhe(buscarAluno, aluno.id)
+  const abas = podeVerFinanceiro()
+    ? [{ id: 'financeiro', rotulo: 'Financeiro', conteudo: <FinanceiroAluno alunoId={aluno.id} /> }]
+    : []
 
   return (
     <ModalDetalhes
@@ -22,6 +37,7 @@ export function DetalhesAlunoModal({ aluno, onFechar }: DetalhesAlunoModalProps)
       carregando={carregando}
       erro={erro}
       onFechar={onFechar}
+      abas={abas}
       secoes={
         dados
           ? [
