@@ -1,5 +1,7 @@
 package br.pucminas.eduka.backend.pagamento.asaas;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -329,6 +331,21 @@ public class AsaasAdapter implements PaymentProvider {
     }
 
     // ---- Webhook ----
+
+    /** Token do header {@code Asaas-Access-Token}, comparado em tempo constante. */
+    @Override
+    public boolean webhookAutentico(String tokenRecebido) {
+        String esperado = properties.webhookToken();
+        if (esperado == null || esperado.isBlank()) {
+            log.warn("Aviso do Asaas recusado: ASAAS_WEBHOOK_TOKEN nao configurado");
+            return false;
+        }
+        if (tokenRecebido == null) {
+            return false;
+        }
+        return MessageDigest.isEqual(esperado.getBytes(StandardCharsets.UTF_8),
+                tokenRecebido.getBytes(StandardCharsets.UTF_8));
+    }
 
     @Override
     public EventoProvedor interpretarEvento(String corpoJson) {

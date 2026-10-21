@@ -18,6 +18,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import br.pucminas.eduka.backend.pagamento.ProvedorIndisponivelException;
 import br.pucminas.eduka.backend.pagamento.ProvedorNaoConfiguradoException;
 import br.pucminas.eduka.backend.pagamento.ProvedorRecusouException;
+import br.pucminas.eduka.backend.pagamento.WebhookNaoAutorizadoException;
 
 /**
  * Traduz excecoes em respostas HTTP no formato ProblemDetail (RFC 9457).
@@ -162,6 +163,43 @@ public class ApiExceptionHandler {
                 .body(problema(HttpStatus.SERVICE_UNAVAILABLE,
                         "Pagamentos indisponiveis no momento. Fale com o suporte do Eduka",
                         "PROVEDOR_NAO_CONFIGURADO"));
+    }
+
+    @ExceptionHandler(WebhookNaoAutorizadoException.class)
+    public ResponseEntity<ProblemDetail> webhookNaoAutorizado(WebhookNaoAutorizadoException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(problema(HttpStatus.UNAUTHORIZED, "Autenticacao necessaria"));
+    }
+
+    /** Pagar (spec §10.3): cada recusa leva o {@code codigo} que a tela trata. */
+    @ExceptionHandler(FormaPagamentoInvalidaException.class)
+    public ResponseEntity<ProblemDetail> formaPagamentoInvalida(FormaPagamentoInvalidaException ex) {
+        return ResponseEntity.badRequest()
+                .body(problema(HttpStatus.BAD_REQUEST, ex.getMessage(), "FORMA_INVALIDA"));
+    }
+
+    @ExceptionHandler(PagadorSemCpfException.class)
+    public ResponseEntity<ProblemDetail> pagadorSemCpf(PagadorSemCpfException ex) {
+        return ResponseEntity.badRequest()
+                .body(problema(HttpStatus.BAD_REQUEST, ex.getMessage(), "PAGADOR_SEM_CPF"));
+    }
+
+    @ExceptionHandler(CobrancaNaoPagavelException.class)
+    public ResponseEntity<ProblemDetail> cobrancaNaoPagavel(CobrancaNaoPagavelException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "COBRANCA_NAO_PAGAVEL"));
+    }
+
+    @ExceptionHandler(RecebimentosIndisponiveisException.class)
+    public ResponseEntity<ProblemDetail> recebimentosIndisponiveis(RecebimentosIndisponiveisException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "RECEBIMENTOS_INDISPONIVEIS"));
+    }
+
+    @ExceptionHandler(PagamentoEmProcessamentoException.class)
+    public ResponseEntity<ProblemDetail> pagamentoEmProcessamento(PagamentoEmProcessamentoException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "PAGAMENTO_EM_PROCESSAMENTO"));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

@@ -66,6 +66,12 @@ public interface PaymentProvider {
 
     // Webhook
 
+    /**
+     * Se o token recebido junto do aviso e o cadastrado no webhook. Sem token
+     * configurado, nenhum aviso e autentico.
+     */
+    boolean webhookAutentico(String tokenRecebido);
+
     EventoProvedor interpretarEvento(String corpoJson);
 
     // Somente Sandbox: fora dele lancam IllegalStateException

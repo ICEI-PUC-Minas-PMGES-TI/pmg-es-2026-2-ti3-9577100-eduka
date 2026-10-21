@@ -1,10 +1,13 @@
 package br.pucminas.eduka.backend.service;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -13,6 +16,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,13 +32,17 @@ import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.dto.AtualizarCobrancaRequest;
+import br.pucminas.eduka.backend.dto.CobrancaAlunoResponse;
 import br.pucminas.eduka.backend.dto.CobrancaRequest;
 import br.pucminas.eduka.backend.dto.CobrancaResponse;
 import br.pucminas.eduka.backend.dto.HistoricoFinanceiroResponse;
+import br.pucminas.eduka.backend.dto.PaginaCobrancasResponse;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
+import br.pucminas.eduka.backend.repository.CobrancaFiltro;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
+import br.pucminas.eduka.backend.repository.CobrancaTotaisRepository;
 import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
@@ -69,6 +80,11 @@ public class CobrancaService {
 
     /** Com quantos dias de antecedencia sai o lembrete de vencimento. */
     static final int DIAS_LEMBRETE_VENCIMENTO = 3;
+
+    static final int TAMANHO_MAXIMO_PAGINA = 100;
+
+    /** O id desempata vencimentos iguais, para a pagina seguinte nao repetir nem pular cobranca. */
+    private static final Sort ORDEM_DA_LISTAGEM = Sort.by("dataVencimento", "id");
 
     private final CobrancaRepository cobrancaRepository;
     private final AlunoRepository alunoRepository;
@@ -119,6 +135,38 @@ public class CobrancaService {
         return paraRespostas(filtradas, escolaId, hoje);
     }
 
+    /**
+     * Pagina das cobrancas da escola que passam no {@code filtro}, pelo
+     * vencimento, com os totais por situacao (ver
+     * {@link PaginaCobrancasResponse#totaisPorStatus}). Filtro de aluno ou de
+     * periodo de outra escola devolve pagina vazia.
+     *
+     * @throws IllegalArgumentException se a pagina ou o tamanho estao fora dos
+     *                                  limites, ou se o intervalo de
+     *                                  vencimento esta invertido
+     */
+    @Transactional(readOnly = true)
+    public PaginaCobrancasResponse listarPaginado(CobrancaFiltro filtro, int pagina, int tamanho) {
+        if (pagina < 0) {
+            throw new IllegalArgumentException("Pagina deve ser zero ou maior");
+        }
+        if (tamanho < 1 || tamanho > TAMANHO_MAXIMO_PAGINA) {
+            throw new IllegalArgumentException("Tamanho deve ser de 1 a " + TAMANHO_MAXIMO_PAGINA);
+        }
+        if (filtro.vencimentoDe() != null && filtro.vencimentoAte() != null
+                && filtro.vencimentoDe().isAfter(filtro.vencimentoAte())) {
+            throw new IllegalArgumentException("vencimentoDe nao pode ser depois de vencimentoAte");
+        }
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        LocalDate hoje = hoje();
+
+        Page<Cobranca> resultado = cobrancaRepository.findAll(filtro.daEscola(escolaId, hoje),
+                PageRequest.of(pagina, tamanho, ORDEM_DA_LISTAGEM));
+        return new PaginaCobrancasResponse(paraRespostas(resultado.getContent(), escolaId, hoje), pagina, tamanho,
+                resultado.getTotalElements(), resultado.getTotalPages(),
+                totaisPorStatus(filtro.daEscolaEmQualquerStatus(escolaId), hoje));
+    }
+
     @Transactional(readOnly = true)
     public CobrancaResponse buscar(UUID id) {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
@@ -150,6 +198,26 @@ public class CobrancaService {
         Aluno aluno = alunoRepository.findByUsuarioIdAndEscolaId(usuario.id(), usuario.escolaId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Aluno nao encontrado"));
         return historico(aluno, usuario.escolaId());
+    }
+
+    /**
+     * Uma cobranca do aluno dono do login (portal do aluno), com a situacao do
+     * pagamento e as acoes da tela.
+     *
+     * @throws RecursoNaoEncontradoException se a cobranca nao existe, e de
+     *                                       outra escola ou de outro aluno
+     */
+    @Transactional(readOnly = true)
+    public CobrancaAlunoResponse minhaCobranca(UUID id) {
+        UsuarioAutenticado usuario = isolamentoEscola.usuarioAtual();
+        UUID alunoId = alunoRepository.findByUsuarioIdAndEscolaId(usuario.id(), usuario.escolaId())
+                .map(Aluno::getId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Cobranca nao encontrada"));
+        Cobranca cobranca = buscarCobranca(id, usuario.escolaId());
+        if (!cobranca.getAluno().getId().equals(alunoId)) {
+            throw new RecursoNaoEncontradoException("Cobranca nao encontrada");
+        }
+        return CobrancaAlunoResponse.de(cobranca, hoje());
     }
 
     /**
@@ -301,6 +369,22 @@ public class CobrancaService {
                 .orElse(null);
         return new HistoricoFinanceiroResponse(aluno.getId(), alunoNome, aluno.getMatricula(),
                 HistoricoFinanceiroResponse.Resumo.de(respostas), respostas);
+    }
+
+    /** Junta os grupos (situacao gravada, vencimento) do banco por situacao efetiva. */
+    private List<PaginaCobrancasResponse.TotalPorStatus> totaisPorStatus(Specification<Cobranca> filtro,
+            LocalDate hoje) {
+        Map<StatusCobranca, Long> quantidades = new EnumMap<>(StatusCobranca.class);
+        Map<StatusCobranca, BigDecimal> valores = new EnumMap<>(StatusCobranca.class);
+        for (CobrancaTotaisRepository.Grupo grupo : cobrancaRepository.agruparPorStatusEVencimento(filtro)) {
+            StatusCobranca status = StatusCobranca.efetivo(grupo.status(), grupo.dataVencimento(), hoje);
+            quantidades.merge(status, grupo.quantidade(), Long::sum);
+            valores.merge(status, grupo.valor(), BigDecimal::add);
+        }
+        return Arrays.stream(StatusCobranca.values())
+                .map(status -> new PaginaCobrancasResponse.TotalPorStatus(status,
+                        quantidades.getOrDefault(status, 0L), valores.getOrDefault(status, BigDecimal.ZERO)))
+                .toList();
     }
 
     /**
