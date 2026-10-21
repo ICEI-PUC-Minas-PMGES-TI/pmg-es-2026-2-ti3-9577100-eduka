@@ -368,6 +368,20 @@ class RoteadorFaturaTest {
         assertThat(fatura.getSituacaoProvedor()).isEqualTo(SituacaoProvedor.NAO_EMITIDA);
     }
 
+    // ---- Rotina de atraso (spec §7.4) ----
+
+    @Test
+    void rotinaMarcaAsFaturasVencidasNoDiaDaEscola() {
+        // 02:00 UTC do dia 22 ainda e 23:00 do dia 21 em Sao Paulo.
+        Instant agora = Instant.parse("2026-10-22T02:00:00Z");
+        RoteadorFatura roteadorDaNoite = new RoteadorFatura(faturaRepository, escolaRepository, contaRepository,
+                clienteRepository, new IsolamentoEscola(), new ChamadorProvedor(provider),
+                new TransacaoQueMarcaAtiva(), Clock.fixed(agora, ZoneOffset.UTC));
+        when(faturaRepository.marcarVencidasComoEmAtraso(HOJE, agora)).thenReturn(3);
+
+        assertThat(roteadorDaNoite.marcarVencidasComoEmAtraso()).isEqualTo(3);
+    }
+
     // ---- Comprovante (R28 a R30) ----
 
     @Test

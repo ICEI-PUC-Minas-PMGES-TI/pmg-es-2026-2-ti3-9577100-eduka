@@ -140,6 +140,11 @@ public class PaymentRoutingService {
         return roteadorFatura.cancelar(escolaId, faturaId);
     }
 
+    /** Rotina diaria de atraso (spec §7.4), sem usuario autenticado. */
+    public int marcarFaturasVencidas() {
+        return roteadorFatura.marcarVencidasComoEmAtraso();
+    }
+
     // ---- Fluxo A (MASTER da escola do token) ----
 
     public List<FaturaPlataformaResponse> listarMinhasFaturas() {

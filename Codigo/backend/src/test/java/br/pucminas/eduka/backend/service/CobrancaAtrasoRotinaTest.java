@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import br.pucminas.eduka.backend.pagamento.PaymentRoutingService;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
@@ -43,6 +44,8 @@ class CobrancaAtrasoRotinaTest {
     private AvisoCobrancaService avisoCobrancaService;
     @Mock
     private PagamentoCobrancaRepository pagamentoRepository;
+    @Mock
+    private PaymentRoutingService paymentRoutingService;
 
     private CobrancaService serviceEm(Instant agora) {
         return new CobrancaService(cobrancaRepository, alunoRepository, matriculaRepository,
@@ -55,9 +58,11 @@ class CobrancaAtrasoRotinaTest {
         // 00:05 em Sao Paulo, horario padrao da rotina.
         Instant agora = Instant.parse("2026-10-10T03:05:00Z");
 
-        new CobrancaAtrasoRotina(serviceEm(agora)).marcarVencidas();
+        new CobrancaAtrasoRotina(serviceEm(agora), paymentRoutingService).marcarVencidas();
 
         verify(cobrancaRepository).marcarVencidasComoEmAtraso(LocalDate.of(2026, 10, 10), agora);
+        // Spec §7.4: as faturas da plataforma entram na mesma rotina.
+        verify(paymentRoutingService).marcarFaturasVencidas();
         // Sem autor, a rotina nao entra no log de auditoria.
         verifyNoInteractions(auditoriaService);
     }

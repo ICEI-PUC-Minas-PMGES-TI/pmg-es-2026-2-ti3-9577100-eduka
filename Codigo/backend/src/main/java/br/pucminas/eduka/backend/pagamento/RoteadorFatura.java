@@ -359,6 +359,11 @@ class RoteadorFatura {
         });
     }
 
+    /** Rotina diaria (spec §7.4): mesma regra de atraso da cobranca, no dia da escola. */
+    int marcarVencidasComoEmAtraso() {
+        return transacao.execute(status -> faturaRepository.marcarVencidasComoEmAtraso(hoje(), clock.instant()));
+    }
+
     // ---- Comprovante (R28 a R30): Super Admin pela escola do caminho, MASTER pela do token ----
 
     /**
