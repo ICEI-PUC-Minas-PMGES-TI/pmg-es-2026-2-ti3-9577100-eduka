@@ -102,9 +102,14 @@ public class PaymentRoutingService {
         throw naoImplementado("RF16.1");
     }
 
-    /** MASTER da escola, SUPER_ADMIN. */
-    public ComprovanteResponse comprovanteFatura(UUID faturaId) {
-        throw naoImplementado("NOVA-5");
+    /** SUPER_ADMIN, pela escola do caminho (R29). */
+    public ComprovanteResponse comprovanteFatura(UUID escolaId, UUID faturaId) {
+        return roteadorFatura.comprovante(escolaId, faturaId);
+    }
+
+    /** MASTER, so da escola do token (R29). */
+    public ComprovanteResponse comprovanteMinhaFatura(UUID faturaId) {
+        return roteadorFatura.comprovanteMinha(faturaId);
     }
 
     // ---- Chamados por CobrancaService ----

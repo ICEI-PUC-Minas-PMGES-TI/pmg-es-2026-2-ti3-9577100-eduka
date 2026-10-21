@@ -37,11 +37,13 @@ import br.pucminas.eduka.backend.domain.Escola;
 import br.pucminas.eduka.backend.domain.FaturaPlataforma;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
+import br.pucminas.eduka.backend.dto.ComprovanteResponse;
 import br.pucminas.eduka.backend.dto.DadosPagamentoResponse;
 import br.pucminas.eduka.backend.dto.FaturaPlataformaResponse;
 import br.pucminas.eduka.backend.dto.LancarFaturaRequest;
 import br.pucminas.eduka.backend.exception.CobrancaJaPagaException;
 import br.pucminas.eduka.backend.exception.CobrancaNaoPagavelException;
+import br.pucminas.eduka.backend.exception.ComprovanteIndisponivelException;
 import br.pucminas.eduka.backend.exception.FaturaDuplicadaException;
 import br.pucminas.eduka.backend.exception.PagamentoEmProcessamentoException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
@@ -364,6 +366,39 @@ class RoteadorFaturaTest {
         assertThatThrownBy(() -> roteador.pagar(FATURA, FormaPagamento.PIX))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(fatura.getSituacaoProvedor()).isEqualTo(SituacaoProvedor.NAO_EMITIDA);
+    }
+
+    // ---- Comprovante (R28 a R30) ----
+
+    @Test
+    void comprovanteDaFaturaPagaTemOEdukaComoBeneficiarioEOCnpjMascarado() {
+        comoMaster();
+        fatura.setStatus(StatusCobranca.PAGA);
+        fatura.setValorPago(VALOR);
+        fatura.setDataPagamento(HOJE);
+        fatura.setFormaPagamento(FormaPagamento.PIX);
+        fatura.setIdTransacaoExterna("tx-a1");
+
+        ComprovanteResponse comprovante = roteador.comprovanteMinha(FATURA);
+
+        assertThat(comprovante.numero()).isEqualTo(FATURA);
+        assertThat(comprovante.beneficiarioNome()).isEqualTo("Edúka");
+        assertThat(comprovante.pagadorNome()).isEqualTo("Colegio Horizonte");
+        assertThat(comprovante.pagadorDocumentoMascarado()).isEqualTo("**.345.678/0001-**");
+        assertThat(comprovante.codigoTransacao()).isEqualTo("tx-a1");
+    }
+
+    @Test
+    void faturaNaoPagaNaoTemComprovante() {
+        assertThatThrownBy(() -> roteador.comprovante(ESCOLA, FATURA))
+                .isInstanceOf(ComprovanteIndisponivelException.class);
+    }
+
+    @Test
+    void mascaraDeixaSoOsDigitosDoMeio() {
+        assertThat(RoteadorFatura.mascarar("123.456.789-09")).isEqualTo("***.456.789-**");
+        assertThat(RoteadorFatura.mascarar("12345678000190")).isEqualTo("**.345.678/0001-**");
+        assertThat(RoteadorFatura.mascarar(null)).isNull();
     }
 
     // ---- Apoio ----

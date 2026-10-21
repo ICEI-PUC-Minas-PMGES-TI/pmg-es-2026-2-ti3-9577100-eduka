@@ -26,12 +26,14 @@ import br.pucminas.eduka.backend.domain.FaturaPlataforma;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.dto.BoletoResponse;
+import br.pucminas.eduka.backend.dto.ComprovanteResponse;
 import br.pucminas.eduka.backend.dto.DadosPagamentoResponse;
 import br.pucminas.eduka.backend.dto.FaturaPlataformaResponse;
 import br.pucminas.eduka.backend.dto.LancarFaturaRequest;
 import br.pucminas.eduka.backend.dto.PixResponse;
 import br.pucminas.eduka.backend.exception.CobrancaJaPagaException;
 import br.pucminas.eduka.backend.exception.CobrancaNaoPagavelException;
+import br.pucminas.eduka.backend.exception.ComprovanteIndisponivelException;
 import br.pucminas.eduka.backend.exception.FaturaDuplicadaException;
 import br.pucminas.eduka.backend.exception.FormaPagamentoInvalidaException;
 import br.pucminas.eduka.backend.exception.PagamentoEmProcessamentoException;
@@ -74,6 +76,9 @@ class RoteadorFatura {
     static final String PREFIXO_ESCOLA = "EDK-ESC-";
 
     private static final int TAMANHO_MAXIMO_ERRO = 500;
+
+    /** No Fluxo A quem recebe e o Eduka (R30). */
+    private static final String BENEFICIARIO = "Edúka";
 
     private final FaturaPlataformaRepository faturaRepository;
     private final EscolaRepository escolaRepository;
@@ -352,6 +357,45 @@ class RoteadorFatura {
                 faturaRepository.saveAndFlush(fatura);
             }
         });
+    }
+
+    // ---- Comprovante (R28 a R30): Super Admin pela escola do caminho, MASTER pela do token ----
+
+    /**
+     * Comprovante montado pelo Eduka, nunca a pagina do provedor. O numero e o
+     * id da fatura; o beneficiario e o Eduka.
+     *
+     * @throws ComprovanteIndisponivelException a fatura ainda nao foi paga
+     */
+    ComprovanteResponse comprovante(UUID escolaId, UUID faturaId) {
+        return transacao.execute(status -> {
+            FaturaPlataforma fatura = daEscola(escolaId, faturaId);
+            if (fatura.getStatus() != StatusCobranca.PAGA || fatura.getValorPago() == null) {
+                throw new ComprovanteIndisponivelException();
+            }
+            Escola escola = escola(escolaId);
+            return new ComprovanteResponse(fatura.getId(), BENEFICIARIO, null, escola.getNome(),
+                    mascarar(escola.getCnpjCpf()), fatura.getDescricao(), fatura.getDataVencimento(),
+                    fatura.getValorPago(), fatura.getDataPagamento(), fatura.getFormaPagamento(),
+                    fatura.getIdTransacaoExterna());
+        });
+    }
+
+    ComprovanteResponse comprovanteMinha(UUID faturaId) {
+        return comprovante(isolamentoEscola.escolaIdAtual(), faturaId);
+    }
+
+    /** R30: so os digitos do meio aparecem ({@code ***.456.789-**}, {@code **.345.678/0001-**}). */
+    static String mascarar(String documento) {
+        String digitos = documento == null ? "" : documento.replaceAll("\\D", "");
+        if (digitos.length() == 11) {
+            return "***." + digitos.substring(3, 6) + "." + digitos.substring(6, 9) + "-**";
+        }
+        if (digitos.length() == 14) {
+            return "**." + digitos.substring(2, 5) + "." + digitos.substring(5, 8) + "/" + digitos.substring(8, 12)
+                    + "-**";
+        }
+        return null;
     }
 
     List<FaturaPlataformaResponse> listarMinhas() {
