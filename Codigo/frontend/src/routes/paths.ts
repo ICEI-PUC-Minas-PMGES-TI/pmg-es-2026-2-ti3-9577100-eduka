@@ -20,6 +20,10 @@ export const paths = {
   },
   master: {
     raiz: '/master',
+    /** Dashboard da escola. */
+    inicio: '/master/inicio',
+    /** Faturas do Eduka (pagar e comprovante); a ativação da conta entra na PO.5. */
+    recebimentos: '/master/recebimentos',
   },
   secretaria: {
     raiz: '/secretaria',
