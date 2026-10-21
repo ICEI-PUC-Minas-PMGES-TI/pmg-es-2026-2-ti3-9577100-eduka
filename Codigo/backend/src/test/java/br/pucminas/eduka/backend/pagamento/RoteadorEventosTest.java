@@ -26,8 +26,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import br.pucminas.eduka.backend.domain.FaturaPlataforma;
 import br.pucminas.eduka.backend.domain.OrigemPagamento;
 import br.pucminas.eduka.backend.domain.PagamentoCobranca;
+import br.pucminas.eduka.backend.domain.SituacaoProvedor;
+import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.domain.StatusEventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.EventoProvedor;
@@ -37,6 +40,7 @@ import br.pucminas.eduka.backend.pagamento.tipos.TipoEventoProvedor;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
 import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
 import br.pucminas.eduka.backend.repository.EventoProvedorRepository;
+import br.pucminas.eduka.backend.repository.FaturaPlataformaRepository;
 import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
 import br.pucminas.eduka.backend.service.AvisoCobranca;
 import br.pucminas.eduka.backend.service.AvisoCobrancaService;
@@ -53,6 +57,8 @@ class RoteadorEventosTest {
     private static final UUID EVENTO = UUID.randomUUID();
     private static final String CONTA_ESCOLA = "3d134583-fe86-4aad-800f-6c6e63629478";
     private static final String COBRANCA_EXTERNA = "pay_mfqkh82qhahsoakx";
+    private static final UUID FATURA = UUID.randomUUID();
+    private static final String CONTA_PAI = "conta-pai-eduka";
 
     @Mock
     private EventoProvedorRepository eventoRepository;
@@ -63,6 +69,8 @@ class RoteadorEventosTest {
     @Mock
     private PagamentoCobrancaRepository pagamentoRepository;
     @Mock
+    private FaturaPlataformaRepository faturaRepository;
+    @Mock
     private AvisoCobrancaService avisoCobrancaService;
 
     private RoteadorEventos roteador;
@@ -71,7 +79,7 @@ class RoteadorEventosTest {
     @BeforeEach
     void setUp() {
         roteador = new RoteadorEventos(eventoRepository, cobrancaRepository, contaRepository, pagamentoRepository,
-                avisoCobrancaService, Clock.fixed(AGORA, ZoneOffset.UTC));
+                faturaRepository, avisoCobrancaService, Clock.fixed(AGORA, ZoneOffset.UTC));
         registro = br.pucminas.eduka.backend.domain.EventoProvedor.builder()
                 .id(EVENTO)
                 .idEventoExterno("evt_1&1")
@@ -382,6 +390,102 @@ class RoteadorEventosTest {
         assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.IGNORADO);
     }
 
+    // ---- Fatura da plataforma (EDK-A-, Fluxo A) ----
+
+    @Test
+    void pagamentoDaFaturaNaContaPaiAMarcaComoPaga() {
+        FaturaPlataforma fatura = fatura(StatusCobranca.PENDENTE, SituacaoProvedor.EMITIDA);
+        when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_PAI)).thenReturn(Optional.empty());
+        when(faturaRepository.travar(FATURA)).thenReturn(Optional.of(fatura));
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, avisoDeFatura(TipoEventoProvedor.PAGAMENTO_RECEBIDO, CONTA_PAI, true));
+
+        assertThat(fatura.getStatus()).isEqualTo(StatusCobranca.PAGA);
+        assertThat(fatura.getValorPago()).isEqualByComparingTo("150.00");
+        assertThat(fatura.getDataPagamento()).isEqualTo(LocalDate.of(2026, 10, 19));
+        assertThat(fatura.getIdTransacaoExterna()).isEqualTo("tx-pix-1");
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.PROCESSADO);
+        assertThat(registro.getEscolaId()).isEqualTo(ESCOLA);
+        verifyNoInteractions(cobrancaRepository, pagamentoRepository, avisoCobrancaService);
+    }
+
+    @Test
+    void avisoDeFaturaVindoDaContaDeUmaEscolaEIgnorado() {
+        when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_ESCOLA)).thenReturn(Optional.of(ESCOLA));
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, avisoDeFatura(TipoEventoProvedor.PAGAMENTO_RECEBIDO, CONTA_ESCOLA, true));
+
+        verify(faturaRepository, never()).travar(any());
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.IGNORADO);
+    }
+
+    @Test
+    void pagamentoDeFaturaCanceladaAMarcaComoPaga() {
+        FaturaPlataforma fatura = fatura(StatusCobranca.CANCELADA, SituacaoProvedor.EMITIDA);
+        when(faturaRepository.travar(FATURA)).thenReturn(Optional.of(fatura));
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, avisoDeFatura(TipoEventoProvedor.PAGAMENTO_CONFIRMADO, null, true));
+
+        assertThat(fatura.getStatus()).isEqualTo(StatusCobranca.PAGA);
+        assertThat(registro.getMotivo()).contains("cancelamento");
+    }
+
+    @Test
+    void segundoAvisoDePagamentoDaFaturaNaoMudaNada() {
+        FaturaPlataforma fatura = fatura(StatusCobranca.PAGA, SituacaoProvedor.EMITIDA);
+        when(faturaRepository.travar(FATURA)).thenReturn(Optional.of(fatura));
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, avisoDeFatura(TipoEventoProvedor.PAGAMENTO_RECEBIDO, null, true));
+
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.IGNORADO);
+    }
+
+    @Test
+    void criacaoConfirmadaTiraAFaturaDeEmitindo() {
+        FaturaPlataforma fatura = fatura(StatusCobranca.PENDENTE, SituacaoProvedor.EMITINDO);
+        when(faturaRepository.travar(FATURA)).thenReturn(Optional.of(fatura));
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, avisoDeFatura(TipoEventoProvedor.COBRANCA_CRIADA, null, false));
+
+        assertThat(fatura.getSituacaoProvedor()).isEqualTo(SituacaoProvedor.EMITIDA);
+        assertThat(fatura.getIdCobrancaExterna()).isEqualTo(COBRANCA_EXTERNA);
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.PROCESSADO);
+    }
+
+    @Test
+    void remocaoCancelaAFaturaEmitidaEmAberto() {
+        FaturaPlataforma fatura = fatura(StatusCobranca.EM_ATRASO, SituacaoProvedor.EMITIDA);
+        when(faturaRepository.travar(FATURA)).thenReturn(Optional.of(fatura));
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, avisoDeFatura(TipoEventoProvedor.COBRANCA_REMOVIDA, null, false));
+
+        assertThat(fatura.getStatus()).isEqualTo(StatusCobranca.CANCELADA);
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.PROCESSADO);
+    }
+
+    @Test
+    void faturaDesconhecidaEIgnorada() {
+        when(faturaRepository.travar(FATURA)).thenReturn(Optional.empty());
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, avisoDeFatura(TipoEventoProvedor.PAGAMENTO_RECEBIDO, null, true));
+
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.IGNORADO);
+    }
+
+    @Test
+    void referenciaDeFaturaSoValeComUuid() {
+        assertThat(RoteadorEventos.idDaFatura("EDK-A-" + FATURA)).contains(FATURA);
+        assertThat(RoteadorEventos.idDaFatura("EDK-A-x")).isEmpty();
+        assertThat(RoteadorEventos.idDaFatura("EDK-B-" + FATURA)).isEmpty();
+    }
+
     @Test
     void falhaDeixaOEventoEmErroComOMotivo() {
         when(eventoRepository.findById(EVENTO)).thenReturn(Optional.of(registro));
@@ -438,6 +542,23 @@ class RoteadorEventosTest {
                 .origem(OrigemPagamento.ONLINE)
                 .idTransacaoExterna("tx-pix-1")
                 .build();
+    }
+
+    private static FaturaPlataforma fatura(StatusCobranca status, SituacaoProvedor situacao) {
+        return FaturaPlataforma.builder().id(FATURA).escolaId(ESCOLA).competencia(LocalDate.of(2026, 10, 1))
+                .descricao("Eduka outubro").valor(new BigDecimal("150.00")).dataVencimento(LocalDate.of(2026, 10, 24))
+                .status(status).situacaoProvedor(situacao)
+                .idCobrancaExterna(situacao == SituacaoProvedor.EMITIDA ? COBRANCA_EXTERNA : null)
+                .formaPagamento(FormaPagamento.PIX).criadaPor(UUID.randomUUID()).build();
+    }
+
+    private static EventoProvedor avisoDeFatura(TipoEventoProvedor tipo, String idConta, boolean paga) {
+        CobrancaProvedor cobranca = new CobrancaProvedor(COBRANCA_EXTERNA, "EDK-A-" + FATURA,
+                paga ? StatusCobrancaProvedor.RECEBIDA : StatusCobrancaProvedor.AGUARDANDO_PAGAMENTO,
+                FormaPagamento.PIX, new BigDecimal("150.00"), paga ? new BigDecimal("150.00") : null, null,
+                paga ? LocalDate.of(2026, 10, 19) : null, null, paga ? "tx-pix-1" : null, null);
+        return new EventoProvedor("evt_4&4", tipo, tipo.name(), idConta, cobranca, null, LocalDate.of(2026, 10, 19),
+                "{}");
     }
 
     private static EventoProvedor avisoDeCobranca(TipoEventoProvedor tipo, String idConta) {
