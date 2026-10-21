@@ -271,8 +271,12 @@ Webhook do gateway: o aviso é gravado em `EVENTO_PROVEDOR` antes de ser aplicad
 é único, então o mesmo aviso chegando de novo responde 200 sem efeito. O pagamento confirmado
 (`PAYMENT_RECEIVED`/`PAYMENT_CONFIRMED`) grava `PAGAMENTO_COBRANCA` com origem `ONLINE` e marca a
 cobrança como `PAGA` na mesma transação, desde que a conta que mandou o aviso seja a conta de
-recebimento da escola da cobrança. Se a aplicação falhar, o aviso fica em `ERRO` para nova tentativa
-e o webhook continua respondendo 200.
+recebimento da escola da cobrança. Um segundo aviso do mesmo pagamento não cria outro registro: só
+completa a data de crédito e o valor líquido. Pagamento de cobrança `CANCELADA` a marca como `PAGA`
+(o dinheiro entrou). A criação confirmada (`PAYMENT_CREATED`) tira de `EMITINDO` a cobrança cuja
+resposta de criação se perdeu; a remoção no provedor (`PAYMENT_DELETED`) leva a cobrança em
+`EMITINDO` para `FALHA_EMISSAO` e cancela a emitida em aberto. Aviso sem id ou sem tipo responde 400.
+Se a aplicação falhar, o aviso fica em `ERRO` para nova tentativa e o webhook continua respondendo 200.
 
 Situação da cobrança (`StatusCobranca`): `PENDENTE` pode passar para `EM_ATRASO`, `PAGA` ou
 `CANCELADA`; `EM_ATRASO` pode voltar para `PENDENTE` (vencimento adiado) ou passar para `PAGA` ou
