@@ -134,7 +134,7 @@ public class PaymentRoutingService {
      * webhook: o aviso ja esta gravado e fica em ERRO para o agendador.
      *
      * @throws WebhookNaoAutorizadoException token ausente ou diferente
-     * @throws IllegalArgumentException      corpo ilegivel ou sem id do aviso
+     * @throws IllegalArgumentException      corpo ilegivel ou sem id ou tipo do aviso
      */
     public void registrarEvento(String tokenRecebido, String corpoJson) {
         if (!provedor.chamar(p -> p.webhookAutentico(tokenRecebido))) {
@@ -143,6 +143,9 @@ public class PaymentRoutingService {
         EventoProvedor evento = provedor.chamar(p -> p.interpretarEvento(corpoJson));
         if (evento.idEvento() == null || evento.idEvento().isBlank()) {
             throw new IllegalArgumentException("Aviso do provedor sem id");
+        }
+        if (evento.tipoOriginal() == null || evento.tipoOriginal().isBlank()) {
+            throw new IllegalArgumentException("Aviso do provedor sem tipo");
         }
 
         Optional<UUID> eventoId;

@@ -111,6 +111,17 @@ class PaymentRoutingServiceEventosTest {
     }
 
     @Test
+    void avisoSemTipoERecusado() {
+        when(provider.webhookAutentico(TOKEN)).thenReturn(true);
+        when(provider.interpretarEvento(CORPO)).thenReturn(new EventoProvedor("evt_1&1",
+                TipoEventoProvedor.NAO_TRATADO, null, null, null, null, null, "{}"));
+
+        assertThatThrownBy(() -> roteador.registrarEvento(TOKEN, CORPO))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(eventos);
+    }
+
+    @Test
     void falhaAoAplicarDeixaEmErroSemFalharOWebhook() {
         when(provider.webhookAutentico(TOKEN)).thenReturn(true);
         when(provider.interpretarEvento(CORPO)).thenReturn(RECEBIDO);
