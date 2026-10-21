@@ -203,7 +203,8 @@ class RoteadorEventosTest {
     void pagamentoJaRegistradoNaoDuplica() {
         cobrancaEncontradaPeloIdExterno("PAGA");
         when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_ESCOLA)).thenReturn(Optional.of(ESCOLA));
-        when(pagamentoRepository.existsByCobrancaId(COBRANCA)).thenReturn(true);
+        when(pagamentoRepository.findByCobrancaId(COBRANCA)).thenReturn(Optional.of(pagamentoRegistrado(
+                new BigDecimal("149.01"), LocalDate.of(2026, 10, 19))));
         when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
 
         roteador.aplicar(EVENTO, pagamentoRecebido(CONTA_ESCOLA));
@@ -211,6 +212,134 @@ class RoteadorEventosTest {
         verify(pagamentoRepository, never()).save(any());
         verify(cobrancaRepository, never()).marcarPagaPeloProvedor(any(), any());
         verifyNoInteractions(avisoCobrancaService);
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.IGNORADO);
+    }
+
+    @Test
+    void avisoSeguinteDoMesmoPagamentoCompletaOCredito() {
+        cobrancaEncontradaPeloIdExterno("PAGA");
+        when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_ESCOLA)).thenReturn(Optional.of(ESCOLA));
+        PagamentoCobranca confirmado = pagamentoRegistrado(null, null);
+        when(pagamentoRepository.findByCobrancaId(COBRANCA)).thenReturn(Optional.of(confirmado));
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, pagamentoRecebido(CONTA_ESCOLA));
+
+        assertThat(confirmado.getValorLiquido()).isEqualByComparingTo("149.01");
+        assertThat(confirmado.getDataCredito()).isEqualTo(LocalDate.of(2026, 10, 19));
+        verify(pagamentoRepository, never()).save(any());
+        verifyNoInteractions(avisoCobrancaService);
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.PROCESSADO);
+    }
+
+    @Test
+    void pagamentoDeCobrancaAindaEmitindoTambemAMarcaComoEmitida() {
+        when(cobrancaRepository.buscarParaPagamentoOnlinePorIdExterno(COBRANCA_EXTERNA))
+                .thenReturn(linhaDaCobranca("PENDENTE", "EMITINDO"));
+        when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_ESCOLA)).thenReturn(Optional.of(ESCOLA));
+        when(cobrancaRepository.marcarPagaPeloProvedor(COBRANCA, AGORA)).thenReturn(1);
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, pagamentoRecebido(CONTA_ESCOLA));
+
+        verify(cobrancaRepository).marcarEmitidaPeloProvedor(COBRANCA, COBRANCA_EXTERNA, AGORA);
+        verify(pagamentoRepository).save(any());
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.PROCESSADO);
+    }
+
+    @Test
+    void pagamentoDeCobrancaCanceladaAMarcaComoPaga() {
+        cobrancaEncontradaPeloIdExterno("CANCELADA");
+        when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_ESCOLA)).thenReturn(Optional.of(ESCOLA));
+        when(cobrancaRepository.marcarPagaPeloProvedor(COBRANCA, AGORA)).thenReturn(0);
+        when(cobrancaRepository.marcarPagaAposCancelamento(COBRANCA, AGORA)).thenReturn(1);
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, pagamentoRecebido(CONTA_ESCOLA));
+
+        verify(pagamentoRepository).save(any());
+        verifyNoInteractions(avisoCobrancaService);
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.PROCESSADO);
+        assertThat(registro.getMotivo()).contains("cancelamento");
+    }
+
+    // ---- Aplicar criacao e remocao (spec §8.4) ----
+
+    @Test
+    void criacaoConfirmadaTiraACobrancaDeEmitindo() {
+        cobrancaEncontradaPelaReferencia("PENDENTE", "EMITINDO");
+        when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_ESCOLA)).thenReturn(Optional.of(ESCOLA));
+        when(cobrancaRepository.marcarEmitidaPeloProvedor(COBRANCA, COBRANCA_EXTERNA, AGORA)).thenReturn(1);
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, avisoDeCobranca(TipoEventoProvedor.COBRANCA_CRIADA, CONTA_ESCOLA));
+
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.PROCESSADO);
+        assertThat(registro.getEscolaId()).isEqualTo(ESCOLA);
+    }
+
+    @Test
+    void criacaoDeCobrancaJaEmitidaNaoTemEfeito() {
+        cobrancaEncontradaPeloIdExterno("PENDENTE");
+        when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_ESCOLA)).thenReturn(Optional.of(ESCOLA));
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, avisoDeCobranca(TipoEventoProvedor.COBRANCA_CRIADA, CONTA_ESCOLA));
+
+        verify(cobrancaRepository, never()).marcarEmitidaPeloProvedor(any(), any(), any());
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.IGNORADO);
+    }
+
+    @Test
+    void remocaoDeCobrancaAindaEmitindoViraFalhaDeEmissao() {
+        cobrancaEncontradaPelaReferencia("PENDENTE", "EMITINDO");
+        when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_ESCOLA)).thenReturn(Optional.of(ESCOLA));
+        when(cobrancaRepository.marcarFalhaEmissaoPeloProvedor(eq(COBRANCA), anyString(), eq(AGORA))).thenReturn(1);
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, avisoDeCobranca(TipoEventoProvedor.COBRANCA_REMOVIDA, CONTA_ESCOLA));
+
+        verify(cobrancaRepository, never()).cancelarPeloProvedor(any(), any());
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.PROCESSADO);
+    }
+
+    @Test
+    void remocaoDeCobrancaEmitidaEmAbertoACancela() {
+        cobrancaEncontradaPeloIdExterno("EM_ATRASO");
+        when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_ESCOLA)).thenReturn(Optional.of(ESCOLA));
+        when(cobrancaRepository.cancelarPeloProvedor(COBRANCA, AGORA)).thenReturn(1);
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, avisoDeCobranca(TipoEventoProvedor.COBRANCA_REMOVIDA, CONTA_ESCOLA));
+
+        verify(cobrancaRepository, never()).marcarFalhaEmissaoPeloProvedor(any(), any(), any());
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.PROCESSADO);
+    }
+
+    @Test
+    void remocaoDeCobrancaPagaNaoTemEfeito() {
+        cobrancaEncontradaPeloIdExterno("PAGA");
+        when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_ESCOLA)).thenReturn(Optional.of(ESCOLA));
+        when(cobrancaRepository.cancelarPeloProvedor(COBRANCA, AGORA)).thenReturn(0);
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, avisoDeCobranca(TipoEventoProvedor.COBRANCA_REMOVIDA, CONTA_ESCOLA));
+
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.IGNORADO);
+        assertThat(registro.getMotivo()).contains("PAGA");
+    }
+
+    @Test
+    void remocaoAvisadaPorContaDeOutraEscolaEIgnorada() {
+        cobrancaEncontradaPeloIdExterno("PENDENTE");
+        when(contaRepository.buscarEscolaPorIdContaExterna("conta-de-outra-escola"))
+                .thenReturn(Optional.of(OUTRA_ESCOLA));
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, avisoDeCobranca(TipoEventoProvedor.COBRANCA_REMOVIDA, "conta-de-outra-escola"));
+
+        verify(cobrancaRepository, never()).cancelarPeloProvedor(any(), any());
+        verify(cobrancaRepository, never()).marcarFalhaEmissaoPeloProvedor(any(), any(), any());
         assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.IGNORADO);
     }
 
@@ -243,11 +372,11 @@ class RoteadorEventosTest {
     @Test
     void avisoSemEfeitoNoWebhookEIgnorado() {
         when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
-        EventoProvedor criada = new EventoProvedor("evt_2&2", TipoEventoProvedor.COBRANCA_CRIADA, "PAYMENT_CREATED",
+        EventoProvedor estorno = new EventoProvedor("evt_2&2", TipoEventoProvedor.NAO_TRATADO, "PAYMENT_REFUNDED",
                 CONTA_ESCOLA, cobrancaProvedor(null, StatusCobrancaProvedor.AGUARDANDO_PAGAMENTO), null,
                 LocalDate.of(2026, 10, 19), "{}");
 
-        roteador.aplicar(EVENTO, criada);
+        roteador.aplicar(EVENTO, estorno);
 
         verifyNoInteractions(cobrancaRepository, pagamentoRepository, avisoCobrancaService);
         assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.IGNORADO);
@@ -279,12 +408,42 @@ class RoteadorEventosTest {
                 .thenReturn(linhaDaCobranca(status));
     }
 
-    /** Colunas na ordem de {@code CobrancaRepository#buscarParaPagamentoOnline*}. */
+    /** Ainda EMITINDO: o id externo nao foi gravado, entao so a referencia acha a cobranca. */
+    private void cobrancaEncontradaPelaReferencia(String status, String situacao) {
+        when(cobrancaRepository.buscarParaPagamentoOnlinePorIdExterno(COBRANCA_EXTERNA)).thenReturn(List.of());
+        when(cobrancaRepository.buscarParaPagamentoOnlinePorId(COBRANCA)).thenReturn(linhaDaCobranca(status, situacao));
+    }
+
     private static List<Object[]> linhaDaCobranca(String status) {
+        return linhaDaCobranca(status, "EMITIDA");
+    }
+
+    /** Colunas na ordem de {@code CobrancaRepository#buscarParaPagamentoOnline*}. */
+    private static List<Object[]> linhaDaCobranca(String status, String situacao) {
         List<Object[]> linhas = new ArrayList<>();
         linhas.add(new Object[] { COBRANCA, ESCOLA, UUID.randomUUID(), null, "Mensalidade de outubro",
-                new BigDecimal("150.00"), LocalDate.of(2026, 10, 24), status, "PIX" });
+                new BigDecimal("150.00"), LocalDate.of(2026, 10, 24), status, "PIX", situacao });
         return linhas;
+    }
+
+    private static PagamentoCobranca pagamentoRegistrado(BigDecimal valorLiquido, LocalDate dataCredito) {
+        return PagamentoCobranca.builder()
+                .escolaId(ESCOLA)
+                .cobrancaId(COBRANCA)
+                .valorPago(new BigDecimal("150.00"))
+                .valorLiquido(valorLiquido)
+                .dataPagamento(LocalDate.of(2026, 10, 19))
+                .dataCredito(dataCredito)
+                .formaPagamento(FormaPagamento.PIX)
+                .origem(OrigemPagamento.ONLINE)
+                .idTransacaoExterna("tx-pix-1")
+                .build();
+    }
+
+    private static EventoProvedor avisoDeCobranca(TipoEventoProvedor tipo, String idConta) {
+        return new EventoProvedor("evt_3&3", tipo, tipo.name(), idConta,
+                cobrancaProvedor(null, StatusCobrancaProvedor.AGUARDANDO_PAGAMENTO), null,
+                LocalDate.of(2026, 10, 19), "{}");
     }
 
     private static EventoProvedor pagamentoRecebido(String idConta) {
