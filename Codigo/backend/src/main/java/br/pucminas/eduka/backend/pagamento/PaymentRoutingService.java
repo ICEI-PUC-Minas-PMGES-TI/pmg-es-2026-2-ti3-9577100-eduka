@@ -94,7 +94,7 @@ public class PaymentRoutingService {
 
     /** MASTER da escola; spec §8.2. */
     public DadosPagamentoResponse pagarFatura(UUID faturaId, FormaPagamento forma) {
-        throw naoImplementado("NOVA-5");
+        return roteadorFatura.pagar(faturaId, forma);
     }
 
     /** ALUNO dono, MASTER/FINANCEIRO da escola. */

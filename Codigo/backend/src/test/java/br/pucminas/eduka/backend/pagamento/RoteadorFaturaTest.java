@@ -31,20 +31,30 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import br.pucminas.eduka.backend.domain.ClienteProvedor;
+import br.pucminas.eduka.backend.domain.ContaProvedorCliente;
 import br.pucminas.eduka.backend.domain.Escola;
 import br.pucminas.eduka.backend.domain.FaturaPlataforma;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
+import br.pucminas.eduka.backend.dto.DadosPagamentoResponse;
 import br.pucminas.eduka.backend.dto.FaturaPlataformaResponse;
 import br.pucminas.eduka.backend.dto.LancarFaturaRequest;
 import br.pucminas.eduka.backend.exception.CobrancaJaPagaException;
+import br.pucminas.eduka.backend.exception.CobrancaNaoPagavelException;
 import br.pucminas.eduka.backend.exception.FaturaDuplicadaException;
 import br.pucminas.eduka.backend.exception.PagamentoEmProcessamentoException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.pagamento.tipos.BoletoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.CredencialProvedor;
+import br.pucminas.eduka.backend.pagamento.tipos.DadosPagador;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
+import br.pucminas.eduka.backend.pagamento.tipos.NovaCobrancaProvedor;
+import br.pucminas.eduka.backend.pagamento.tipos.PixProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.StatusCobrancaProvedor;
+import br.pucminas.eduka.backend.repository.ClienteProvedorRepository;
+import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
 import br.pucminas.eduka.backend.repository.EscolaRepository;
 import br.pucminas.eduka.backend.repository.FaturaPlataformaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
@@ -64,6 +74,8 @@ class RoteadorFaturaTest {
 
     private FaturaPlataformaRepository faturaRepository;
     private EscolaRepository escolaRepository;
+    private ContaRecebimentoEscolaRepository contaRepository;
+    private ClienteProvedorRepository clienteRepository;
     private PaymentProvider provider;
     private Escola escola;
     private FaturaPlataforma fatura;
@@ -88,8 +100,17 @@ class RoteadorFaturaTest {
         when(faturaRepository.saveAndFlush(any(FaturaPlataforma.class))).thenAnswer(i -> i.getArgument(0));
         when(provider.credencialDaContaPai()).thenReturn(CHAVE_PAI);
 
-        roteador = new RoteadorFatura(faturaRepository, escolaRepository, new IsolamentoEscola(),
-                new ChamadorProvedor(provider), new TransacaoQueMarcaAtiva(), Clock.fixed(AGORA, ZoneOffset.UTC));
+        contaRepository = mock(ContaRecebimentoEscolaRepository.class);
+        clienteRepository = mock(ClienteProvedorRepository.class);
+        when(escola.getCnpjCpf()).thenReturn("12.345.678/0001-90");
+        when(escola.getEmail()).thenReturn("contato@horizonte.edu.br");
+        when(contaRepository.findByEscolaId(ESCOLA)).thenReturn(Optional.empty());
+        when(clienteRepository.findByEscolaIdAndContaAndReferenciaExterna(any(), any(), any()))
+                .thenReturn(Optional.empty());
+
+        roteador = new RoteadorFatura(faturaRepository, escolaRepository, contaRepository, clienteRepository,
+                new IsolamentoEscola(), new ChamadorProvedor(provider), new TransacaoQueMarcaAtiva(),
+                Clock.fixed(AGORA, ZoneOffset.UTC));
     }
 
     @AfterEach
@@ -249,7 +270,107 @@ class RoteadorFaturaTest {
         assertThatThrownBy(() -> roteador.cancelar(outra, FATURA)).isInstanceOf(RecursoNaoEncontradoException.class);
     }
 
+    // ---- Pagar (MASTER, spec §8.2 versao da fatura) ----
+
+    @Test
+    void primeiroPagarCriaACobrancaNaContaPaiComAEscolaPagando() {
+        comoMaster();
+        when(provider.obterOuCriarCliente(any(), any())).thenReturn("cus_esc");
+        when(provider.criarCobranca(any(), any())).thenReturn(noProvedor(StatusCobrancaProvedor.AGUARDANDO_PAGAMENTO));
+        when(provider.obterPix(CHAVE_PAI, "pay_a1")).thenReturn(new PixProvedor("aW1n", "000201", null));
+
+        DadosPagamentoResponse resposta = roteador.pagar(FATURA, FormaPagamento.PIX);
+
+        ArgumentCaptor<DadosPagador> pagador = ArgumentCaptor.forClass(DadosPagador.class);
+        verify(provider).obterOuCriarCliente(org.mockito.ArgumentMatchers.eq(CHAVE_PAI), pagador.capture());
+        assertThat(pagador.getValue().referenciaExterna()).isEqualTo("EDK-ESC-" + ESCOLA);
+        assertThat(pagador.getValue().cpfCnpj()).isEqualTo("12345678000190");
+        assertThat(pagador.getValue().email()).isEqualTo("contato@horizonte.edu.br");
+
+        ArgumentCaptor<NovaCobrancaProvedor> nova = ArgumentCaptor.forClass(NovaCobrancaProvedor.class);
+        verify(provider).criarCobranca(org.mockito.ArgumentMatchers.eq(CHAVE_PAI), nova.capture());
+        assertThat(nova.getValue().referenciaExterna()).isEqualTo("EDK-A-" + FATURA);
+        assertThat(nova.getValue().valor()).isEqualByComparingTo(VALOR);
+
+        ArgumentCaptor<ClienteProvedor> cliente = ArgumentCaptor.forClass(ClienteProvedor.class);
+        verify(clienteRepository).saveAndFlush(cliente.capture());
+        assertThat(cliente.getValue().getConta()).isEqualTo(ContaProvedorCliente.PAI);
+
+        assertThat(fatura.getSituacaoProvedor()).isEqualTo(SituacaoProvedor.EMITIDA);
+        assertThat(fatura.getIdCobrancaExterna()).isEqualTo("pay_a1");
+        assertThat(resposta.pix().copiaECola()).isEqualTo("000201");
+    }
+
+    @Test
+    void trocarAFormaAlteraAMesmaCobranca() {
+        comoMaster();
+        emitida();
+        when(provider.obterLinhaDigitavel(CHAVE_PAI, "pay_a1")).thenReturn(new BoletoProvedor("2379", "2379", "1"));
+
+        roteador.pagar(FATURA, FormaPagamento.BOLETO);
+
+        verify(provider).alterarFormaEVencimento(CHAVE_PAI, "pay_a1", FormaPagamento.BOLETO,
+                LocalDate.of(2026, 11, 10));
+        verify(provider, never()).criarCobranca(any(), any());
+        assertThat(fatura.getFormaPagamento()).isEqualTo(FormaPagamento.BOLETO);
+    }
+
+    @Test
+    void criacaoInconclusivaFicaProcessando() {
+        comoMaster();
+        when(provider.obterOuCriarCliente(any(), any())).thenReturn("cus_esc");
+        when(provider.criarCobranca(any(), any())).thenThrow(new ProvedorIndisponivelException("timeout"));
+
+        DadosPagamentoResponse resposta = roteador.pagar(FATURA, FormaPagamento.PIX);
+
+        assertThat(resposta.situacao()).isEqualTo("PROCESSANDO");
+        assertThat(fatura.getSituacaoProvedor()).isEqualTo(SituacaoProvedor.EMITINDO);
+    }
+
+    @Test
+    void recusaDoProvedorDeixaFalhaDeEmissao() {
+        comoMaster();
+        when(provider.obterOuCriarCliente(any(), any())).thenReturn("cus_esc");
+        when(provider.criarCobranca(any(), any())).thenThrow(new ProvedorRecusouException("valor invalido"));
+
+        assertThatThrownBy(() -> roteador.pagar(FATURA, FormaPagamento.PIX))
+                .isInstanceOf(ProvedorRecusouException.class);
+        assertThat(fatura.getSituacaoProvedor()).isEqualTo(SituacaoProvedor.FALHA_EMISSAO);
+    }
+
+    @Test
+    void faturaCanceladaNaoEPaga() {
+        comoMaster();
+        fatura.setStatus(StatusCobranca.CANCELADA);
+
+        assertThatThrownBy(() -> roteador.pagar(FATURA, FormaPagamento.PIX))
+                .isInstanceOf(CobrancaNaoPagavelException.class);
+        verifyNoInteractions(provider);
+    }
+
+    @Test
+    void faturaDeOutraEscolaNaoEPagaPeloMaster() {
+        logado(new UsuarioAutenticado(UUID.randomUUID(), "MASTER", UUID.randomUUID()));
+
+        assertThatThrownBy(() -> roteador.pagar(FATURA, FormaPagamento.PIX))
+                .isInstanceOf(RecursoNaoEncontradoException.class);
+    }
+
+    @Test
+    void escolaSemCnpjNaoTravaAFatura() {
+        comoMaster();
+        when(escola.getCnpjCpf()).thenReturn(null);
+
+        assertThatThrownBy(() -> roteador.pagar(FATURA, FormaPagamento.PIX))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(fatura.getSituacaoProvedor()).isEqualTo(SituacaoProvedor.NAO_EMITIDA);
+    }
+
     // ---- Apoio ----
+
+    private static void comoMaster() {
+        logado(new UsuarioAutenticado(UUID.randomUUID(), "MASTER", ESCOLA));
+    }
 
     private static LancarFaturaRequest pedido(String competencia, LocalDate vencimento) {
         return new LancarFaturaRequest(competencia, " Mensalidade Eduka novembro ", VALOR, vencimento);
