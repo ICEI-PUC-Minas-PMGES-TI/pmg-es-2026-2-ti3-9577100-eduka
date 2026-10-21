@@ -3,8 +3,10 @@ package br.pucminas.eduka.backend.pagamento;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -12,8 +14,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.pucminas.eduka.backend.domain.FaturaPlataforma;
 import br.pucminas.eduka.backend.domain.OrigemPagamento;
 import br.pucminas.eduka.backend.domain.PagamentoCobranca;
+import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.domain.StatusEventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
@@ -23,6 +27,7 @@ import br.pucminas.eduka.backend.pagamento.tipos.TipoEventoProvedor;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
 import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
 import br.pucminas.eduka.backend.repository.EventoProvedorRepository;
+import br.pucminas.eduka.backend.repository.FaturaPlataformaRepository;
 import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
 import br.pucminas.eduka.backend.service.AvisoCobranca;
 import br.pucminas.eduka.backend.service.AvisoCobrancaService;
@@ -36,7 +41,9 @@ import br.pucminas.eduka.backend.service.CobrancaParaAviso;
  * O aviso e gravado em {@code EVENTO_PROVEDOR} antes de ser aplicado, e o id
  * externo unico garante que o mesmo aviso e aplicado uma vez so. Aplicar um
  * pagamento confirmado grava o {@link PagamentoCobranca} (origem ONLINE) e
- * marca a cobranca como PAGA na mesma transacao.
+ * marca a cobranca como PAGA na mesma transacao. Criacao e remocao da
+ * cobranca no provedor seguem a tabela da spec §8.4. Avisos de fatura da
+ * plataforma ({@code EDK-A-}) mudam a propria fatura.
  * </p>
  *
  * <p>
@@ -57,16 +64,23 @@ class RoteadorEventos {
     private final CobrancaRepository cobrancaRepository;
     private final ContaRecebimentoEscolaRepository contaRepository;
     private final PagamentoCobrancaRepository pagamentoRepository;
+    private final FaturaPlataformaRepository faturaRepository;
     private final AvisoCobrancaService avisoCobrancaService;
     private final Clock clock;
 
+    /** Avisos sobre uma cobranca; os de fatura ({@code EDK-A-}) seguem a coluna da fatura na §8.4. */
+    private static final Set<TipoEventoProvedor> AVISOS_DE_COBRANCA = EnumSet.of(TipoEventoProvedor.COBRANCA_CRIADA,
+            TipoEventoProvedor.PAGAMENTO_CONFIRMADO, TipoEventoProvedor.PAGAMENTO_RECEBIDO,
+            TipoEventoProvedor.COBRANCA_REMOVIDA);
+
     RoteadorEventos(EventoProvedorRepository eventoRepository, CobrancaRepository cobrancaRepository,
             ContaRecebimentoEscolaRepository contaRepository, PagamentoCobrancaRepository pagamentoRepository,
-            AvisoCobrancaService avisoCobrancaService, Clock clock) {
+            FaturaPlataformaRepository faturaRepository, AvisoCobrancaService avisoCobrancaService, Clock clock) {
         this.eventoRepository = eventoRepository;
         this.cobrancaRepository = cobrancaRepository;
         this.contaRepository = contaRepository;
         this.pagamentoRepository = pagamentoRepository;
+        this.faturaRepository = faturaRepository;
         this.avisoCobrancaService = avisoCobrancaService;
         this.clock = clock;
     }
@@ -117,11 +131,18 @@ class RoteadorEventos {
         }
         registro.setTentativas(registro.getTentativas() + 1);
 
-        if (evento.tipo() == TipoEventoProvedor.PAGAMENTO_RECEBIDO
-                || evento.tipo() == TipoEventoProvedor.PAGAMENTO_CONFIRMADO) {
-            aplicarPagamento(registro, evento);
-        } else {
-            encerrar(registro, StatusEventoProvedor.IGNORADO, "Tipo de aviso sem efeito no webhook: " + evento.tipo());
+        Optional<UUID> faturaId = evento.cobranca() == null ? Optional.empty()
+                : idDaFatura(evento.cobranca().referenciaExterna());
+        if (faturaId.isPresent() && AVISOS_DE_COBRANCA.contains(evento.tipo())) {
+            aplicarFatura(registro, evento, faturaId.get());
+            return;
+        }
+        switch (evento.tipo()) {
+            case PAGAMENTO_RECEBIDO, PAGAMENTO_CONFIRMADO -> aplicarPagamento(registro, evento);
+            case COBRANCA_CRIADA -> aplicarCriada(registro, evento);
+            case COBRANCA_REMOVIDA -> aplicarRemovida(registro, evento);
+            default -> encerrar(registro, StatusEventoProvedor.IGNORADO,
+                    "Tipo de aviso sem efeito no webhook: " + evento.tipo());
         }
     }
 
@@ -141,24 +162,19 @@ class RoteadorEventos {
             encerrar(registro, StatusEventoProvedor.IGNORADO, "Aviso de pagamento sem cobranca paga");
             return;
         }
-        Optional<CobrancaLocal> encontrada = buscarCobranca(pago);
+        Optional<CobrancaLocal> encontrada = cobrancaDaEscola(registro, evento);
         if (encontrada.isEmpty()) {
-            encerrar(registro, StatusEventoProvedor.IGNORADO, "Cobranca do aviso nao encontrada no Eduka");
             return;
         }
         CobrancaLocal cobranca = encontrada.get();
-        registro.setEscolaId(cobranca.aviso().escolaId());
-
-        Optional<UUID> escolaDaConta = evento.idContaExterna() == null ? Optional.empty()
-                : contaRepository.buscarEscolaPorIdContaExterna(evento.idContaExterna());
-        if (!escolaDaConta.equals(Optional.of(cobranca.aviso().escolaId()))) {
-            log.warn("Aviso {} de pagamento da cobranca {} veio de conta que nao e a da escola; ignorado",
-                    evento.idEvento(), cobranca.aviso().id());
-            encerrar(registro, StatusEventoProvedor.IGNORADO, "Conta do aviso nao e a conta de recebimento da escola");
-            return;
+        Instant agora = clock.instant();
+        if (cobranca.situacao() == SituacaoProvedor.EMITINDO && pago.idCobrancaExterna() != null) {
+            // Pagou antes de a resposta da criacao chegar: a cobranca tambem passa a EMITIDA.
+            cobrancaRepository.marcarEmitidaPeloProvedor(cobranca.aviso().id(), pago.idCobrancaExterna(), agora);
         }
-        if (pagamentoRepository.existsByCobrancaId(cobranca.aviso().id())) {
-            encerrar(registro, StatusEventoProvedor.IGNORADO, "Pagamento da cobranca ja registrado");
+        Optional<PagamentoCobranca> registrado = pagamentoRepository.findByCobrancaId(cobranca.aviso().id());
+        if (registrado.isPresent()) {
+            completarCredito(registro, registrado.get(), pago);
             return;
         }
 
@@ -182,17 +198,205 @@ class RoteadorEventos {
                 .eventoId(registro.getId())
                 .build());
 
-        Instant agora = clock.instant();
         if (cobrancaRepository.marcarPagaPeloProvedor(cobranca.aviso().id(), agora) == 1) {
             avisoCobrancaService.publicar(AvisoCobranca.Tipo.PAGAMENTO_CONFIRMADO, comPagaEm(cobranca.aviso(), agora));
             encerrar(registro, StatusEventoProvedor.PROCESSADO, null);
+        } else if (cobrancaRepository.marcarPagaAposCancelamento(cobranca.aviso().id(), agora) == 1) {
+            // R23: o que o provedor diz sobre o dinheiro prevalece. Alerta so no log ate existir a auditoria (RF22.1).
+            log.warn("PAGAMENTO_APOS_CANCELAMENTO: cobranca {} cancelada foi paga no provedor; marcada como PAGA",
+                    cobranca.aviso().id());
+            encerrar(registro, StatusEventoProvedor.PROCESSADO, "Pagamento apos cancelamento; cobranca marcada como PAGA");
         } else {
-            // Ja estava PAGA (baixa manual) ou CANCELADA: o dinheiro entrou, entao o pagamento fica registrado.
+            // Ja estava PAGA (baixa manual): o dinheiro entrou, entao o pagamento fica registrado.
             log.warn("Pagamento online registrado para a cobranca {} que ja estava {}", cobranca.aviso().id(),
                     cobranca.status());
             encerrar(registro, StatusEventoProvedor.PROCESSADO,
                     "Pagamento registrado; a cobranca ja estava " + cobranca.status());
         }
+    }
+
+    /** CONFIRMED seguido de RECEIVED: um pagamento so; o aviso seguinte so completa o credito (R23). */
+    private void completarCredito(br.pucminas.eduka.backend.domain.EventoProvedor registro,
+            PagamentoCobranca pagamento, CobrancaProvedor pago) {
+        boolean completou = false;
+        if (pagamento.getDataCredito() == null && pago.dataCredito() != null) {
+            pagamento.setDataCredito(pago.dataCredito());
+            completou = true;
+        }
+        if (pagamento.getValorLiquido() == null && pago.valorLiquido() != null) {
+            pagamento.setValorLiquido(pago.valorLiquido());
+            completou = true;
+        }
+        if (completou) {
+            encerrar(registro, StatusEventoProvedor.PROCESSADO, "Pagamento ja registrado; credito completado");
+        } else {
+            encerrar(registro, StatusEventoProvedor.IGNORADO, "Pagamento da cobranca ja registrado");
+        }
+    }
+
+    /** O provedor confirmou a criacao: a cobranca que ficou EMITINDO (resposta perdida) passa a EMITIDA. */
+    private void aplicarCriada(br.pucminas.eduka.backend.domain.EventoProvedor registro, EventoProvedor evento) {
+        Optional<CobrancaLocal> encontrada = cobrancaDaEscola(registro, evento);
+        if (encontrada.isEmpty()) {
+            return;
+        }
+        CobrancaLocal cobranca = encontrada.get();
+        String idExterno = evento.cobranca().idCobrancaExterna();
+        if (cobranca.situacao() == SituacaoProvedor.EMITINDO && idExterno != null
+                && cobrancaRepository.marcarEmitidaPeloProvedor(cobranca.aviso().id(), idExterno,
+                        clock.instant()) == 1) {
+            encerrar(registro, StatusEventoProvedor.PROCESSADO, null);
+        } else {
+            encerrar(registro, StatusEventoProvedor.IGNORADO, "Sem efeito: a cobranca ja estava " + cobranca.situacao());
+        }
+    }
+
+    /**
+     * Cobranca removida no provedor: a que ainda estava EMITINDO vira
+     * FALHA_EMISSAO (pode ser emitida de novo); a emitida e em aberto vira
+     * CANCELADA. Paga ou ja cancelada: sem efeito.
+     */
+    private void aplicarRemovida(br.pucminas.eduka.backend.domain.EventoProvedor registro, EventoProvedor evento) {
+        Optional<CobrancaLocal> encontrada = cobrancaDaEscola(registro, evento);
+        if (encontrada.isEmpty()) {
+            return;
+        }
+        CobrancaLocal cobranca = encontrada.get();
+        UUID id = cobranca.aviso().id();
+        Instant agora = clock.instant();
+        if (cobranca.situacao() == SituacaoProvedor.EMITINDO
+                && cobrancaRepository.marcarFalhaEmissaoPeloProvedor(id, "Cobranca removida no provedor", agora) == 1) {
+            encerrar(registro, StatusEventoProvedor.PROCESSADO, null);
+        } else if (cobrancaRepository.cancelarPeloProvedor(id, agora) == 1) {
+            // Auditoria "removida no provedor" fica para a RF22.1.
+            log.warn("Cobranca {} removida no provedor; marcada como CANCELADA", id);
+            encerrar(registro, StatusEventoProvedor.PROCESSADO, "Cobranca removida no provedor");
+        } else {
+            if (cobranca.status() == StatusCobranca.PAGA) {
+                log.warn("Cobranca {} ja paga foi removida no provedor; nada muda no Eduka", id);
+            }
+            encerrar(registro, StatusEventoProvedor.IGNORADO, "Sem efeito: a cobranca ja estava " + cobranca.status());
+        }
+    }
+
+    /**
+     * Aviso de fatura da plataforma (Fluxo A), pela coluna da fatura na §8.4.
+     * A fatura e cobrada na conta-pai: aviso que vem da conta de uma escola e
+     * ignorado, porque a escola poderia criar na propria conta uma cobranca
+     * com a referencia da fatura e paga-la a si mesma.
+     */
+    private void aplicarFatura(br.pucminas.eduka.backend.domain.EventoProvedor registro, EventoProvedor evento,
+            UUID faturaId) {
+        if (evento.idContaExterna() != null
+                && contaRepository.buscarEscolaPorIdContaExterna(evento.idContaExterna()).isPresent()) {
+            log.warn("Aviso {} da fatura {} veio da conta de uma escola, nao da conta-pai; ignorado",
+                    evento.idEvento(), faturaId);
+            encerrar(registro, StatusEventoProvedor.IGNORADO, "Aviso de fatura fora da conta-pai");
+            return;
+        }
+        Optional<FaturaPlataforma> encontrada = faturaRepository.travar(faturaId);
+        if (encontrada.isEmpty()) {
+            encerrar(registro, StatusEventoProvedor.IGNORADO, "Fatura do aviso nao encontrada no Eduka");
+            return;
+        }
+        FaturaPlataforma fatura = encontrada.get();
+        registro.setEscolaId(fatura.getEscolaId());
+        CobrancaProvedor doAviso = evento.cobranca();
+        Instant agora = clock.instant();
+
+        switch (evento.tipo()) {
+            case COBRANCA_CRIADA -> {
+                if (fatura.getSituacaoProvedor() == SituacaoProvedor.EMITINDO && doAviso.idCobrancaExterna() != null) {
+                    fatura.setSituacaoProvedor(SituacaoProvedor.EMITIDA);
+                    fatura.setIdCobrancaExterna(doAviso.idCobrancaExterna());
+                    fatura.setEmitidaEm(agora);
+                    fatura.setUltimoErroProvedor(null);
+                    fatura.setAtualizadoEm(agora);
+                    encerrar(registro, StatusEventoProvedor.PROCESSADO, null);
+                } else {
+                    encerrar(registro, StatusEventoProvedor.IGNORADO,
+                            "Sem efeito: a fatura ja estava " + fatura.getSituacaoProvedor());
+                }
+            }
+            case PAGAMENTO_CONFIRMADO, PAGAMENTO_RECEBIDO -> {
+                if (doAviso.valorPago() == null) {
+                    encerrar(registro, StatusEventoProvedor.IGNORADO, "Aviso de pagamento sem cobranca paga");
+                } else if (fatura.getStatus() == StatusCobranca.PAGA) {
+                    encerrar(registro, StatusEventoProvedor.IGNORADO, "Pagamento da fatura ja registrado");
+                } else {
+                    StatusCobranca antes = fatura.getStatus();
+                    RoteadorFatura.registrarPagamento(fatura, doAviso,
+                            evento.dataEvento() != null ? evento.dataEvento() : LocalDate.now(clock), agora);
+                    if (antes == StatusCobranca.CANCELADA) {
+                        // R23: o dinheiro prevalece. Alerta so no log ate existir a auditoria (RF22.1).
+                        log.warn("PAGAMENTO_APOS_CANCELAMENTO: fatura {} cancelada foi paga; marcada como PAGA",
+                                faturaId);
+                        encerrar(registro, StatusEventoProvedor.PROCESSADO,
+                                "Pagamento apos cancelamento; fatura marcada como PAGA");
+                    } else {
+                        encerrar(registro, StatusEventoProvedor.PROCESSADO, null);
+                    }
+                }
+            }
+            case COBRANCA_REMOVIDA -> {
+                if (fatura.getSituacaoProvedor() == SituacaoProvedor.EMITINDO) {
+                    fatura.setSituacaoProvedor(SituacaoProvedor.FALHA_EMISSAO);
+                    fatura.setUltimoErroProvedor("Cobranca removida no provedor");
+                    fatura.setAtualizadoEm(agora);
+                    encerrar(registro, StatusEventoProvedor.PROCESSADO, null);
+                } else if (fatura.getSituacaoProvedor() == SituacaoProvedor.EMITIDA && fatura.getStatus().emAberto()) {
+                    fatura.setStatus(StatusCobranca.CANCELADA);
+                    fatura.setCanceladaEm(agora);
+                    fatura.setAtualizadoEm(agora);
+                    encerrar(registro, StatusEventoProvedor.PROCESSADO, "Fatura removida no provedor");
+                } else {
+                    encerrar(registro, StatusEventoProvedor.IGNORADO,
+                            "Sem efeito: a fatura ja estava " + fatura.getStatus());
+                }
+            }
+            default -> encerrar(registro, StatusEventoProvedor.IGNORADO,
+                    "Tipo de aviso sem efeito no webhook: " + evento.tipo());
+        }
+    }
+
+    static Optional<UUID> idDaFatura(String referencia) {
+        if (referencia == null || !referencia.startsWith(RoteadorFatura.PREFIXO_FATURA)) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(UUID.fromString(referencia.substring(RoteadorFatura.PREFIXO_FATURA.length())));
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * A cobranca do aviso, se a conta que avisou for a conta de recebimento da
+     * escola dela (R21). Vazio quando o evento ja foi encerrado como IGNORADO.
+     */
+    private Optional<CobrancaLocal> cobrancaDaEscola(br.pucminas.eduka.backend.domain.EventoProvedor registro,
+            EventoProvedor evento) {
+        if (evento.cobranca() == null) {
+            encerrar(registro, StatusEventoProvedor.IGNORADO, "Aviso de cobranca sem a cobranca");
+            return Optional.empty();
+        }
+        Optional<CobrancaLocal> encontrada = buscarCobranca(evento.cobranca());
+        if (encontrada.isEmpty()) {
+            encerrar(registro, StatusEventoProvedor.IGNORADO, "Cobranca do aviso nao encontrada no Eduka");
+            return Optional.empty();
+        }
+        CobrancaLocal cobranca = encontrada.get();
+        registro.setEscolaId(cobranca.aviso().escolaId());
+
+        Optional<UUID> escolaDaConta = evento.idContaExterna() == null ? Optional.empty()
+                : contaRepository.buscarEscolaPorIdContaExterna(evento.idContaExterna());
+        if (!escolaDaConta.equals(Optional.of(cobranca.aviso().escolaId()))) {
+            log.warn("Aviso {} da cobranca {} veio de conta que nao e a da escola; ignorado", evento.idEvento(),
+                    cobranca.aviso().id());
+            encerrar(registro, StatusEventoProvedor.IGNORADO, "Conta do aviso nao e a conta de recebimento da escola");
+            return Optional.empty();
+        }
+        return encontrada;
     }
 
     /** Pelo id da cobranca no provedor; se ela ainda nao o tinha gravado, pela referencia {@code EDK-B-<id>}. */
@@ -219,11 +423,17 @@ class RoteadorEventos {
         }
     }
 
+    /**
+     * Grava o fim do evento com {@code save} explicito: os UPDATE nativos da
+     * cobranca ({@code clearAutomatically}) desanexam o registro, e a mudanca
+     * so no objeto se perderia.
+     */
     private void encerrar(br.pucminas.eduka.backend.domain.EventoProvedor registro, StatusEventoProvedor status,
             String motivo) {
         registro.setStatus(status);
         registro.setMotivo(motivo);
         registro.setProcessadoEm(clock.instant());
+        eventoRepository.save(registro);
     }
 
     private static boolean terminado(StatusEventoProvedor status) {
@@ -239,13 +449,17 @@ class RoteadorEventos {
         return valor == null || valor.length() <= max ? valor : valor.substring(0, max);
     }
 
-    /** Linha de {@code CobrancaRepository#buscarParaPagamentoOnline*}: as colunas do aviso, STATUS e FORMA. */
-    record CobrancaLocal(CobrancaParaAviso aviso, StatusCobranca status, FormaPagamento forma) {
+    /**
+     * Linha de {@code CobrancaRepository#buscarParaPagamentoOnline*}: as
+     * colunas do aviso, STATUS, FORMA e SITUACAO_PROVEDOR.
+     */
+    record CobrancaLocal(CobrancaParaAviso aviso, StatusCobranca status, FormaPagamento forma,
+            SituacaoProvedor situacao) {
 
         static CobrancaLocal deLinha(Object[] linha) {
             FormaPagamento forma = linha[8] == null ? null : FormaPagamento.valueOf(linha[8].toString());
             return new CobrancaLocal(CobrancaParaAviso.deLinha(linha), StatusCobranca.valueOf(linha[7].toString()),
-                    forma);
+                    forma, SituacaoProvedor.valueOf(linha[9].toString()));
         }
     }
 }

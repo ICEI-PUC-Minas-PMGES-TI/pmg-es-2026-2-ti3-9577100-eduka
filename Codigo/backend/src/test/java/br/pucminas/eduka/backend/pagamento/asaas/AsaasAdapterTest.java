@@ -658,7 +658,13 @@ class AsaasAdapterTest {
                 .isInstanceOf(ProvedorNaoConfiguradoException.class);
         assertThatThrownBy(() -> semChave.buscarContaPorCnpj("11222333000181"))
                 .isInstanceOf(ProvedorNaoConfiguradoException.class);
+        assertThatThrownBy(semChave::credencialDaContaPai).isInstanceOf(ProvedorNaoConfiguradoException.class);
         servidor.verify();
+    }
+
+    @Test
+    void credencialDaContaPaiVemDaConfiguracao() {
+        assertThat(adapter.credencialDaContaPai().valor()).isEqualTo(CHAVE_PAI);
     }
 
     @Test

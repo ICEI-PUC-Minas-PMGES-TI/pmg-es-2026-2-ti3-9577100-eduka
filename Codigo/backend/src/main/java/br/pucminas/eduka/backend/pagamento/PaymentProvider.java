@@ -44,6 +44,13 @@ public interface PaymentProvider {
      */
     void garantirChavePix(CredencialProvedor credencialDaConta);
 
+    /**
+     * Credencial da conta-pai do Eduka, para cobrar as faturas da plataforma
+     * (Fluxo A). Sem chave configurada lanca
+     * {@link ProvedorNaoConfiguradoException}.
+     */
+    CredencialProvedor credencialDaContaPai();
+
     // Clientes e cobrancas (agem na conta dona da credencial)
 
     String obterOuCriarCliente(CredencialProvedor credencial, DadosPagador pagador);

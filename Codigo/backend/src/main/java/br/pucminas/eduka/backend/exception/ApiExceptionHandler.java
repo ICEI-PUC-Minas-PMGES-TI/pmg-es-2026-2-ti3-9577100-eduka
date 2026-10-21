@@ -208,6 +208,24 @@ public class ApiExceptionHandler {
                 .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "PAGAMENTO_EM_PROCESSAMENTO"));
     }
 
+    @ExceptionHandler(CobrancaJaPagaException.class)
+    public ResponseEntity<ProblemDetail> cobrancaJaPaga(CobrancaJaPagaException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "COBRANCA_JA_PAGA"));
+    }
+
+    @ExceptionHandler(FaturaDuplicadaException.class)
+    public ResponseEntity<ProblemDetail> faturaDuplicada(FaturaDuplicadaException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "FATURA_DUPLICADA"));
+    }
+
+    @ExceptionHandler(ComprovanteIndisponivelException.class)
+    public ResponseEntity<ProblemDetail> comprovanteIndisponivel(ComprovanteIndisponivelException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(problema(HttpStatus.NOT_FOUND, ex.getMessage(), "COMPROVANTE_INDISPONIVEL"));
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ProblemDetail> violacaoDeIntegridade(DataIntegrityViolationException ex) {
         return ResponseEntity.badRequest()

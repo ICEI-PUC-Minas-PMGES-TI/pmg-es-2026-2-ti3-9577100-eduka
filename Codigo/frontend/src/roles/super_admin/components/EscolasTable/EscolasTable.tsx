@@ -46,6 +46,7 @@ type EscolasTableProps = {
   onTentarNovamente: () => void
   onVer: (escola: Escola) => void
   onEditar: (escola: Escola) => void
+  onFaturas: (escola: Escola) => void
   onAlternarSituacao: (escola: Escola) => void
 }
 
@@ -58,6 +59,7 @@ export function EscolasTable({
   onTentarNovamente,
   onVer,
   onEditar,
+  onFaturas,
   onAlternarSituacao,
 }: EscolasTableProps) {
   const [busca, setBusca] = useState('')
@@ -161,6 +163,9 @@ export function EscolasTable({
                 </Button>
                 <Button size="sm" icon="edit" onClick={() => onEditar(escola)}>
                   Editar
+                </Button>
+                <Button size="sm" icon="dollarSign" onClick={() => onFaturas(escola)}>
+                  Faturas
                 </Button>
                 <Button
                   size="sm"

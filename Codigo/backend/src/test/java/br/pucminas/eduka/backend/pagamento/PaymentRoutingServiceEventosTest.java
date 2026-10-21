@@ -41,7 +41,7 @@ class PaymentRoutingServiceEventosTest {
         provider = mock(PaymentProvider.class);
         eventos = mock(RoteadorEventos.class);
         roteador = new PaymentRoutingService(new ChamadorProvedor(provider), mock(RoteadorConta.class),
-                mock(RoteadorPagamento.class), eventos);
+                mock(RoteadorPagamento.class), eventos, mock(RoteadorFatura.class));
     }
 
     @Test
@@ -104,6 +104,17 @@ class PaymentRoutingServiceEventosTest {
         when(provider.webhookAutentico(TOKEN)).thenReturn(true);
         when(provider.interpretarEvento(CORPO)).thenReturn(new EventoProvedor(null,
                 TipoEventoProvedor.NAO_TRATADO, "X", null, null, null, null, "{}"));
+
+        assertThatThrownBy(() -> roteador.registrarEvento(TOKEN, CORPO))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(eventos);
+    }
+
+    @Test
+    void avisoSemTipoERecusado() {
+        when(provider.webhookAutentico(TOKEN)).thenReturn(true);
+        when(provider.interpretarEvento(CORPO)).thenReturn(new EventoProvedor("evt_1&1",
+                TipoEventoProvedor.NAO_TRATADO, null, null, null, null, null, "{}"));
 
         assertThatThrownBy(() -> roteador.registrarEvento(TOKEN, CORPO))
                 .isInstanceOf(IllegalArgumentException.class);

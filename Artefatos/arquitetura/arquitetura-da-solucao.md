@@ -219,6 +219,12 @@ tabelas abaixo resumem as rotas por módulo.
 | `POST` | `/escolas` | `SUPER_ADMIN` |
 | `PUT` | `/escolas/{id}` | `SUPER_ADMIN` |
 | `PATCH` | `/escolas/{id}/ativar` · `/suspender` | `SUPER_ADMIN` |
+| `GET` · `POST` | `/escolas/{id}/faturas` (faturas da plataforma da escola; competência única por escola) | `SUPER_ADMIN` |
+| `PATCH` | `/escolas/{id}/faturas/{faturaId}/cancelar` | `SUPER_ADMIN` |
+| `GET` | `/escolas/{id}/faturas/{faturaId}/comprovante` | `SUPER_ADMIN` |
+| `GET` | `/config-pagamento/faturas` (só as da escola do token) | `MASTER` |
+| `POST` | `/config-pagamento/faturas/{id}/pagar` (PIX ou boleto na conta-pai do Edúka; 202 enquanto gera) | `MASTER` |
+| `GET` | `/config-pagamento/faturas/{id}/comprovante` | `MASTER` |
 | `GET` | `/usuarios/secretarias` · `/usuarios/secretarias/{id}` | `MASTER` |
 | `POST` | `/usuarios/secretarias` | `MASTER` |
 | `PUT` | `/usuarios/secretarias/{id}` | `MASTER` |
@@ -271,8 +277,17 @@ Webhook do gateway: o aviso é gravado em `EVENTO_PROVEDOR` antes de ser aplicad
 é único, então o mesmo aviso chegando de novo responde 200 sem efeito. O pagamento confirmado
 (`PAYMENT_RECEIVED`/`PAYMENT_CONFIRMED`) grava `PAGAMENTO_COBRANCA` com origem `ONLINE` e marca a
 cobrança como `PAGA` na mesma transação, desde que a conta que mandou o aviso seja a conta de
-recebimento da escola da cobrança. Se a aplicação falhar, o aviso fica em `ERRO` para nova tentativa
-e o webhook continua respondendo 200.
+recebimento da escola da cobrança. Um segundo aviso do mesmo pagamento não cria outro registro: só
+completa a data de crédito e o valor líquido. Pagamento de cobrança `CANCELADA` a marca como `PAGA`
+(o dinheiro entrou). A criação confirmada (`PAYMENT_CREATED`) tira de `EMITINDO` a cobrança cuja
+resposta de criação se perdeu; a remoção no provedor (`PAYMENT_DELETED`) leva a cobrança em
+`EMITINDO` para `FALHA_EMISSAO` e cancela a emitida em aberto. Aviso sem id ou sem tipo responde 400.
+Se a aplicação falhar, o aviso fica em `ERRO` para nova tentativa e o webhook continua respondendo 200.
+
+Fatura da plataforma (Fluxo A, `FATURA_PLATAFORMA`): o Super Admin lança a fatura da escola e o MASTER paga com
+PIX ou boleto numa cobrança da **conta-pai** do Edúka (referência `EDK-A-<id>`, a escola como pagadora). O aviso
+de pagamento com essa referência marca a própria fatura como `PAGA`; aviso de fatura vindo da conta de uma escola
+é ignorado. Faturas nunca entram nos painéis da escola.
 
 Situação da cobrança (`StatusCobranca`): `PENDENTE` pode passar para `EM_ATRASO`, `PAGA` ou
 `CANCELADA`; `EM_ATRASO` pode voltar para `PENDENTE` (vencimento adiado) ou passar para `PAGA` ou

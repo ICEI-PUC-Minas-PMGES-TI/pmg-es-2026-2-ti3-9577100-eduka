@@ -207,6 +207,12 @@ public class AsaasAdapter implements PaymentProvider {
                 .toBodilessEntity());
     }
 
+    /** A chave da conta-pai vem de {@code ASAAS_API_KEY}, nunca do banco. */
+    @Override
+    public CredencialProvedor credencialDaContaPai() {
+        return new CredencialProvedor(chaveDaContaPai());
+    }
+
     // ---- Clientes e cobrancas ----
 
     @Override

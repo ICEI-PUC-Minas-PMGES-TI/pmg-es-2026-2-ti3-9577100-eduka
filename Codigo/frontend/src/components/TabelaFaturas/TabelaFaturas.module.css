@@ -1,0 +1,87 @@
+.cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 20px 22px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.rolagem {
+  overflow-x: auto;
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabela th {
+  padding: 8px 10px;
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tabela td {
+  padding: 12px 10px;
+  border-top: 1px solid var(--color-border);
+  font-size: 14.5px;
+  vertical-align: middle;
+}
+
+.descricao {
+  display: block;
+  font-weight: 700;
+}
+
+.secundario {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.tabela .numero {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.tabela .acao {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.botoes {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.somenteLeitor {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.vazio {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}

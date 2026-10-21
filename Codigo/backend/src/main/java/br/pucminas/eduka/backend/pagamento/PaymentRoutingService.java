@@ -1,5 +1,6 @@
 package br.pucminas.eduka.backend.pagamento;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -47,13 +48,15 @@ public class PaymentRoutingService {
     private final RoteadorConta roteadorConta;
     private final RoteadorPagamento roteadorPagamento;
     private final RoteadorEventos eventos;
+    private final RoteadorFatura roteadorFatura;
 
     PaymentRoutingService(ChamadorProvedor provedor, RoteadorConta roteadorConta,
-            RoteadorPagamento roteadorPagamento, RoteadorEventos eventos) {
+            RoteadorPagamento roteadorPagamento, RoteadorEventos eventos, RoteadorFatura roteadorFatura) {
         this.provedor = provedor;
         this.roteadorConta = roteadorConta;
         this.roteadorPagamento = roteadorPagamento;
         this.eventos = eventos;
+        this.roteadorFatura = roteadorFatura;
     }
 
     // ---- Conta de recebimento (MASTER da escola do token) ----
@@ -91,7 +94,7 @@ public class PaymentRoutingService {
 
     /** MASTER da escola; spec §8.2. */
     public DadosPagamentoResponse pagarFatura(UUID faturaId, FormaPagamento forma) {
-        throw naoImplementado("NOVA-5");
+        return roteadorFatura.pagar(faturaId, forma);
     }
 
     /** ALUNO dono, MASTER/FINANCEIRO da escola. */
@@ -99,9 +102,14 @@ public class PaymentRoutingService {
         throw naoImplementado("RF16.1");
     }
 
-    /** MASTER da escola, SUPER_ADMIN. */
-    public ComprovanteResponse comprovanteFatura(UUID faturaId) {
-        throw naoImplementado("NOVA-5");
+    /** SUPER_ADMIN, pela escola do caminho (R29). */
+    public ComprovanteResponse comprovanteFatura(UUID escolaId, UUID faturaId) {
+        return roteadorFatura.comprovante(escolaId, faturaId);
+    }
+
+    /** MASTER, so da escola do token (R29). */
+    public ComprovanteResponse comprovanteMinhaFatura(UUID faturaId) {
+        return roteadorFatura.comprovanteMinha(faturaId);
     }
 
     // ---- Chamados por CobrancaService ----
@@ -118,12 +126,29 @@ public class PaymentRoutingService {
 
     // ---- Fluxo A (SUPER_ADMIN) ----
 
+    /** R26. */
     public FaturaPlataformaResponse lancarFatura(UUID escolaId, LancarFaturaRequest dados) {
-        throw naoImplementado("NOVA-5");
+        return roteadorFatura.lancar(escolaId, dados);
     }
 
-    public void cancelarFatura(UUID faturaId) {
-        throw naoImplementado("NOVA-5");
+    public List<FaturaPlataformaResponse> listarFaturas(UUID escolaId) {
+        return roteadorFatura.listarDaEscola(escolaId);
+    }
+
+    /** R26, com a regra do R25 para fatura ja emitida. */
+    public FaturaPlataformaResponse cancelarFatura(UUID escolaId, UUID faturaId) {
+        return roteadorFatura.cancelar(escolaId, faturaId);
+    }
+
+    /** Rotina diaria de atraso (spec §7.4), sem usuario autenticado. */
+    public int marcarFaturasVencidas() {
+        return roteadorFatura.marcarVencidasComoEmAtraso();
+    }
+
+    // ---- Fluxo A (MASTER da escola do token) ----
+
+    public List<FaturaPlataformaResponse> listarMinhasFaturas() {
+        return roteadorFatura.listarMinhas();
     }
 
     // ---- Eventos e consistencia ----
@@ -134,7 +159,7 @@ public class PaymentRoutingService {
      * webhook: o aviso ja esta gravado e fica em ERRO para o agendador.
      *
      * @throws WebhookNaoAutorizadoException token ausente ou diferente
-     * @throws IllegalArgumentException      corpo ilegivel ou sem id do aviso
+     * @throws IllegalArgumentException      corpo ilegivel ou sem id ou tipo do aviso
      */
     public void registrarEvento(String tokenRecebido, String corpoJson) {
         if (!provedor.chamar(p -> p.webhookAutentico(tokenRecebido))) {
@@ -143,6 +168,9 @@ public class PaymentRoutingService {
         EventoProvedor evento = provedor.chamar(p -> p.interpretarEvento(corpoJson));
         if (evento.idEvento() == null || evento.idEvento().isBlank()) {
             throw new IllegalArgumentException("Aviso do provedor sem id");
+        }
+        if (evento.tipoOriginal() == null || evento.tipoOriginal().isBlank()) {
+            throw new IllegalArgumentException("Aviso do provedor sem tipo");
         }
 
         Optional<UUID> eventoId;

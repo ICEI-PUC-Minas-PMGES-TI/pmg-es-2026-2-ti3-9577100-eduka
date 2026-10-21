@@ -76,13 +76,13 @@ public interface CobrancaRepository
             nativeQuery = true)
     int marcarLembreteDeVencimentoEnviado(@Param("ids") Collection<UUID> ids, @Param("agora") Instant agora);
 
-    // ---- Pagamento confirmado pelo provedor (webhook) ----
+    // ---- Avisos do provedor (webhook) ----
     // Nativos pelo mesmo motivo de marcarVencidasComoEmAtraso: o webhook chega
     // sem usuario autenticado. Colunas na ordem de CobrancaParaAviso#deLinha,
-    // seguidas de STATUS e FORMA_PAGAMENTO.
+    // seguidas de STATUS, FORMA_PAGAMENTO e SITUACAO_PROVEDOR.
 
     String COLUNAS_PAGAMENTO_ONLINE = "SELECT c.ID_COBRANCA, c.ESCOLA_ID, a.pessoa_id, c.RESPONSAVEL_ID, "
-            + "c.DESCRICAO, c.VALOR, c.DATA_VENCIMENTO, c.STATUS, c.FORMA_PAGAMENTO "
+            + "c.DESCRICAO, c.VALOR, c.DATA_VENCIMENTO, c.STATUS, c.FORMA_PAGAMENTO, c.SITUACAO_PROVEDOR "
             + "FROM COBRANCA c JOIN alunos a ON a.id_aluno = c.ALUNO_ID ";
 
     @Query(value = COLUNAS_PAGAMENTO_ONLINE + "WHERE c.ID_COBRANCA_EXTERNA = :idExterno", nativeQuery = true)
@@ -100,4 +100,33 @@ public interface CobrancaRepository
             + "VERSAO = VERSAO + 1 WHERE ID_COBRANCA = :id AND STATUS IN ('PENDENTE', 'EM_ATRASO')",
             nativeQuery = true)
     int marcarPagaPeloProvedor(@Param("id") UUID id, @Param("agora") Instant agora);
+
+    /** O provedor recebeu o pagamento de uma cobranca ja cancelada: o dinheiro prevalece (R23). */
+    @Modifying(clearAutomatically = true)
+    @Query(value = "UPDATE COBRANCA SET STATUS = 'PAGA', PAGA_EM = :agora, ATUALIZADO_EM = :agora, "
+            + "VERSAO = VERSAO + 1 WHERE ID_COBRANCA = :id AND STATUS = 'CANCELADA'", nativeQuery = true)
+    int marcarPagaAposCancelamento(@Param("id") UUID id, @Param("agora") Instant agora);
+
+    /** EMITINDO → EMITIDA com o id do provedor, quando o aviso chega antes da resposta da criacao. */
+    @Modifying(clearAutomatically = true)
+    @Query(value = "UPDATE COBRANCA SET SITUACAO_PROVEDOR = 'EMITIDA', ID_COBRANCA_EXTERNA = :idExterno, "
+            + "EMITIDA_EM = :agora, ULTIMO_ERRO_PROVEDOR = NULL, ATUALIZADO_EM = :agora, VERSAO = VERSAO + 1 "
+            + "WHERE ID_COBRANCA = :id AND SITUACAO_PROVEDOR = 'EMITINDO'", nativeQuery = true)
+    int marcarEmitidaPeloProvedor(@Param("id") UUID id, @Param("idExterno") String idExterno,
+            @Param("agora") Instant agora);
+
+    /** EMITINDO → FALHA_EMISSAO: a cobranca foi removida no provedor antes de terminar de ser emitida. */
+    @Modifying(clearAutomatically = true)
+    @Query(value = "UPDATE COBRANCA SET SITUACAO_PROVEDOR = 'FALHA_EMISSAO', ULTIMO_ERRO_PROVEDOR = :motivo, "
+            + "ATUALIZADO_EM = :agora, VERSAO = VERSAO + 1 "
+            + "WHERE ID_COBRANCA = :id AND SITUACAO_PROVEDOR = 'EMITINDO'", nativeQuery = true)
+    int marcarFalhaEmissaoPeloProvedor(@Param("id") UUID id, @Param("motivo") String motivo,
+            @Param("agora") Instant agora);
+
+    /** Cobranca emitida e em aberto removida no provedor: fica CANCELADA. */
+    @Modifying(clearAutomatically = true)
+    @Query(value = "UPDATE COBRANCA SET STATUS = 'CANCELADA', CANCELADA_EM = :agora, ATUALIZADO_EM = :agora, "
+            + "VERSAO = VERSAO + 1 WHERE ID_COBRANCA = :id AND SITUACAO_PROVEDOR = 'EMITIDA' "
+            + "AND STATUS IN ('PENDENTE', 'EM_ATRASO')", nativeQuery = true)
+    int cancelarPeloProvedor(@Param("id") UUID id, @Param("agora") Instant agora);
 }
