@@ -11,6 +11,7 @@ actor "SECRETARIA" as SECRETARIA
 actor "FINANCEIRO" as FINANCEIRO
 actor "PROFESSOR" as PROFESSOR
 actor "ALUNO" as ALUNO
+actor "Serviço de E-mail\n(Brevo)" as BREVO <<sistema externo>>
 
 USUARIO <|-- SUPERADMIN
 USUARIO <|-- MASTER
@@ -21,6 +22,9 @@ USUARIO <|-- ALUNO
 
 rectangle "Eduka — Autenticação e Dashboards" {
   usecase "UC03\nAutenticar Usuário" as UC03
+  usecase "Verificar Código\nEnviado por E-mail" as UC03V
+  usecase "Reenviar Código" as UC03R
+  usecase "Definir Senha no\nPrimeiro Acesso" as UC03P
   usecase "Redirecionar para o\nPainel do Perfil" as UC03C
   usecase "Encerrar Sessão" as UC03A
   usecase "Recuperar Senha" as UC03B
@@ -28,6 +32,7 @@ rectangle "Eduka — Autenticação e Dashboards" {
   usecase "Visualizar Dashboard\nda Escola" as UC16A
   usecase "Visualizar Dashboard\nda Secretaria" as UC16B
   usecase "Visualizar Dashboard\ndo Professor" as UC16C
+  usecase "Visualizar Dashboard\ndo Financeiro" as UC16D
 }
 
 rectangle "Eduka — Gestão de Usuários" {
@@ -42,13 +47,19 @@ MASTER --> UC04
 MASTER --> UC16A
 SECRETARIA --> UC16B
 PROFESSOR --> UC16C
+FINANCEIRO --> UC16D
+UC03V --> BREVO
 
+UC03 ..> UC03V : <<include>>
+UC03R ..> UC03V : <<extend>>
+UC03P ..> UC03 : <<extend>>
 UC03 ..> UC03C : <<include>>
 UC03A ..> UC03 : <<extend>>
 UC03B ..> UC03 : <<extend>>
 UC16 <|-- UC16A
 UC16 <|-- UC16B
 UC16 <|-- UC16C
+UC16 <|-- UC16D
 UC04 ..> UC04A : <<include>>
 UC04B ..> UC04 : <<extend>>
 
@@ -58,6 +69,18 @@ note right of UC03
   fica limitada à escola do usuário logado.
 end note
 
+note bottom of UC03V
+  Verificação em duas etapas: após a senha,
+  o sistema envia um código de 6 dígitos por
+  e-mail e só emite os tokens quando ele confere.
+  O reenvio tem intervalo mínimo e limite de envios.
+end note
+
+note bottom of UC03P
+  Na primeira entrada, o usuário troca a
+  senha provisória pela definitiva.
+end note
+
 note bottom of UC03C
   /super-admin, /master, /secretaria,
   /financeiro, /professor ou /aluno,
@@ -65,9 +88,13 @@ note bottom of UC03C
 end note
 
 note bottom of UC16
-  Escola: resumo geral. Secretaria: resumo de matrículas.
+  Escola: resumo geral com dados reais.
+  Secretaria: resumo de matrículas.
   Professor: turmas, alunos e próximas avaliações.
-  SUPER_ADMIN, FINANCEIRO e ALUNO têm, nesta versão,
+  Financeiro: recebido no mês, falta receber,
+  alunos em atraso, cobranças que vencem na
+  semana e últimas ações.
+  SUPER_ADMIN e ALUNO têm, nesta versão,
   apenas o painel inicial do perfil.
 end note
 

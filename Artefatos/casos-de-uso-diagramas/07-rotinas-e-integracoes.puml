@@ -1,0 +1,70 @@
+@startuml 07-rotinas-e-integracoes
+!include _estilo.puml
+title Eduka — Casos de Uso: Rotinas Automáticas e Integrações (UC30 a UC32)
+
+left to right direction
+
+actor "Gateway de Pagamento\n(Asaas)" as ASAAS <<sistema externo>>
+actor "Tempo" as TEMPO <<rotina agendada>>
+actor "Serviço de E-mail\n(Brevo)" as BREVO <<sistema externo>>
+
+rectangle "Eduka — Rotinas e integrações" {
+  usecase "UC30\nConfirmar Pagamento\npelo Gateway" as UC30
+  usecase "Confirmar Pagamento\nde Cobrança" as UC30A
+  usecase "Confirmar Pagamento\nde Fatura da Plataforma" as UC30B
+  usecase "Tratar Criação ou Remoção\nda Cobrança no Gateway" as UC30C
+  usecase "UC31\nMarcar Cobranças e\nFaturas em Atraso" as UC31
+  usecase "UC32\nEnviar Notificações\npor E-mail" as UC32
+  usecase "Avisar Cobrança Criada" as UC32A
+  usecase "Avisar Vencimento Próximo" as UC32B
+  usecase "Avisar Pagamento Confirmado" as UC32C
+  usecase "Reenviar Notificação\ncom Falha" as UC32D
+  usecase "UC26\nPagar Cobrança Online" as UC26
+  usecase "UC28\nPagar Fatura da Plataforma" as UC28
+  usecase "UC09\nGerenciar Cobranças" as UC09
+}
+
+ASAAS --> UC30
+TEMPO --> UC31
+TEMPO --> UC32B
+TEMPO --> UC32D
+UC32 --> BREVO
+
+UC30 <|-- UC30A
+UC30 <|-- UC30B
+UC30C ..> UC30 : <<extend>>
+UC30A ..> UC26 : pré-condição
+UC30B ..> UC28 : pré-condição
+UC30A ..> UC32C : <<include>>
+
+UC32 <|-- UC32A
+UC32 <|-- UC32B
+UC32 <|-- UC32C
+UC32D ..> UC32 : <<extend>>
+UC09 ..> UC32A : <<include>>
+
+note bottom of UC30
+  Webhook sem JWT, autenticado pelo token do gateway.
+  Cada aviso é gravado antes de ser aplicado e o id é
+  único: aviso repetido não tem efeito. O pagamento só
+  vale se veio da conta da escola dona da cobrança
+  (ou da conta-pai do Eduka, no caso da fatura).
+  Falha na aplicação deixa o aviso para nova tentativa.
+end note
+
+note bottom of UC31
+  Rotina diária (00:05, America/Sao_Paulo):
+  cobranças e faturas Pendentes já vencidas,
+  de todas as escolas, passam para Em atraso (RF15).
+  Não tem autor e não é auditada.
+end note
+
+note bottom of UC32
+  RF21. As mensagens entram numa fila
+  (NOTIFICACAO) e são enviadas por e-mail ao
+  responsável financeiro (ou ao aluno, se não
+  houver), com novas tentativas em caso de falha.
+  O lembrete deixa de sair após o vencimento.
+end note
+
+@enduml
