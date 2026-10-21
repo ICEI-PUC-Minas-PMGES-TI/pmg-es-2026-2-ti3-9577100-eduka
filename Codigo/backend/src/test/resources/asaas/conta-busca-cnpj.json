@@ -1,0 +1,42 @@
+{
+  "object": "list",
+  "hasMore": false,
+  "totalCount": 1,
+  "limit": 10,
+  "offset": 0,
+  "data": [
+    {
+      "object": "account",
+      "id": "3d134583-fe86-4aad-800f-6c6e63629478",
+      "name": "Escola Teste Eduka Ltda",
+      "email": "escola.teste@example.com",
+      "loginEmail": "escola.teste@example.com",
+      "phone": null,
+      "mobilePhone": "31987654321",
+      "address": "Avenida Afonso Pena",
+      "addressNumber": "1000",
+      "complement": "Sala 1",
+      "province": "Centro",
+      "postalCode": "30130002",
+      "cpfCnpj": "11222333000181",
+      "birthDate": null,
+      "personType": "JURIDICA",
+      "companyType": "LIMITED",
+      "city": 10072,
+      "state": "MG",
+      "country": "Brasil",
+      "site": null,
+      "walletId": "0b604795-134a-4eca-bafa-7680bb9e05d8",
+      "apiKey": null,
+      "accessToken": null,
+      "accountNumber": {
+        "agency": "0001",
+        "account": "369786",
+        "accountDigit": "9"
+      },
+      "incomeValue": 50000.0,
+      "taxRegime": null,
+      "commercialInfoExpiration": null
+    }
+  ]
+}

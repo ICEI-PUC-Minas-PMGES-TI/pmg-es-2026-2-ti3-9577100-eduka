@@ -15,6 +15,10 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import br.pucminas.eduka.backend.pagamento.ProvedorIndisponivelException;
+import br.pucminas.eduka.backend.pagamento.ProvedorNaoConfiguradoException;
+import br.pucminas.eduka.backend.pagamento.ProvedorRecusouException;
+
 /**
  * Traduz excecoes em respostas HTTP no formato ProblemDetail (RFC 9457).
  *
@@ -133,6 +137,33 @@ public class ApiExceptionHandler {
                 .body(problema(HttpStatus.BAD_REQUEST, "parâmetro inválido: " + ex.getName()));
     }
 
+    /**
+     * Erros do provedor de pagamento. Levam a propriedade {@code codigo}, que o
+     * front usa para escolher a mensagem. A recusa repassa a mensagem do
+     * provedor, ja saneada pelo adaptador.
+     */
+    @ExceptionHandler(ProvedorRecusouException.class)
+    public ResponseEntity<ProblemDetail> provedorRecusou(ProvedorRecusouException ex) {
+        return ResponseEntity.badRequest()
+                .body(problema(HttpStatus.BAD_REQUEST, ex.getMessage(), "PROVEDOR_RECUSOU"));
+    }
+
+    @ExceptionHandler(ProvedorIndisponivelException.class)
+    public ResponseEntity<ProblemDetail> provedorIndisponivel(ProvedorIndisponivelException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(problema(HttpStatus.SERVICE_UNAVAILABLE,
+                        "O servico de pagamento nao respondeu. Tente novamente em instantes",
+                        "PROVEDOR_INDISPONIVEL"));
+    }
+
+    @ExceptionHandler(ProvedorNaoConfiguradoException.class)
+    public ResponseEntity<ProblemDetail> provedorNaoConfigurado(ProvedorNaoConfiguradoException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(problema(HttpStatus.SERVICE_UNAVAILABLE,
+                        "Pagamentos indisponiveis no momento. Fale com o suporte do Eduka",
+                        "PROVEDOR_NAO_CONFIGURADO"));
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ProblemDetail> violacaoDeIntegridade(DataIntegrityViolationException ex) {
         return ResponseEntity.badRequest()
@@ -160,6 +191,12 @@ public class ApiExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatus(status);
         problem.setTitle(status.getReasonPhrase());
         problem.setDetail(detalhe);
+        return problem;
+    }
+
+    private static ProblemDetail problema(HttpStatus status, String detalhe, String codigo) {
+        ProblemDetail problem = problema(status, detalhe);
+        problem.setProperty("codigo", codigo);
         return problem;
     }
 }
