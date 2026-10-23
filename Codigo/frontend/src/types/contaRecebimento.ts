@@ -64,8 +64,8 @@ export type ContaRecebimento = {
   complemento: string | null
   bairro: string | null
   cep: string | null
-  /** CNPJ do cadastro da escola, só leitura. */
-  cnpj: string
+  /** CNPJ do cadastro da escola, só leitura; nulo se a escola não tiver um. */
+  cnpj: string | null
   bancoCodigo: string | null
   contaFinal: string | null
   situacao: SituacaoConta | null

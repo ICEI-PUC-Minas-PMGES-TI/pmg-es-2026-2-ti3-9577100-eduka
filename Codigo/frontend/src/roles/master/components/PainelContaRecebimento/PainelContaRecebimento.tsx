@@ -98,7 +98,7 @@ export function PainelContaRecebimento({
         <Linhas
           itens={[
             { rotulo: 'Razão social', valor: conta.razaoSocial ?? '—' },
-            { rotulo: 'CNPJ', valor: formatarCnpjCpf(conta.cnpj) },
+            { rotulo: 'CNPJ', valor: conta.cnpj ? formatarCnpjCpf(conta.cnpj) : '—' },
             { rotulo: 'Tipo de empresa', valor: conta.tipoEmpresa ? ROTULOS_TIPO_EMPRESA[conta.tipoEmpresa] : '—' },
             {
               rotulo: 'Conta bancária',

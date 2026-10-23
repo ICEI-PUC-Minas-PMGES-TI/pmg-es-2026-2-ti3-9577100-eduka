@@ -168,8 +168,20 @@ export function ModalAtivarRecebimentos({ conta, onFechar, onAtivar }: ModalAtiv
       traduzirErro={traduzirErro}
       onEnviar={enviar}
     >
-      <Campo label="CNPJ" dica="Vem do cadastro da escola." largo>
-        {(props) => <input {...props} name="cnpj" value={formatarCnpjCpf(conta.cnpj)} readOnly disabled />}
+      <Campo
+        label="CNPJ"
+        dica={conta.cnpj ? 'Vem do cadastro da escola.' : 'Informe o CNPJ no cadastro da escola antes de ativar.'}
+        largo
+      >
+        {(props) => (
+          <input
+            {...props}
+            name="cnpj"
+            value={conta.cnpj ? formatarCnpjCpf(conta.cnpj) : 'Não informado'}
+            readOnly
+            disabled
+          />
+        )}
       </Campo>
       <Campo label="Razão social" erro={erros.razaoSocial} obrigatorio largo>
         {texto('razaoSocial', { maxLength: 150 })}
