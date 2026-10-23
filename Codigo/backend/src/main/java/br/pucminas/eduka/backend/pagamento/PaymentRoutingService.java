@@ -62,17 +62,17 @@ public class PaymentRoutingService {
     // ---- Conta de recebimento (MASTER da escola do token) ----
 
     public ContaRecebimentoResponse consultarConta() {
-        throw naoImplementado("NOVA-3");
+        return roteadorConta.consultar();
     }
 
     /** Spec §8.1. */
     public ContaRecebimentoResponse ativarRecebimentos(AtivarRecebimentosRequest dados) {
-        throw naoImplementado("NOVA-3");
+        return roteadorConta.ativar(dados);
     }
 
     /** R10. */
     public ContaRecebimentoResponse sincronizarConta() {
-        throw naoImplementado("NOVA-3");
+        return roteadorConta.sincronizarDaEscola();
     }
 
     /** R11. Nunca lanca excecao: devolve o motivo quando nao habilitado. */
@@ -233,9 +233,13 @@ public class PaymentRoutingService {
         throw naoImplementado("NOVA-4");
     }
 
-    /** Agendador. */
-    public void sincronizarContasAguardando() {
-        throw naoImplementado("NOVA-4");
+    /**
+     * Agendador, sem usuario autenticado.
+     *
+     * @return quantas contas tiveram a situacao lida do provedor
+     */
+    public int sincronizarContasAguardando() {
+        return roteadorConta.sincronizarAguardando();
     }
 
     private static UnsupportedOperationException naoImplementado(String tarefa) {

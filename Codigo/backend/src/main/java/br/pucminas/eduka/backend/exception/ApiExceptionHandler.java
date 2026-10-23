@@ -208,6 +208,12 @@ public class ApiExceptionHandler {
                 .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "PAGAMENTO_EM_PROCESSAMENTO"));
     }
 
+    @ExceptionHandler(ContaRecebimentoNaoAtivavelException.class)
+    public ResponseEntity<ProblemDetail> contaNaoAtivavel(ContaRecebimentoNaoAtivavelException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), ex.getCodigo()));
+    }
+
     @ExceptionHandler(CobrancaJaPagaException.class)
     public ResponseEntity<ProblemDetail> cobrancaJaPaga(CobrancaJaPagaException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
