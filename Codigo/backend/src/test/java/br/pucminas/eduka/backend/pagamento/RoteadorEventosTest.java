@@ -35,6 +35,8 @@ import br.pucminas.eduka.backend.domain.StatusEventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.EventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
+import br.pucminas.eduka.backend.pagamento.tipos.SituacaoCadastral;
+import br.pucminas.eduka.backend.pagamento.tipos.SituacaoContaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.StatusCobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.TipoEventoProvedor;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
@@ -503,6 +505,63 @@ class RoteadorEventosTest {
         assertThat(RoteadorEventos.idDaReferencia("EDK-B-nao-e-uuid")).isEmpty();
         assertThat(RoteadorEventos.idDaReferencia("eduka-spike-sub-cob-1")).isEmpty();
         assertThat(RoteadorEventos.idDaReferencia(null)).isEmpty();
+    }
+
+    // ---- Situacao da conta ----
+
+    @Test
+    void avisoDeContaGravaASituacaoDoPayloadNaoONomeDoAviso() {
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+        when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_ESCOLA)).thenReturn(Optional.of(ESCOLA));
+        when(contaRepository.gravarSituacao(CONTA_ESCOLA, "APROVADA", "APROVADO", "APROVADO", "APROVADO",
+                "APROVADO", AGORA)).thenReturn(1);
+
+        // A11: o aviso "aguardando aprovacao" chegou com a foto ja aprovada.
+        roteador.aplicar(EVENTO, avisoDeConta(CONTA_ESCOLA, new SituacaoContaProvedor(SituacaoCadastral.APROVADO,
+                SituacaoCadastral.APROVADO, SituacaoCadastral.APROVADO, SituacaoCadastral.APROVADO)));
+
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.PROCESSADO);
+    }
+
+    @Test
+    void avisoDeContaQueNaoEDeEscolaEIgnorado() {
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+        when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_PAI)).thenReturn(Optional.empty());
+
+        roteador.aplicar(EVENTO, avisoDeConta(CONTA_PAI, new SituacaoContaProvedor(SituacaoCadastral.APROVADO,
+                null, null, null)));
+
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.IGNORADO);
+        verify(contaRepository, never()).gravarSituacao(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void avisoDeContaAindaEmCriacaoEIgnorado() {
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+        when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_ESCOLA)).thenReturn(Optional.of(ESCOLA));
+        when(contaRepository.gravarSituacao(eq(CONTA_ESCOLA), eq("AGUARDANDO_APROVACAO"), anyString(), any(), any(),
+                any(), eq(AGORA))).thenReturn(0);
+
+        roteador.aplicar(EVENTO, avisoDeConta(CONTA_ESCOLA, new SituacaoContaProvedor(SituacaoCadastral.EM_ANALISE,
+                null, null, null)));
+
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.IGNORADO);
+    }
+
+    @Test
+    void avisoDeContaSemSituacaoFicaParaARotina() {
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+        when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_ESCOLA)).thenReturn(Optional.of(ESCOLA));
+
+        roteador.aplicar(EVENTO, avisoDeConta(CONTA_ESCOLA, null));
+
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.IGNORADO);
+        verify(contaRepository, never()).gravarSituacao(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    private static EventoProvedor avisoDeConta(String idConta, SituacaoContaProvedor situacao) {
+        return new EventoProvedor("evt_conta&1", TipoEventoProvedor.SITUACAO_CONTA_ALTERADA,
+                "ACCOUNT_STATUS_GENERAL_APPROVAL_AWAITING_APPROVAL", idConta, null, situacao, null, "{}");
     }
 
     // ---- Apoio ----

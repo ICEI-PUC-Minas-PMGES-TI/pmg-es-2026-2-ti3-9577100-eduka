@@ -23,6 +23,8 @@ import br.pucminas.eduka.backend.domain.StatusEventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.EventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
+import br.pucminas.eduka.backend.pagamento.tipos.SituacaoCadastral;
+import br.pucminas.eduka.backend.pagamento.tipos.SituacaoContaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.TipoEventoProvedor;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
 import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
@@ -141,6 +143,7 @@ class RoteadorEventos {
             case PAGAMENTO_RECEBIDO, PAGAMENTO_CONFIRMADO -> aplicarPagamento(registro, evento);
             case COBRANCA_CRIADA -> aplicarCriada(registro, evento);
             case COBRANCA_REMOVIDA -> aplicarRemovida(registro, evento);
+            case SITUACAO_CONTA_ALTERADA -> aplicarSituacaoConta(registro, evento);
             default -> encerrar(registro, StatusEventoProvedor.IGNORADO,
                     "Tipo de aviso sem efeito no webhook: " + evento.tipo());
         }
@@ -154,6 +157,38 @@ class RoteadorEventos {
             registro.setStatus(StatusEventoProvedor.ERRO);
             registro.setMotivo(limitar(erro.getClass().getSimpleName() + ": " + erro.getMessage(), MAX_MOTIVO));
         });
+    }
+
+    /**
+     * Aviso de situacao da conta filha. Usa a situacao que vem no aviso, que
+     * e a foto atual da conta (achado A11); sem ela, a rotina de sincronizacao
+     * consulta depois. Conta que ainda nao terminou de ser criada nao muda.
+     */
+    private void aplicarSituacaoConta(br.pucminas.eduka.backend.domain.EventoProvedor registro,
+            EventoProvedor evento) {
+        if (evento.idContaExterna() == null
+                || contaRepository.buscarEscolaPorIdContaExterna(evento.idContaExterna()).isEmpty()) {
+            encerrar(registro, StatusEventoProvedor.IGNORADO, "Aviso de conta que nao e conta de recebimento");
+            return;
+        }
+        SituacaoContaProvedor situacao = evento.situacaoConta();
+        if (situacao == null) {
+            encerrar(registro, StatusEventoProvedor.IGNORADO, "Aviso de conta sem situacao; a rotina sincroniza");
+            return;
+        }
+        int gravadas = contaRepository.gravarSituacao(evento.idContaExterna(),
+                RoteadorConta.statusDaSituacao(situacao).name(), nome(situacao.geral()),
+                nome(situacao.documentacao()), nome(situacao.dadosComerciais()), nome(situacao.contaBancaria()),
+                clock.instant());
+        if (gravadas == 0) {
+            encerrar(registro, StatusEventoProvedor.IGNORADO, "Conta de recebimento ainda em criacao");
+            return;
+        }
+        encerrar(registro, StatusEventoProvedor.PROCESSADO, null);
+    }
+
+    private static String nome(SituacaoCadastral situacao) {
+        return situacao == null ? null : situacao.name();
     }
 
     private void aplicarPagamento(br.pucminas.eduka.backend.domain.EventoProvedor registro, EventoProvedor evento) {

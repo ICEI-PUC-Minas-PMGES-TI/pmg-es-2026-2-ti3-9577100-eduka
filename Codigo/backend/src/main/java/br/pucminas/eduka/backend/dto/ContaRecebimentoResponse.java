@@ -14,6 +14,7 @@ import br.pucminas.eduka.backend.pagamento.tipos.TipoEmpresa;
  * @param cnpj                CNPJ da escola, so leitura
  * @param situacao            nula antes da criacao no provedor
  * @param podeAtivar          true em NAO_INICIADA, ERRO_CRIACAO e VERIFICACAO_PENDENTE
+ * @param podeSincronizar     true em AGUARDANDO_APROVACAO, APROVADA e REJEITADA
  */
 public record ContaRecebimentoResponse(
         String status,
@@ -37,5 +38,6 @@ public record ContaRecebimentoResponse(
         Instant solicitadaEm,
         Instant aprovadaEm,
         Instant sincronizadaEm,
-        boolean podeAtivar) {
+        boolean podeAtivar,
+        boolean podeSincronizar) {
 }

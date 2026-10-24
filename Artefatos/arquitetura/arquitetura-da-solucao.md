@@ -225,6 +225,9 @@ tabelas abaixo resumem as rotas por módulo.
 | `GET` | `/config-pagamento/faturas` (só as da escola do token) | `MASTER` |
 | `POST` | `/config-pagamento/faturas/{id}/pagar` (PIX ou boleto na conta-pai do Edúka; 202 enquanto gera) | `MASTER` |
 | `GET` | `/config-pagamento/faturas/{id}/comprovante` | `MASTER` |
+| `GET` | `/config-pagamento/conta` (conta de recebimento da escola do token; `NAO_INICIADA` antes da ativação; nunca traz a chave nem os dados bancários) | `MASTER` |
+| `POST` | `/config-pagamento/conta/ativar` (cria a conta filha no Asaas com o CNPJ da escola; em `NAO_INICIADA`, `ERRO_CRIACAO` ou `VERIFICACAO_PENDENTE`; sem resposta do Asaas fica `VERIFICACAO_PENDENTE` e a próxima ativação procura pelo CNPJ antes de criar; 409 `ATIVACAO_EM_ANDAMENTO` ou `CONTA_JA_CRIADA`) | `MASTER` |
+| `POST` | `/config-pagamento/conta/sincronizar` (lê a situação da conta no Asaas; uma rotina faz o mesmo a cada 15 min para as que aguardam aprovação) | `MASTER` |
 | `GET` | `/usuarios/secretarias` · `/usuarios/secretarias/{id}` | `MASTER` |
 | `POST` | `/usuarios/secretarias` | `MASTER` |
 | `PUT` | `/usuarios/secretarias/{id}` | `MASTER` |

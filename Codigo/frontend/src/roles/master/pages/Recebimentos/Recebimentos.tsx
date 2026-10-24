@@ -4,10 +4,19 @@ import { ModalComprovante } from '../../../../components/Comprovante/ModalCompro
 import { EstadoDashboard } from '../../../../components/Dashboard/Dashboard'
 import { TabelaFaturas } from '../../../../components/TabelaFaturas/TabelaFaturas'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
+import { ApiError } from '../../../../services/api'
+import {
+  ativarRecebimentos,
+  buscarContaRecebimento,
+  sincronizarContaRecebimento,
+} from '../../../../services/contaRecebimentoService'
 import { buscarComprovanteDaMinhaFatura, listarMinhasFaturas } from '../../../../services/faturaPlataformaService'
+import type { AtivarRecebimentosRequest, ContaRecebimento } from '../../../../types/contaRecebimento'
 import type { FaturaPlataforma } from '../../../../types/faturaPlataforma'
 import type { FormaPagamento } from '../../../../types/pagamentoAluno'
+import { ModalAtivarRecebimentos } from '../../components/ModalAtivarRecebimentos/ModalAtivarRecebimentos'
 import { ModalPagamentoFatura } from '../../components/ModalPagamentoFatura/ModalPagamentoFatura'
+import { PainelContaRecebimento } from '../../components/PainelContaRecebimento/PainelContaRecebimento'
 import { MasterLayout } from '../../layouts/MasterLayout'
 
 const SEM_FATURAS: FaturaPlataforma[] = []
@@ -15,9 +24,9 @@ const SEM_FATURAS: FaturaPlataforma[] = []
 type Pagando = { fatura: FaturaPlataforma; forma: FormaPagamento }
 
 /**
- * Recebimentos do MASTER. Por enquanto, as faturas que a escola paga ao Eduka
- * (Fluxo A): pagar com PIX ou boleto e ver o comprovante. A ativação da conta
- * de recebimento entra aqui na PO.5.
+ * Recebimentos do MASTER: a conta de recebimento da escola (ativar e
+ * acompanhar a aprovação) e as faturas que a escola paga ao Eduka (Fluxo A):
+ * pagar com PIX ou boleto e ver o comprovante.
  */
 export function Recebimentos() {
   const { dados: faturas, carregando, erro, recarregar } = useCarregamento(
@@ -25,8 +34,43 @@ export function Recebimentos() {
     SEM_FATURAS,
     'Não foi possível encontrar as faturas da escola.',
   )
+  const conta = useCarregamento<ContaRecebimento | null>(
+    buscarContaRecebimento,
+    null,
+    'Não foi possível encontrar a conta de recebimento da escola.',
+  )
+  const [contaAtualizada, setContaAtualizada] = useState<ContaRecebimento | null>(null)
+  const [ativando, setAtivando] = useState(false)
+  const [sincronizando, setSincronizando] = useState(false)
+  const [erroSincronizar, setErroSincronizar] = useState<string | null>(null)
   const [pagando, setPagando] = useState<Pagando | null>(null)
   const [comprovanteDe, setComprovanteDe] = useState<string | null>(null)
+
+  const contaAtual = contaAtualizada ?? conta.dados
+
+  async function ativar(dados: AtivarRecebimentosRequest) {
+    setContaAtualizada(await ativarRecebimentos(dados))
+    setErroSincronizar(null)
+    setAtivando(false)
+  }
+
+  async function sincronizar() {
+    setSincronizando(true)
+    setErroSincronizar(null)
+    try {
+      setContaAtualizada(await sincronizarContaRecebimento())
+    } catch (e) {
+      setErroSincronizar(
+        e instanceof ApiError && e.codigo === 'PROVEDOR_INDISPONIVEL'
+          ? 'O provedor de pagamento não respondeu. Tente de novo em instantes.'
+          : e instanceof ApiError
+            ? (e.detalhe ?? e.message)
+            : 'Erro inesperado ao sincronizar a conta.',
+      )
+    } finally {
+      setSincronizando(false)
+    }
+  }
 
   const buscarComprovante = useCallback(
     () => buscarComprovanteDaMinhaFatura(comprovanteDe ?? ''),
@@ -40,7 +84,21 @@ export function Recebimentos() {
   }
 
   return (
-    <MasterLayout titulo="Recebimentos" subtitulo="Faturas que a escola paga ao Edúka pelo uso da plataforma.">
+    <MasterLayout
+      titulo="Recebimentos"
+      subtitulo="Conta para receber as mensalidades online e faturas que a escola paga ao Edúka."
+    >
+      <EstadoDashboard carregando={conta.carregando} erro={conta.erro} onTentarDeNovo={conta.recarregar} />
+      {contaAtual && (
+        <PainelContaRecebimento
+          conta={contaAtual}
+          sincronizando={sincronizando}
+          erroSincronizar={erroSincronizar}
+          onAtivar={() => setAtivando(true)}
+          onSincronizar={sincronizar}
+        />
+      )}
+
       <EstadoDashboard carregando={carregando} erro={erro} onTentarDeNovo={recarregar} />
       {!carregando && !erro && (
         <TabelaFaturas
@@ -83,6 +141,9 @@ export function Recebimentos() {
         />
       )}
       {comprovanteDe && <ModalComprovante buscar={buscarComprovante} onFechar={() => setComprovanteDe(null)} />}
+      {ativando && contaAtual && (
+        <ModalAtivarRecebimentos conta={contaAtual} onAtivar={ativar} onFechar={() => setAtivando(false)} />
+      )}
     </MasterLayout>
   )
 }
