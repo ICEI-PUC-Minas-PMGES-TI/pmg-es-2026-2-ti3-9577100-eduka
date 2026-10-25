@@ -165,7 +165,7 @@ flowchart TB
         AUTHC["AuthController<br/><code>/login</code> · <code>/login/codigo</code> · <code>/primeiro-acesso</code>"]
         CADC["Cadastros<br/><code>/escolas</code> · <code>/usuarios/secretarias</code><br/><code>/alunos</code> · <code>/professores</code>"]
         ACADC["Acadêmico<br/><code>/academico/secretaria</code> · alocações<br/><code>/matriculas</code>"]
-        FINC["Financeiro<br/><code>/cobrancas</code>"]
+        FINC["Financeiro<br/><code>/cobrancas</code> · <code>/despesas</code>"]
         PORTC["Portais<br/><code>/portal/professor</code> (turmas, avaliações, notas)<br/><code>/portal/aluno</code>"]
         DASHC["DashboardController<br/><code>/dashboard</code>"]
         HLTC["HealthController<br/><code>GET /health</code>"]
@@ -274,6 +274,12 @@ tabelas abaixo resumem as rotas por módulo.
 | `POST` | `/cobrancas` (aluno, descrição, valor e vencimento; matrícula e responsável opcionais, mas têm de ser do aluno) | `MASTER`, `FINANCEIRO` |
 | `PUT` | `/cobrancas/{id}` (400 se a cobrança já foi paga ou cancelada; 409 `COBRANCA_NAO_EDITAVEL` depois que alguém clicou em Pagar, porque a cobrança já está no Asaas: aí só cancelando e lançando outra; a situação acompanha o novo vencimento) | `MASTER`, `FINANCEIRO` |
 | `PATCH` | `/cobrancas/{id}/cancelar` (a cobrança fica no histórico como `CANCELADA`; se já foi emitida, é removida antes no Asaas, fora de transação; 409 `COBRANCA_JA_PAGA` se já foi paga, aqui ou no Asaas, e nesse caso o pagamento achado fica registrado; 409 `PAGAMENTO_EM_PROCESSAMENTO` enquanto o pagamento está sendo gerado) | `MASTER`, `FINANCEIRO` |
+| `GET` | `/despesas?situacao&categoriaId&vencimentoDe&vencimentoAte` · `/despesas/{id}` (ordenado pelo vencimento) | `MASTER`, `FINANCEIRO` |
+| `POST` | `/despesas` (descrição, categoria, valor e vencimento; `paga: true` lança já como `PAGA`; 404 se a categoria não for da escola) | `MASTER`, `FINANCEIRO` |
+| `PUT` | `/despesas/{id}` (substitui descrição, categoria, valor e vencimento; a paga também é editada; 400 se foi cancelada) | `MASTER`, `FINANCEIRO` |
+| `PATCH` | `/despesas/{id}` (`situacao`: `A_PAGAR` → `PAGA` ou `CANCELADA`, `PAGA` → `A_PAGAR`; `CANCELADA` é final; 400 se a mudança não é permitida) | `MASTER`, `FINANCEIRO` |
+| `GET` | `/categorias-despesa` (pelo nome; a escola sem nenhuma recebe as padrão na primeira consulta) | `MASTER`, `FINANCEIRO` |
+| `POST` | `/categorias-despesa` (409 se o nome já existe na escola, sem diferenciar maiúsculas) | `MASTER`, `FINANCEIRO` |
 | `POST` | `/webhooks/asaas` (avisos do Asaas; sem JWT, exige o token do webhook no header `Asaas-Access-Token`) | público (token do webhook) |
 
 Webhook do gateway: o aviso é gravado em `EVENTO_PROVEDOR` antes de ser aplicado, e o id do aviso
@@ -302,8 +308,15 @@ Auditoria: criar, editar e cancelar uma cobrança gravam uma linha em `LOG_AUDIT
 usuário e a escola do token, a operação, a entidade (`COBRANCA`), o id do registro e a data/hora
 (`AuditoriaService`). O log é gravado na mesma transação da operação: se ela falha, o log não
 fica; operação recusada (400, 404) ou só de leitura não gera log. A rotina de atraso não tem autor
-e não é auditada. O banco já aceita as entidades `PAGAMENTO` e `DESPESA` e a operação `ESTORNAR`,
-para os módulos que ainda vão existir.
+e não é auditada.
+
+Despesas (`DESPESA`, `CATEGORIA_DESPESA`, V31): registro interno da escola, sem passar pelo Asaas.
+Cada escola tem as próprias categorias; a que ainda não tem nenhuma recebe as padrão (Salários,
+Contas, Materiais, Consertos, Limpeza e Outros) na primeira consulta. Situação (`SituacaoDespesa`):
+`A_PAGAR` pode passar para `PAGA` ou `CANCELADA`; `PAGA` volta para `A_PAGAR` (pagamento marcado
+por engano); `CANCELADA` é final e a despesa continua no histórico. Criar, editar e mudar a situação
+gravam em `LOG_AUDITORIA` com a entidade `DESPESA`: pagar é `PAGAR`, voltar para a pagar é
+`ESTORNAR` e cancelar é `CANCELAR`.
 
 **Portais e dashboards**
 
@@ -545,8 +558,8 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
   o alvo em produção é `verify-full`.
 * **Refresh token.** O backend emite e sabe validar refresh tokens, mas ainda não há endpoint
   HTTP de renovação. Quando o access token expira, o usuário precisa fazer login de novo.
-* **Módulo financeiro.** Só as cobranças (`/cobrancas`) têm API; boletos, pagamentos, despesas e
-  relatórios ainda não existem, e nada marca uma cobrança como paga (a regra de mudança para
+* **Módulo financeiro.** Cobranças (`/cobrancas`) e despesas (`/despesas`) têm API; boletos,
+  pagamentos e relatórios ainda não existem, e nada marca uma cobrança como paga (a regra de mudança para
   `PAGA` já está em `StatusCobranca`). Pagamentos e despesas, quando existirem, devem chamar
   `AuditoriaService.registrar` em criar, editar, cancelar e estornar. Ainda não há tela nem
   endpoint para consultar o `LOG_AUDITORIA` (a rota `/auditoria` já está reservada para
