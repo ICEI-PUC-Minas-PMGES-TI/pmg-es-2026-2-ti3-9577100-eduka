@@ -213,41 +213,74 @@ class RoteadorEventos {
             return;
         }
 
+        LocalDate dataPadrao = evento.dataEvento() != null ? evento.dataEvento() : LocalDate.now(clock);
+        switch (gravarPagamento(cobranca, pago, dataPadrao, registro.getId(), agora)) {
+            case PAGA -> encerrar(registro, StatusEventoProvedor.PROCESSADO, null);
+            case PAGA_APOS_CANCELAMENTO -> encerrar(registro, StatusEventoProvedor.PROCESSADO,
+                    "Pagamento apos cancelamento; cobranca marcada como PAGA");
+            case JA_ESTAVA_PAGA -> encerrar(registro, StatusEventoProvedor.PROCESSADO,
+                    "Pagamento registrado; a cobranca ja estava " + cobranca.status());
+        }
+    }
+
+    /**
+     * Pagamento que o provedor ja tinha recebido, achado fora do webhook (ao
+     * cancelar, spec §8.5). Grava como o aviso de pagamento, sem evento; se o
+     * aviso ja o gravou, nada muda. Sem o valor pago, fica para o aviso.
+     */
+    @Transactional
+    void registrarPagamentoEncontrado(UUID cobrancaId, CobrancaProvedor pago) {
+        Optional<CobrancaLocal> encontrada = cobrancaRepository.buscarParaPagamentoOnlinePorId(cobrancaId).stream()
+                .findFirst()
+                .map(CobrancaLocal::deLinha);
+        if (encontrada.isEmpty() || pago.valorPago() == null
+                || pagamentoRepository.findByCobrancaId(cobrancaId).isPresent()) {
+            return;
+        }
+        gravarPagamento(encontrada.get(), pago, LocalDate.now(clock), null, clock.instant());
+    }
+
+    private enum PagamentoGravado {
+        PAGA,
+        PAGA_APOS_CANCELAMENTO,
+        JA_ESTAVA_PAGA
+    }
+
+    /** Grava o {@link PagamentoCobranca} (origem ONLINE) e marca a cobranca como PAGA. */
+    private PagamentoGravado gravarPagamento(CobrancaLocal cobranca, CobrancaProvedor pago, LocalDate dataPadrao,
+            UUID eventoId, Instant agora) {
         FormaPagamento forma = pago.forma() != null ? pago.forma() : cobranca.forma();
         if (forma == null) {
             throw new IllegalStateException("Aviso de pagamento sem forma de pagamento");
         }
-        LocalDate dataPagamento = pago.dataPagamento() != null ? pago.dataPagamento()
-                : evento.dataEvento() != null ? evento.dataEvento() : LocalDate.now(clock);
         pagamentoRepository.save(PagamentoCobranca.builder()
                 .escolaId(cobranca.aviso().escolaId())
                 .cobrancaId(cobranca.aviso().id())
                 .valorPago(pago.valorPago())
                 .valorLiquido(pago.valorLiquido())
-                .dataPagamento(dataPagamento)
+                .dataPagamento(pago.dataPagamento() != null ? pago.dataPagamento() : dataPadrao)
                 .dataCredito(pago.dataCredito())
                 .formaPagamento(forma)
                 .origem(OrigemPagamento.ONLINE)
                 .idTransacaoExterna(pago.idTransacao() != null ? pago.idTransacao() : pago.idCobrancaExterna())
                 .urlReciboProvedor(limitar(pago.urlReciboProvedor(), MAX_MOTIVO))
-                .eventoId(registro.getId())
+                .eventoId(eventoId)
                 .build());
 
         if (cobrancaRepository.marcarPagaPeloProvedor(cobranca.aviso().id(), agora) == 1) {
             avisoCobrancaService.publicar(AvisoCobranca.Tipo.PAGAMENTO_CONFIRMADO, comPagaEm(cobranca.aviso(), agora));
-            encerrar(registro, StatusEventoProvedor.PROCESSADO, null);
-        } else if (cobrancaRepository.marcarPagaAposCancelamento(cobranca.aviso().id(), agora) == 1) {
+            return PagamentoGravado.PAGA;
+        }
+        if (cobrancaRepository.marcarPagaAposCancelamento(cobranca.aviso().id(), agora) == 1) {
             // R23: o que o provedor diz sobre o dinheiro prevalece. Alerta so no log ate existir a auditoria (RF22.1).
             log.warn("PAGAMENTO_APOS_CANCELAMENTO: cobranca {} cancelada foi paga no provedor; marcada como PAGA",
                     cobranca.aviso().id());
-            encerrar(registro, StatusEventoProvedor.PROCESSADO, "Pagamento apos cancelamento; cobranca marcada como PAGA");
-        } else {
-            // Ja estava PAGA (baixa manual): o dinheiro entrou, entao o pagamento fica registrado.
-            log.warn("Pagamento online registrado para a cobranca {} que ja estava {}", cobranca.aviso().id(),
-                    cobranca.status());
-            encerrar(registro, StatusEventoProvedor.PROCESSADO,
-                    "Pagamento registrado; a cobranca ja estava " + cobranca.status());
+            return PagamentoGravado.PAGA_APOS_CANCELAMENTO;
         }
+        // Ja estava PAGA (baixa manual): o dinheiro entrou, entao o pagamento fica registrado.
+        log.warn("Pagamento online registrado para a cobranca {} que ja estava {}", cobranca.aviso().id(),
+                cobranca.status());
+        return PagamentoGravado.JA_ESTAVA_PAGA;
     }
 
     /** CONFIRMED seguido de RECEIVED: um pagamento so; o aviso seguinte so completa o credito (R23). */

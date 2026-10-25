@@ -564,6 +564,39 @@ class RoteadorEventosTest {
                 "ACCOUNT_STATUS_GENERAL_APPROVAL_AWAITING_APPROVAL", idConta, null, situacao, null, "{}");
     }
 
+    // ---- Pagamento achado ao cancelar (spec §8.5) ----
+
+    @Test
+    void pagamentoAchadoAoCancelarERegistradoSemEvento() {
+        when(cobrancaRepository.buscarParaPagamentoOnlinePorId(COBRANCA)).thenReturn(linhaDaCobranca("PENDENTE"));
+        when(cobrancaRepository.marcarPagaPeloProvedor(COBRANCA, AGORA)).thenReturn(1);
+
+        roteador.registrarPagamentoEncontrado(COBRANCA,
+                cobrancaProvedor(new BigDecimal("150.00"), StatusCobrancaProvedor.RECEBIDA));
+
+        ArgumentCaptor<PagamentoCobranca> pagamento = ArgumentCaptor.forClass(PagamentoCobranca.class);
+        verify(pagamentoRepository).save(pagamento.capture());
+        assertThat(pagamento.getValue().getOrigem()).isEqualTo(OrigemPagamento.ONLINE);
+        assertThat(pagamento.getValue().getValorPago()).isEqualByComparingTo("150.00");
+        assertThat(pagamento.getValue().getEventoId()).isNull();
+        verify(avisoCobrancaService).publicar(eq(AvisoCobranca.Tipo.PAGAMENTO_CONFIRMADO),
+                any(CobrancaParaAviso.class));
+    }
+
+    @Test
+    void pagamentoAchadoAoCancelarJaRegistradoPeloAvisoNaoDuplica() {
+        when(cobrancaRepository.buscarParaPagamentoOnlinePorId(COBRANCA)).thenReturn(linhaDaCobranca("PAGA"));
+        when(pagamentoRepository.findByCobrancaId(COBRANCA)).thenReturn(Optional.of(pagamentoRegistrado(
+                new BigDecimal("149.01"), LocalDate.of(2026, 10, 19))));
+
+        roteador.registrarPagamentoEncontrado(COBRANCA,
+                cobrancaProvedor(new BigDecimal("150.00"), StatusCobrancaProvedor.RECEBIDA));
+
+        verify(pagamentoRepository, never()).save(any());
+        verify(cobrancaRepository, never()).marcarPagaPeloProvedor(any(), any());
+        verifyNoInteractions(avisoCobrancaService);
+    }
+
     // ---- Apoio ----
 
     private void cobrancaEncontradaPeloIdExterno(String status) {
