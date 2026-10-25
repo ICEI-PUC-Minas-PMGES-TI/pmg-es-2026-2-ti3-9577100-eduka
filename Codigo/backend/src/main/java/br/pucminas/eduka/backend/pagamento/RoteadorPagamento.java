@@ -27,6 +27,7 @@ import br.pucminas.eduka.backend.dto.DadosPagamentoResponse;
 import br.pucminas.eduka.backend.dto.HabilitacaoRecebimentos;
 import br.pucminas.eduka.backend.dto.PixResponse;
 import br.pucminas.eduka.backend.exception.BoletoNaoGeradoException;
+import br.pucminas.eduka.backend.exception.CobrancaJaPagaException;
 import br.pucminas.eduka.backend.exception.CobrancaNaoPagavelException;
 import br.pucminas.eduka.backend.exception.FormaPagamentoInvalidaException;
 import br.pucminas.eduka.backend.exception.PagadorSemCpfException;
@@ -62,6 +63,10 @@ import br.pucminas.eduka.backend.validation.CpfValidator;
  * mesmo tempo criam uma cobranca so no provedor (R14). Cobranca ja EMITIDA e
  * reaproveitada: trocar a forma altera a mesma cobranca no provedor.
  * </p>
+ *
+ * <p>
+ * Tambem remove no provedor a cobranca que a escola vai cancelar (spec §8.5).
+ * </p>
  */
 @Component
 class RoteadorPagamento {
@@ -86,6 +91,7 @@ class RoteadorPagamento {
     private final ContaRecebimentoEscolaRepository contaRepository;
     private final ClienteProvedorRepository clienteRepository;
     private final RoteadorConta roteadorConta;
+    private final RoteadorEventos eventos;
     private final IsolamentoEscola isolamentoEscola;
     private final PiiCryptoService piiCryptoService;
     private final ChamadorProvedor provedor;
@@ -95,8 +101,9 @@ class RoteadorPagamento {
     RoteadorPagamento(CobrancaRepository cobrancaRepository, AlunoRepository alunoRepository,
             AlunoResponsavelRepository alunoResponsavelRepository, PessoaRepository pessoaRepository,
             ContaRecebimentoEscolaRepository contaRepository, ClienteProvedorRepository clienteRepository,
-            RoteadorConta roteadorConta, IsolamentoEscola isolamentoEscola, PiiCryptoService piiCryptoService,
-            ChamadorProvedor provedor, PlatformTransactionManager transactionManager, Clock clock) {
+            RoteadorConta roteadorConta, RoteadorEventos eventos, IsolamentoEscola isolamentoEscola,
+            PiiCryptoService piiCryptoService, ChamadorProvedor provedor,
+            PlatformTransactionManager transactionManager, Clock clock) {
         this.cobrancaRepository = cobrancaRepository;
         this.alunoRepository = alunoRepository;
         this.alunoResponsavelRepository = alunoResponsavelRepository;
@@ -104,6 +111,7 @@ class RoteadorPagamento {
         this.contaRepository = contaRepository;
         this.clienteRepository = clienteRepository;
         this.roteadorConta = roteadorConta;
+        this.eventos = eventos;
         this.isolamentoEscola = isolamentoEscola;
         this.piiCryptoService = piiCryptoService;
         this.provedor = provedor;
@@ -180,6 +188,41 @@ class RoteadorPagamento {
     }
 
     private record BoletoEmitido(String idCobrancaExterna, byte[] credencialCifrada) {
+    }
+
+    // ---- Cancelar (spec §8.5) ----
+
+    /**
+     * Remove no provedor a cobranca ja emitida, antes de a escola cancelar no
+     * Eduka. Chamado sem transacao aberta, com a cobranca lida pelo
+     * {@code CobrancaService}. Nunca emitida (ou com a emissao recusada): nada
+     * a fazer no provedor.
+     *
+     * @throws CobrancaJaPagaException          o provedor ja recebeu; o
+     *                                          pagamento fica registrado
+     * @throws PagamentoEmProcessamentoException a cobranca esta sendo gerada
+     */
+    void cancelarNoProvedor(Cobranca cobranca) {
+        switch (cobranca.getSituacaoProvedor()) {
+            case NAO_EMITIDA, FALHA_EMISSAO -> {
+                return;
+            }
+            case EMITINDO -> throw new PagamentoEmProcessamentoException();
+            case EMITIDA -> {
+                // Segue para o provedor.
+            }
+        }
+        ContaRecebimentoEscola conta = contaRepository.findByEscolaId(cobranca.getEscolaId())
+                .orElseThrow(() -> new IllegalStateException("Cobranca emitida sem conta de recebimento"));
+        CredencialProvedor credencial = new CredencialProvedor(piiCryptoService.decifrar(conta.getCredencialCifrada()));
+        String idExterno = cobranca.getIdCobrancaExterna();
+
+        CobrancaProvedor noProvedor = provedor.chamar(p -> p.consultarCobranca(credencial, idExterno));
+        if (RoteadorFatura.pago(noProvedor)) {
+            eventos.registrarPagamentoEncontrado(cobranca.getId(), noProvedor);
+            throw new CobrancaJaPagaException();
+        }
+        provedor.executar(p -> p.removerCobranca(credencial, idExterno));
     }
 
     // ---- Passo 1: reservar [T] ----

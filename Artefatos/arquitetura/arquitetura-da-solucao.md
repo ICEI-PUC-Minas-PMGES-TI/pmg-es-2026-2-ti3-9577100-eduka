@@ -272,8 +272,8 @@ tabelas abaixo resumem as rotas por módulo.
 | `GET` | `/cobrancas?alunoId&status&vencimentoDe&vencimentoAte` · `/cobrancas/{id}` | `MASTER`, `FINANCEIRO` |
 | `GET` | `/cobrancas/pagina?alunoId&periodoLetivoId&status&vencimentoDe&vencimentoAte&pagina&tamanho` (paginada pelo vencimento, `tamanho` até 100; `totaisPorStatus` traz quantidade e valor de cada situação com os mesmos filtros, menos o de situação) | `MASTER`, `FINANCEIRO` |
 | `POST` | `/cobrancas` (aluno, descrição, valor e vencimento; matrícula e responsável opcionais, mas têm de ser do aluno) | `MASTER`, `FINANCEIRO` |
-| `PUT` | `/cobrancas/{id}` (400 se a cobrança já foi paga ou cancelada; a situação acompanha o novo vencimento) | `MASTER`, `FINANCEIRO` |
-| `PATCH` | `/cobrancas/{id}/cancelar` (a cobrança fica no histórico como `CANCELADA`) | `MASTER`, `FINANCEIRO` |
+| `PUT` | `/cobrancas/{id}` (400 se a cobrança já foi paga ou cancelada; 409 `COBRANCA_NAO_EDITAVEL` depois que alguém clicou em Pagar, porque a cobrança já está no Asaas: aí só cancelando e lançando outra; a situação acompanha o novo vencimento) | `MASTER`, `FINANCEIRO` |
+| `PATCH` | `/cobrancas/{id}/cancelar` (a cobrança fica no histórico como `CANCELADA`; se já foi emitida, é removida antes no Asaas, fora de transação; 409 `COBRANCA_JA_PAGA` se já foi paga, aqui ou no Asaas, e nesse caso o pagamento achado fica registrado; 409 `PAGAMENTO_EM_PROCESSAMENTO` enquanto o pagamento está sendo gerado) | `MASTER`, `FINANCEIRO` |
 | `POST` | `/webhooks/asaas` (avisos do Asaas; sem JWT, exige o token do webhook no header `Asaas-Access-Token`) | público (token do webhook) |
 
 Webhook do gateway: o aviso é gravado em `EVENTO_PROVEDOR` antes de ser aplicado, e o id do aviso

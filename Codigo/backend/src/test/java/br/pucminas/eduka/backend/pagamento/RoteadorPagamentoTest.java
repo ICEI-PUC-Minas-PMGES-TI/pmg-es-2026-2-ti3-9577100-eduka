@@ -50,6 +50,7 @@ import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.domain.StatusContaRecebimento;
 import br.pucminas.eduka.backend.dto.DadosPagamentoResponse;
 import br.pucminas.eduka.backend.dto.HabilitacaoRecebimentos;
+import br.pucminas.eduka.backend.exception.CobrancaJaPagaException;
 import br.pucminas.eduka.backend.exception.CobrancaNaoPagavelException;
 import br.pucminas.eduka.backend.exception.FormaPagamentoInvalidaException;
 import br.pucminas.eduka.backend.exception.PagadorSemCpfException;
@@ -106,6 +107,7 @@ class RoteadorPagamentoTest {
     private ContaRecebimentoEscolaRepository contaRepository;
     private ClienteProvedorRepository clienteRepository;
     private RoteadorConta roteadorConta;
+    private RoteadorEventos eventos;
     private PiiCryptoService piiCryptoService;
     private PaymentProvider provider;
     private Aluno aluno;
@@ -120,6 +122,7 @@ class RoteadorPagamentoTest {
         contaRepository = mock(ContaRecebimentoEscolaRepository.class);
         clienteRepository = mock(ClienteProvedorRepository.class);
         roteadorConta = mock(RoteadorConta.class);
+        eventos = mock(RoteadorEventos.class);
         piiCryptoService = mock(PiiCryptoService.class);
         provider = mock(PaymentProvider.class);
 
@@ -489,11 +492,59 @@ class RoteadorPagamentoTest {
         assertThat(cobranca.getSituacaoProvedor()).isEqualTo(SituacaoProvedor.EMITIDA);
     }
 
+    // ---- Cancelar: remove antes no provedor (spec §8.5) ----
+
+    @ParameterizedTest
+    @EnumSource(value = SituacaoProvedor.class, names = { "NAO_EMITIDA", "FALHA_EMISSAO" })
+    void cancelarSemCobrancaNoProvedorNaoChamaOProvedor(SituacaoProvedor situacao) {
+        cobranca.setSituacaoProvedor(situacao);
+
+        roteador(AGORA).cancelarNoProvedor(cobranca);
+
+        verifyNoInteractions(provider);
+    }
+
+    @Test
+    void cancelarEmitindoRecusaSemChamarOProvedor() {
+        cobranca.setSituacaoProvedor(SituacaoProvedor.EMITINDO);
+
+        assertThatThrownBy(() -> roteador(AGORA).cancelarNoProvedor(cobranca))
+                .isInstanceOf(PagamentoEmProcessamentoException.class);
+        verifyNoInteractions(provider);
+    }
+
+    @Test
+    void cancelarEmitidaEmAbertoConfereERemoveNoProvedor() {
+        emitida(FormaPagamento.PIX);
+        when(provider.consultarCobranca(CREDENCIAL, "pay_1")).thenReturn(cobrancaNoProvedor("pay_1"));
+
+        roteador(AGORA).cancelarNoProvedor(cobranca);
+
+        InOrder ordem = inOrder(provider);
+        ordem.verify(provider).consultarCobranca(CREDENCIAL, "pay_1");
+        ordem.verify(provider).removerCobranca(CREDENCIAL, "pay_1");
+        verifyNoInteractions(eventos);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StatusCobrancaProvedor.class, names = { "CONFIRMADA", "RECEBIDA" })
+    void cancelarJaPagaNoProvedorRegistraOPagamentoERecusa(StatusCobrancaProvedor status) {
+        emitida(FormaPagamento.PIX);
+        CobrancaProvedor paga = new CobrancaProvedor("pay_1", REFERENCIA, status, FormaPagamento.PIX, VALOR, VALOR,
+                null, HOJE, null, "tr_1", null);
+        when(provider.consultarCobranca(CREDENCIAL, "pay_1")).thenReturn(paga);
+
+        assertThatThrownBy(() -> roteador(AGORA).cancelarNoProvedor(cobranca))
+                .isInstanceOf(CobrancaJaPagaException.class);
+        verify(eventos).registrarPagamentoEncontrado(COBRANCA, paga);
+        verify(provider, never()).removerCobranca(any(), any());
+    }
+
     // ---- apoio ----
 
     private RoteadorPagamento roteador(Instant agora) {
         return new RoteadorPagamento(cobrancaRepository, alunoRepository, alunoResponsavelRepository,
-                pessoaRepository, contaRepository, clienteRepository, roteadorConta, new IsolamentoEscola(),
+                pessoaRepository, contaRepository, clienteRepository, roteadorConta, eventos, new IsolamentoEscola(),
                 piiCryptoService, new ChamadorProvedor(provider), new TransacaoQueMarcaAtiva(),
                 Clock.fixed(agora, ZoneOffset.UTC));
     }

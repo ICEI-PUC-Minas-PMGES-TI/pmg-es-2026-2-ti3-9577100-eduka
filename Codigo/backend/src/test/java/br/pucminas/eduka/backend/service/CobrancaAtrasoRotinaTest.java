@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import br.pucminas.eduka.backend.pagamento.PaymentRoutingService;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
@@ -45,12 +46,15 @@ class CobrancaAtrasoRotinaTest {
     @Mock
     private PagamentoCobrancaRepository pagamentoRepository;
     @Mock
+    private PlatformTransactionManager transactionManager;
+    @Mock
     private PaymentRoutingService paymentRoutingService;
 
     private CobrancaService serviceEm(Instant agora) {
         return new CobrancaService(cobrancaRepository, alunoRepository, matriculaRepository,
                 alunoResponsavelRepository, pessoaRepository, new IsolamentoEscola(), auditoriaService,
-                avisoCobrancaService, pagamentoRepository, Clock.fixed(agora, ZoneOffset.UTC));
+                avisoCobrancaService, pagamentoRepository, paymentRoutingService, transactionManager,
+                Clock.fixed(agora, ZoneOffset.UTC));
     }
 
     @Test

@@ -38,6 +38,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.AlunoResponsavelId;
@@ -51,6 +52,7 @@ import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.domain.StatusMatricula;
 import br.pucminas.eduka.backend.domain.Turma;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
+import br.pucminas.eduka.backend.pagamento.PaymentRoutingService;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
@@ -101,6 +103,10 @@ class CobrancaControllerSecurityTest {
     @MockitoBean
     private PagamentoCobrancaRepository pagamentoRepository;
     @MockitoBean
+    private PaymentRoutingService paymentRoutingService;
+    @MockitoBean
+    private PlatformTransactionManager transactionManager;
+    @MockitoBean
     private LogAuditoriaRepository logAuditoriaRepository;
     @MockitoBean
     private AvisoCobrancaService avisoCobrancaService;
@@ -136,6 +142,8 @@ class CobrancaControllerSecurityTest {
                 .thenReturn(List.of(pessoaAna, maeDaAna));
         when(alunoResponsavelRepository.existsById(new AlunoResponsavelId(ana.getId(), maeDaAna.getId())))
                 .thenReturn(true);
+        // Cobranca ainda nao emitida no provedor (R24 e coberto em CobrancaServiceProvedorTest).
+        when(paymentRoutingService.permiteEditar(any())).thenReturn(true);
         when(cobrancaRepository.saveAndFlush(any(Cobranca.class))).thenAnswer(inv -> {
             Cobranca cobranca = inv.getArgument(0);
             if (cobranca.getId() == null) {
@@ -329,9 +337,15 @@ class CobrancaControllerSecurityTest {
             mockMvc.perform(json(put("/cobrancas/" + cobranca.getId()), token, "{" + DADOS + "}"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.detail").value("Cobranca " + status + " nao pode ser editada"));
-            mockMvc.perform(com(patch("/cobrancas/" + cobranca.getId() + "/cancelar"), token))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.detail").value("Cobranca " + status + " nao pode ser cancelada"));
+            if (status == StatusCobranca.PAGA) {
+                mockMvc.perform(com(patch("/cobrancas/" + cobranca.getId() + "/cancelar"), token))
+                        .andExpect(status().isConflict())
+                        .andExpect(jsonPath("$.codigo").value("COBRANCA_JA_PAGA"));
+            } else {
+                mockMvc.perform(com(patch("/cobrancas/" + cobranca.getId() + "/cancelar"), token))
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.detail").value("Cobranca " + status + " nao pode ser cancelada"));
+            }
         }
         verify(cobrancaRepository, never()).saveAndFlush(any());
     }
@@ -431,7 +445,7 @@ class CobrancaControllerSecurityTest {
         mockMvc.perform(json(put("/cobrancas/" + paga.getId()), token, "{" + DADOS + "}"))
                 .andExpect(status().isBadRequest());
         mockMvc.perform(com(patch("/cobrancas/" + paga.getId() + "/cancelar"), token))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isConflict());
         mockMvc.perform(json(post("/cobrancas"), token, "{}"))
                 .andExpect(status().isBadRequest());
         mockMvc.perform(com(get("/cobrancas/" + paga.getId()), token))
