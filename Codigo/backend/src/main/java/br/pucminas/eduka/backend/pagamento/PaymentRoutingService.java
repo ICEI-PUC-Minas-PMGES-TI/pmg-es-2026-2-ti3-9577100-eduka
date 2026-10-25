@@ -10,6 +10,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import br.pucminas.eduka.backend.domain.Cobranca;
+import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.dto.AtivarRecebimentosRequest;
 import br.pucminas.eduka.backend.dto.ComprovanteResponse;
 import br.pucminas.eduka.backend.dto.ContaRecebimentoResponse;
@@ -114,14 +115,24 @@ public class PaymentRoutingService {
 
     // ---- Chamados por CobrancaService ----
 
-    /** R24. */
+    /**
+     * R24: depois que alguem clicou em Pagar, a cobranca existe (ou pode
+     * existir) no provedor e nao e mais editada. Emissao recusada nao criou
+     * nada no provedor: a escola pode corrigir a cobranca.
+     */
     public boolean permiteEditar(Cobranca cobranca) {
-        throw naoImplementado("RF12.1");
+        return cobranca.getSituacaoProvedor() == SituacaoProvedor.NAO_EMITIDA
+                || cobranca.getSituacaoProvedor() == SituacaoProvedor.FALHA_EMISSAO;
     }
 
-    /** Spec §8.5. */
+    /**
+     * Spec §8.5: remove no provedor a cobranca ja emitida, antes de cancelar
+     * no Eduka. Chamar sem transacao aberta. Recusa com
+     * {@code CobrancaJaPagaException} se o provedor ja recebeu, e com
+     * {@code PagamentoEmProcessamentoException} se a cobranca esta sendo gerada.
+     */
     public void cancelarNoProvedor(Cobranca cobranca) {
-        throw naoImplementado("RF12.1");
+        roteadorPagamento.cancelarNoProvedor(cobranca);
     }
 
     // ---- Fluxo A (SUPER_ADMIN) ----

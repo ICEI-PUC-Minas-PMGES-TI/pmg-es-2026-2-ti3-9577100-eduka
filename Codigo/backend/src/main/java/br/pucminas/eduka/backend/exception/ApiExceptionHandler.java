@@ -3,6 +3,7 @@ package br.pucminas.eduka.backend.exception;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -218,6 +219,21 @@ public class ApiExceptionHandler {
     public ResponseEntity<ProblemDetail> cobrancaJaPaga(CobrancaJaPagaException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "COBRANCA_JA_PAGA"));
+    }
+
+    @ExceptionHandler(CobrancaNaoEditavelException.class)
+    public ResponseEntity<ProblemDetail> cobrancaNaoEditavel(CobrancaNaoEditavelException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "COBRANCA_NAO_EDITAVEL"));
+    }
+
+    /** Duas operacoes gravaram o mesmo registro ao mesmo tempo (trava otimista); a segunda perde. */
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ProblemDetail> alteradoAoMesmoTempo(OptimisticLockingFailureException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT,
+                        "O registro foi alterado por outra operacao. Recarregue e tente de novo",
+                        "ALTERADO_AO_MESMO_TEMPO"));
     }
 
     @ExceptionHandler(FaturaDuplicadaException.class)
