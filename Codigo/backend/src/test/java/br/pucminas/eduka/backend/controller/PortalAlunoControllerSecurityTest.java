@@ -23,12 +23,14 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.Cobranca;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
+import br.pucminas.eduka.backend.pagamento.PaymentRoutingService;
 import br.pucminas.eduka.backend.repository.AlocacaoProfessorRepository;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
@@ -76,6 +78,10 @@ class PortalAlunoControllerSecurityTest {
     private PessoaRepository pessoaRepository;
     @MockitoBean
     private PagamentoCobrancaRepository pagamentoRepository;
+    @MockitoBean
+    private PaymentRoutingService paymentRoutingService;
+    @MockitoBean
+    private PlatformTransactionManager transactionManager;
     @MockitoBean
     private PessoaPapelRepository pessoaPapelRepository;
     @MockitoBean

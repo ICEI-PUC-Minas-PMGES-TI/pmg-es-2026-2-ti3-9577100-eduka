@@ -25,7 +25,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.PlatformTransactionManager;
 
+import br.pucminas.eduka.backend.pagamento.PaymentRoutingService;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
@@ -54,11 +56,16 @@ class CobrancaVencimentoRotinaTest {
     private AvisoCobrancaService avisoCobrancaService;
     @Mock
     private PagamentoCobrancaRepository pagamentoRepository;
+    @Mock
+    private PaymentRoutingService paymentRoutingService;
+    @Mock
+    private PlatformTransactionManager transactionManager;
 
     private CobrancaService serviceEm(Instant agora) {
         return new CobrancaService(cobrancaRepository, alunoRepository, matriculaRepository,
                 alunoResponsavelRepository, pessoaRepository, new IsolamentoEscola(), auditoriaService,
-                avisoCobrancaService, pagamentoRepository, Clock.fixed(agora, ZoneOffset.UTC));
+                avisoCobrancaService, pagamentoRepository, paymentRoutingService, transactionManager,
+                Clock.fixed(agora, ZoneOffset.UTC));
     }
 
     @Test

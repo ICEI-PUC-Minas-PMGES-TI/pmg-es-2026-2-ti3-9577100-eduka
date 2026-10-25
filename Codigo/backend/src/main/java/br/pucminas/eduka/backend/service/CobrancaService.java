@@ -21,7 +21,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.AlunoResponsavelId;
@@ -37,7 +39,11 @@ import br.pucminas.eduka.backend.dto.CobrancaRequest;
 import br.pucminas.eduka.backend.dto.CobrancaResponse;
 import br.pucminas.eduka.backend.dto.HistoricoFinanceiroResponse;
 import br.pucminas.eduka.backend.dto.PaginaCobrancasResponse;
+import br.pucminas.eduka.backend.exception.CobrancaJaPagaException;
+import br.pucminas.eduka.backend.exception.CobrancaNaoEditavelException;
+import br.pucminas.eduka.backend.exception.PagamentoEmProcessamentoException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.pagamento.PaymentRoutingService;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.CobrancaFiltro;
@@ -66,7 +72,11 @@ import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
  * <li>So cobranca em aberto (pendente ou em atraso) e editada ou cancelada;
  * PAGA e CANCELADA sao finais. Toda troca de situacao passa por
  * {@link StatusCobranca#podeMudarPara}.</li>
- * <li>Cancelar nao apaga: a cobranca fica no historico como CANCELADA.</li>
+ * <li>Depois que alguem clicou em Pagar, a cobranca nao e mais editada (R24):
+ * para mudar, cancela e lanca outra.</li>
+ * <li>Cancelar nao apaga: a cobranca fica no historico como CANCELADA. A ja
+ * emitida e removida antes no provedor; se o provedor ja recebeu, o
+ * cancelamento e recusado e o pagamento fica registrado (spec §8.5).</li>
  * <li>A cobranca vencida vira EM_ATRASO pela rotina diaria
  * ({@link #marcarVencidasComoEmAtraso}); adiar o vencimento na edicao a
  * devolve para PENDENTE.</li>
@@ -98,13 +108,17 @@ public class CobrancaService {
     private final AuditoriaService auditoriaService;
     private final AvisoCobrancaService avisoCobrancaService;
     private final PagamentoCobrancaRepository pagamentoRepository;
+    private final PaymentRoutingService paymentRoutingService;
+    /** Para o cancelamento, que chama o provedor entre duas transacoes curtas. */
+    private final TransactionTemplate transacao;
     private final Clock clock;
 
     public CobrancaService(CobrancaRepository cobrancaRepository, AlunoRepository alunoRepository,
             MatriculaTurmaRepository matriculaRepository, AlunoResponsavelRepository alunoResponsavelRepository,
             PessoaRepository pessoaRepository, IsolamentoEscola isolamentoEscola,
             AuditoriaService auditoriaService, AvisoCobrancaService avisoCobrancaService,
-            PagamentoCobrancaRepository pagamentoRepository, Clock clock) {
+            PagamentoCobrancaRepository pagamentoRepository, PaymentRoutingService paymentRoutingService,
+            PlatformTransactionManager transactionManager, Clock clock) {
         this.cobrancaRepository = cobrancaRepository;
         this.alunoRepository = alunoRepository;
         this.matriculaRepository = matriculaRepository;
@@ -114,6 +128,8 @@ public class CobrancaService {
         this.auditoriaService = auditoriaService;
         this.avisoCobrancaService = avisoCobrancaService;
         this.pagamentoRepository = pagamentoRepository;
+        this.paymentRoutingService = paymentRoutingService;
+        this.transacao = new TransactionTemplate(transactionManager);
         this.clock = clock;
     }
 
@@ -259,15 +275,20 @@ public class CobrancaService {
      * acompanha o novo vencimento: adiar tira do atraso, antecipar para o
      * passado poe em atraso.
      *
-     * @throws IllegalArgumentException se a cobranca ja foi paga ou cancelada,
-     *                                  ou se a matricula ou o responsavel nao
-     *                                  forem do aluno
+     * @throws IllegalArgumentException     se a cobranca ja foi paga ou
+     *                                      cancelada, ou se a matricula ou o
+     *                                      responsavel nao forem do aluno
+     * @throws CobrancaNaoEditavelException se alguem ja clicou em Pagar (R24)
      */
     @Transactional
     public CobrancaResponse atualizar(UUID id, AtualizarCobrancaRequest request) {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         Cobranca cobranca = buscarCobranca(id, escolaId);
         exigirEmAberto(cobranca, "editada");
+        // Pagar ao mesmo tempo esbarra na trava otimista: um dos dois perde.
+        if (!paymentRoutingService.permiteEditar(cobranca)) {
+            throw new CobrancaNaoEditavelException();
+        }
         Aluno aluno = cobranca.getAluno();
 
         cobranca.setMatricula(buscarMatriculaDoAluno(request.matriculaId(), aluno, escolaId));
@@ -285,20 +306,39 @@ public class CobrancaService {
     }
 
     /**
-     * Cancela uma cobranca em aberto.
+     * Cancela uma cobranca em aberto. Se ela ja foi emitida no provedor, remove
+     * la primeiro, fora de transacao (spec §8.5): le numa transacao curta,
+     * chama o provedor e grava em outra.
      *
-     * @throws IllegalArgumentException se a cobranca ja foi paga ou cancelada
+     * @throws CobrancaJaPagaException           se a cobranca ja foi paga, aqui
+     *                                           ou no provedor
+     * @throws PagamentoEmProcessamentoException se o pagamento esta sendo
+     *                                           gerado agora
+     * @throws IllegalArgumentException          se a cobranca ja foi cancelada
      */
-    @Transactional
     public CobrancaResponse cancelar(UUID id) {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
-        Cobranca cobranca = buscarCobranca(id, escolaId);
-        exigirEmAberto(cobranca, "cancelada");
+        Cobranca lida = transacao.execute(status -> exigirCancelavel(buscarCobranca(id, escolaId)));
 
-        mudarStatus(cobranca, StatusCobranca.CANCELADA);
-        cobranca.setCanceladaEm(clock.instant());
-        cobranca.setAtualizadoEm(clock.instant());
-        return salvarEAuditar(cobranca, OperacaoAuditoria.CANCELAR, escolaId);
+        paymentRoutingService.cancelarNoProvedor(lida);
+
+        return transacao.execute(status -> {
+            Cobranca cobranca = buscarCobranca(id, escolaId);
+            if (cobranca.getSituacaoProvedor() != lida.getSituacaoProvedor()) {
+                // Alguem clicou em Pagar no meio: a cobranca que ele gerou no provedor nao foi removida.
+                throw new PagamentoEmProcessamentoException();
+            }
+            if (cobranca.getStatus() == StatusCobranca.CANCELADA) {
+                // O aviso da remocao chegou antes e ja cancelou; falta so registrar quem pediu.
+                auditoriaService.registrar(OperacaoAuditoria.CANCELAR, EntidadeAuditada.COBRANCA, cobranca.getId());
+                return paraResposta(cobranca, escolaId);
+            }
+            exigirCancelavel(cobranca);
+            mudarStatus(cobranca, StatusCobranca.CANCELADA);
+            cobranca.setCanceladaEm(clock.instant());
+            cobranca.setAtualizadoEm(clock.instant());
+            return salvarEAuditar(cobranca, OperacaoAuditoria.CANCELAR, escolaId);
+        });
     }
 
     /**
@@ -416,6 +456,15 @@ public class CobrancaService {
             throw new IllegalArgumentException("Cobranca %s nao pode passar para %s".formatted(atual, novo));
         }
         cobranca.setStatus(novo);
+    }
+
+    /** Devolve a propria cobranca, para a primeira leitura do cancelamento. */
+    private static Cobranca exigirCancelavel(Cobranca cobranca) {
+        if (cobranca.getStatus() == StatusCobranca.PAGA) {
+            throw new CobrancaJaPagaException();
+        }
+        exigirEmAberto(cobranca, "cancelada");
+        return cobranca;
     }
 
     private static void exigirEmAberto(Cobranca cobranca, String acao) {

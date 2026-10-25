@@ -30,6 +30,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.Cobranca;
@@ -99,6 +100,8 @@ class PagamentoAlunoControllerSecurityTest {
     private PessoaRepository pessoaRepository;
     @MockitoBean
     private PagamentoCobrancaRepository pagamentoRepository;
+    @MockitoBean
+    private PlatformTransactionManager transactionManager;
     @MockitoBean
     private AuditoriaService auditoriaService;
     @MockitoBean
