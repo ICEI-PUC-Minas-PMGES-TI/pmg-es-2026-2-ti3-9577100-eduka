@@ -107,7 +107,7 @@ public class ApiExceptionHandler {
             ProfessorComHistoricoException.class, AlocacaoJaExisteException.class,
             MatriculaJaExisteException.class, TurmaSemVagasException.class,
             NumeroMatriculaJaCadastradoException.class, AvaliacaoComNotasException.class,
-            RegistroEmUsoException.class })
+            RegistroEmUsoException.class, CategoriaDespesaJaExisteException.class })
     public ResponseEntity<ProblemDetail> recursoDuplicado(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(problema(HttpStatus.CONFLICT, ex.getMessage()));
