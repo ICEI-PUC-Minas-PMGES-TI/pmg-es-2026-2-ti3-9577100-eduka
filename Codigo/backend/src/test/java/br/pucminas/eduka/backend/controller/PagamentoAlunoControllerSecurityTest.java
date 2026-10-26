@@ -34,6 +34,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.Cobranca;
+import br.pucminas.eduka.backend.domain.OrigemPagamento;
+import br.pucminas.eduka.backend.domain.PagamentoCobranca;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.dto.BoletoResponse;
@@ -236,6 +238,31 @@ class PagamentoAlunoControllerSecurityTest {
                 .andExpect(jsonPath("$.formaPagamento").value("PIX"))
                 .andExpect(jsonPath("$.acoes[0]").value("PAGAR"))
                 .andExpect(content().string(Matchers.not(Matchers.containsString("pay_secreto"))));
+    }
+
+    @Test
+    void cobrancaPagaOnlineTrazOPagamentoEAAcaoDeVerOComprovante() throws Exception {
+        UUID usuario = UUID.randomUUID();
+        Aluno aluno = alunoDoLogin(usuario);
+        when(cobrancaRepository.findByIdAndEscolaId(COBRANCA, ESCOLA)).thenReturn(Optional.of(Cobranca.builder()
+                .id(COBRANCA).escolaId(ESCOLA).aluno(aluno).descricao("Mensalidade").valor(VALOR)
+                .dataVencimento(LocalDate.of(2026, 10, 25)).status(StatusCobranca.PAGA)
+                .situacaoProvedor(SituacaoProvedor.EMITIDA).formaPagamento(FormaPagamento.PIX).build()));
+        when(pagamentoRepository.findByEscolaIdAndCobrancaId(ESCOLA, COBRANCA)).thenReturn(Optional.of(
+                PagamentoCobranca.builder().escolaId(ESCOLA).cobrancaId(COBRANCA).valorPago(VALOR)
+                        .dataPagamento(LocalDate.of(2026, 10, 20)).formaPagamento(FormaPagamento.PIX)
+                        .origem(OrigemPagamento.ONLINE).idTransacaoExterna("tr_1")
+                        .urlReciboProvedor("https://sandbox.asaas.com/recibo/secreto").build()));
+
+        mockMvc.perform(get(CONSULTA).header(HttpHeaders.AUTHORIZATION,
+                "Bearer " + jwtService.generateAccessToken(usuario, "ALUNO", ESCOLA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.situacaoPagamento").value("PAGA"))
+                .andExpect(jsonPath("$.pagamento.valorPago").value(500.00))
+                .andExpect(jsonPath("$.pagamento.dataPagamento").value("2026-10-20"))
+                .andExpect(jsonPath("$.pagamento.forma").value("PIX"))
+                .andExpect(jsonPath("$.acoes[0]").value("VER_COMPROVANTE"))
+                .andExpect(content().string(Matchers.not(Matchers.containsString("recibo"))));
     }
 
     @Test
