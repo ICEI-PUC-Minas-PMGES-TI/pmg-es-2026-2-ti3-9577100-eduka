@@ -10,6 +10,8 @@ public enum OperacaoAuditoria {
     CANCELAR,
     /** Baixa manual de pagamento (V24). */
     PAGAR,
+    /** Pagamento confirmado pelo provedor, sem autor (V31). */
+    CONFIRMAR_PAGAMENTO,
     /** Desfazer um pagamento ja registrado. */
     ESTORNAR
 }

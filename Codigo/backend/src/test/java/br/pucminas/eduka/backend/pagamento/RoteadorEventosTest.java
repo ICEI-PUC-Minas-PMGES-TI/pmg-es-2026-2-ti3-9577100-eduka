@@ -26,7 +26,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.FaturaPlataforma;
+import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.OrigemPagamento;
 import br.pucminas.eduka.backend.domain.PagamentoCobranca;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
@@ -44,6 +46,7 @@ import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
 import br.pucminas.eduka.backend.repository.EventoProvedorRepository;
 import br.pucminas.eduka.backend.repository.FaturaPlataformaRepository;
 import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
+import br.pucminas.eduka.backend.service.AuditoriaService;
 import br.pucminas.eduka.backend.service.AvisoCobranca;
 import br.pucminas.eduka.backend.service.AvisoCobrancaService;
 import br.pucminas.eduka.backend.service.CobrancaParaAviso;
@@ -74,6 +77,8 @@ class RoteadorEventosTest {
     private FaturaPlataformaRepository faturaRepository;
     @Mock
     private AvisoCobrancaService avisoCobrancaService;
+    @Mock
+    private AuditoriaService auditoriaService;
 
     private RoteadorEventos roteador;
     private br.pucminas.eduka.backend.domain.EventoProvedor registro;
@@ -81,7 +86,7 @@ class RoteadorEventosTest {
     @BeforeEach
     void setUp() {
         roteador = new RoteadorEventos(eventoRepository, cobrancaRepository, contaRepository, pagamentoRepository,
-                faturaRepository, avisoCobrancaService, Clock.fixed(AGORA, ZoneOffset.UTC));
+                faturaRepository, avisoCobrancaService, auditoriaService, Clock.fixed(AGORA, ZoneOffset.UTC));
         registro = br.pucminas.eduka.backend.domain.EventoProvedor.builder()
                 .id(EVENTO)
                 .idEventoExterno("evt_1&1")
@@ -148,6 +153,10 @@ class RoteadorEventosTest {
         verify(avisoCobrancaService).publicar(eq(AvisoCobranca.Tipo.PAGAMENTO_CONFIRMADO), aviso.capture());
         assertThat(aviso.getValue().id()).isEqualTo(COBRANCA);
         assertThat(aviso.getValue().pagaEm()).isEqualTo(AGORA);
+
+        // Sem usuario no webhook: auditado como do provedor, na escola da cobranca.
+        verify(auditoriaService).registrarDoProvedor(OperacaoAuditoria.CONFIRMAR_PAGAMENTO,
+                EntidadeAuditada.COBRANCA, COBRANCA, ESCOLA);
 
         assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.PROCESSADO);
         assertThat(registro.getEscolaId()).isEqualTo(ESCOLA);
@@ -221,7 +230,7 @@ class RoteadorEventosTest {
 
         verify(pagamentoRepository, never()).save(any());
         verify(cobrancaRepository, never()).marcarPagaPeloProvedor(any(), any());
-        verifyNoInteractions(avisoCobrancaService);
+        verifyNoInteractions(avisoCobrancaService, auditoriaService);
         assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.IGNORADO);
     }
 
@@ -579,6 +588,8 @@ class RoteadorEventosTest {
         assertThat(pagamento.getValue().getOrigem()).isEqualTo(OrigemPagamento.ONLINE);
         assertThat(pagamento.getValue().getValorPago()).isEqualByComparingTo("150.00");
         assertThat(pagamento.getValue().getEventoId()).isNull();
+        verify(auditoriaService).registrarDoProvedor(OperacaoAuditoria.CONFIRMAR_PAGAMENTO,
+                EntidadeAuditada.COBRANCA, COBRANCA, ESCOLA);
         verify(avisoCobrancaService).publicar(eq(AvisoCobranca.Tipo.PAGAMENTO_CONFIRMADO),
                 any(CobrancaParaAviso.class));
     }
@@ -594,7 +605,7 @@ class RoteadorEventosTest {
 
         verify(pagamentoRepository, never()).save(any());
         verify(cobrancaRepository, never()).marcarPagaPeloProvedor(any(), any());
-        verifyNoInteractions(avisoCobrancaService);
+        verifyNoInteractions(avisoCobrancaService, auditoriaService);
     }
 
     // ---- Apoio ----

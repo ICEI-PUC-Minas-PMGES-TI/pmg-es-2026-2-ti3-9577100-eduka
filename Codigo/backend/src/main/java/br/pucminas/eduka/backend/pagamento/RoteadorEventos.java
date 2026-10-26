@@ -14,7 +14,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.FaturaPlataforma;
+import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.OrigemPagamento;
 import br.pucminas.eduka.backend.domain.PagamentoCobranca;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
@@ -31,6 +33,7 @@ import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
 import br.pucminas.eduka.backend.repository.EventoProvedorRepository;
 import br.pucminas.eduka.backend.repository.FaturaPlataformaRepository;
 import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
+import br.pucminas.eduka.backend.service.AuditoriaService;
 import br.pucminas.eduka.backend.service.AvisoCobranca;
 import br.pucminas.eduka.backend.service.AvisoCobrancaService;
 import br.pucminas.eduka.backend.service.CobrancaParaAviso;
@@ -42,8 +45,8 @@ import br.pucminas.eduka.backend.service.CobrancaParaAviso;
  * <p>
  * O aviso e gravado em {@code EVENTO_PROVEDOR} antes de ser aplicado, e o id
  * externo unico garante que o mesmo aviso e aplicado uma vez so. Aplicar um
- * pagamento confirmado grava o {@link PagamentoCobranca} (origem ONLINE) e
- * marca a cobranca como PAGA na mesma transacao. Criacao e remocao da
+ * pagamento confirmado grava o {@link PagamentoCobranca} (origem ONLINE),
+ * marca a cobranca como PAGA e audita, sem autor, na mesma transacao. Criacao e remocao da
  * cobranca no provedor seguem a tabela da spec §8.4. Avisos de fatura da
  * plataforma ({@code EDK-A-}) mudam a propria fatura.
  * </p>
@@ -68,6 +71,7 @@ class RoteadorEventos {
     private final PagamentoCobrancaRepository pagamentoRepository;
     private final FaturaPlataformaRepository faturaRepository;
     private final AvisoCobrancaService avisoCobrancaService;
+    private final AuditoriaService auditoriaService;
     private final Clock clock;
 
     /** Avisos sobre uma cobranca; os de fatura ({@code EDK-A-}) seguem a coluna da fatura na §8.4. */
@@ -77,13 +81,15 @@ class RoteadorEventos {
 
     RoteadorEventos(EventoProvedorRepository eventoRepository, CobrancaRepository cobrancaRepository,
             ContaRecebimentoEscolaRepository contaRepository, PagamentoCobrancaRepository pagamentoRepository,
-            FaturaPlataformaRepository faturaRepository, AvisoCobrancaService avisoCobrancaService, Clock clock) {
+            FaturaPlataformaRepository faturaRepository, AvisoCobrancaService avisoCobrancaService,
+            AuditoriaService auditoriaService, Clock clock) {
         this.eventoRepository = eventoRepository;
         this.cobrancaRepository = cobrancaRepository;
         this.contaRepository = contaRepository;
         this.pagamentoRepository = pagamentoRepository;
         this.faturaRepository = faturaRepository;
         this.avisoCobrancaService = avisoCobrancaService;
+        this.auditoriaService = auditoriaService;
         this.clock = clock;
     }
 
@@ -246,7 +252,7 @@ class RoteadorEventos {
         JA_ESTAVA_PAGA
     }
 
-    /** Grava o {@link PagamentoCobranca} (origem ONLINE) e marca a cobranca como PAGA. */
+    /** Grava o {@link PagamentoCobranca} (origem ONLINE), marca a cobranca como PAGA e audita. */
     private PagamentoGravado gravarPagamento(CobrancaLocal cobranca, CobrancaProvedor pago, LocalDate dataPadrao,
             UUID eventoId, Instant agora) {
         FormaPagamento forma = pago.forma() != null ? pago.forma() : cobranca.forma();
@@ -268,6 +274,8 @@ class RoteadorEventos {
                 .build());
 
         if (cobrancaRepository.marcarPagaPeloProvedor(cobranca.aviso().id(), agora) == 1) {
+            auditoriaService.registrarDoProvedor(OperacaoAuditoria.CONFIRMAR_PAGAMENTO, EntidadeAuditada.COBRANCA,
+                    cobranca.aviso().id(), cobranca.aviso().escolaId());
             avisoCobrancaService.publicar(AvisoCobranca.Tipo.PAGAMENTO_CONFIRMADO, comPagaEm(cobranca.aviso(), agora));
             return PagamentoGravado.PAGA;
         }
