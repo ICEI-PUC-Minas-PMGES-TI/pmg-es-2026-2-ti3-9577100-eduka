@@ -278,6 +278,11 @@ class RoteadorEventosTest {
 
         verify(pagamentoRepository).save(any());
         verifyNoInteractions(avisoCobrancaService);
+        // Sinalizado na auditoria, sem autor, e nao como um pagamento comum.
+        verify(auditoriaService).registrarDoProvedor(OperacaoAuditoria.PAGO_APOS_CANCELAR,
+                EntidadeAuditada.COBRANCA, COBRANCA, ESCOLA);
+        verify(auditoriaService, never()).registrarDoProvedor(eq(OperacaoAuditoria.CONFIRMAR_PAGAMENTO), any(),
+                any(), any());
         assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.PROCESSADO);
         assertThat(registro.getMotivo()).contains("cancelamento");
     }

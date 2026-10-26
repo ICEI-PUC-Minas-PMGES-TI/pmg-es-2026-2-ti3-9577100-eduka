@@ -280,7 +280,9 @@ class RoteadorEventos {
             return PagamentoGravado.PAGA;
         }
         if (cobrancaRepository.marcarPagaAposCancelamento(cobranca.aviso().id(), agora) == 1) {
-            // R23: o que o provedor diz sobre o dinheiro prevalece. Alerta so no log ate existir a auditoria (RF22.1).
+            // R23: o que o provedor diz sobre o dinheiro prevalece. Fica sinalizado na auditoria para a escola.
+            auditoriaService.registrarDoProvedor(OperacaoAuditoria.PAGO_APOS_CANCELAR, EntidadeAuditada.COBRANCA,
+                    cobranca.aviso().id(), cobranca.aviso().escolaId());
             log.warn("PAGAMENTO_APOS_CANCELAMENTO: cobranca {} cancelada foi paga no provedor; marcada como PAGA",
                     cobranca.aviso().id());
             return PagamentoGravado.PAGA_APOS_CANCELAMENTO;
