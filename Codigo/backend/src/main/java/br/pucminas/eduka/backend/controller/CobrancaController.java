@@ -110,7 +110,8 @@ public class CobrancaController {
     @PreAuthorize(Perfis.FINANCEIRO)
     @Operation(summary = "Edita uma cobranca",
             description = "Substitui matricula, responsavel, descricao, valor e vencimento; o aluno nao muda. "
-                    + "400 se a cobranca ja foi paga ou cancelada.")
+                    + "400 se a cobranca ja foi paga ou cancelada; 409 COBRANCA_NAO_EDITAVEL depois que alguem "
+                    + "clicou em Pagar (para mudar, cancele e lance outra).")
     public CobrancaResponse atualizar(@PathVariable UUID id, @Valid @RequestBody AtualizarCobrancaRequest request) {
         return cobrancaService.atualizar(id, request);
     }
@@ -118,7 +119,10 @@ public class CobrancaController {
     @PatchMapping("/{id}/cancelar")
     @PreAuthorize(Perfis.FINANCEIRO)
     @Operation(summary = "Cancela uma cobranca",
-            description = "A cobranca continua no historico, como CANCELADA. 400 se ja foi paga ou cancelada.")
+            description = "A cobranca continua no historico, como CANCELADA. Se ja foi emitida, e removida antes "
+                    + "no Asaas. 409 COBRANCA_JA_PAGA se ja foi paga, aqui ou no Asaas (o pagamento achado fica "
+                    + "registrado); 409 PAGAMENTO_EM_PROCESSAMENTO enquanto o pagamento esta sendo gerado; 400 se "
+                    + "ja foi cancelada.")
     public CobrancaResponse cancelar(@PathVariable UUID id) {
         return cobrancaService.cancelar(id);
     }
