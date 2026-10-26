@@ -12,8 +12,16 @@ npm install
 npm run dev      # servidor de desenvolvimento em http://localhost:5173
 npm run build    # checagem de tipos (tsc -b) + build de produção em dist/
 npm run lint     # oxlint
+npm test         # testes de tela (Vitest); npm run test:watch reexecuta ao salvar
 npm run preview  # serve o build localmente
 ```
+
+Os testes de tela ficam ao lado do componente (`Componente.test.tsx`) e rodam no jsdom, sem
+navegador nem backend. `simularApi` (em `src/test/api.ts`) troca só o `fetch`: a tela passa pelo
+`apiRequest` de verdade, inclusive o `ProblemDetail` com `codigo` que vira `ApiError`. Para as
+telas que consultam o backend em intervalos (a espera do PIX), use os timers falsos do Vitest
+(`vi.useFakeTimers({ shouldAdvanceTime: true })`) e avance o relógio, como em
+`ModalPagamentoFatura.test.tsx`.
 
 No Docker de desenvolvimento, o código é copiado para a imagem no build. Depois de alterar o
 frontend, reconstrua o container: `docker compose -f Codigo/docker-compose.yml up -d --build frontend`.

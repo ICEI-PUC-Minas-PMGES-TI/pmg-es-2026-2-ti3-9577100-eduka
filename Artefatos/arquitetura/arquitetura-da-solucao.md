@@ -228,6 +228,8 @@ tabelas abaixo resumem as rotas por módulo.
 | `GET` | `/config-pagamento/conta` (conta de recebimento da escola do token; `NAO_INICIADA` antes da ativação; nunca traz a chave nem os dados bancários) | `MASTER` |
 | `POST` | `/config-pagamento/conta/ativar` (cria a conta filha no Asaas com o CNPJ da escola; em `NAO_INICIADA`, `ERRO_CRIACAO` ou `VERIFICACAO_PENDENTE`; sem resposta do Asaas fica `VERIFICACAO_PENDENTE` e a próxima ativação procura pelo CNPJ antes de criar; 409 `ATIVACAO_EM_ANDAMENTO` ou `CONTA_JA_CRIADA`) | `MASTER` |
 | `POST` | `/config-pagamento/conta/sincronizar` (lê a situação da conta no Asaas; uma rotina faz o mesmo a cada 15 min para as que aguardam aprovação) | `MASTER` |
+| `POST` | `/config-pagamento/conta/sandbox/aprovar` (só no perfil `dev`: aprova a conta filha no Sandbox do Asaas; 202; 409 `SANDBOX_INDISPONIVEL` fora do Sandbox) | `MASTER` |
+| `POST` | `/cobrancas/{id}/sandbox/confirmar-pagamento` (só no perfil `dev`: simula no Sandbox o pagamento da cobrança emitida, que chega pelo webhook; 202; 409 `SANDBOX_INDISPONIVEL`) | `MASTER`, `FINANCEIRO` |
 | `GET` | `/usuarios/secretarias` · `/usuarios/secretarias/{id}` | `MASTER` |
 | `POST` | `/usuarios/secretarias` | `MASTER` |
 | `PUT` | `/usuarios/secretarias/{id}` | `MASTER` |

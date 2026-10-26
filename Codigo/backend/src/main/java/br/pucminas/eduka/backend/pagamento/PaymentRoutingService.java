@@ -50,14 +50,17 @@ public class PaymentRoutingService {
     private final RoteadorPagamento roteadorPagamento;
     private final RoteadorEventos eventos;
     private final RoteadorFatura roteadorFatura;
+    private final RoteadorSandbox roteadorSandbox;
 
     PaymentRoutingService(ChamadorProvedor provedor, RoteadorConta roteadorConta,
-            RoteadorPagamento roteadorPagamento, RoteadorEventos eventos, RoteadorFatura roteadorFatura) {
+            RoteadorPagamento roteadorPagamento, RoteadorEventos eventos, RoteadorFatura roteadorFatura,
+            RoteadorSandbox roteadorSandbox) {
         this.provedor = provedor;
         this.roteadorConta = roteadorConta;
         this.roteadorPagamento = roteadorPagamento;
         this.eventos = eventos;
         this.roteadorFatura = roteadorFatura;
+        this.roteadorSandbox = roteadorSandbox;
     }
 
     // ---- Conta de recebimento (MASTER da escola do token) ----
@@ -251,6 +254,18 @@ public class PaymentRoutingService {
      */
     public int sincronizarContasAguardando() {
         return roteadorConta.sincronizarAguardando();
+    }
+
+    // ---- Atalhos de Sandbox (NOVA-6, so no perfil dev) ----
+
+    /** MASTER da escola do token: aprova a conta filha no Sandbox. */
+    public void sandboxAprovarConta() {
+        roteadorSandbox.aprovarConta();
+    }
+
+    /** FINANCEIRO da escola do token: confirma no Sandbox o pagamento da cobranca emitida. */
+    public void sandboxConfirmarPagamento(UUID cobrancaId) {
+        roteadorSandbox.confirmarPagamento(cobrancaId);
     }
 
     private static UnsupportedOperationException naoImplementado(String tarefa) {
