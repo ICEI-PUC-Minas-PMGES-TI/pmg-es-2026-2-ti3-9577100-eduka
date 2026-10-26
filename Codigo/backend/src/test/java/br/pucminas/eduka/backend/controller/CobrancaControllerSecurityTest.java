@@ -51,8 +51,10 @@ import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.domain.StatusMatricula;
 import br.pucminas.eduka.backend.domain.Turma;
+import br.pucminas.eduka.backend.dto.ComprovanteResponse;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
 import br.pucminas.eduka.backend.pagamento.PaymentRoutingService;
+import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
@@ -702,4 +704,31 @@ class CobrancaControllerSecurityTest {
         assertThat(cobranca.getLembreteVencimentoEm()).isNull();
         verifyNoInteractions(avisoCobrancaService);
     }
+
+    // ---------- Comprovante ----------
+
+    @Test
+    void gestaoEFinanceiroVeemOComprovanteDaCobranca() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(paymentRoutingService.comprovanteCobranca(id)).thenReturn(new ComprovanteResponse(id, "Escola A",
+                "12.345.678/0001-90", "Marta", "***.982.247-**", "Mensalidade", NO_PRAZO, new BigDecimal("850.50"),
+                LocalDate.of(2026, 10, 20), FormaPagamento.PIX, "tr_1"));
+
+        for (String perfil : List.of("MASTER", "FINANCEIRO")) {
+            mockMvc.perform(com(get("/cobrancas/" + id + "/comprovante"), accessToken(perfil, ESCOLA_A)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.codigoTransacao").value("tr_1"));
+        }
+    }
+
+    @Test
+    void outrosPerfisNaoVeemOComprovanteDaGestao() throws Exception {
+        UUID id = UUID.randomUUID();
+        for (String perfil : List.of("SECRETARIA", "PROFESSOR", "ALUNO")) {
+            mockMvc.perform(com(get("/cobrancas/" + id + "/comprovante"), accessToken(perfil, ESCOLA_A)))
+                    .andExpect(status().isForbidden());
+        }
+        verify(paymentRoutingService, never()).comprovanteCobranca(any());
+    }
 }
+

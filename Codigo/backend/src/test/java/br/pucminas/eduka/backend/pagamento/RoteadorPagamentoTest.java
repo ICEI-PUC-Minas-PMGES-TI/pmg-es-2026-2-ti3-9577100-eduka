@@ -44,14 +44,19 @@ import br.pucminas.eduka.backend.domain.ClienteProvedor;
 import br.pucminas.eduka.backend.domain.Cobranca;
 import br.pucminas.eduka.backend.domain.ContaProvedorCliente;
 import br.pucminas.eduka.backend.domain.ContaRecebimentoEscola;
+import br.pucminas.eduka.backend.domain.Escola;
+import br.pucminas.eduka.backend.domain.OrigemPagamento;
+import br.pucminas.eduka.backend.domain.PagamentoCobranca;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.domain.StatusContaRecebimento;
+import br.pucminas.eduka.backend.dto.ComprovanteResponse;
 import br.pucminas.eduka.backend.dto.DadosPagamentoResponse;
 import br.pucminas.eduka.backend.dto.HabilitacaoRecebimentos;
 import br.pucminas.eduka.backend.exception.CobrancaJaPagaException;
 import br.pucminas.eduka.backend.exception.CobrancaNaoPagavelException;
+import br.pucminas.eduka.backend.exception.ComprovanteIndisponivelException;
 import br.pucminas.eduka.backend.exception.FormaPagamentoInvalidaException;
 import br.pucminas.eduka.backend.exception.PagadorSemCpfException;
 import br.pucminas.eduka.backend.exception.PagamentoEmProcessamentoException;
@@ -70,6 +75,8 @@ import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.ClienteProvedorRepository;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
 import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
+import br.pucminas.eduka.backend.repository.EscolaRepository;
+import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.PiiCryptoService;
@@ -106,6 +113,8 @@ class RoteadorPagamentoTest {
     private PessoaRepository pessoaRepository;
     private ContaRecebimentoEscolaRepository contaRepository;
     private ClienteProvedorRepository clienteRepository;
+    private PagamentoCobrancaRepository pagamentoRepository;
+    private EscolaRepository escolaRepository;
     private RoteadorConta roteadorConta;
     private RoteadorEventos eventos;
     private PiiCryptoService piiCryptoService;
@@ -121,6 +130,8 @@ class RoteadorPagamentoTest {
         pessoaRepository = mock(PessoaRepository.class);
         contaRepository = mock(ContaRecebimentoEscolaRepository.class);
         clienteRepository = mock(ClienteProvedorRepository.class);
+        pagamentoRepository = mock(PagamentoCobrancaRepository.class);
+        escolaRepository = mock(EscolaRepository.class);
         roteadorConta = mock(RoteadorConta.class);
         eventos = mock(RoteadorEventos.class);
         piiCryptoService = mock(PiiCryptoService.class);
@@ -540,12 +551,103 @@ class RoteadorPagamentoTest {
         verify(provider, never()).removerCobranca(any(), any());
     }
 
+    // ---- Comprovante (R28 a R30) ----
+
+    @Test
+    void comprovanteDoAlunoTrazOPagamentoAEscolaEOPagadorMascarado() {
+        pagaOnline();
+
+        ComprovanteResponse comprovante = roteador(AGORA).comprovante(COBRANCA);
+
+        assertThat(comprovante.numero()).isEqualTo(COBRANCA);
+        assertThat(comprovante.beneficiarioNome()).isEqualTo("Escola Aurora");
+        assertThat(comprovante.beneficiarioDocumento()).isEqualTo("12.345.678/0001-90");
+        assertThat(comprovante.pagadorNome()).isEqualTo("Ana Aluna");
+        assertThat(comprovante.pagadorDocumentoMascarado()).isEqualTo("***.982.247-**");
+        assertThat(comprovante.descricao()).isEqualTo("Mensalidade outubro");
+        assertThat(comprovante.vencimento()).isEqualTo(VENCIMENTO);
+        assertThat(comprovante.valorPago()).isEqualByComparingTo(VALOR);
+        assertThat(comprovante.dataPagamento()).isEqualTo(HOJE);
+        assertThat(comprovante.forma()).isEqualTo(FormaPagamento.PIX);
+        assertThat(comprovante.codigoTransacao()).isEqualTo("tr_1");
+    }
+
+    @Test
+    void comprovanteSaiNoNomeDoResponsavelFinanceiro() {
+        pagaOnline();
+        UUID mae = UUID.randomUUID();
+        financeiro(mae);
+        when(pessoaRepository.findByIdAndEscolaId(mae, ESCOLA))
+                .thenReturn(Optional.of(pessoa(mae, "Marta Mae", "11144477735")));
+
+        ComprovanteResponse comprovante = roteador(AGORA).comprovante(COBRANCA);
+
+        assertThat(comprovante.pagadorNome()).isEqualTo("Marta Mae");
+        assertThat(comprovante.pagadorDocumentoMascarado()).isEqualTo("***.444.777-**");
+    }
+
+    @Test
+    void financeiroDaEscolaVeOComprovanteDeQualquerAluno() {
+        pagaOnline();
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
+                new UsuarioAutenticado(UUID.randomUUID(), "FINANCEIRO", ESCOLA), null, "ROLE_FINANCEIRO"));
+
+        assertThat(roteador(AGORA).comprovante(COBRANCA).numero()).isEqualTo(COBRANCA);
+        verify(alunoRepository, never()).findByUsuarioIdAndEscolaId(any(), any());
+    }
+
+    @Test
+    void comprovanteDeCobrancaDeOutroAlunoResponde404() {
+        pagaOnline();
+        when(alunoRepository.findByUsuarioIdAndEscolaId(USUARIO, ESCOLA)).thenReturn(Optional.of(
+                Aluno.builder().id(UUID.randomUUID()).escolaId(ESCOLA).pessoaId(UUID.randomUUID()).build()));
+
+        assertThatThrownBy(() -> roteador(AGORA).comprovante(COBRANCA))
+                .isInstanceOf(RecursoNaoEncontradoException.class);
+        verifyNoInteractions(pagamentoRepository);
+    }
+
+    @Test
+    void semPagamentoConfirmadoNaoHaComprovante() {
+        assertThatThrownBy(() -> roteador(AGORA).comprovante(COBRANCA))
+                .isInstanceOf(ComprovanteIndisponivelException.class);
+        verifyNoInteractions(pagamentoRepository);
+    }
+
+    @Test
+    void baixaManualNaoTemComprovante() {
+        cobranca.setStatus(StatusCobranca.PAGA);
+        when(pagamentoRepository.findByEscolaIdAndCobrancaId(ESCOLA, COBRANCA)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> roteador(AGORA).comprovante(COBRANCA))
+                .isInstanceOf(ComprovanteIndisponivelException.class);
+    }
+
+    @Test
+    void escolaCadastradaComCpfSaiMascarada() {
+        assertThat(RoteadorPagamento.documentoDoBeneficiario("52998224725")).isEqualTo("***.982.247-**");
+        assertThat(RoteadorPagamento.documentoDoBeneficiario(null)).isNull();
+    }
+
     // ---- apoio ----
+
+    private void pagaOnline() {
+        emitida(FormaPagamento.PIX);
+        cobranca.setStatus(StatusCobranca.PAGA);
+        when(pagamentoRepository.findByEscolaIdAndCobrancaId(ESCOLA, COBRANCA)).thenReturn(Optional.of(
+                PagamentoCobranca.builder().escolaId(ESCOLA).cobrancaId(COBRANCA).valorPago(VALOR).dataPagamento(HOJE)
+                        .formaPagamento(FormaPagamento.PIX).origem(OrigemPagamento.ONLINE).idTransacaoExterna("tr_1")
+                        .build()));
+        Escola escola = mock(Escola.class);
+        when(escola.getNome()).thenReturn("Escola Aurora");
+        when(escola.getCnpjCpf()).thenReturn("12345678000190");
+        when(escolaRepository.findById(ESCOLA)).thenReturn(Optional.of(escola));
+    }
 
     private RoteadorPagamento roteador(Instant agora) {
         return new RoteadorPagamento(cobrancaRepository, alunoRepository, alunoResponsavelRepository,
-                pessoaRepository, contaRepository, clienteRepository, roteadorConta, eventos, new IsolamentoEscola(),
-                piiCryptoService, new ChamadorProvedor(provider), new TransacaoQueMarcaAtiva(),
+                pessoaRepository, contaRepository, clienteRepository, pagamentoRepository, escolaRepository, roteadorConta,
+                eventos, new IsolamentoEscola(), piiCryptoService, new ChamadorProvedor(provider), new TransacaoQueMarcaAtiva(),
                 Clock.fixed(agora, ZoneOffset.UTC));
     }
 

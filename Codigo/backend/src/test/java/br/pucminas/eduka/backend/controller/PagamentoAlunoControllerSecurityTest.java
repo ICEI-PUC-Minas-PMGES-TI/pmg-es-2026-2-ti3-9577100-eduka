@@ -37,10 +37,12 @@ import br.pucminas.eduka.backend.domain.Cobranca;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.dto.BoletoResponse;
+import br.pucminas.eduka.backend.dto.ComprovanteResponse;
 import br.pucminas.eduka.backend.dto.DadosPagamentoResponse;
 import br.pucminas.eduka.backend.dto.PixResponse;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
 import br.pucminas.eduka.backend.exception.CobrancaNaoPagavelException;
+import br.pucminas.eduka.backend.exception.ComprovanteIndisponivelException;
 import br.pucminas.eduka.backend.exception.PagadorSemCpfException;
 import br.pucminas.eduka.backend.exception.PagamentoEmProcessamentoException;
 import br.pucminas.eduka.backend.exception.RecebimentosIndisponiveisException;
@@ -302,5 +304,45 @@ class PagamentoAlunoControllerSecurityTest {
         mockMvc.perform(get(urlBoleto()).header(HttpHeaders.AUTHORIZATION, "Bearer " + token("ALUNO", ESCOLA)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.codigo").value("BOLETO_NAO_GERADO"));
+    }
+
+    // ---- Comprovante ----
+
+    private String urlComprovante() {
+        return "/portal/aluno/cobrancas/" + COBRANCA + "/comprovante";
+    }
+
+    @Test
+    void alunoVeOComprovanteSemNadaDoProvedor() throws Exception {
+        when(paymentRoutingService.comprovanteCobranca(COBRANCA)).thenReturn(new ComprovanteResponse(COBRANCA,
+                "Escola Aurora", "12.345.678/0001-90", "Ana Aluna", "***.982.247-**", "Mensalidade outubro",
+                VENCIMENTO, VALOR, LocalDate.of(2026, 10, 20), FormaPagamento.PIX, "tr_1"));
+
+        mockMvc.perform(get(urlComprovante()).header(HttpHeaders.AUTHORIZATION, "Bearer " + token("ALUNO", ESCOLA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.numero").value(COBRANCA.toString()))
+                .andExpect(jsonPath("$.pagadorDocumentoMascarado").value("***.982.247-**"))
+                .andExpect(jsonPath("$.codigoTransacao").value("tr_1"))
+                .andExpect(content().string(Matchers.not(Matchers.containsString("asaas"))));
+    }
+
+    @Test
+    void soAlunoVeOComprovanteNoPortal() throws Exception {
+        for (String perfil : List.of("MASTER", "SECRETARIA", "FINANCEIRO", "PROFESSOR")) {
+            mockMvc.perform(get(urlComprovante())
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token(perfil, ESCOLA)))
+                    .andExpect(status().isForbidden());
+        }
+        mockMvc.perform(get(urlComprovante())).andExpect(status().isUnauthorized());
+        verify(paymentRoutingService, never()).comprovanteCobranca(any());
+    }
+
+    @Test
+    void comprovanteAntesDoPagamentoResponde404ComCodigo() throws Exception {
+        when(paymentRoutingService.comprovanteCobranca(COBRANCA)).thenThrow(new ComprovanteIndisponivelException());
+
+        mockMvc.perform(get(urlComprovante()).header(HttpHeaders.AUTHORIZATION, "Bearer " + token("ALUNO", ESCOLA)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.codigo").value("COMPROVANTE_INDISPONIVEL"));
     }
 }

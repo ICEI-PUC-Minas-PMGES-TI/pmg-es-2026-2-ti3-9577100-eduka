@@ -101,9 +101,9 @@ public class PaymentRoutingService {
         return roteadorFatura.pagar(faturaId, forma);
     }
 
-    /** ALUNO dono, MASTER/FINANCEIRO da escola. */
+    /** ALUNO dono, MASTER/FINANCEIRO da escola; R28 a R30. */
     public ComprovanteResponse comprovanteCobranca(UUID cobrancaId) {
-        throw naoImplementado("RF16.1");
+        return roteadorPagamento.comprovante(cobrancaId);
     }
 
     /** SUPER_ADMIN, pela escola do caminho (R29). */

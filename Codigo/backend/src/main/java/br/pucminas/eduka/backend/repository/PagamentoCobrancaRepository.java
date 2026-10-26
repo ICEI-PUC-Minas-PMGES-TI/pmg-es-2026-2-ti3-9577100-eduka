@@ -16,5 +16,8 @@ public interface PagamentoCobrancaRepository extends JpaRepository<PagamentoCobr
     Optional<PagamentoCobranca> findByCobrancaId(UUID cobrancaId);
 
     /** Sem {@code @TenantId} na entidade: a escola entra explicita no filtro. */
+    Optional<PagamentoCobranca> findByEscolaIdAndCobrancaId(UUID escolaId, UUID cobrancaId);
+
+    /** Sem {@code @TenantId} na entidade: a escola entra explicita no filtro. */
     List<PagamentoCobranca> findAllByEscolaIdAndCobrancaIdIn(UUID escolaId, Collection<UUID> cobrancaIds);
 }

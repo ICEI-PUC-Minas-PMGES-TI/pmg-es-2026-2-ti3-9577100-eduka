@@ -21,7 +21,9 @@ import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.dto.AtualizarCobrancaRequest;
 import br.pucminas.eduka.backend.dto.CobrancaRequest;
 import br.pucminas.eduka.backend.dto.CobrancaResponse;
+import br.pucminas.eduka.backend.dto.ComprovanteResponse;
 import br.pucminas.eduka.backend.dto.PaginaCobrancasResponse;
+import br.pucminas.eduka.backend.pagamento.PaymentRoutingService;
 import br.pucminas.eduka.backend.repository.CobrancaFiltro;
 import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.CobrancaService;
@@ -39,9 +41,11 @@ import jakarta.validation.Valid;
 public class CobrancaController {
 
     private final CobrancaService cobrancaService;
+    private final PaymentRoutingService paymentRoutingService;
 
-    public CobrancaController(CobrancaService cobrancaService) {
+    public CobrancaController(CobrancaService cobrancaService, PaymentRoutingService paymentRoutingService) {
         this.cobrancaService = cobrancaService;
+        this.paymentRoutingService = paymentRoutingService;
     }
 
     @GetMapping
@@ -80,6 +84,15 @@ public class CobrancaController {
     @Operation(summary = "Busca uma cobranca")
     public CobrancaResponse buscar(@PathVariable UUID id) {
         return cobrancaService.buscar(id);
+    }
+
+    @GetMapping("/{id}/comprovante")
+    @PreAuthorize(Perfis.FINANCEIRO)
+    @Operation(summary = "Comprovante do pagamento online", description = "Montado pelo Eduka, com a escola como "
+            + "beneficiaria e o CPF do pagador mascarado. 404 COMPROVANTE_INDISPONIVEL enquanto nao ha pagamento "
+            + "online registrado (a baixa manual nao tem comprovante).")
+    public ComprovanteResponse comprovante(@PathVariable UUID id) {
+        return paymentRoutingService.comprovanteCobranca(id);
     }
 
     @PostMapping
