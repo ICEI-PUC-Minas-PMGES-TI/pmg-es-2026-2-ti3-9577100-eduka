@@ -242,6 +242,12 @@ public class ApiExceptionHandler {
                 .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "FATURA_DUPLICADA"));
     }
 
+    @ExceptionHandler(SandboxIndisponivelException.class)
+    public ResponseEntity<ProblemDetail> sandboxIndisponivel(SandboxIndisponivelException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "SANDBOX_INDISPONIVEL"));
+    }
+
     @ExceptionHandler(ComprovanteIndisponivelException.class)
     public ResponseEntity<ProblemDetail> comprovanteIndisponivel(ComprovanteIndisponivelException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
