@@ -78,7 +78,7 @@ class RoteadorEventos {
     /** Avisos sobre uma cobranca; os de fatura ({@code EDK-A-}) seguem a coluna da fatura na §8.4. */
     private static final Set<TipoEventoProvedor> AVISOS_DE_COBRANCA = EnumSet.of(TipoEventoProvedor.COBRANCA_CRIADA,
             TipoEventoProvedor.PAGAMENTO_CONFIRMADO, TipoEventoProvedor.PAGAMENTO_RECEBIDO,
-            TipoEventoProvedor.COBRANCA_REMOVIDA);
+            TipoEventoProvedor.COBRANCA_REMOVIDA, TipoEventoProvedor.ESTORNO, TipoEventoProvedor.CONTESTACAO);
 
     RoteadorEventos(EventoProvedorRepository eventoRepository, CobrancaRepository cobrancaRepository,
             ContaRecebimentoEscolaRepository contaRepository, PagamentoCobrancaRepository pagamentoRepository,
@@ -151,6 +151,7 @@ class RoteadorEventos {
             case PAGAMENTO_RECEBIDO, PAGAMENTO_CONFIRMADO -> aplicarPagamento(registro, evento);
             case COBRANCA_CRIADA -> aplicarCriada(registro, evento);
             case COBRANCA_REMOVIDA -> aplicarRemovida(registro, evento);
+            case ESTORNO, CONTESTACAO -> aplicarEstornoOuContestacao(registro, evento);
             case SITUACAO_CONTA_ALTERADA -> aplicarSituacaoConta(registro, evento);
             default -> encerrar(registro, StatusEventoProvedor.IGNORADO,
                     "Tipo de aviso sem efeito no webhook: " + evento.tipo());
@@ -355,6 +356,31 @@ class RoteadorEventos {
     }
 
     /**
+     * Estorno ou contestacao feitos no provedor: so ficam no log de auditoria,
+     * sem autor, para a escola acompanhar. A situacao da cobranca nao muda:
+     * o que o estorno faz com uma cobranca PAGA ainda e decisao do grupo.
+     */
+    private void aplicarEstornoOuContestacao(br.pucminas.eduka.backend.domain.EventoProvedor registro,
+            EventoProvedor evento) {
+        Optional<CobrancaLocal> encontrada = cobrancaDaEscola(registro, evento);
+        if (encontrada.isEmpty()) {
+            return;
+        }
+        CobrancaLocal cobranca = encontrada.get();
+        auditoriaService.registrarDoProvedor(operacaoDe(evento.tipo()), EntidadeAuditada.COBRANCA,
+                cobranca.aviso().id(), cobranca.aviso().escolaId());
+        log.warn("{} no provedor para a cobranca {} ({}); situacao no Eduka mantida", evento.tipo(),
+                cobranca.aviso().id(), evento.tipoOriginal());
+        encerrar(registro, StatusEventoProvedor.PROCESSADO,
+                limitar(evento.tipoOriginal() + " registrado na auditoria; a cobranca continua " + cobranca.status(),
+                        MAX_MOTIVO));
+    }
+
+    private static OperacaoAuditoria operacaoDe(TipoEventoProvedor tipo) {
+        return tipo == TipoEventoProvedor.ESTORNO ? OperacaoAuditoria.ESTORNAR : OperacaoAuditoria.CONTESTAR;
+    }
+
+    /**
      * Aviso de fatura da plataforma (Fluxo A), pela coluna da fatura na §8.4.
      * A fatura e cobrada na conta-pai: aviso que vem da conta de uma escola e
      * ignorado, porque a escola poderia criar na propria conta uma cobranca
@@ -431,6 +457,13 @@ class RoteadorEventos {
                     encerrar(registro, StatusEventoProvedor.IGNORADO,
                             "Sem efeito: a fatura ja estava " + fatura.getStatus());
                 }
+            }
+            case ESTORNO, CONTESTACAO -> {
+                auditarFatura(operacaoDe(evento.tipo()), fatura);
+                log.warn("{} no provedor para a fatura {} ({}); situacao no Eduka mantida", evento.tipo(), faturaId,
+                        evento.tipoOriginal());
+                encerrar(registro, StatusEventoProvedor.PROCESSADO,
+                        evento.tipoOriginal() + " registrado na auditoria; a fatura continua " + fatura.getStatus());
             }
             default -> encerrar(registro, StatusEventoProvedor.IGNORADO,
                     "Tipo de aviso sem efeito no webhook: " + evento.tipo());

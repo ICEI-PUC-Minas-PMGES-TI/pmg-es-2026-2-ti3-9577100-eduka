@@ -402,14 +402,74 @@ class RoteadorEventosTest {
     @Test
     void avisoSemEfeitoNoWebhookEIgnorado() {
         when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
-        EventoProvedor estorno = new EventoProvedor("evt_2&2", TipoEventoProvedor.NAO_TRATADO, "PAYMENT_REFUNDED",
-                CONTA_ESCOLA, cobrancaProvedor(null, StatusCobrancaProvedor.AGUARDANDO_PAGAMENTO), null,
+        EventoProvedor vencida = new EventoProvedor("evt_2&2", TipoEventoProvedor.NAO_TRATADO, "PAYMENT_OVERDUE",
+                CONTA_ESCOLA, cobrancaProvedor(null, StatusCobrancaProvedor.VENCIDA), null,
                 LocalDate.of(2026, 10, 19), "{}");
 
-        roteador.aplicar(EVENTO, estorno);
+        roteador.aplicar(EVENTO, vencida);
 
         verifyNoInteractions(cobrancaRepository, pagamentoRepository, avisoCobrancaService);
         assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.IGNORADO);
+    }
+
+    // ---- Estorno e contestacao (RF22.2) ----
+
+    @Test
+    void estornoNoProvedorFicaNoLogSemMudarACobranca() {
+        cobrancaEncontradaPeloIdExterno("PAGA");
+        when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_ESCOLA)).thenReturn(Optional.of(ESCOLA));
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, avisoDeCobranca(TipoEventoProvedor.ESTORNO, CONTA_ESCOLA));
+
+        verify(auditoriaService).registrarDoProvedor(OperacaoAuditoria.ESTORNAR, EntidadeAuditada.COBRANCA,
+                COBRANCA, ESCOLA);
+        verify(cobrancaRepository, never()).marcarPagaPeloProvedor(any(), any());
+        verify(cobrancaRepository, never()).cancelarPeloProvedor(any(), any());
+        verifyNoInteractions(pagamentoRepository, avisoCobrancaService);
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.PROCESSADO);
+        assertThat(registro.getMotivo()).contains("ESTORNO").contains("PAGA");
+    }
+
+    @Test
+    void contestacaoNoProvedorFicaNoLogSemMudarACobranca() {
+        cobrancaEncontradaPeloIdExterno("PAGA");
+        when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_ESCOLA)).thenReturn(Optional.of(ESCOLA));
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, avisoDeCobranca(TipoEventoProvedor.CONTESTACAO, CONTA_ESCOLA));
+
+        verify(auditoriaService).registrarDoProvedor(OperacaoAuditoria.CONTESTAR, EntidadeAuditada.COBRANCA,
+                COBRANCA, ESCOLA);
+        verifyNoInteractions(pagamentoRepository, avisoCobrancaService);
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.PROCESSADO);
+    }
+
+    @Test
+    void estornoAvisadoPorContaDeOutraEscolaEIgnorado() {
+        cobrancaEncontradaPeloIdExterno("PAGA");
+        when(contaRepository.buscarEscolaPorIdContaExterna("conta-de-outra-escola"))
+                .thenReturn(Optional.of(OUTRA_ESCOLA));
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, avisoDeCobranca(TipoEventoProvedor.ESTORNO, "conta-de-outra-escola"));
+
+        verifyNoInteractions(auditoriaService);
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.IGNORADO);
+    }
+
+    @Test
+    void estornoDaFaturaNaContaPaiFicaNoLogSemMudarAFatura() {
+        FaturaPlataforma fatura = fatura(StatusCobranca.PAGA, SituacaoProvedor.EMITIDA);
+        when(faturaRepository.travar(FATURA)).thenReturn(Optional.of(fatura));
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+
+        roteador.aplicar(EVENTO, avisoDeFatura(TipoEventoProvedor.ESTORNO, null, true));
+
+        verify(auditoriaService).registrarDoProvedor(OperacaoAuditoria.ESTORNAR, EntidadeAuditada.FATURA_PLATAFORMA,
+                FATURA, ESCOLA);
+        assertThat(fatura.getStatus()).isEqualTo(StatusCobranca.PAGA);
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.PROCESSADO);
     }
 
     // ---- Fatura da plataforma (EDK-A-, Fluxo A) ----
