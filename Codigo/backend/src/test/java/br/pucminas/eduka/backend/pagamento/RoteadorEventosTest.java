@@ -753,6 +753,139 @@ class RoteadorEventosTest {
         verifyNoInteractions(avisoCobrancaService, auditoriaService);
     }
 
+    // ---- Reconciliacao (NOVA-4, spec §8.4) ----
+
+    @Test
+    void cobrancaAchadaNoProvedorSaiDeEmitindoComoNoAvisoDeCriacao() {
+        when(cobrancaRepository.buscarParaPagamentoOnlinePorId(COBRANCA))
+                .thenReturn(linhaDaCobranca("PENDENTE", "EMITINDO"));
+        when(cobrancaRepository.marcarEmitidaPeloProvedor(COBRANCA, COBRANCA_EXTERNA, AGORA)).thenReturn(1);
+
+        assertThat(roteador.reconciliarCobranca(COBRANCA,
+                Optional.of(cobrancaProvedor(null, StatusCobrancaProvedor.AGUARDANDO_PAGAMENTO)))).isTrue();
+
+        verify(pagamentoRepository, never()).save(any());
+        verifyNoInteractions(auditoriaService, avisoCobrancaService);
+    }
+
+    @Test
+    void cobrancaAchadaJaPagaFicaEmitidaEPagaComoNoAvisoDePagamento() {
+        when(cobrancaRepository.buscarParaPagamentoOnlinePorId(COBRANCA))
+                .thenReturn(linhaDaCobranca("PENDENTE", "EMITINDO"));
+        when(cobrancaRepository.marcarEmitidaPeloProvedor(COBRANCA, COBRANCA_EXTERNA, AGORA)).thenReturn(1);
+        when(cobrancaRepository.marcarPagaPeloProvedor(COBRANCA, AGORA)).thenReturn(1);
+
+        assertThat(roteador.reconciliarCobranca(COBRANCA,
+                Optional.of(cobrancaProvedor(new BigDecimal("150.00"), StatusCobrancaProvedor.RECEBIDA)))).isTrue();
+
+        ArgumentCaptor<PagamentoCobranca> pagamento = ArgumentCaptor.forClass(PagamentoCobranca.class);
+        verify(pagamentoRepository).save(pagamento.capture());
+        assertThat(pagamento.getValue().getOrigem()).isEqualTo(OrigemPagamento.ONLINE);
+        assertThat(pagamento.getValue().getEventoId()).isNull();
+        verify(auditoriaService).registrarDoProvedor(OperacaoAuditoria.CONFIRMAR_PAGAMENTO,
+                EntidadeAuditada.COBRANCA, COBRANCA, ESCOLA);
+        verify(avisoCobrancaService).publicar(eq(AvisoCobranca.Tipo.PAGAMENTO_CONFIRMADO),
+                any(CobrancaParaAviso.class));
+    }
+
+    @Test
+    void cobrancaQueNaoExisteNoProvedorPodeSerEmitidaDeNovo() {
+        when(cobrancaRepository.buscarParaPagamentoOnlinePorId(COBRANCA))
+                .thenReturn(linhaDaCobranca("PENDENTE", "EMITINDO"));
+        when(cobrancaRepository.marcarFalhaEmissaoPeloProvedor(COBRANCA, RoteadorEventos.NAO_ACHADA_NO_PROVEDOR,
+                AGORA)).thenReturn(1);
+
+        assertThat(roteador.reconciliarCobranca(COBRANCA, Optional.empty())).isTrue();
+
+        verify(cobrancaRepository, never()).marcarEmitidaPeloProvedor(any(), any(), any());
+    }
+
+    @Test
+    void cobrancaRemovidaNoProvedorContaComoNaoAchada() {
+        when(cobrancaRepository.buscarParaPagamentoOnlinePorId(COBRANCA))
+                .thenReturn(linhaDaCobranca("PENDENTE", "EMITINDO"));
+        when(cobrancaRepository.marcarFalhaEmissaoPeloProvedor(COBRANCA, RoteadorEventos.NAO_ACHADA_NO_PROVEDOR,
+                AGORA)).thenReturn(1);
+
+        assertThat(roteador.reconciliarCobranca(COBRANCA,
+                Optional.of(cobrancaProvedor(null, StatusCobrancaProvedor.REMOVIDA)))).isTrue();
+    }
+
+    @Test
+    void cobrancaQueOAvisoJaTirouDeEmitindoNaoMuda() {
+        when(cobrancaRepository.buscarParaPagamentoOnlinePorId(COBRANCA)).thenReturn(linhaDaCobranca("PENDENTE"));
+
+        assertThat(roteador.reconciliarCobranca(COBRANCA, Optional.empty())).isFalse();
+
+        verify(cobrancaRepository, never()).marcarFalhaEmissaoPeloProvedor(any(), any(), any());
+        verify(cobrancaRepository, never()).marcarEmitidaPeloProvedor(any(), any(), any());
+    }
+
+    @Test
+    void pagamentoQueOAvisoJaGravouNaoDuplicaNaReconciliacao() {
+        when(cobrancaRepository.buscarParaPagamentoOnlinePorId(COBRANCA))
+                .thenReturn(linhaDaCobranca("PAGA", "EMITINDO"));
+        when(cobrancaRepository.marcarEmitidaPeloProvedor(COBRANCA, COBRANCA_EXTERNA, AGORA)).thenReturn(1);
+        when(pagamentoRepository.findByCobrancaId(COBRANCA)).thenReturn(Optional.of(pagamentoRegistrado(
+                new BigDecimal("149.01"), LocalDate.of(2026, 10, 19))));
+
+        assertThat(roteador.reconciliarCobranca(COBRANCA,
+                Optional.of(cobrancaProvedor(new BigDecimal("150.00"), StatusCobrancaProvedor.RECEBIDA)))).isTrue();
+
+        verify(pagamentoRepository, never()).save(any());
+        verifyNoInteractions(auditoriaService, avisoCobrancaService);
+    }
+
+    @Test
+    void faturaAchadaNaContaPaiSaiDeEmitindo() {
+        FaturaPlataforma fatura = fatura(StatusCobranca.PENDENTE, SituacaoProvedor.EMITINDO);
+        when(faturaRepository.travar(FATURA)).thenReturn(Optional.of(fatura));
+
+        assertThat(roteador.reconciliarFatura(FATURA, Optional.of(avisoDeFatura(TipoEventoProvedor.COBRANCA_CRIADA,
+                CONTA_PAI, false).cobranca()))).isTrue();
+
+        assertThat(fatura.getSituacaoProvedor()).isEqualTo(SituacaoProvedor.EMITIDA);
+        assertThat(fatura.getIdCobrancaExterna()).isEqualTo(COBRANCA_EXTERNA);
+        assertThat(fatura.getStatus()).isEqualTo(StatusCobranca.PENDENTE);
+        verifyNoInteractions(auditoriaService);
+    }
+
+    @Test
+    void faturaAchadaJaPagaFicaPagaEAuditada() {
+        FaturaPlataforma fatura = fatura(StatusCobranca.PENDENTE, SituacaoProvedor.EMITINDO);
+        when(faturaRepository.travar(FATURA)).thenReturn(Optional.of(fatura));
+
+        assertThat(roteador.reconciliarFatura(FATURA, Optional.of(avisoDeFatura(
+                TipoEventoProvedor.PAGAMENTO_RECEBIDO, CONTA_PAI, true).cobranca()))).isTrue();
+
+        assertThat(fatura.getSituacaoProvedor()).isEqualTo(SituacaoProvedor.EMITIDA);
+        assertThat(fatura.getStatus()).isEqualTo(StatusCobranca.PAGA);
+        assertThat(fatura.getValorPago()).isEqualByComparingTo("150.00");
+        verify(auditoriaService).registrarDoProvedor(OperacaoAuditoria.CONFIRMAR_PAGAMENTO,
+                EntidadeAuditada.FATURA_PLATAFORMA, FATURA, ESCOLA);
+    }
+
+    @Test
+    void faturaQueNaoExisteNaContaPaiPodeSerEmitidaDeNovo() {
+        FaturaPlataforma fatura = fatura(StatusCobranca.PENDENTE, SituacaoProvedor.EMITINDO);
+        when(faturaRepository.travar(FATURA)).thenReturn(Optional.of(fatura));
+
+        assertThat(roteador.reconciliarFatura(FATURA, Optional.empty())).isTrue();
+
+        assertThat(fatura.getSituacaoProvedor()).isEqualTo(SituacaoProvedor.FALHA_EMISSAO);
+        assertThat(fatura.getUltimoErroProvedor()).isEqualTo(RoteadorEventos.NAO_ACHADA_NO_PROVEDOR);
+    }
+
+    @Test
+    void faturaQueOAvisoJaTirouDeEmitindoNaoMuda() {
+        FaturaPlataforma fatura = fatura(StatusCobranca.PENDENTE, SituacaoProvedor.EMITIDA);
+        when(faturaRepository.travar(FATURA)).thenReturn(Optional.of(fatura));
+
+        assertThat(roteador.reconciliarFatura(FATURA, Optional.empty())).isFalse();
+
+        assertThat(fatura.getSituacaoProvedor()).isEqualTo(SituacaoProvedor.EMITIDA);
+    }
+
     // ---- Apoio ----
 
     private void cobrancaEncontradaPeloIdExterno(String status) {

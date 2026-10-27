@@ -51,16 +51,18 @@ public class PaymentRoutingService {
     private final RoteadorEventos eventos;
     private final RoteadorFatura roteadorFatura;
     private final RoteadorSandbox roteadorSandbox;
+    private final RoteadorReconciliacao roteadorReconciliacao;
 
     PaymentRoutingService(ChamadorProvedor provedor, RoteadorConta roteadorConta,
             RoteadorPagamento roteadorPagamento, RoteadorEventos eventos, RoteadorFatura roteadorFatura,
-            RoteadorSandbox roteadorSandbox) {
+            RoteadorSandbox roteadorSandbox, RoteadorReconciliacao roteadorReconciliacao) {
         this.provedor = provedor;
         this.roteadorConta = roteadorConta;
         this.roteadorPagamento = roteadorPagamento;
         this.eventos = eventos;
         this.roteadorFatura = roteadorFatura;
         this.roteadorSandbox = roteadorSandbox;
+        this.roteadorReconciliacao = roteadorReconciliacao;
     }
 
     // ---- Conta de recebimento (MASTER da escola do token) ----
@@ -253,9 +255,18 @@ public class PaymentRoutingService {
         return pendentes.size();
     }
 
-    /** Agendador; spec §8.4. */
-    public void reconciliarEmissoesPendentes() {
-        throw naoImplementado("NOVA-4");
+    /**
+     * Agendador, sem usuario autenticado; spec §8.4. Procura no provedor, pela
+     * referencia, as cobrancas e faturas que ficaram EMITINDO sem resposta e
+     * grava o mesmo resultado do aviso: emitida (e paga, se ja foi) ou, se
+     * nao existe la, com falha de emissao, para poder ser emitida de novo.
+     * Falha numa delas nao para as outras; ela continua EMITINDO.
+     *
+     * @param lote quantas cobrancas e quantas faturas por execucao
+     * @return quantas sairam de EMITINDO
+     */
+    public int reconciliarEmissoesPendentes(int lote) {
+        return roteadorReconciliacao.reconciliar(lote);
     }
 
     /**
@@ -277,9 +288,5 @@ public class PaymentRoutingService {
     /** FINANCEIRO da escola do token: confirma no Sandbox o pagamento da cobranca emitida. */
     public void sandboxConfirmarPagamento(UUID cobrancaId) {
         roteadorSandbox.confirmarPagamento(cobrancaId);
-    }
-
-    private static UnsupportedOperationException naoImplementado(String tarefa) {
-        return new UnsupportedOperationException("Ainda nao implementado (tarefa " + tarefa + ")");
     }
 }
