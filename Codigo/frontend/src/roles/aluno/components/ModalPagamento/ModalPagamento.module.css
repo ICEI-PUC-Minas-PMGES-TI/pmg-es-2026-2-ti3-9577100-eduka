@@ -155,3 +155,64 @@
     align-items: stretch;
   }
 }
+
+/* Escolha da forma de pagamento: um cartao por opcao, o escolhido em destaque. */
+.formas {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.formas legend {
+  margin-bottom: 8px;
+}
+
+.forma {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg-tint);
+  cursor: pointer;
+}
+
+.forma:hover {
+  border-color: var(--color-primary);
+}
+
+.formaEscolhida {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+/* O radio fica para o teclado e o leitor de tela; o cartao mostra a escolha. */
+.formaRadio {
+  accent-color: var(--color-primary);
+}
+
+.forma:focus-within {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.formaIcone {
+  display: inline-flex;
+  color: var(--color-primary);
+}
+
+.formaTexto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 14px;
+}
+
+.formaTexto span {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}

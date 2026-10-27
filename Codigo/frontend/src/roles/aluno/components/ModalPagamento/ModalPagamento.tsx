@@ -27,6 +27,8 @@ const NOME_FORMA: Record<FormaPagamento, string> = { PIX: 'o PIX', BOLETO: 'o bo
 type Pronto = { forma: 'PIX'; pix: DadosPix } | { forma: 'BOLETO'; boleto: DadosBoleto; vencimento: string }
 
 type Etapa =
+  /** O aluno escolhe PIX ou boleto e clica em Pagar. Nada foi pedido ao provedor ainda. */
+  | { tipo: 'escolhendo' }
   | { tipo: 'gerando' }
   | { tipo: 'processando' }
   | { tipo: 'pronto'; dados: Pronto }
@@ -97,23 +99,40 @@ function nomeDoArquivo(descricao: string): string {
   return `boleto-${base || 'cobranca'}.pdf`
 }
 
+const OPCOES_FORMA: { forma: FormaPagamento; titulo: string; descricao: string; icone: 'card' | 'fileText' }[] = [
+  {
+    forma: 'PIX',
+    titulo: 'PIX',
+    descricao: 'QR Code ou copia e cola. Confirmação na hora.',
+    icone: 'card',
+  },
+  {
+    forma: 'BOLETO',
+    titulo: 'Boleto',
+    descricao: 'PDF e código de barras. Confirmação em até 3 dias úteis.',
+    icone: 'fileText',
+  },
+]
+
 type ModalPagamentoProps = {
   cobranca: CobrancaDoHistorico
-  forma: FormaPagamento
   /** Pagamento confirmado: a lista recarrega. */
   onPago: () => void
   onFechar: () => void
 }
 
 /**
- * Pagar uma cobrança sem sair do Eduka. PIX: QR Code e copia e cola, e a tela
- * fica consultando a cobrança até o provedor confirmar o pagamento. Boleto:
- * linha digitável para copiar e o PDF oficial para baixar; a compensação leva
- * dias úteis, então não há espera na tela. Fechar não cancela nada: o mesmo
- * PIX ou boleto volta ao abrir de novo.
+ * Pagar uma cobrança sem sair do Eduka: o aluno escolhe PIX ou boleto e clica
+ * em Pagar. PIX: QR Code e copia e cola, e a tela fica consultando a cobrança
+ * até o provedor confirmar o pagamento. Boleto: linha digitável para copiar e
+ * o PDF oficial para baixar; a compensação leva dias úteis, então não há
+ * espera na tela. Tudo vem pela API do Eduka: nenhum link leva à página do
+ * provedor. Fechar não cancela nada: o mesmo PIX ou boleto volta ao abrir de
+ * novo, e trocar a forma altera a mesma cobrança.
  */
-export function ModalPagamento({ cobranca, forma, onPago, onFechar }: ModalPagamentoProps) {
-  const [etapa, setEtapa] = useState<Etapa>({ tipo: 'gerando' })
+export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoProps) {
+  const [etapa, setEtapa] = useState<Etapa>({ tipo: 'escolhendo' })
+  const [forma, setForma] = useState<FormaPagamento>('PIX')
   const [copiado, setCopiado] = useState<'sim' | 'falhou' | null>(null)
   const [verificando, setVerificando] = useState(false)
   const [baixando, setBaixando] = useState(false)
@@ -159,7 +178,7 @@ export function ModalPagamento({ cobranca, forma, onPago, onFechar }: ModalPagam
     [cobranca.id],
   )
 
-  const gerar = useCallback(() => {
+  const gerar = useCallback((forma: FormaPagamento) => {
     pedidos.current += 1
     if (pedidos.current > MAX_PEDIDOS) {
       pedidos.current = 0
@@ -191,15 +210,24 @@ export function ModalPagamento({ cobranca, forma, onPago, onFechar }: ModalPagam
           setEtapa(mensagemDaRecusa(erro, forma))
         }
       })
-  }, [cobranca.id, forma, explicarRecusa])
+  }, [cobranca.id, explicarRecusa])
 
-  useEffect(() => {
-    gerar()
-  }, [gerar])
+  /** Botão "Pagar": só aqui o PIX ou o boleto é pedido ao provedor. */
+  function pagar() {
+    pedidos.current = 0
+    gerar(forma)
+  }
 
   function tentarDeNovo() {
     pedidos.current = 0
-    gerar()
+    gerar(forma)
+  }
+
+  /** Volta à escolha. O próximo Pagar troca a forma na mesma cobrança. */
+  function trocarForma() {
+    setCopiado(null)
+    setErroDownload(null)
+    setEtapa({ tipo: 'escolhendo' })
   }
 
   /** Pergunta ao backend em que pé está o pagamento. Uma consulta por vez. */
@@ -217,7 +245,7 @@ export function ModalPagamento({ cobranca, forma, onPago, onFechar }: ModalPagam
           setEtapa({ tipo: 'indisponivel', mensagem: 'Esta cobrança foi cancelada pela escola.' })
         } else if (etapaAtual === 'processando' && atual.situacaoPagamento === 'AGUARDANDO_PAGAMENTO') {
           // O provedor terminou de gerar: o POST agora devolve os dados prontos.
-          gerar()
+          gerar(forma)
         }
       } catch {
         // Falha de rede numa consulta: a próxima tenta de novo.
@@ -225,7 +253,7 @@ export function ModalPagamento({ cobranca, forma, onPago, onFechar }: ModalPagam
         consultando.current = false
       }
     },
-    [cobranca.id, gerar],
+    [cobranca.id, forma, gerar],
   )
 
   // PIX pronto: espera a confirmação. Boleto pronto: nada a esperar (compensa em dias úteis).
@@ -278,13 +306,30 @@ export function ModalPagamento({ cobranca, forma, onPago, onFechar }: ModalPagam
     }
   }
 
+  // Com o PIX ou o boleto na tela (ou numa falha), dá para voltar e escolher a outra forma.
+  const podeTrocarForma = etapa.tipo === 'pronto' || etapa.tipo === 'erro'
+
   const rodape =
-    etapa.tipo === 'pago' ? (
+    etapa.tipo === 'escolhendo' ? (
+      <>
+        <Button variant="outline" onClick={onFechar}>
+          Cancelar
+        </Button>
+        <Button variant="primary" icon={forma === 'PIX' ? 'card' : 'fileText'} onClick={pagar}>
+          Pagar
+        </Button>
+      </>
+    ) : etapa.tipo === 'pago' ? (
       <Button variant="primary" onClick={onFechar}>
         Concluir
       </Button>
     ) : (
       <>
+        {podeTrocarForma && (
+          <Button variant="outline" onClick={trocarForma}>
+            Trocar forma de pagamento
+          </Button>
+        )}
         {etapa.tipo === 'erro' && (
           <Button variant="outline" icon="arrowRight" onClick={tentarDeNovo}>
             Tentar de novo
@@ -303,13 +348,41 @@ export function ModalPagamento({ cobranca, forma, onPago, onFechar }: ModalPagam
 
   return (
     <Modal
-      titulo={forma === 'PIX' ? 'Pagar com PIX' : 'Pagar com boleto'}
+      titulo={etapa.tipo === 'escolhendo' ? 'Pagar cobrança' : forma === 'PIX' ? 'Pagar com PIX' : 'Pagar com boleto'}
       subtitulo={`${cobranca.descricao} · ${formatarMoeda(cobranca.valor)} · vence ${formatarData(cobranca.dataVencimento)}`}
       tamanho="medio"
       onFechar={onFechar}
       rodape={rodape}
     >
       <div className={styles.corpo} aria-live="polite">
+        {etapa.tipo === 'escolhendo' && (
+          <fieldset className={styles.formas}>
+            <legend className={styles.rotulo}>Como você quer pagar?</legend>
+            {OPCOES_FORMA.map((opcao) => (
+              <label
+                key={opcao.forma}
+                className={`${styles.forma} ${forma === opcao.forma ? styles.formaEscolhida : ''}`}
+              >
+                <input
+                  type="radio"
+                  name="forma-pagamento"
+                  value={opcao.forma}
+                  checked={forma === opcao.forma}
+                  onChange={() => setForma(opcao.forma)}
+                  className={styles.formaRadio}
+                />
+                <span className={styles.formaIcone} aria-hidden="true">
+                  <Icon name={opcao.icone} size={20} />
+                </span>
+                <span className={styles.formaTexto}>
+                  <strong>{opcao.titulo}</strong>
+                  <span>{opcao.descricao}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+        )}
+
         {etapa.tipo === 'gerando' && <ModalAviso>Gerando {NOME_FORMA[forma]}…</ModalAviso>}
 
         {etapa.tipo === 'processando' && (

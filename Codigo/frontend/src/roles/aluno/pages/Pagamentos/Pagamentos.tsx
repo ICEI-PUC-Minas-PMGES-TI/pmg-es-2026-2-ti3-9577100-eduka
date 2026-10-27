@@ -9,7 +9,6 @@ import {
   ROTULOS_FORMA_PAGAMENTO,
   ROTULOS_STATUS_COBRANCA_ALUNO,
   type CobrancaDoHistorico,
-  type FormaPagamento,
   type HistoricoFinanceiro,
   type StatusCobrancaAluno,
 } from '../../../../types/pagamentoAluno'
@@ -47,11 +46,9 @@ function descreverPagamento(c: CobrancaDoHistorico): string | null {
   return null
 }
 
-type Pagando = { cobranca: CobrancaDoHistorico; forma: FormaPagamento }
-
 /**
- * Pagamentos do aluno: a próxima mensalidade em destaque, com PIX e boleto
- * (baixar o PDF e copiar o código), as demais em aberto, as pagas com o
+ * Pagamentos do aluno: a próxima mensalidade em destaque e o botão Pagar
+ * (escolhe PIX ou boleto e vê o QR Code ou a linha digitável no Eduka), as demais em aberto, as pagas com o
  * comprovante de cada pagamento online e as canceladas.
  */
 export function Pagamentos() {
@@ -59,7 +56,8 @@ export function Pagamentos() {
     buscarHistoricoFinanceiro,
     null,
   )
-  const [pagando, setPagando] = useState<Pagando | null>(null)
+  /** Cobrança com o modal de pagamento aberto. */
+  const [pagando, setPagando] = useState<CobrancaDoHistorico | null>(null)
   const [pagouAlguma, setPagouAlguma] = useState(false)
   /** `comprovanteUrl` do pagamento cujo comprovante está aberto. */
   const [comprovanteDe, setComprovanteDe] = useState<string | null>(null)
@@ -76,8 +74,8 @@ export function Pagamentos() {
 
   const buscarComprovanteAberto = useCallback(() => buscarComprovante(comprovanteDe ?? ''), [comprovanteDe])
 
-  function pagar(cobranca: CobrancaDoHistorico, forma: FormaPagamento) {
-    setPagando({ cobranca, forma })
+  function pagar(cobranca: CobrancaDoHistorico) {
+    setPagando(cobranca)
   }
 
   function fecharPagamento() {
@@ -180,7 +178,7 @@ export function Pagamentos() {
                           <Badge tone={TOM_STATUS[c.status]}>{ROTULOS_STATUS_COBRANCA_ALUNO[c.status]}</Badge>
                         </td>
                         <td className={styles.acao}>
-                          <BotoesPagar cobranca={c} onPagar={pagar} tamanho="sm" />
+                          <BotaoPagar cobranca={c} onPagar={pagar} tamanho="sm" />
                         </td>
                       </tr>
                     ))}
@@ -285,8 +283,7 @@ export function Pagamentos() {
 
       {pagando && (
         <ModalPagamento
-          cobranca={pagando.cobranca}
-          forma={pagando.forma}
+          cobranca={pagando}
           onPago={() => setPagouAlguma(true)}
           onFechar={fecharPagamento}
         />
@@ -297,7 +294,7 @@ export function Pagamentos() {
   )
 }
 
-type AcaoPagar = (cobranca: CobrancaDoHistorico, forma: FormaPagamento) => void
+type AcaoPagar = (cobranca: CobrancaDoHistorico) => void
 
 /** Cartão de destaque da cobrança em aberto que vence primeiro. */
 function ProximaMensalidade({ cobranca, onPagar }: { cobranca: CobrancaDoHistorico; onPagar: AcaoPagar }) {
@@ -316,14 +313,14 @@ function ProximaMensalidade({ cobranca, onPagar }: { cobranca: CobrancaDoHistori
         </span>
       </div>
       <div className={styles.proximaAcoes}>
-        <BotoesPagar cobranca={cobranca} onPagar={onPagar} tamanho="md" />
+        <BotaoPagar cobranca={cobranca} onPagar={onPagar} tamanho="md" />
       </div>
     </section>
   )
 }
 
-/** "Pagar com PIX" e "Boleto": o boleto abre com o PDF para baixar e o código para copiar. */
-function BotoesPagar({
+/** "Pagar": abre o modal, onde o aluno escolhe PIX ou boleto. */
+function BotaoPagar({
   cobranca,
   onPagar,
   tamanho,
@@ -334,17 +331,14 @@ function BotoesPagar({
 }) {
   return (
     <div className={styles.botoes}>
-      <Button size={tamanho} variant="primary" icon="card" onClick={() => onPagar(cobranca, 'PIX')}>
-        Pagar com PIX
-      </Button>
       <Button
         size={tamanho}
-        variant="outline"
-        icon="fileText"
-        onClick={() => onPagar(cobranca, 'BOLETO')}
-        aria-label={`Boleto de ${cobranca.descricao}: baixar o PDF ou copiar o código`}
+        variant="primary"
+        icon="card"
+        onClick={() => onPagar(cobranca)}
+        aria-label={`Pagar ${cobranca.descricao} com PIX ou boleto`}
       >
-        Boleto
+        Pagar
       </Button>
     </div>
   )
