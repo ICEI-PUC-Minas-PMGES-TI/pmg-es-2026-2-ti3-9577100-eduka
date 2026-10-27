@@ -14,6 +14,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.headerDoesNotExist;
 
+import java.net.URI;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
@@ -847,5 +848,29 @@ class AsaasAdapterTest {
 
         assertThatThrownBy(() -> adapter.baixarBoletoPdf(CREDENCIAL, "pay_boleto"))
                 .isInstanceOf(ProvedorIndisponivelException.class);
+    }
+
+    @Test
+    void baixarBoletoPdfSegueRedirecionamentoDentroDoAsaas() {
+        linkDoBoleto("https://sandbox.asaas.com/b/pdf/abc123");
+        servidor.expect(requestTo("https://sandbox.asaas.com/b/pdf/abc123"))
+                .andRespond(withStatus(HttpStatus.FOUND).location(URI.create("/arquivos/boleto-abc123.pdf")));
+        servidor.expect(requestTo("https://sandbox.asaas.com/arquivos/boleto-abc123.pdf"))
+                .andExpect(headerDoesNotExist("access_token"))
+                .andRespond(withSuccess(PDF, MediaType.APPLICATION_PDF));
+
+        assertThat(adapter.baixarBoletoPdf(CREDENCIAL, "pay_boleto")).isEqualTo(PDF);
+        servidor.verify();
+    }
+
+    @Test
+    void baixarBoletoPdfNaoSegueRedirecionamentoParaForaDoAsaas() {
+        linkDoBoleto("https://sandbox.asaas.com/b/pdf/abc123");
+        servidor.expect(requestTo("https://sandbox.asaas.com/b/pdf/abc123"))
+                .andRespond(withStatus(HttpStatus.FOUND).location(URI.create("https://exemplo-malicioso.com/x.pdf")));
+
+        assertThatThrownBy(() -> adapter.baixarBoletoPdf(CREDENCIAL, "pay_boleto"))
+                .isInstanceOf(ProvedorIndisponivelException.class);
+        servidor.verify();
     }
 }

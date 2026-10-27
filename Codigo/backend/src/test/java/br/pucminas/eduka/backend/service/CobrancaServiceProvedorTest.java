@@ -11,6 +11,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.eq;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -70,6 +71,7 @@ class CobrancaServiceProvedorTest {
     private CobrancaRepository cobrancaRepository;
     private AuditoriaService auditoriaService;
     private PaymentRoutingService paymentRoutingService;
+    private AvisoCobrancaService avisoCobrancaService;
     private Aluno aluno;
     private CobrancaService service;
 
@@ -78,6 +80,7 @@ class CobrancaServiceProvedorTest {
         cobrancaRepository = mock(CobrancaRepository.class);
         auditoriaService = mock(AuditoriaService.class);
         paymentRoutingService = mock(PaymentRoutingService.class);
+        avisoCobrancaService = mock(AvisoCobrancaService.class);
         aluno = Aluno.builder().id(UUID.randomUUID()).escolaId(ESCOLA).pessoaId(UUID.randomUUID())
                 .matricula("2026-001").build();
         when(cobrancaRepository.saveAndFlush(any(Cobranca.class))).thenAnswer(i -> i.getArgument(0));
@@ -88,7 +91,7 @@ class CobrancaServiceProvedorTest {
         service = new CobrancaService(cobrancaRepository, mock(AlunoRepository.class),
                 mock(MatriculaTurmaRepository.class), mock(AlunoResponsavelRepository.class),
                 mock(PessoaRepository.class), new IsolamentoEscola(), auditoriaService,
-                mock(AvisoCobrancaService.class), mock(PagamentoCobrancaRepository.class), paymentRoutingService,
+                avisoCobrancaService, mock(PagamentoCobrancaRepository.class), paymentRoutingService,
                 new TransacaoQueMarcaAtiva(), Clock.fixed(AGORA, ZoneOffset.UTC));
     }
 
@@ -195,6 +198,81 @@ class CobrancaServiceProvedorTest {
         assertThat(resposta.status()).isEqualTo(StatusCobranca.CANCELADA);
         verify(cobrancaRepository, never()).saveAndFlush(any());
         verify(auditoriaService).registrar(OperacaoAuditoria.CANCELAR, EntidadeAuditada.COBRANCA, COBRANCA);
+    }
+
+    // ---- Baixa manual: tira a cobranca do provedor antes (sem pagamento em dobro) ----
+
+    @Test
+    void baixaManualRemoveNoProvedorForaDaTransacaoEDepoisMarcaPaga() {
+        when(cobrancaRepository.findByIdAndEscolaId(COBRANCA, ESCOLA))
+                .thenReturn(Optional.of(cobranca(StatusCobranca.PENDENTE, SituacaoProvedor.EMITIDA)))
+                .thenReturn(Optional.of(cobranca(StatusCobranca.PENDENTE, SituacaoProvedor.EMITIDA)));
+        boolean[] transacaoNaChamada = new boolean[1];
+        doAnswer(i -> {
+            transacaoNaChamada[0] = TransactionSynchronizationManager.isActualTransactionActive();
+            return null;
+        }).when(paymentRoutingService).cancelarNoProvedor(any());
+
+        CobrancaResponse resposta = service.confirmarPagamento(COBRANCA);
+
+        assertThat(transacaoNaChamada[0]).isFalse();
+        assertThat(resposta.status()).isEqualTo(StatusCobranca.PAGA);
+        assertThat(resposta.pagaEm()).isEqualTo(AGORA);
+        InOrder ordem = inOrder(paymentRoutingService, cobrancaRepository, auditoriaService, avisoCobrancaService);
+        ordem.verify(paymentRoutingService).cancelarNoProvedor(any());
+        ordem.verify(cobrancaRepository).saveAndFlush(any());
+        ordem.verify(auditoriaService).registrar(OperacaoAuditoria.PAGAR, EntidadeAuditada.COBRANCA, COBRANCA);
+        ordem.verify(avisoCobrancaService).publicar(eq(AvisoCobranca.Tipo.PAGAMENTO_CONFIRMADO),
+                any(CobrancaParaAviso.class));
+    }
+
+    @Test
+    void baixaManualDeCobrancaJaPagaNoProvedorRecusaSemBaixa() {
+        Cobranca cobranca = cobranca(StatusCobranca.PENDENTE, SituacaoProvedor.EMITIDA);
+        when(cobrancaRepository.findByIdAndEscolaId(COBRANCA, ESCOLA)).thenReturn(Optional.of(cobranca));
+        doThrow(new CobrancaJaPagaException()).when(paymentRoutingService).cancelarNoProvedor(any());
+
+        assertThatThrownBy(() -> service.confirmarPagamento(COBRANCA))
+                .isInstanceOf(CobrancaJaPagaException.class)
+                .hasMessageContaining("pagamento online");
+        assertThat(cobranca.getStatus()).isEqualTo(StatusCobranca.PENDENTE);
+        verify(cobrancaRepository, never()).saveAndFlush(any());
+        verifyNoInteractions(auditoriaService, avisoCobrancaService);
+    }
+
+    @Test
+    void pagarNoMeioDaBaixaManualRecusa() {
+        when(cobrancaRepository.findByIdAndEscolaId(COBRANCA, ESCOLA))
+                .thenReturn(Optional.of(cobranca(StatusCobranca.PENDENTE, SituacaoProvedor.NAO_EMITIDA)))
+                .thenReturn(Optional.of(cobranca(StatusCobranca.PENDENTE, SituacaoProvedor.EMITINDO)));
+
+        assertThatThrownBy(() -> service.confirmarPagamento(COBRANCA))
+                .isInstanceOf(PagamentoEmProcessamentoException.class);
+        verify(cobrancaRepository, never()).saveAndFlush(any());
+        verifyNoInteractions(avisoCobrancaService);
+    }
+
+    @Test
+    void canceladaDuranteABaixaManualRecusaSemVirarPaga() {
+        Cobranca jaCancelada = cobranca(StatusCobranca.CANCELADA, SituacaoProvedor.EMITIDA);
+        when(cobrancaRepository.findByIdAndEscolaId(COBRANCA, ESCOLA))
+                .thenReturn(Optional.of(cobranca(StatusCobranca.PENDENTE, SituacaoProvedor.EMITIDA)))
+                .thenReturn(Optional.of(jaCancelada));
+
+        assertThatThrownBy(() -> service.confirmarPagamento(COBRANCA))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(jaCancelada.getStatus()).isEqualTo(StatusCobranca.CANCELADA);
+        verifyNoInteractions(avisoCobrancaService);
+    }
+
+    @Test
+    void baixaManualDeCobrancaJaPagaNoEdukaNemChamaOProvedor() {
+        when(cobrancaRepository.findByIdAndEscolaId(COBRANCA, ESCOLA))
+                .thenReturn(Optional.of(cobranca(StatusCobranca.PAGA, SituacaoProvedor.EMITIDA)));
+
+        assertThatThrownBy(() -> service.confirmarPagamento(COBRANCA))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(paymentRoutingService, avisoCobrancaService);
     }
 
     // ---- apoio ----

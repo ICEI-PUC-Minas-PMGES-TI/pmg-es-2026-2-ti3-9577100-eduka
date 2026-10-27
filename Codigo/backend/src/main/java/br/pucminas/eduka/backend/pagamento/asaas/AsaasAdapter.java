@@ -91,6 +91,8 @@ public class AsaasAdapter implements PaymentProvider {
     private static final ZoneId FUSO_ASAAS = ZoneId.of("America/Sao_Paulo");
     private static final DateTimeFormatter DATA_HORA_ASAAS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final int MAX_MENSAGEM = 500;
+    /** Quantos redirecionamentos o download do PDF do boleto segue. */
+    private static final int MAX_REDIRECIONAMENTOS_PDF = 3;
 
     /** Chaves removidas do payload do evento, em qualquer nivel. */
     private static final Set<String> CHAVES_SENSIVEIS = Set.of("cpfCnpj", "email", "phone", "mobilePhone",
@@ -358,16 +360,30 @@ public class AsaasAdapter implements PaymentProvider {
                 .header(HEADER_CHAVE, chave)
                 .retrieve()
                 .toEntity(LinkBoletoAsaas.class));
-        URI pdf = linkConfiavel(link.bankSlipUrl());
-        byte[] conteudo = corpo("baixarBoletoPdf", idCobrancaExterna, () -> restClient.get()
-                .uri(pdf)
-                .accept(MediaType.APPLICATION_PDF, MediaType.APPLICATION_OCTET_STREAM)
-                .retrieve()
-                .toEntity(byte[].class));
-        if (!ehPdf(conteudo)) {
-            throw new ProvedorIndisponivelException("Provedor de pagamento nao devolveu o PDF do boleto");
+        URI atual = linkConfiavel(link.bankSlipUrl());
+        // O cliente HTTP nao segue redirecionamento sozinho: segue aqui, so para dominio do Asaas.
+        for (int saltos = 0; saltos <= MAX_REDIRECIONAMENTOS_PDF; saltos++) {
+            URI alvo = atual;
+            ResponseEntity<byte[]> resposta = chamar("baixarBoletoPdf", idCobrancaExterna, false, () -> restClient.get()
+                    .uri(alvo)
+                    .accept(MediaType.APPLICATION_PDF, MediaType.APPLICATION_OCTET_STREAM)
+                    .retrieve()
+                    .toEntity(byte[].class));
+            if (resposta.getStatusCode().is3xxRedirection()) {
+                URI destino = resposta.getHeaders().getLocation();
+                if (destino == null) {
+                    throw new ProvedorIndisponivelException("Redirecionamento do boleto sem destino");
+                }
+                atual = linkConfiavel(alvo.resolve(destino).toString());
+                continue;
+            }
+            byte[] conteudo = resposta.getBody();
+            if (conteudo == null || !ehPdf(conteudo)) {
+                throw new ProvedorIndisponivelException("Provedor de pagamento nao devolveu o PDF do boleto");
+            }
+            return conteudo;
         }
-        return conteudo;
+        throw new ProvedorIndisponivelException("Redirecionamentos demais ao baixar o boleto");
     }
 
     private static URI linkConfiavel(String bankSlipUrl) {

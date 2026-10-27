@@ -344,23 +344,51 @@ public class CobrancaService {
     }
 
     /**
-     * Baixa manual: marca a cobranca em aberto como PAGA e avisa quem paga.
-     * Um futuro retorno de gateway de pagamento deve passar por aqui.
+     * Baixa manual: marca a cobranca em aberto como PAGA e avisa quem paga. Se
+     * o aluno ja gerou PIX ou boleto, a cobranca e removida no provedor antes,
+     * fora de transacao, como no cancelar (spec §8.5): senao o PIX ou o boleto
+     * continuariam pagaveis e o aluno pagaria duas vezes.
      *
-     * @throws IllegalArgumentException se a cobranca ja foi paga ou cancelada
+     * @throws CobrancaJaPagaException           se o provedor ja recebeu: o
+     *                                           pagamento online fica
+     *                                           registrado e nao ha baixa
+     * @throws PagamentoEmProcessamentoException se o pagamento esta sendo
+     *                                           gerado agora
+     * @throws IllegalArgumentException          se a cobranca ja foi paga ou
+     *                                           cancelada
      */
-    @Transactional
     public CobrancaResponse confirmarPagamento(UUID id) {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
-        Cobranca cobranca = buscarCobranca(id, escolaId);
-        exigirEmAberto(cobranca, "paga");
+        Cobranca lida = transacao.execute(status -> {
+            Cobranca cobranca = buscarCobranca(id, escolaId);
+            exigirEmAberto(cobranca, "paga");
+            return cobranca;
+        });
 
-        mudarStatus(cobranca, StatusCobranca.PAGA);
-        cobranca.setPagaEm(clock.instant());
-        cobranca.setAtualizadoEm(clock.instant());
-        CobrancaResponse resposta = salvarEAuditar(cobranca, OperacaoAuditoria.PAGAR, escolaId);
-        avisoCobrancaService.publicar(AvisoCobranca.Tipo.PAGAMENTO_CONFIRMADO, CobrancaParaAviso.de(cobranca));
-        return resposta;
+        try {
+            paymentRoutingService.cancelarNoProvedor(lida);
+        } catch (CobrancaJaPagaException e) {
+            throw new CobrancaJaPagaException(
+                    "O pagamento online desta cobranca ja foi recebido; ela fica paga sem baixa manual");
+        }
+
+        return transacao.execute(status -> {
+            Cobranca cobranca = buscarCobranca(id, escolaId);
+            if (cobranca.getSituacaoProvedor() != lida.getSituacaoProvedor()) {
+                // Alguem clicou em Pagar no meio: a cobranca que ele gerou no provedor nao foi removida.
+                throw new PagamentoEmProcessamentoException();
+            }
+            // Se o aviso da remocao chegou antes e cancelou (ou alguem cancelou no meio), a cobranca
+            // fica CANCELADA e a baixa e recusada: ja saiu do provedor, entao nao ha pagamento em dobro.
+            exigirEmAberto(cobranca, "paga");
+            mudarStatus(cobranca, StatusCobranca.PAGA);
+            cobranca.setPagaEm(clock.instant());
+            cobranca.setAtualizadoEm(clock.instant());
+            CobrancaResponse resposta = salvarEAuditar(cobranca, OperacaoAuditoria.PAGAR, escolaId);
+            // Dentro da transacao: o e-mail entra na fila junto com a baixa.
+            avisoCobrancaService.publicar(AvisoCobranca.Tipo.PAGAMENTO_CONFIRMADO, CobrancaParaAviso.de(cobranca));
+            return resposta;
+        });
     }
 
     /**
