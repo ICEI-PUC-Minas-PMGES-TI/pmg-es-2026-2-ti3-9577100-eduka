@@ -1,6 +1,7 @@
 package br.pucminas.eduka.backend.pagamento;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.EnumSet;
@@ -11,6 +12,7 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,6 +65,12 @@ class RoteadorEventos {
     private static final Logger log = LoggerFactory.getLogger(RoteadorEventos.class);
 
     private static final int MAX_MOTIVO = 500;
+
+    /** Margem para nao disputar com o webhook o aviso que ele acabou de gravar. */
+    static final Duration ESPERA_ANTES_DE_REPROCESSAR = Duration.ofMinutes(1);
+
+    private static final Set<StatusEventoProvedor> PENDENTES = EnumSet.of(StatusEventoProvedor.RECEBIDO,
+            StatusEventoProvedor.PROCESSANDO, StatusEventoProvedor.ERRO);
     private static final int MAX_REFERENCIA = 60;
 
     private final EventoProvedorRepository eventoRepository;
@@ -116,6 +124,18 @@ class RoteadorEventos {
                 .payload(evento.payloadSaneado())
                 .build();
         return Optional.of(eventoRepository.saveAndFlush(registro).getId());
+    }
+
+    /**
+     * Avisos para o agendador reaplicar: RECEBIDO, PROCESSANDO ou ERRO, com
+     * menos de {@code maxTentativas}. Os recebidos ha menos de
+     * {@link #ESPERA_ANTES_DE_REPROCESSAR} ficam de fora: o webhook pode estar
+     * aplicando agora.
+     */
+    @Transactional(readOnly = true)
+    List<UUID> pendentes(int maxTentativas, int lote) {
+        return eventoRepository.buscarPendentes(PENDENTES, maxTentativas,
+                clock.instant().minus(ESPERA_ANTES_DE_REPROCESSAR), PageRequest.of(0, lote));
     }
 
     @Transactional(readOnly = true)

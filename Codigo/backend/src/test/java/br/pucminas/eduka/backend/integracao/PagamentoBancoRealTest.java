@@ -12,6 +12,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -81,6 +82,33 @@ class PagamentoBancoRealTest extends BancoRealTest {
         assertThatThrownBy(() -> eventoRepository.saveAndFlush(evento(idEvento)))
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThat(eventoRepository.existsByIdEventoExterno(idEvento)).isTrue();
+    }
+
+    @Test
+    void agendadorPegaSoOsAvisosNaoTerminadosComTentativasSobrandoEForaDaJanela() {
+        EventoProvedor recebido = eventoRepository.saveAndFlush(evento("evt_" + DadosDeTeste.unico()));
+        EventoProvedor comErro = evento("evt_" + DadosDeTeste.unico());
+        comErro.setStatus(StatusEventoProvedor.ERRO);
+        comErro.setTentativas(3);
+        comErro = eventoRepository.saveAndFlush(comErro);
+        EventoProvedor esgotado = evento("evt_" + DadosDeTeste.unico());
+        esgotado.setStatus(StatusEventoProvedor.ERRO);
+        esgotado.setTentativas(10);
+        esgotado = eventoRepository.saveAndFlush(esgotado);
+        EventoProvedor processado = evento("evt_" + DadosDeTeste.unico());
+        processado.setStatus(StatusEventoProvedor.PROCESSADO);
+        processado = eventoRepository.saveAndFlush(processado);
+        List<StatusEventoProvedor> pendentes = List.of(StatusEventoProvedor.RECEBIDO,
+                StatusEventoProvedor.PROCESSANDO, StatusEventoProvedor.ERRO);
+
+        List<UUID> agora = eventoRepository.buscarPendentes(pendentes, 10, Instant.now().plusSeconds(60),
+                PageRequest.of(0, 1000));
+        List<UUID> antesDeChegarem = eventoRepository.buscarPendentes(pendentes, 10,
+                Instant.now().minusSeconds(3600), PageRequest.of(0, 1000));
+
+        assertThat(agora).contains(recebido.getId(), comErro.getId())
+                .doesNotContain(esgotado.getId(), processado.getId());
+        assertThat(antesDeChegarem).doesNotContain(recebido.getId(), comErro.getId());
     }
 
     @Test

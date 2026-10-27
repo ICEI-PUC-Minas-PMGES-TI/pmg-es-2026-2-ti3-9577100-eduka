@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
 
 import br.pucminas.eduka.backend.domain.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.FaturaPlataforma;
@@ -96,6 +98,19 @@ class RoteadorEventosTest {
                 .tipo(TipoEventoProvedor.PAGAMENTO_RECEBIDO)
                 .payload("{}")
                 .build();
+    }
+
+    // ---- Pendentes para o agendador (NOVA-4) ----
+
+    @Test
+    void pendentesSaoOsQueNaoTerminaramComTentativasSobrandoEForaDaJanelaDoWebhook() {
+        UUID pendente = UUID.randomUUID();
+        when(eventoRepository.buscarPendentes(EnumSet.of(StatusEventoProvedor.RECEBIDO,
+                StatusEventoProvedor.PROCESSANDO, StatusEventoProvedor.ERRO), 10,
+                AGORA.minus(RoteadorEventos.ESPERA_ANTES_DE_REPROCESSAR), PageRequest.of(0, 50)))
+                .thenReturn(List.of(pendente));
+
+        assertThat(roteador.pendentes(10, 50)).containsExactly(pendente);
     }
 
     // ---- Gravar ----

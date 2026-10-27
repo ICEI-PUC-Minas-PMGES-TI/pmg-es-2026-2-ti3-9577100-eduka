@@ -237,9 +237,20 @@ public class PaymentRoutingService {
         }
     }
 
-    /** Agendador. */
-    public void processarEventosPendentes() {
-        throw naoImplementado("NOVA-4");
+    /**
+     * Agendador, sem usuario autenticado: reaplica os avisos que nao terminaram
+     * (falha ao aplicar ou aplicacao interrompida), com o mesmo resultado do
+     * webhook. Cada aviso e aplicado uma vez so (trava do registro) e uma falha
+     * nao para os outros.
+     *
+     * @param maxTentativas aviso com essa quantidade de tentativas nao volta
+     * @param lote          quantos avisos por execucao, os mais antigos primeiro
+     * @return quantos avisos foram reaplicados
+     */
+    public int processarEventosPendentes(int maxTentativas, int lote) {
+        List<UUID> pendentes = eventos.pendentes(maxTentativas, lote);
+        pendentes.forEach(this::processarEvento);
+        return pendentes.size();
     }
 
     /** Agendador; spec §8.4. */

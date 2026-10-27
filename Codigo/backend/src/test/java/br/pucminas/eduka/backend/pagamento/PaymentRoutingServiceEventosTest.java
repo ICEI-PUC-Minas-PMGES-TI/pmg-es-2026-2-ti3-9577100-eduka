@@ -1,5 +1,6 @@
 package br.pucminas.eduka.backend.pagamento;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -12,6 +13,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -160,5 +162,33 @@ class PaymentRoutingServiceEventosTest {
         doThrow(new IllegalStateException("banco fora")).when(eventos).marcarErro(eq(EVENTO), any());
 
         assertThatCode(() -> roteador.processarEvento(EVENTO)).doesNotThrowAnyException();
+    }
+
+    // ---- Agendador (NOVA-4) ----
+
+    @Test
+    void agendadorReaplicaCadaPendenteMesmoComUmFalhando() {
+        UUID falha = UUID.randomUUID();
+        UUID ok = UUID.randomUUID();
+        when(eventos.pendentes(10, 50)).thenReturn(List.of(falha, ok));
+        when(eventos.payloadPendente(falha)).thenReturn(Optional.of("{\"falha\":true}"));
+        when(eventos.payloadPendente(ok)).thenReturn(Optional.of("{\"ok\":true}"));
+        when(provider.interpretarEvento("{\"falha\":true}")).thenThrow(new IllegalArgumentException("ilegivel"));
+        when(provider.interpretarEvento("{\"ok\":true}")).thenReturn(RECEBIDO);
+
+        int reaplicados = roteador.processarEventosPendentes(10, 50);
+
+        assertThat(reaplicados).isEqualTo(2);
+        verify(eventos).marcarErro(eq(falha), any(IllegalArgumentException.class));
+        verify(eventos).aplicar(ok, RECEBIDO);
+    }
+
+    @Test
+    void semPendentesNaoFazNada() {
+        when(eventos.pendentes(10, 50)).thenReturn(List.of());
+
+        assertThat(roteador.processarEventosPendentes(10, 50)).isZero();
+        verify(eventos, never()).payloadPendente(any());
+        verifyNoInteractions(provider);
     }
 }
