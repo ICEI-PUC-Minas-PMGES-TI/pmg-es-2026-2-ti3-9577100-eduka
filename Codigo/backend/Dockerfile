@@ -2,11 +2,14 @@ FROM eclipse-temurin:21-jdk AS build
 
 WORKDIR /app
 
-COPY . .
+# Dependencias numa camada propria: so baixa de novo quando o pom.xml muda.
+COPY mvnw pom.xml ./
+COPY .mvn .mvn
+RUN chmod +x mvnw && ./mvnw dependency:go-offline -B
 
-RUN chmod +x mvnw
+COPY src src
 
-RUN ./mvnw clean package -DskipTests
+RUN ./mvnw clean package -DskipTests -B
 
 
 FROM eclipse-temurin:21-jre
