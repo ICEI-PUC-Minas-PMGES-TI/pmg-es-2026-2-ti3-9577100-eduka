@@ -203,8 +203,11 @@ flowchart TB
 
 ### Superfície da API hoje
 
-A documentação interativa fica no Swagger UI (`/swagger-ui.html`, desligado em produção). As
-tabelas abaixo resumem as rotas por módulo.
+A documentação interativa fica no Swagger UI (`/swagger-ui.html`, desligado em produção). Cada
+rota lista as respostas possíveis: 401 sem token, 403 de perfil e 400 de corpo inválido entram em
+todas as que se aplicam, e as rotas do financeiro listam também os erros próprios com o `codigo`
+que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o esquema `Erro`
+(ProblemDetail). As tabelas abaixo resumem as rotas por módulo.
 
 **Acesso e plataforma**
 

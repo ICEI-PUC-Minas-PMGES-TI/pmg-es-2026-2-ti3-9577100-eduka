@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.pucminas.eduka.backend.domain.StatusCobranca;
@@ -28,6 +30,7 @@ import br.pucminas.eduka.backend.repository.CobrancaFiltro;
 import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.CobrancaService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
@@ -67,7 +70,9 @@ public class CobrancaController {
                     + "fica de fora), situacao (PENDENTE, EM_ATRASO, PAGA, CANCELADA) e intervalo de vencimento "
                     + "(inclusivo). Ordenado pelo vencimento. `pagina` comeca em 0; `tamanho` vai de 1 a 100. "
                     + "`totaisPorStatus` traz quantidade e valor de cada situacao com os mesmos filtros, menos o "
-                    + "de situacao. 400 se a pagina, o tamanho ou o intervalo forem invalidos.")
+                    + "de situacao.")
+    @ApiResponse(responseCode = "200", description = "A pagina de cobrancas, com os totais por situacao.")
+    @ApiResponse(responseCode = "400", description = "Pagina, tamanho ou intervalo de vencimento invalidos.")
     public PaginaCobrancasResponse listarPaginado(@RequestParam(required = false) UUID alunoId,
             @RequestParam(required = false) Long periodoLetivoId,
             @RequestParam(required = false) StatusCobranca status,
@@ -82,6 +87,8 @@ public class CobrancaController {
     @GetMapping("/{id}")
     @PreAuthorize(Perfis.FINANCEIRO)
     @Operation(summary = "Busca uma cobranca")
+    @ApiResponse(responseCode = "200", description = "A cobranca.")
+    @ApiResponse(responseCode = "404", description = "Cobranca nao encontrada na escola do token.")
     public CobrancaResponse buscar(@PathVariable UUID id) {
         return cobrancaService.buscar(id);
     }
@@ -89,18 +96,22 @@ public class CobrancaController {
     @GetMapping("/{id}/comprovante")
     @PreAuthorize(Perfis.FINANCEIRO)
     @Operation(summary = "Comprovante do pagamento online", description = "Montado pelo Eduka, com a escola como "
-            + "beneficiaria e o CPF do pagador mascarado. 404 COMPROVANTE_INDISPONIVEL enquanto nao ha pagamento "
-            + "online registrado (a baixa manual nao tem comprovante).")
+            + "beneficiaria e o CPF do pagador mascarado. A baixa manual nao tem comprovante.")
+    @ApiResponse(responseCode = "200", description = "O comprovante.")
+    @ApiResponse(responseCode = "404", description = "`COMPROVANTE_INDISPONIVEL` enquanto nao ha pagamento online "
+            + "registrado; sem codigo se a cobranca nao e da escola.")
     public ComprovanteResponse comprovante(@PathVariable UUID id) {
         return paymentRoutingService.comprovanteCobranca(id);
     }
 
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize(Perfis.FINANCEIRO)
     @Operation(summary = "Lanca uma cobranca para um aluno",
-            description = "Cria a cobranca como PENDENTE. `matriculaId` e `responsavelId` sao opcionais. 404 se "
-                    + "aluno, matricula ou responsavel nao forem da escola; 400 se a matricula ou o responsavel "
-                    + "nao forem do aluno.")
+            description = "Cria a cobranca como PENDENTE. `matriculaId` e `responsavelId` sao opcionais.")
+    @ApiResponse(responseCode = "400", description = "Corpo invalido, ou a matricula ou o responsavel nao sao do "
+            + "aluno.")
+    @ApiResponse(responseCode = "404", description = "Aluno, matricula ou responsavel nao sao da escola.")
     public ResponseEntity<CobrancaResponse> criar(@Valid @RequestBody CobrancaRequest request) {
         CobrancaResponse response = cobrancaService.criar(request);
         return ResponseEntity.created(URI.create("/cobrancas/" + response.id())).body(response);
@@ -110,8 +121,13 @@ public class CobrancaController {
     @PreAuthorize(Perfis.FINANCEIRO)
     @Operation(summary = "Edita uma cobranca",
             description = "Substitui matricula, responsavel, descricao, valor e vencimento; o aluno nao muda. "
-                    + "400 se a cobranca ja foi paga ou cancelada; 409 COBRANCA_NAO_EDITAVEL depois que alguem "
-                    + "clicou em Pagar (para mudar, cancele e lance outra).")
+                    + "Depois que alguem clicou em Pagar, nao edita mais: para mudar, cancele e lance outra.")
+    @ApiResponse(responseCode = "200", description = "A cobranca editada.")
+    @ApiResponse(responseCode = "400", description = "Corpo invalido, cobranca ja paga ou cancelada, ou matricula "
+            + "ou responsavel que nao sao do aluno.")
+    @ApiResponse(responseCode = "404", description = "Cobranca, matricula ou responsavel nao sao da escola.")
+    @ApiResponse(responseCode = "409", description = "`COBRANCA_NAO_EDITAVEL` depois do Pagar; "
+            + "`ALTERADO_AO_MESMO_TEMPO` se o Pagar gravou ao mesmo tempo.")
     public CobrancaResponse atualizar(@PathVariable UUID id, @Valid @RequestBody AtualizarCobrancaRequest request) {
         return cobrancaService.atualizar(id, request);
     }
@@ -120,9 +136,14 @@ public class CobrancaController {
     @PreAuthorize(Perfis.FINANCEIRO)
     @Operation(summary = "Cancela uma cobranca",
             description = "A cobranca continua no historico, como CANCELADA. Se ja foi emitida, e removida antes "
-                    + "no Asaas. 409 COBRANCA_JA_PAGA se ja foi paga, aqui ou no Asaas (o pagamento achado fica "
-                    + "registrado); 409 PAGAMENTO_EM_PROCESSAMENTO enquanto o pagamento esta sendo gerado; 400 se "
-                    + "ja foi cancelada.")
+                    + "no Asaas; se o Asaas ja recebeu, o pagamento achado fica registrado.")
+    @ApiResponse(responseCode = "200", description = "A cobranca cancelada.")
+    @ApiResponse(responseCode = "400", description = "Cobranca ja cancelada.")
+    @ApiResponse(responseCode = "404", description = "Cobranca nao encontrada na escola do token.")
+    @ApiResponse(responseCode = "409", description = "`COBRANCA_JA_PAGA` se ja foi paga, aqui ou no Asaas; "
+            + "`PAGAMENTO_EM_PROCESSAMENTO` enquanto o pagamento esta sendo gerado.")
+    @ApiResponse(responseCode = "503", description = "`PROVEDOR_INDISPONIVEL` ou `PROVEDOR_NAO_CONFIGURADO` ao "
+            + "remover no Asaas a cobranca ja emitida.")
     public CobrancaResponse cancelar(@PathVariable UUID id) {
         return cobrancaService.cancelar(id);
     }
@@ -131,7 +152,10 @@ public class CobrancaController {
     @PreAuthorize(Perfis.FINANCEIRO)
     @Operation(summary = "Da baixa manual no pagamento de uma cobranca",
             description = "Marca a cobranca como PAGA, registra no LOG_AUDITORIA e envia o e-mail de pagamento "
-                    + "confirmado ao responsavel financeiro (ou ao aluno). 400 se ja foi paga ou cancelada.")
+                    + "confirmado ao responsavel financeiro (ou ao aluno).")
+    @ApiResponse(responseCode = "200", description = "A cobranca paga.")
+    @ApiResponse(responseCode = "400", description = "Cobranca ja paga ou cancelada.")
+    @ApiResponse(responseCode = "404", description = "Cobranca nao encontrada na escola do token.")
     public CobrancaResponse pagar(@PathVariable UUID id) {
         return cobrancaService.confirmarPagamento(id);
     }

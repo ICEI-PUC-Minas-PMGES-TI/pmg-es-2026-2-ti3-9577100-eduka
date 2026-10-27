@@ -12,6 +12,7 @@ import br.pucminas.eduka.backend.dto.HistoricoFinanceiroResponse;
 import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.CobrancaService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 /**
@@ -32,7 +33,10 @@ public class AlunoFinanceiroController {
     }
 
     @GetMapping
-    @Operation(summary = "Historico financeiro de um aluno", description = "Resumo e cobrancas, da mais recente para a mais antiga pelo vencimento. 404 se o aluno nao e da escola.")
+    @Operation(summary = "Historico financeiro de um aluno",
+            description = "Resumo e cobrancas, da mais recente para a mais antiga pelo vencimento.")
+    @ApiResponse(responseCode = "200", description = "Resumo e cobrancas do aluno.")
+    @ApiResponse(responseCode = "404", description = "Aluno nao encontrado na escola do token.")
     public HistoricoFinanceiroResponse historico(@PathVariable UUID alunoId) {
         return cobrancaService.historicoDoAluno(alunoId);
     }
