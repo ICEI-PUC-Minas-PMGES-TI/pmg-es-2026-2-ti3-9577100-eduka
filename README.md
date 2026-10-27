@@ -83,13 +83,19 @@ O backend é uma API stateless autenticada por JWT (HS256). Pontos que afetam qu
 
 ### Executando os testes
 
-A partir de `Codigo/backend/`:
+Backend, a partir de `Codigo/backend/`:
 
 ```bash
 ./mvnw test
 ```
 
-Os testes unitários e de segurança (encoder, serviços de cadastro/login, filter chain) não precisam de banco. Apenas `BackendApplicationTests.contextLoads` sobe o contexto completo e exige um Postgres acessível em `localhost:5432` — sem ele, esse teste falha com `Connection refused` e os demais continuam passando. Para rodá-lo, suba só o banco com `docker compose -f Codigo/docker-compose.yml --env-file .env up postgres`.
+Os testes unitários e de segurança (encoder, serviços, filter chain) trocam os repositórios por mock e não precisam de banco. Os testes de integração (`BackendApplicationTests` e os do pacote `integracao`) rodam contra um **Postgres de verdade**, que o Testcontainers sobe num container descartável: precisam só do **Docker ligado**, não do banco do `docker-compose`. Sem Docker, esses testes são pulados e os demais continuam rodando.
+
+Frontend (testes de tela com Vitest e Testing Library, sem navegador nem backend), a partir de `Codigo/frontend/`:
+
+```bash
+npm test
+```
 
 ### Executando em produção
 
