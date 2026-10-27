@@ -99,7 +99,15 @@ public abstract class BancoRealTest {
      * webhook e as rotinas, sem ninguem autenticado.
      */
     protected static UsuarioAutenticado autenticarComo(String perfil, UUID escolaId) {
-        UsuarioAutenticado usuario = new UsuarioAutenticado(UUID.randomUUID(), perfil, escolaId);
+        return autenticarComo(UUID.randomUUID(), perfil, escolaId);
+    }
+
+    /**
+     * Com o id de um USUARIO gravado: precisa quando o service audita (o log
+     * aponta para o usuario) ou procura o aluno pelo login.
+     */
+    protected static UsuarioAutenticado autenticarComo(UUID usuarioId, String perfil, UUID escolaId) {
+        UsuarioAutenticado usuario = new UsuarioAutenticado(usuarioId, perfil, escolaId);
         SecurityContextHolder.getContext()
                 .setAuthentication(new UsernamePasswordAuthenticationToken(usuario, null, List.of()));
         return usuario;

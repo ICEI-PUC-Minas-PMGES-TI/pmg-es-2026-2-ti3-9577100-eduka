@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -11,7 +12,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import br.pucminas.eduka.backend.domain.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.SituacaoDespesa;
+import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
+import br.pucminas.eduka.backend.domain.StatusEventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 import br.pucminas.eduka.backend.security.PiiCryptoService;
 
@@ -58,9 +61,40 @@ public class DadosDeTeste {
                 escolaId, pessoa(escolaId, nome), unico() + "@teste.com", perfil);
     }
 
+    /** Aluno com login de ALUNO e CPF, como precisa quem paga pelo portal. */
+    public AlunoComAcesso alunoComAcesso(UUID escolaId, String nome, String cpf) {
+        UUID pessoaId = jdbc.queryForObject("INSERT INTO PESSOA (ESCOLA_ID, NOME, CPF) VALUES (?, ?, ?) "
+                + "RETURNING ID_PESSOA", UUID.class, escolaId, pii.cifrar(nome), pii.cifrar(cpf));
+        UUID usuarioId = jdbc.queryForObject("INSERT INTO USUARIO (ESCOLA_ID, PESSOA_ID, LOGIN, SENHA_HASH, PERFIL) "
+                + "VALUES (?, ?, ?, '{noop}x', 'ALUNO') RETURNING ID_USUARIO", UUID.class,
+                escolaId, pessoaId, unico() + "@teste.com");
+        UUID alunoId = jdbc.queryForObject("INSERT INTO alunos (escola_id, numero_matricula, pessoa_id, usuario_id) "
+                + "VALUES (?, ?, ?, ?) RETURNING id_aluno", UUID.class, escolaId, unico(), pessoaId, usuarioId);
+        return new AlunoComAcesso(alunoId, usuarioId);
+    }
+
+    public record AlunoComAcesso(UUID alunoId, UUID usuarioId) {
+    }
+
     private UUID pessoa(UUID escolaId, String nome) {
         return jdbc.queryForObject("INSERT INTO PESSOA (ESCOLA_ID, NOME) VALUES (?, ?) RETURNING ID_PESSOA",
                 UUID.class, escolaId, pii.cifrar(nome));
+    }
+
+    /**
+     * Conta de recebimento APROVADA no Asaas: a escola pode receber.
+     *
+     * @return o id da conta filha no Asaas, que vem nos avisos do webhook
+     */
+    public String contaAprovada(UUID escolaId) {
+        String idContaExterna = "acc_" + unico();
+        jdbc.update("INSERT INTO CONTA_RECEBIMENTO_ESCOLA (ESCOLA_ID, STATUS, RAZAO_SOCIAL, EMAIL_FINANCEIRO, "
+                + "TELEFONE_CELULAR, TIPO_EMPRESA, FATURAMENTO_MENSAL, LOGRADOURO, NUMERO, BAIRRO, CEP, BANCO_CODIGO, "
+                + "CONTA_FINAL, ID_CONTA_EXTERNA, WALLET_ID, CREDENCIAL_CIFRADA, SOLICITADA_EM, APROVADA_EM) "
+                + "VALUES (?, 'APROVADA', 'Escola Teste Ltda', 'financeiro@teste.com', '31999990000', 'LIMITED', "
+                + "50000, 'Rua A', '10', 'Centro', '30140000', '001', '1234', ?, ?, ?, CURRENT_TIMESTAMP, "
+                + "CURRENT_TIMESTAMP)", escolaId, idContaExterna, "wal_" + unico(), pii.cifrar("chave-da-conta-filha"));
+        return idContaExterna;
     }
 
     /** Cobranca de R$ 100,00 ainda nao emitida no provedor. */
@@ -141,6 +175,39 @@ public class DadosDeTeste {
     public StatusCobranca statusGravado(UUID cobrancaId) {
         return StatusCobranca.valueOf(jdbc.queryForObject(
                 "SELECT STATUS FROM COBRANCA WHERE ID_COBRANCA = ?", String.class, cobrancaId));
+    }
+
+    /** Situacao da cobranca no provedor (NAO_EMITIDA, EMITINDO, EMITIDA, FALHA_EMISSAO). */
+    public SituacaoProvedor situacaoNoProvedor(UUID cobrancaId) {
+        return SituacaoProvedor.valueOf(jdbc.queryForObject(
+                "SELECT SITUACAO_PROVEDOR FROM COBRANCA WHERE ID_COBRANCA = ?", String.class, cobrancaId));
+    }
+
+    public String ultimoErroProvedor(UUID cobrancaId) {
+        return jdbc.queryForObject("SELECT ULTIMO_ERRO_PROVEDOR FROM COBRANCA WHERE ID_COBRANCA = ?", String.class,
+                cobrancaId);
+    }
+
+    public int pagamentosDaCobranca(UUID cobrancaId) {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM PAGAMENTO_COBRANCA WHERE COBRANCA_ID = ?", Integer.class,
+                cobrancaId);
+    }
+
+    /** Quantas vezes o aviso foi gravado (0 ou 1, pela chave unica). */
+    public int eventosGravados(String idEventoExterno) {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM EVENTO_PROVEDOR WHERE ID_EVENTO_EXTERNO = ?", Integer.class,
+                idEventoExterno);
+    }
+
+    public StatusEventoProvedor statusDoEvento(String idEventoExterno) {
+        return StatusEventoProvedor.valueOf(jdbc.queryForObject(
+                "SELECT STATUS FROM EVENTO_PROVEDOR WHERE ID_EVENTO_EXTERNO = ?", String.class, idEventoExterno));
+    }
+
+    /** Operacoes do log de auditoria sobre o registro, na ordem em que aconteceram. */
+    public List<OperacaoAuditoria> operacoesNoLog(UUID registroId) {
+        return jdbc.queryForList("SELECT OPERACAO FROM LOG_AUDITORIA WHERE REGISTRO_ID = ? ORDER BY DATA_HORA",
+                String.class, registroId).stream().map(OperacaoAuditoria::valueOf).toList();
     }
 
     public BigDecimal valor(UUID cobrancaId) {
