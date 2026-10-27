@@ -33,8 +33,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import br.pucminas.eduka.backend.domain.ClienteProvedor;
 import br.pucminas.eduka.backend.domain.ContaProvedorCliente;
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.Escola;
 import br.pucminas.eduka.backend.domain.FaturaPlataforma;
+import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.dto.ComprovanteResponse;
@@ -61,6 +63,7 @@ import br.pucminas.eduka.backend.repository.EscolaRepository;
 import br.pucminas.eduka.backend.repository.FaturaPlataformaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
+import br.pucminas.eduka.backend.service.AuditoriaService;
 
 /** Fatura da plataforma (Fluxo A): lancar, listar e cancelar (R26, R25). */
 class RoteadorFaturaTest {
@@ -79,6 +82,7 @@ class RoteadorFaturaTest {
     private ContaRecebimentoEscolaRepository contaRepository;
     private ClienteProvedorRepository clienteRepository;
     private PaymentProvider provider;
+    private AuditoriaService auditoriaService;
     private Escola escola;
     private FaturaPlataforma fatura;
     private RoteadorFatura roteador;
@@ -88,6 +92,7 @@ class RoteadorFaturaTest {
         faturaRepository = mock(FaturaPlataformaRepository.class);
         escolaRepository = mock(EscolaRepository.class);
         provider = mock(PaymentProvider.class);
+        auditoriaService = mock(AuditoriaService.class);
         logado(new UsuarioAutenticado(SUPER_ADMIN, "SUPER_ADMIN", null));
 
         escola = mock(Escola.class);
@@ -111,7 +116,7 @@ class RoteadorFaturaTest {
                 .thenReturn(Optional.empty());
 
         roteador = new RoteadorFatura(faturaRepository, escolaRepository, contaRepository, clienteRepository,
-                new IsolamentoEscola(), new ChamadorProvedor(provider), new TransacaoQueMarcaAtiva(),
+                new IsolamentoEscola(), auditoriaService, new ChamadorProvedor(provider), new TransacaoQueMarcaAtiva(),
                 Clock.fixed(AGORA, ZoneOffset.UTC));
     }
 
@@ -245,6 +250,8 @@ class RoteadorFaturaTest {
         assertThat(fatura.getValorPago()).isEqualByComparingTo(VALOR);
         assertThat(fatura.getDataPagamento()).isEqualTo(HOJE);
         assertThat(fatura.getIdTransacaoExterna()).isEqualTo("tx-a1");
+        verify(auditoriaService).registrarDoProvedor(OperacaoAuditoria.CONFIRMAR_PAGAMENTO,
+                EntidadeAuditada.FATURA_PLATAFORMA, FATURA, ESCOLA);
     }
 
     @Test
@@ -375,7 +382,7 @@ class RoteadorFaturaTest {
         // 02:00 UTC do dia 22 ainda e 23:00 do dia 21 em Sao Paulo.
         Instant agora = Instant.parse("2026-10-22T02:00:00Z");
         RoteadorFatura roteadorDaNoite = new RoteadorFatura(faturaRepository, escolaRepository, contaRepository,
-                clienteRepository, new IsolamentoEscola(), new ChamadorProvedor(provider),
+                clienteRepository, new IsolamentoEscola(), auditoriaService, new ChamadorProvedor(provider),
                 new TransacaoQueMarcaAtiva(), Clock.fixed(agora, ZoneOffset.UTC));
         when(faturaRepository.marcarVencidasComoEmAtraso(HOJE, agora)).thenReturn(3);
 

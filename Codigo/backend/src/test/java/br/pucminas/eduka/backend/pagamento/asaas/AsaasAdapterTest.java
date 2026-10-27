@@ -443,6 +443,27 @@ class AsaasAdapterTest {
         assertThat(AsaasAdapter.situacao(situacao)).isEqualTo(esperada);
     }
 
+    /** Nomes da documentacao de webhooks de cobranca do Asaas (RF22.2). */
+    @ParameterizedTest
+    @CsvSource({
+            "PAYMENT_REFUNDED, ESTORNO",
+            "PAYMENT_PARTIALLY_REFUNDED, ESTORNO",
+            "PAYMENT_REFUND_IN_PROGRESS, NAO_TRATADO",
+            "PAYMENT_REFUND_DENIED, NAO_TRATADO",
+            "PAYMENT_CHARGEBACK_REQUESTED, CONTESTACAO",
+            "PAYMENT_CHARGEBACK_DISPUTE, CONTESTACAO",
+            "PAYMENT_AWAITING_CHARGEBACK_REVERSAL, CONTESTACAO"
+    })
+    void mapeiaEstornosEContestacoes(String evento, TipoEventoProvedor esperado) {
+        assertThat(AsaasAdapter.tipoDoEvento(evento)).isEqualTo(esperado);
+    }
+
+    @Test
+    void webhookDaContaFilhaAssinaOsEventosDeEstornoEContestacao() {
+        assertThat(AsaasAdapter.EVENTOS_WEBHOOK).contains("PAYMENT_REFUNDED", "PAYMENT_PARTIALLY_REFUNDED",
+                "PAYMENT_CHARGEBACK_REQUESTED", "PAYMENT_CHARGEBACK_DISPUTE", "PAYMENT_AWAITING_CHARGEBACK_REVERSAL");
+    }
+
     @Test
     void formaDePagamentoForaDePixEBoletoEErro() {
         CobrancaAsaas cartao = new CobrancaAsaas("pay_1", "EDK-B-1", "PENDING", "CREDIT_CARD", false, BigDecimal.TEN,

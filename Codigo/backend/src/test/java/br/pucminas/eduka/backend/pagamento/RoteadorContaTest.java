@@ -35,7 +35,9 @@ import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import br.pucminas.eduka.backend.domain.ContaRecebimentoEscola;
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.Escola;
+import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.PlanoEscola;
 import br.pucminas.eduka.backend.domain.StatusContaRecebimento;
 import br.pucminas.eduka.backend.dto.AtivarRecebimentosRequest;
@@ -52,11 +54,13 @@ import br.pucminas.eduka.backend.pagamento.tipos.TipoContaBancaria;
 import br.pucminas.eduka.backend.pagamento.tipos.TipoEmpresa;
 import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
 import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository.ContaParaSincronizar;
+import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository.ContaPorIdExterno;
 import br.pucminas.eduka.backend.repository.EscolaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.PiiCryptoService;
 import br.pucminas.eduka.backend.security.PiiEncryptionProperties;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
+import br.pucminas.eduka.backend.service.AuditoriaService;
 
 /** Conta de recebimento: habilitacao (R11, TST-U04), ativar (spec §8.1), sincronizar (R10) e a rotina. */
 class RoteadorContaTest {
@@ -73,6 +77,7 @@ class RoteadorContaTest {
     private EscolaRepository escolaRepository;
     private PaymentProvider provider;
     private PiiCryptoService cripto;
+    private AuditoriaService auditoriaService;
     private RoteadorConta roteador;
 
     /** A conta como esta "no banco": o que o roteador gravou por ultimo. */
@@ -99,8 +104,14 @@ class RoteadorContaTest {
         });
         when(contaRepository.gravarSituacao(anyString(), anyString(), any(), any(), any(), any(), any()))
                 .thenReturn(1);
+        // O status "no banco" antes de gravar a situacao: o da conta salva, se for a mesma no provedor.
+        when(contaRepository.buscarPorIdContaExterna(anyString())).thenAnswer(i -> Optional.ofNullable(salva)
+                .filter(c -> i.getArgument(0).equals(c.getIdContaExterna()))
+                .map(RoteadorContaTest::noBanco));
+        auditoriaService = mock(AuditoriaService.class);
 
         roteador = new RoteadorConta(contaRepository, escolaRepository, new IsolamentoEscola(), cripto,
+                auditoriaService, new GravadorSituacaoConta(contaRepository, auditoriaService),
                 new ChamadorProvedor(provider), new TransacaoQueMarcaAtiva(), Clock.fixed(AGORA, ZoneOffset.UTC));
     }
 
@@ -376,7 +387,76 @@ class RoteadorContaTest {
         verify(provider).garantirChavePix(new CredencialProvedor("chave-ok"));
     }
 
+    // ---- Auditoria (RF22.2) ----
+
+    @Test
+    void ativarFicaNoLogComOMasterQuePediu() {
+        escola(true);
+        when(provider.criarConta(any())).thenReturn(CRIADA);
+        when(provider.consultarSituacaoConta(any())).thenReturn(situacao(SituacaoCadastral.PENDENTE));
+
+        roteador.ativar(pedido());
+
+        verify(auditoriaService).registrar(OperacaoAuditoria.ATIVAR, EntidadeAuditada.CONTA_RECEBIMENTO,
+                salva.getId());
+    }
+
+    @Test
+    void ativacaoRecusadaAntesDeReservarNaoGeraLog() {
+        escola(true);
+        conta(StatusContaRecebimento.CRIANDO);
+
+        assertThatThrownBy(() -> roteador.ativar(pedido())).isInstanceOf(ContaRecebimentoNaoAtivavelException.class);
+        verifyNoInteractions(auditoriaService);
+    }
+
+    @Test
+    void situacaoQueMudaNoProvedorFicaNoLogSemAutor() {
+        escola(true);
+        contaCriada(StatusContaRecebimento.AGUARDANDO_APROVACAO);
+        when(provider.consultarSituacaoConta(any())).thenReturn(situacao(SituacaoCadastral.APROVADO));
+
+        roteador.sincronizarDaEscola();
+
+        // Quem clicou foi o MASTER, mas quem aprovou foi o provedor.
+        verify(auditoriaService).registrarDoProvedor(OperacaoAuditoria.ALTERAR_SITUACAO,
+                EntidadeAuditada.CONTA_RECEBIMENTO, salva.getId(), ESCOLA);
+    }
+
+    @Test
+    void sincronizarSemMudarASituacaoNaoGeraLog() {
+        escola(true);
+        contaCriada(StatusContaRecebimento.AGUARDANDO_APROVACAO);
+        when(provider.consultarSituacaoConta(any())).thenReturn(situacao(SituacaoCadastral.EM_ANALISE));
+
+        roteador.sincronizarDaEscola();
+
+        verify(auditoriaService, never()).registrarDoProvedor(any(), any(), any(), any());
+    }
+
     // ---- Apoio ----
+
+    private static ContaPorIdExterno noBanco(ContaRecebimentoEscola conta) {
+        UUID id = conta.getId();
+        UUID escolaId = conta.getEscolaId();
+        String status = conta.getStatus().name();
+        return new ContaPorIdExterno() {
+            @Override
+            public UUID getId() {
+                return id;
+            }
+
+            @Override
+            public UUID getEscolaId() {
+                return escolaId;
+            }
+
+            @Override
+            public String getStatus() {
+                return status;
+            }
+        };
+    }
 
     private void escola(boolean ativa) {
         Escola escola = Escola.cadastrar("Escola", CNPJ, null, null, null, PlanoEscola.values()[0], ativa);

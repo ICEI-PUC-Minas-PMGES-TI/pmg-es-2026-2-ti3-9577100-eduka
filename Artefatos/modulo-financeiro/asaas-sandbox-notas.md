@@ -43,6 +43,12 @@ emite esse evento para PIX/boleto, ver A3). Os achados da §4 mudam contratos da
    "interrupted":false,"authToken":"<ASAAS_WEBHOOK_TOKEN>","sendType":"SEQUENTIALLY",
    "events":["PAYMENT_CREATED","PAYMENT_CONFIRMED","PAYMENT_RECEIVED","PAYMENT_DELETED"]}
   ```
+- **Depois do spike (RF22.2):** o Edúka passou a auditar estornos e contestações. Os webhooks também precisam
+  assinar `PAYMENT_REFUNDED`, `PAYMENT_PARTIALLY_REFUNDED`, `PAYMENT_CHARGEBACK_REQUESTED`,
+  `PAYMENT_CHARGEBACK_DISPUTE` e `PAYMENT_AWAITING_CHARGEBACK_REVERSAL`. As contas filhas criadas a partir de agora
+  já assinam (`AsaasAdapter.EVENTOS_WEBHOOK`); o webhook da conta-pai e o das contas filhas já existentes precisam
+  ser atualizados (`PUT /v3/webhooks/{id}` com a chave da conta dona, ou pelo painel). Nomes conferidos na
+  documentação de webhooks de cobranças do Asaas; ainda não vistos chegando no Sandbox.
 - **`email` é obrigatório** (A2).
 - O token chega no header **`Asaas-Access-Token`** (o valor exato de `authToken`).
 - Antes de derrubar o túnel, remover ou desligar o webhook (`DELETE /v3/webhooks/{id}` com a chave da conta dona).

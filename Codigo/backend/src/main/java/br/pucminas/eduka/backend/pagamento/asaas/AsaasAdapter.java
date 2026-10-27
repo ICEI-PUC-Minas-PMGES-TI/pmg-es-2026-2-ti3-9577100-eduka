@@ -104,9 +104,14 @@ public class AsaasAdapter implements PaymentProvider {
     /** Chave PIX que ja serve ou vai servir para receber. */
     private static final Set<String> CHAVE_PIX_UTIL = Set.of("ACTIVE", "AWAITING_ACTIVATION");
 
-    /** Eventos assinados no webhook da conta filha (lista aceita pelo Sandbox no spike). */
+    /**
+     * Eventos assinados no webhook da conta filha (lista aceita pelo Sandbox no
+     * spike, mais os de estorno e contestacao auditados pela RF22.2).
+     */
     static final List<String> EVENTOS_WEBHOOK = List.of(
             "PAYMENT_CREATED", "PAYMENT_CONFIRMED", "PAYMENT_RECEIVED", "PAYMENT_DELETED",
+            "PAYMENT_REFUNDED", "PAYMENT_PARTIALLY_REFUNDED", "PAYMENT_CHARGEBACK_REQUESTED",
+            "PAYMENT_CHARGEBACK_DISPUTE", "PAYMENT_AWAITING_CHARGEBACK_REVERSAL",
             "ACCOUNT_STATUS_GENERAL_APPROVAL_APPROVED", "ACCOUNT_STATUS_GENERAL_APPROVAL_AWAITING_APPROVAL",
             "ACCOUNT_STATUS_GENERAL_APPROVAL_PENDING", "ACCOUNT_STATUS_GENERAL_APPROVAL_REJECTED",
             "ACCOUNT_STATUS_DOCUMENT_APPROVED", "ACCOUNT_STATUS_DOCUMENT_AWAITING_APPROVAL",
@@ -621,6 +626,10 @@ public class AsaasAdapter implements PaymentProvider {
             case "PAYMENT_CONFIRMED" -> TipoEventoProvedor.PAGAMENTO_CONFIRMADO;
             case "PAYMENT_RECEIVED" -> TipoEventoProvedor.PAGAMENTO_RECEBIDO;
             case "PAYMENT_DELETED" -> TipoEventoProvedor.COBRANCA_REMOVIDA;
+            // Estorno em andamento ou negado ainda nao devolveu o dinheiro: nao e estorno.
+            case "PAYMENT_REFUNDED", "PAYMENT_PARTIALLY_REFUNDED" -> TipoEventoProvedor.ESTORNO;
+            case "PAYMENT_CHARGEBACK_REQUESTED", "PAYMENT_CHARGEBACK_DISPUTE",
+                    "PAYMENT_AWAITING_CHARGEBACK_REVERSAL" -> TipoEventoProvedor.CONTESTACAO;
             default -> TipoEventoProvedor.NAO_TRATADO;
         };
     }

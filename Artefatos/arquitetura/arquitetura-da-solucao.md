@@ -295,6 +295,8 @@ completa a data de crédito e o valor líquido. Pagamento de cobrança `CANCELAD
 resposta de criação se perdeu; a remoção no provedor (`PAYMENT_DELETED`) leva a cobrança em
 `EMITINDO` para `FALHA_EMISSAO` e cancela a emitida em aberto. Aviso sem id ou sem tipo responde 400.
 Se a aplicação falhar, o aviso fica em `ERRO` para nova tentativa e o webhook continua respondendo 200.
+Estorno e contestação feitos no Asaas ficam registrados na auditoria, sem mudar a cobrança (ver
+Auditoria, abaixo).
 
 Fatura da plataforma (Fluxo A, `FATURA_PLATAFORMA`): o Super Admin lança a fatura da escola e o MASTER paga com
 PIX ou boleto numa cobrança da **conta-pai** do Edúka (referência `EDK-A-<id>`, a escola como pagadora). O aviso
@@ -322,10 +324,27 @@ gravam em `LOG_AUDITORIA` com a entidade `DESPESA`: pagar é `PAGAR`, voltar par
 `ESTORNAR` e cancelar é `CANCELAR`.
 
 O que vem do Asaas chega sem usuário e é auditado com `ORIGEM = PROVEDOR`, sem autor e com a escola
-da própria cobrança (`AuditoriaService.registrarDoProvedor`). Pagamento confirmado grava
-`CONFIRMAR_PAGAMENTO`, pelo webhook ou pelo pagamento achado ao cancelar; pagamento de cobrança já
-cancelada grava `PAGO_APOS_CANCELAR`, para a escola resolver com o pagador. Linha de usuário
-continua exigindo autor (restrição no banco, V32).
+do próprio registro (`AuditoriaService.registrarDoProvedor`). Linha de usuário continua exigindo
+autor (restrição no banco, V32). O que entra no log (V32, V33 e V34):
+
+| Origem | Entidade | Operação | Quando |
+|---|---|---|---|
+| Usuário (`MASTER`) | `CONTA_RECEBIMENTO` | `ATIVAR` | pedido de ativação aceito (pedido recusado antes de reservar não gera log) |
+| Asaas | `CONTA_RECEBIMENTO` | `ALTERAR_SITUACAO` | a situação da conta mudou, pelo aviso ou pelo Sincronizar (botão ou rotina); a mesma situação de novo não gera log |
+| Asaas | `COBRANCA`, `FATURA_PLATAFORMA` | `CONFIRMAR_PAGAMENTO` | pagamento confirmado, pelo aviso ou pelo pagamento achado ao cancelar |
+| Asaas | `COBRANCA`, `FATURA_PLATAFORMA` | `PAGO_APOS_CANCELAR` | pagamento de cobrança ou fatura já cancelada, que volta a `PAGA`, para a escola resolver com o pagador |
+| Asaas | `COBRANCA`, `FATURA_PLATAFORMA` | `CANCELAR` | removida no Asaas e cancelada pelo aviso |
+| Asaas | `COBRANCA`, `FATURA_PLATAFORMA` | `ESTORNAR` | estorno total ou parcial (`PAYMENT_REFUNDED`, `PAYMENT_PARTIALLY_REFUNDED`) |
+| Asaas | `COBRANCA`, `FATURA_PLATAFORMA` | `CONTESTAR` | contestação em qualquer etapa (`PAYMENT_CHARGEBACK_REQUESTED`, `PAYMENT_CHARGEBACK_DISPUTE`, `PAYMENT_AWAITING_CHARGEBACK_REVERSAL`) |
+
+Estorno e contestação **só são auditados**: a situação da cobrança ou da fatura não muda (o que o
+estorno faz com uma cobrança `PAGA` ainda não foi decidido). Estorno em andamento ou negado não é
+estorno e chega como aviso sem efeito.
+
+O webhook da conta filha assina esses eventos ao ser criado junto com a conta
+(`AsaasAdapter.EVENTOS_WEBHOOK`). Conta filha criada antes da inclusão de estorno e contestação, e o
+webhook da conta-pai (faturas, configurado à parte), precisam ter os eventos acrescentados no Asaas;
+sem isso, esses avisos não chegam.
 
 **Portais e dashboards**
 

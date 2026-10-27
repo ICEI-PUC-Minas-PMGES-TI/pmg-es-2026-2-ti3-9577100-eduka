@@ -25,7 +25,6 @@ import br.pucminas.eduka.backend.domain.StatusEventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.EventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
-import br.pucminas.eduka.backend.pagamento.tipos.SituacaoCadastral;
 import br.pucminas.eduka.backend.pagamento.tipos.SituacaoContaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.TipoEventoProvedor;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
@@ -48,7 +47,8 @@ import br.pucminas.eduka.backend.service.CobrancaParaAviso;
  * pagamento confirmado grava o {@link PagamentoCobranca} (origem ONLINE),
  * marca a cobranca como PAGA e audita, sem autor, na mesma transacao. Criacao e remocao da
  * cobranca no provedor seguem a tabela da spec §8.4. Avisos de fatura da
- * plataforma ({@code EDK-A-}) mudam a propria fatura.
+ * plataforma ({@code EDK-A-}) mudam a propria fatura. O que o aviso muda na
+ * cobranca ou na fatura fica no log de auditoria, sem autor (RF22.2).
  * </p>
  *
  * <p>
@@ -72,17 +72,18 @@ class RoteadorEventos {
     private final FaturaPlataformaRepository faturaRepository;
     private final AvisoCobrancaService avisoCobrancaService;
     private final AuditoriaService auditoriaService;
+    private final GravadorSituacaoConta gravadorSituacao;
     private final Clock clock;
 
     /** Avisos sobre uma cobranca; os de fatura ({@code EDK-A-}) seguem a coluna da fatura na §8.4. */
     private static final Set<TipoEventoProvedor> AVISOS_DE_COBRANCA = EnumSet.of(TipoEventoProvedor.COBRANCA_CRIADA,
             TipoEventoProvedor.PAGAMENTO_CONFIRMADO, TipoEventoProvedor.PAGAMENTO_RECEBIDO,
-            TipoEventoProvedor.COBRANCA_REMOVIDA);
+            TipoEventoProvedor.COBRANCA_REMOVIDA, TipoEventoProvedor.ESTORNO, TipoEventoProvedor.CONTESTACAO);
 
     RoteadorEventos(EventoProvedorRepository eventoRepository, CobrancaRepository cobrancaRepository,
             ContaRecebimentoEscolaRepository contaRepository, PagamentoCobrancaRepository pagamentoRepository,
             FaturaPlataformaRepository faturaRepository, AvisoCobrancaService avisoCobrancaService,
-            AuditoriaService auditoriaService, Clock clock) {
+            AuditoriaService auditoriaService, GravadorSituacaoConta gravadorSituacao, Clock clock) {
         this.eventoRepository = eventoRepository;
         this.cobrancaRepository = cobrancaRepository;
         this.contaRepository = contaRepository;
@@ -90,6 +91,7 @@ class RoteadorEventos {
         this.faturaRepository = faturaRepository;
         this.avisoCobrancaService = avisoCobrancaService;
         this.auditoriaService = auditoriaService;
+        this.gravadorSituacao = gravadorSituacao;
         this.clock = clock;
     }
 
@@ -149,6 +151,7 @@ class RoteadorEventos {
             case PAGAMENTO_RECEBIDO, PAGAMENTO_CONFIRMADO -> aplicarPagamento(registro, evento);
             case COBRANCA_CRIADA -> aplicarCriada(registro, evento);
             case COBRANCA_REMOVIDA -> aplicarRemovida(registro, evento);
+            case ESTORNO, CONTESTACAO -> aplicarEstornoOuContestacao(registro, evento);
             case SITUACAO_CONTA_ALTERADA -> aplicarSituacaoConta(registro, evento);
             default -> encerrar(registro, StatusEventoProvedor.IGNORADO,
                     "Tipo de aviso sem efeito no webhook: " + evento.tipo());
@@ -182,19 +185,12 @@ class RoteadorEventos {
             encerrar(registro, StatusEventoProvedor.IGNORADO, "Aviso de conta sem situacao; a rotina sincroniza");
             return;
         }
-        int gravadas = contaRepository.gravarSituacao(evento.idContaExterna(),
-                RoteadorConta.statusDaSituacao(situacao).name(), nome(situacao.geral()),
-                nome(situacao.documentacao()), nome(situacao.dadosComerciais()), nome(situacao.contaBancaria()),
-                clock.instant());
+        int gravadas = gravadorSituacao.gravar(evento.idContaExterna(), situacao, clock.instant());
         if (gravadas == 0) {
             encerrar(registro, StatusEventoProvedor.IGNORADO, "Conta de recebimento ainda em criacao");
             return;
         }
         encerrar(registro, StatusEventoProvedor.PROCESSADO, null);
-    }
-
-    private static String nome(SituacaoCadastral situacao) {
-        return situacao == null ? null : situacao.name();
     }
 
     private void aplicarPagamento(br.pucminas.eduka.backend.domain.EventoProvedor registro, EventoProvedor evento) {
@@ -346,7 +342,9 @@ class RoteadorEventos {
                 && cobrancaRepository.marcarFalhaEmissaoPeloProvedor(id, "Cobranca removida no provedor", agora) == 1) {
             encerrar(registro, StatusEventoProvedor.PROCESSADO, null);
         } else if (cobrancaRepository.cancelarPeloProvedor(id, agora) == 1) {
-            // Auditoria "removida no provedor" fica para a RF22.1.
+            // Ninguem do Eduka cancelou: fica no log sem autor (RF22.2).
+            auditoriaService.registrarDoProvedor(OperacaoAuditoria.CANCELAR, EntidadeAuditada.COBRANCA, id,
+                    cobranca.aviso().escolaId());
             log.warn("Cobranca {} removida no provedor; marcada como CANCELADA", id);
             encerrar(registro, StatusEventoProvedor.PROCESSADO, "Cobranca removida no provedor");
         } else {
@@ -355,6 +353,31 @@ class RoteadorEventos {
             }
             encerrar(registro, StatusEventoProvedor.IGNORADO, "Sem efeito: a cobranca ja estava " + cobranca.status());
         }
+    }
+
+    /**
+     * Estorno ou contestacao feitos no provedor: so ficam no log de auditoria,
+     * sem autor, para a escola acompanhar. A situacao da cobranca nao muda:
+     * o que o estorno faz com uma cobranca PAGA ainda e decisao do grupo.
+     */
+    private void aplicarEstornoOuContestacao(br.pucminas.eduka.backend.domain.EventoProvedor registro,
+            EventoProvedor evento) {
+        Optional<CobrancaLocal> encontrada = cobrancaDaEscola(registro, evento);
+        if (encontrada.isEmpty()) {
+            return;
+        }
+        CobrancaLocal cobranca = encontrada.get();
+        auditoriaService.registrarDoProvedor(operacaoDe(evento.tipo()), EntidadeAuditada.COBRANCA,
+                cobranca.aviso().id(), cobranca.aviso().escolaId());
+        log.warn("{} no provedor para a cobranca {} ({}); situacao no Eduka mantida", evento.tipo(),
+                cobranca.aviso().id(), evento.tipoOriginal());
+        encerrar(registro, StatusEventoProvedor.PROCESSADO,
+                limitar(evento.tipoOriginal() + " registrado na auditoria; a cobranca continua " + cobranca.status(),
+                        MAX_MOTIVO));
+    }
+
+    private static OperacaoAuditoria operacaoDe(TipoEventoProvedor tipo) {
+        return tipo == TipoEventoProvedor.ESTORNO ? OperacaoAuditoria.ESTORNAR : OperacaoAuditoria.CONTESTAR;
     }
 
     /**
@@ -406,12 +429,14 @@ class RoteadorEventos {
                     RoteadorFatura.registrarPagamento(fatura, doAviso,
                             evento.dataEvento() != null ? evento.dataEvento() : LocalDate.now(clock), agora);
                     if (antes == StatusCobranca.CANCELADA) {
-                        // R23: o dinheiro prevalece. Alerta so no log ate existir a auditoria (RF22.1).
+                        // R23: o dinheiro prevalece. Fica sinalizado na auditoria.
+                        auditarFatura(OperacaoAuditoria.PAGO_APOS_CANCELAR, fatura);
                         log.warn("PAGAMENTO_APOS_CANCELAMENTO: fatura {} cancelada foi paga; marcada como PAGA",
                                 faturaId);
                         encerrar(registro, StatusEventoProvedor.PROCESSADO,
                                 "Pagamento apos cancelamento; fatura marcada como PAGA");
                     } else {
+                        auditarFatura(OperacaoAuditoria.CONFIRMAR_PAGAMENTO, fatura);
                         encerrar(registro, StatusEventoProvedor.PROCESSADO, null);
                     }
                 }
@@ -426,15 +451,28 @@ class RoteadorEventos {
                     fatura.setStatus(StatusCobranca.CANCELADA);
                     fatura.setCanceladaEm(agora);
                     fatura.setAtualizadoEm(agora);
+                    auditarFatura(OperacaoAuditoria.CANCELAR, fatura);
                     encerrar(registro, StatusEventoProvedor.PROCESSADO, "Fatura removida no provedor");
                 } else {
                     encerrar(registro, StatusEventoProvedor.IGNORADO,
                             "Sem efeito: a fatura ja estava " + fatura.getStatus());
                 }
             }
+            case ESTORNO, CONTESTACAO -> {
+                auditarFatura(operacaoDe(evento.tipo()), fatura);
+                log.warn("{} no provedor para a fatura {} ({}); situacao no Eduka mantida", evento.tipo(), faturaId,
+                        evento.tipoOriginal());
+                encerrar(registro, StatusEventoProvedor.PROCESSADO,
+                        evento.tipoOriginal() + " registrado na auditoria; a fatura continua " + fatura.getStatus());
+            }
             default -> encerrar(registro, StatusEventoProvedor.IGNORADO,
                     "Tipo de aviso sem efeito no webhook: " + evento.tipo());
         }
+    }
+
+    private void auditarFatura(OperacaoAuditoria operacao, FaturaPlataforma fatura) {
+        auditoriaService.registrarDoProvedor(operacao, EntidadeAuditada.FATURA_PLATAFORMA, fatura.getId(),
+                fatura.getEscolaId());
     }
 
     static Optional<UUID> idDaFatura(String referencia) {

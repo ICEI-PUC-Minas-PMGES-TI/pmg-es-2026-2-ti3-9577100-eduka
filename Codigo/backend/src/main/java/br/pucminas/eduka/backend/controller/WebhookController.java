@@ -35,7 +35,8 @@ public class WebhookController {
     @Operation(summary = "Recebe avisos do Asaas",
             description = "Chamado pelo Asaas, nao pelo front. Exige o token do webhook no header `"
                     + HEADER_TOKEN + "`. Aviso repetido responde 200 sem efeito; o pagamento confirmado "
-                    + "registra o pagamento (origem ONLINE) e marca a cobranca como PAGA.")
+                    + "registra o pagamento (origem ONLINE) e marca a cobranca como PAGA. Estorno e contestacao "
+                    + "ficam no log de auditoria, sem mudar a cobranca.")
     @ApiResponse(responseCode = "200", description = "Aviso recebido")
     @ApiResponse(responseCode = "400", description = "Corpo ilegivel")
     @ApiResponse(responseCode = "401", description = "Token ausente ou invalido")

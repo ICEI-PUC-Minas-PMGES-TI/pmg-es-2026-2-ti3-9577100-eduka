@@ -27,6 +27,11 @@ public interface ContaRecebimentoEscolaRepository extends JpaRepository<ContaRec
             nativeQuery = true)
     Optional<UUID> buscarEscolaPorIdContaExterna(@Param("idContaExterna") String idContaExterna);
 
+    /** Conta e escola pelo id da conta no provedor, com o status atual. Nativo pelo mesmo motivo. */
+    @Query(value = "SELECT ID_CONTA_RECEBIMENTO AS id, ESCOLA_ID AS escolaId, STATUS AS status "
+            + "FROM CONTA_RECEBIMENTO_ESCOLA WHERE ID_CONTA_EXTERNA = :idContaExterna", nativeQuery = true)
+    Optional<ContaPorIdExterno> buscarPorIdContaExterna(@Param("idContaExterna") String idContaExterna);
+
     /** Contas criadas no provedor que ainda esperam a aprovacao. Nativo: a rotina roda sem usuario. */
     @Query(value = "SELECT ID_CONTA_EXTERNA AS idContaExterna, CREDENCIAL_CIFRADA AS credencialCifrada "
             + "FROM CONTA_RECEBIMENTO_ESCOLA WHERE STATUS = 'AGUARDANDO_APROVACAO' "
@@ -63,6 +68,14 @@ public interface ContaRecebimentoEscolaRepository extends JpaRepository<ContaRec
             + "WHERE STATUS = 'CRIANDO' AND SOLICITADA_EM < :limite", nativeQuery = true)
     int liberarCriacaoSemResposta(@Param("limite") Instant limite, @Param("motivo") String motivo,
             @Param("agora") Instant agora);
+
+    interface ContaPorIdExterno {
+        UUID getId();
+
+        UUID getEscolaId();
+
+        String getStatus();
+    }
 
     interface ContaParaSincronizar {
         String getIdContaExterna();
