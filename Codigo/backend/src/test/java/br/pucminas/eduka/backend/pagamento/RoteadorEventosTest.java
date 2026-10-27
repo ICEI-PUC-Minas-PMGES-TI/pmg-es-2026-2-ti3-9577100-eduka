@@ -339,6 +339,9 @@ class RoteadorEventosTest {
         roteador.aplicar(EVENTO, avisoDeCobranca(TipoEventoProvedor.COBRANCA_REMOVIDA, CONTA_ESCOLA));
 
         verify(cobrancaRepository, never()).marcarFalhaEmissaoPeloProvedor(any(), any(), any());
+        // Ninguem do Eduka cancelou: CANCELAR sem autor.
+        verify(auditoriaService).registrarDoProvedor(OperacaoAuditoria.CANCELAR, EntidadeAuditada.COBRANCA,
+                COBRANCA, ESCOLA);
         assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.PROCESSADO);
     }
 
@@ -353,6 +356,7 @@ class RoteadorEventosTest {
 
         assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.IGNORADO);
         assertThat(registro.getMotivo()).contains("PAGA");
+        verifyNoInteractions(auditoriaService);
     }
 
     @Test
@@ -425,6 +429,8 @@ class RoteadorEventosTest {
         assertThat(fatura.getIdTransacaoExterna()).isEqualTo("tx-pix-1");
         assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.PROCESSADO);
         assertThat(registro.getEscolaId()).isEqualTo(ESCOLA);
+        verify(auditoriaService).registrarDoProvedor(OperacaoAuditoria.CONFIRMAR_PAGAMENTO,
+                EntidadeAuditada.FATURA_PLATAFORMA, FATURA, ESCOLA);
         verifyNoInteractions(cobrancaRepository, pagamentoRepository, avisoCobrancaService);
     }
 
@@ -449,6 +455,8 @@ class RoteadorEventosTest {
 
         assertThat(fatura.getStatus()).isEqualTo(StatusCobranca.PAGA);
         assertThat(registro.getMotivo()).contains("cancelamento");
+        verify(auditoriaService).registrarDoProvedor(OperacaoAuditoria.PAGO_APOS_CANCELAR,
+                EntidadeAuditada.FATURA_PLATAFORMA, FATURA, ESCOLA);
     }
 
     @Test
@@ -460,6 +468,7 @@ class RoteadorEventosTest {
         roteador.aplicar(EVENTO, avisoDeFatura(TipoEventoProvedor.PAGAMENTO_RECEBIDO, null, true));
 
         assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.IGNORADO);
+        verifyNoInteractions(auditoriaService);
     }
 
     @Test
@@ -485,6 +494,8 @@ class RoteadorEventosTest {
 
         assertThat(fatura.getStatus()).isEqualTo(StatusCobranca.CANCELADA);
         assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.PROCESSADO);
+        verify(auditoriaService).registrarDoProvedor(OperacaoAuditoria.CANCELAR, EntidadeAuditada.FATURA_PLATAFORMA,
+                FATURA, ESCOLA);
     }
 
     @Test

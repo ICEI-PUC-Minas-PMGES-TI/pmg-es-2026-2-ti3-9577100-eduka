@@ -21,8 +21,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 import br.pucminas.eduka.backend.domain.ClienteProvedor;
 import br.pucminas.eduka.backend.domain.ContaProvedorCliente;
 import br.pucminas.eduka.backend.domain.ContaRecebimentoEscola;
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.Escola;
 import br.pucminas.eduka.backend.domain.FaturaPlataforma;
+import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.dto.BoletoResponse;
@@ -51,6 +53,7 @@ import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
 import br.pucminas.eduka.backend.repository.EscolaRepository;
 import br.pucminas.eduka.backend.repository.FaturaPlataformaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
+import br.pucminas.eduka.backend.service.AuditoriaService;
 
 /**
  * Fatura da plataforma (Fluxo A, R26), por tras do {@link PaymentRoutingService}:
@@ -85,19 +88,21 @@ class RoteadorFatura {
     private final ContaRecebimentoEscolaRepository contaRepository;
     private final ClienteProvedorRepository clienteRepository;
     private final IsolamentoEscola isolamentoEscola;
+    private final AuditoriaService auditoriaService;
     private final ChamadorProvedor provedor;
     private final TransactionTemplate transacao;
     private final Clock clock;
 
     RoteadorFatura(FaturaPlataformaRepository faturaRepository, EscolaRepository escolaRepository,
             ContaRecebimentoEscolaRepository contaRepository, ClienteProvedorRepository clienteRepository,
-            IsolamentoEscola isolamentoEscola, ChamadorProvedor provedor,
+            IsolamentoEscola isolamentoEscola, AuditoriaService auditoriaService, ChamadorProvedor provedor,
             PlatformTransactionManager transactionManager, Clock clock) {
         this.faturaRepository = faturaRepository;
         this.escolaRepository = escolaRepository;
         this.contaRepository = contaRepository;
         this.clienteRepository = clienteRepository;
         this.isolamentoEscola = isolamentoEscola;
+        this.auditoriaService = auditoriaService;
         this.provedor = provedor;
         this.transacao = new TransactionTemplate(transactionManager);
         this.clock = clock;
@@ -179,8 +184,15 @@ class RoteadorFatura {
             CredencialProvedor credencial = provedor.chamar(PaymentProvider::credencialDaContaPai);
             CobrancaProvedor noProvedor = provedor.chamar(p -> p.consultarCobranca(credencial, idExterno));
             if (pago(noProvedor)) {
-                transacao.executeWithoutResult(status -> registrarPagamento(daEscola(escolaId, faturaId),
-                        noProvedor, hoje(), clock.instant()));
+                transacao.executeWithoutResult(status -> {
+                    FaturaPlataforma fatura = daEscola(escolaId, faturaId);
+                    // O aviso do pagamento pode ter chegado e gravado antes.
+                    if (fatura.getStatus() != StatusCobranca.PAGA) {
+                        registrarPagamento(fatura, noProvedor, hoje(), clock.instant());
+                        auditoriaService.registrarDoProvedor(OperacaoAuditoria.CONFIRMAR_PAGAMENTO,
+                                EntidadeAuditada.FATURA_PLATAFORMA, fatura.getId(), fatura.getEscolaId());
+                    }
+                });
                 throw new CobrancaJaPagaException();
             }
             provedor.executar(p -> p.removerCobranca(credencial, idExterno));
