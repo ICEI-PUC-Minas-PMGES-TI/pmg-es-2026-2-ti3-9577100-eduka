@@ -53,6 +53,8 @@ public abstract class BancoRealTest {
     private static final String USUARIO_APP = "eduka_app";
     private static final String SENHA_APP = "changeme-app";
 
+    // Fica de pe a execucao inteira e o Testcontainers o derruba no fim: nao ha o que fechar aqui.
+    @SuppressWarnings("resource")
     private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine")
             .withEnv("DB_APP_USER", USUARIO_APP)
             .withEnv("DB_APP_PASSWORD", SENHA_APP)

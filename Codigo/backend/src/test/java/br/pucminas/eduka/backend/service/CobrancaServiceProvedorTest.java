@@ -129,9 +129,9 @@ class CobrancaServiceProvedorTest {
 
     @Test
     void cancelarChamaOProvedorForaDaTransacaoEDepoisCancela() {
-        when(cobrancaRepository.findByIdAndEscolaId(COBRANCA, ESCOLA)).thenReturn(
-                Optional.of(cobranca(StatusCobranca.PENDENTE, SituacaoProvedor.EMITIDA)),
-                Optional.of(cobranca(StatusCobranca.PENDENTE, SituacaoProvedor.EMITIDA)));
+        when(cobrancaRepository.findByIdAndEscolaId(COBRANCA, ESCOLA))
+                .thenReturn(Optional.of(cobranca(StatusCobranca.PENDENTE, SituacaoProvedor.EMITIDA)))
+                .thenReturn(Optional.of(cobranca(StatusCobranca.PENDENTE, SituacaoProvedor.EMITIDA)));
         boolean[] transacaoNaChamada = new boolean[1];
         doAnswer(i -> {
             transacaoNaChamada[0] = TransactionSynchronizationManager.isActualTransactionActive();
@@ -173,8 +173,9 @@ class CobrancaServiceProvedorTest {
     @Test
     void pagarNoMeioDoCancelamentoRecusa() {
         Cobranca depois = cobranca(StatusCobranca.PENDENTE, SituacaoProvedor.EMITINDO);
-        when(cobrancaRepository.findByIdAndEscolaId(COBRANCA, ESCOLA)).thenReturn(
-                Optional.of(cobranca(StatusCobranca.PENDENTE, SituacaoProvedor.NAO_EMITIDA)), Optional.of(depois));
+        when(cobrancaRepository.findByIdAndEscolaId(COBRANCA, ESCOLA))
+                .thenReturn(Optional.of(cobranca(StatusCobranca.PENDENTE, SituacaoProvedor.NAO_EMITIDA)))
+                .thenReturn(Optional.of(depois));
 
         assertThatThrownBy(() -> service.cancelar(COBRANCA)).isInstanceOf(PagamentoEmProcessamentoException.class);
         assertThat(depois.getStatus()).isEqualTo(StatusCobranca.PENDENTE);
@@ -185,8 +186,9 @@ class CobrancaServiceProvedorTest {
     void avisoDaRemocaoQueChegouAntesSoFaltaAuditar() {
         Cobranca jaCancelada = cobranca(StatusCobranca.CANCELADA, SituacaoProvedor.EMITIDA);
         jaCancelada.setCanceladaEm(AGORA);
-        when(cobrancaRepository.findByIdAndEscolaId(COBRANCA, ESCOLA)).thenReturn(
-                Optional.of(cobranca(StatusCobranca.PENDENTE, SituacaoProvedor.EMITIDA)), Optional.of(jaCancelada));
+        when(cobrancaRepository.findByIdAndEscolaId(COBRANCA, ESCOLA))
+                .thenReturn(Optional.of(cobranca(StatusCobranca.PENDENTE, SituacaoProvedor.EMITIDA)))
+                .thenReturn(Optional.of(jaCancelada));
 
         CobrancaResponse resposta = service.cancelar(COBRANCA);
 

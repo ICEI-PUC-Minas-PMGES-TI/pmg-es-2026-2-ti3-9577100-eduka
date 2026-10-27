@@ -32,7 +32,7 @@ class CobrancaTotaisRepositoryImpl implements CobrancaTotaisRepository {
         Expression<Long> quantidade = cb.count(cobranca);
         Expression<BigDecimal> valor = cb.sum(cobranca.<BigDecimal>get("valor"));
 
-        query.multiselect(status, vencimento, quantidade, valor)
+        query.select(cb.tuple(status, vencimento, quantidade, valor))
                 .where(filtro.toPredicate(cobranca, query, cb))
                 .groupBy(status, vencimento);
         return entityManager.createQuery(query).getResultStream()
