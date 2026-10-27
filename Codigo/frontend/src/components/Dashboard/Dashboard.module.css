@@ -226,6 +226,57 @@
   white-space: nowrap;
 }
 
+/* ---------- Gráfico comparativo (barras lado a lado) ---------- */
+
+/* Par validado para daltonismo e contraste contra o fundo claro. */
+.serie1 {
+  background: var(--color-lavender);
+}
+
+.serie2 {
+  background: #2a9d8f;
+}
+
+.comparativo {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0;
+  padding: 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  list-style: none;
+}
+
+.legenda li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.amostra {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.trilhoAgrupado {
+  gap: 2px;
+}
+
+.barraAgrupada {
+  width: min(18px, 45%);
+  min-height: 3px;
+  border-radius: 4px 4px 0 0;
+  transition: height 0.3s var(--curva);
+}
+
 .vazio {
   color: var(--color-text-muted);
   font-size: 14.5px;

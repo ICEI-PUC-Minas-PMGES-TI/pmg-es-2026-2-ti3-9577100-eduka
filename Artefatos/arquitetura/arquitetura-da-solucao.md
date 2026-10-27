@@ -459,11 +459,11 @@ flowchart TB
 
     subgraph roles["roles/ — um módulo por perfil"]
         SAD["<b>super_admin/</b><br/>escolas"]
-        MAS["<b>master/</b><br/>início"]
+        MAS["<b>master/</b><br/>início · recebimentos"]
         SEC["<b>secretaria/</b><br/>início · alunos · professores<br/>acadêmico · alocação · matrículas"]
         PROF["<b>professor/</b><br/>início · turmas · avaliações · notas"]
         ALU["<b>aluno/</b><br/>boletim · provas e tarefas · meus dados"]
-        FIN["<i>financeiro/ — Área em construção</i>"]
+        FIN["<b>financeiro/</b><br/>início · cobranças · despesas"]
     end
 
     subgraph shared["Compartilhado"]

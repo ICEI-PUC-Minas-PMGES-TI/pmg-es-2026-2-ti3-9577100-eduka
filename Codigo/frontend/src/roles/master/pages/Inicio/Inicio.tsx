@@ -1,61 +1,78 @@
 import { Colunas, EstadoDashboard, Linhas, Medidor, Painel, PainelVazio } from '../../../../components/Dashboard/Dashboard'
+import {
+  EntrouESaiu,
+  UltimasAcoes,
+  VencemNaSemana,
+} from '../../../../components/PainelFinanceiro/PainelFinanceiro'
+import { descricaoInadimplencia, quantasCobrancas } from '../../../../components/PainelFinanceiro/textos'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
-import { obterDashboardEscola } from '../../../../services/dashboardService'
-import type { DashboardEscola } from '../../../../types/dashboard'
-import { plural } from '../../../../utils/formatters'
+import { obterDashboardEscola, obterDashboardFinanceiro } from '../../../../services/dashboardService'
+import type { DashboardEscola, DashboardFinanceiro } from '../../../../types/dashboard'
+import { formatarMoeda, plural } from '../../../../utils/formatters'
 import { MasterLayout } from '../../layouts/MasterLayout'
 import styles from './Inicio.module.css'
 
-/** Início do MASTER: resumo da escola (pessoas, estrutura, vagas e desempenho). */
+type DadosInicio = { escola: DashboardEscola; financeiro: DashboardFinanceiro }
+
+/** Os dois resumos juntos: a tela só aparece com os dois carregados. */
+async function obterDadosInicio(signal: AbortSignal): Promise<DadosInicio> {
+  const [escola, financeiro] = await Promise.all([obterDashboardEscola(signal), obterDashboardFinanceiro(signal)])
+  return { escola, financeiro }
+}
+
+/** Início do MASTER: resumo da escola (pessoas, dinheiro, estrutura, vagas e desempenho). */
 export function Inicio() {
-  const { dados, carregando, erro, recarregar } = useCarregamento<DashboardEscola | null>(
-    obterDashboardEscola,
+  const { dados, carregando, erro, recarregar } = useCarregamento<DadosInicio | null>(
+    obterDadosInicio,
     null,
     'Não foi possível encontrar os dados da escola.',
   )
 
   return (
-    <MasterLayout titulo="Início" subtitulo="O resumo da sua escola: pessoas, turmas, vagas e desempenho.">
+    <MasterLayout titulo="Início" subtitulo="O resumo da sua escola: alunos, dinheiro, turmas, vagas e desempenho.">
       <EstadoDashboard carregando={carregando} erro={erro} onTentarDeNovo={recarregar} />
-      {dados && <Resumo dados={dados} />}
+      {dados && <Resumo escola={dados.escola} financeiro={dados.financeiro} />}
     </MasterLayout>
   )
 }
 
-function Resumo({ dados }: { dados: DashboardEscola }) {
-  const { pessoas, estrutura, ocupacao, desempenho } = dados
+function Resumo({ escola, financeiro }: DadosInicio) {
+  const { pessoas, estrutura, ocupacao, desempenho } = escola
+  const { recebidoNoMes, faltaReceber, emAtraso } = financeiro
   const vagasLivres = Math.max(0, ocupacao.vagasOfertadas - ocupacao.matriculasAtivas)
 
   return (
     <>
       <StatCards rotulo="Resumo da escola">
         <StatCard
-          label="Alunos"
-          value={pessoas.alunos}
-          descricao={`${pessoas.alunosAtivos} com matrícula ativa`}
+          label="Alunos matriculados"
+          value={pessoas.alunosAtivos}
+          descricao={`De ${pessoas.alunos} ${plural(pessoas.alunos, 'aluno cadastrado', 'alunos cadastrados')}`}
           destaque
         />
         <StatCard
-          label="Professores"
-          value={pessoas.professoresAtivos}
-          descricao={
-            pessoas.professoresInativos > 0
-              ? `Ativos · ${pessoas.professoresInativos} ${plural(pessoas.professoresInativos, 'inativo', 'inativos')}`
-              : 'Todos ativos'
-          }
+          label="Recebido este mês"
+          value={formatarMoeda(recebidoNoMes.valor)}
+          descricao={quantasCobrancas(recebidoNoMes.quantidade)}
         />
         <StatCard
-          label="Turmas ativas"
-          value={estrutura.turmasAtivas}
-          descricao={`De ${estrutura.turmas} ${plural(estrutura.turmas, 'cadastrada', 'cadastradas')}`}
+          label="Falta receber"
+          value={formatarMoeda(faltaReceber.valor)}
+          descricao={`${quantasCobrancas(faltaReceber.quantidade)} em aberto`}
         />
         <StatCard
-          label="Aproveitamento"
-          value={desempenho.aproveitamento === null ? '—' : `${desempenho.aproveitamento}%`}
-          descricao={desempenho.aproveitamento === null ? 'Ainda sem notas lançadas' : 'Média geral das notas lançadas'}
+          label="Pagamentos atrasados"
+          value={emAtraso.alunos}
+          descricao={`${plural(emAtraso.alunos, 'Aluno', 'Alunos')} · ${descricaoInadimplencia(emAtraso)}`}
+          alerta={emAtraso.alunos > 0}
         />
       </StatCards>
+
+      <Colunas>
+        <EntrouESaiu meses={financeiro.ultimosMeses} />
+        <VencemNaSemana cobrancas={financeiro.vencemNaSemana} />
+      </Colunas>
 
       <Painel
         titulo="Ocupação das vagas"
@@ -100,7 +117,13 @@ function Resumo({ dados }: { dados: DashboardEscola }) {
           <Linhas
             itens={[
               { rotulo: 'Alunos sem turma', valor: pessoas.alunosSemTurma },
-              { rotulo: 'Professores', valor: pessoas.professoresAtivos + pessoas.professoresInativos },
+              {
+                rotulo: 'Professores',
+                valor:
+                  pessoas.professoresInativos > 0
+                    ? `${pessoas.professoresAtivos} ${plural(pessoas.professoresAtivos, 'ativo', 'ativos')} de ${pessoas.professoresAtivos + pessoas.professoresInativos}`
+                    : pessoas.professoresAtivos,
+              },
               { rotulo: 'Secretaria', valor: pessoas.secretarias },
               { rotulo: 'Financeiro', valor: pessoas.financeiro },
             ]}
@@ -120,6 +143,8 @@ function Resumo({ dados }: { dados: DashboardEscola }) {
           ]}
         />
       </Painel>
+
+      <UltimasAcoes acoes={financeiro.ultimasAcoes} />
     </>
   )
 }
