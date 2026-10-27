@@ -340,6 +340,7 @@ gravam em `LOG_AUDITORIA` com a entidade `DESPESA`: pagar é `PAGAR`, voltar par
 | `POST` | `/portal/aluno/cobrancas/{id}/pagar` (`forma` `PIX` ou `BOLETO`; cria ou reaproveita a cobrança na conta filha da escola e devolve QR Code e copia e cola ou linha digitável; trocar a forma altera a mesma cobrança; 202 `PROCESSANDO` se o provedor não respondeu; erros com `codigo`) | `ALUNO` |
 | `GET` | `/dashboard/escola` (pessoas, estrutura, ocupação de vagas e aproveitamento) | `MASTER` |
 | `GET` | `/dashboard/secretaria` (matrículas por situação, vagas e ocupação por turma) | `MASTER`, `SECRETARIA` |
+| `GET` | `/dashboard/financeiro` (recebido no mês, falta receber, alunos em atraso e inadimplência, despesas a pagar, entradas e saídas dos 6 últimos meses, cobranças que vencem na semana, últimos pagamentos e últimas ações do `LOG_AUDITORIA`; serve o Início do financeiro e o do `MASTER`) | `MASTER`, `FINANCEIRO` |
 
 Qualquer rota não listada como pública exige `Authorization: Bearer <access token>` e responde
 `401` sem ele. Perfil sem permissão recebe `403`.
