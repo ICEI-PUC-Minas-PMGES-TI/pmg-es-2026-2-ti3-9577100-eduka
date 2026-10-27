@@ -325,7 +325,7 @@ O que vem do Asaas chega sem usuário e é auditado com `ORIGEM = PROVEDOR`, sem
 da própria cobrança (`AuditoriaService.registrarDoProvedor`). Pagamento confirmado grava
 `CONFIRMAR_PAGAMENTO`, pelo webhook ou pelo pagamento achado ao cancelar; pagamento de cobrança já
 cancelada grava `PAGO_APOS_CANCELAR`, para a escola resolver com o pagador. Linha de usuário
-continua exigindo autor (restrição no banco, V31).
+continua exigindo autor (restrição no banco, V32).
 
 **Portais e dashboards**
 

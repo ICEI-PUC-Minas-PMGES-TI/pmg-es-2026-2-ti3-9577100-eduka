@@ -19,7 +19,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * Uma linha da trilha de auditoria. Mapeia a tabela {@code LOG_AUDITORIA}
- * (V22, V31). Imutavel: so e inserida, por
+ * (V22, V32). Imutavel: so e inserida, por
  * {@link br.pucminas.eduka.backend.service.AuditoriaService}.
  *
  * <p>

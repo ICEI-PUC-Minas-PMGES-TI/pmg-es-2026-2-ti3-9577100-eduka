@@ -10,9 +10,9 @@ public enum OperacaoAuditoria {
     CANCELAR,
     /** Baixa manual de pagamento (V24). */
     PAGAR,
-    /** Pagamento confirmado pelo provedor, sem autor (V31). */
+    /** Pagamento confirmado pelo provedor, sem autor (V32). */
     CONFIRMAR_PAGAMENTO,
-    /** O provedor recebeu o pagamento de uma cobranca ja cancelada, que voltou a PAGA (V32). */
+    /** O provedor recebeu o pagamento de uma cobranca ja cancelada, que voltou a PAGA (V33). */
     PAGO_APOS_CANCELAR,
     /** Desfazer um pagamento ja registrado. */
     ESTORNAR
