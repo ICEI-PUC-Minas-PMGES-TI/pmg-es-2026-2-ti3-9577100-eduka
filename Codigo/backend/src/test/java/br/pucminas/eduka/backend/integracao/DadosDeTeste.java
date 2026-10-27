@@ -119,6 +119,24 @@ public class DadosDeTeste {
         return id;
     }
 
+    /** Cobranca pendente cujo Pagar ficou sem resposta do provedor, desde {@code iniciadaEm}. */
+    public UUID cobrancaEmitindo(UUID escolaId, UUID alunoId, Instant iniciadaEm) {
+        UUID id = cobranca(escolaId, alunoId, StatusCobranca.PENDENTE, LocalDate.now().plusDays(10));
+        jdbc.update("UPDATE COBRANCA SET SITUACAO_PROVEDOR = 'EMITINDO', FORMA_PAGAMENTO = 'PIX', "
+                + "EMISSAO_INICIADA_EM = ? WHERE ID_COBRANCA = ?", Timestamp.from(iniciadaEm), id);
+        return id;
+    }
+
+    /** Conta de recebimento ja criada no provedor, com a credencial {@code credencial} cifrada. */
+    public void contaAprovada(UUID escolaId, String credencial) {
+        jdbc.update("INSERT INTO CONTA_RECEBIMENTO_ESCOLA (ESCOLA_ID, STATUS, RAZAO_SOCIAL, EMAIL_FINANCEIRO, "
+                + "TELEFONE_CELULAR, TIPO_EMPRESA, FATURAMENTO_MENSAL, LOGRADOURO, NUMERO, BAIRRO, CEP, "
+                + "BANCO_CODIGO, CONTA_FINAL, ID_CONTA_EXTERNA, CREDENCIAL_CIFRADA, SOLICITADA_EM) "
+                + "VALUES (?, 'APROVADA', 'Escola Teste LTDA', 'financeiro@escola.com', '31999999999', 'LIMITED', "
+                + "10000.00, 'Rua A', '1', 'Centro', '30000000', '001', '1234', ?, ?, CURRENT_TIMESTAMP)",
+                escolaId, "acc_" + unico(), pii.cifrar(credencial));
+    }
+
     /** Situacao gravada, lida direto da tabela (sem o EM_ATRASO calculado na leitura). */
     public StatusCobranca statusGravado(UUID cobrancaId) {
         return StatusCobranca.valueOf(jdbc.queryForObject(

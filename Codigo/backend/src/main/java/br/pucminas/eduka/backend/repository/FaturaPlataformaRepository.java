@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
@@ -39,4 +40,10 @@ public interface FaturaPlataformaRepository extends JpaRepository<FaturaPlatafor
             + "f.atualizadoEm = :agora WHERE f.status = br.pucminas.eduka.backend.domain.StatusCobranca.PENDENTE "
             + "AND f.dataVencimento < :hoje")
     int marcarVencidasComoEmAtraso(@Param("hoje") LocalDate hoje, @Param("agora") Instant agora);
+
+    /** Faturas que ficaram EMITINDO desde antes de {@code iniciadaAntes}, para a reconciliacao (spec §8.4). */
+    @Query("SELECT f.id FROM FaturaPlataforma f "
+            + "WHERE f.situacaoProvedor = br.pucminas.eduka.backend.domain.SituacaoProvedor.EMITINDO "
+            + "AND f.emissaoIniciadaEm < :iniciadaAntes ORDER BY f.emissaoIniciadaEm")
+    List<UUID> buscarEmissoesSemResposta(@Param("iniciadaAntes") Instant iniciadaAntes, Pageable pagina);
 }

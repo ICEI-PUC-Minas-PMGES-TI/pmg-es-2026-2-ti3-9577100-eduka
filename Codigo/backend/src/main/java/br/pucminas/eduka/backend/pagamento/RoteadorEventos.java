@@ -1,6 +1,7 @@
 package br.pucminas.eduka.backend.pagamento;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.EnumSet;
@@ -11,6 +12,7 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +28,7 @@ import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.EventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 import br.pucminas.eduka.backend.pagamento.tipos.SituacaoContaProvedor;
+import br.pucminas.eduka.backend.pagamento.tipos.StatusCobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.TipoEventoProvedor;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
 import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
@@ -63,7 +66,16 @@ class RoteadorEventos {
     private static final Logger log = LoggerFactory.getLogger(RoteadorEventos.class);
 
     private static final int MAX_MOTIVO = 500;
+
+    /** Margem para nao disputar com o webhook o aviso que ele acabou de gravar. */
+    static final Duration ESPERA_ANTES_DE_REPROCESSAR = Duration.ofMinutes(1);
+
+    private static final Set<StatusEventoProvedor> PENDENTES = EnumSet.of(StatusEventoProvedor.RECEBIDO,
+            StatusEventoProvedor.PROCESSANDO, StatusEventoProvedor.ERRO);
     private static final int MAX_REFERENCIA = 60;
+
+    /** Motivo gravado quando a reconciliacao nao acha a cobranca no provedor. */
+    static final String NAO_ACHADA_NO_PROVEDOR = "Cobranca nao encontrada no provedor; pode ser emitida de novo";
 
     private final EventoProvedorRepository eventoRepository;
     private final CobrancaRepository cobrancaRepository;
@@ -116,6 +128,18 @@ class RoteadorEventos {
                 .payload(evento.payloadSaneado())
                 .build();
         return Optional.of(eventoRepository.saveAndFlush(registro).getId());
+    }
+
+    /**
+     * Avisos para o agendador reaplicar: RECEBIDO, PROCESSANDO ou ERRO, com
+     * menos de {@code maxTentativas}. Os recebidos ha menos de
+     * {@link #ESPERA_ANTES_DE_REPROCESSAR} ficam de fora: o webhook pode estar
+     * aplicando agora.
+     */
+    @Transactional(readOnly = true)
+    List<UUID> pendentes(int maxTentativas, int lote) {
+        return eventoRepository.buscarPendentes(PENDENTES, maxTentativas,
+                clock.instant().minus(ESPERA_ANTES_DE_REPROCESSAR), PageRequest.of(0, lote));
     }
 
     @Transactional(readOnly = true)
@@ -240,6 +264,71 @@ class RoteadorEventos {
             return;
         }
         gravarPagamento(encontrada.get(), pago, LocalDate.now(clock), null, clock.instant());
+    }
+
+    // ---- Reconciliacao (spec §8.4) ----
+
+    /**
+     * Resolve a cobranca que ficou EMITINDO com o que a busca pela referencia
+     * achou no provedor, com o mesmo resultado do aviso: achada, como o de
+     * criacao (e, se ja foi paga, como o de pagamento); nao achada, como o de
+     * remocao, e a escola pode emitir de novo. O provedor omite as removidas.
+     *
+     * @return false se a cobranca ja tinha saido de EMITINDO (o aviso chegou antes)
+     */
+    @Transactional
+    boolean reconciliarCobranca(UUID cobrancaId, Optional<CobrancaProvedor> noProvedor) {
+        Optional<CobrancaLocal> encontrada = cobrancaRepository.buscarParaPagamentoOnlinePorId(cobrancaId).stream()
+                .findFirst()
+                .map(CobrancaLocal::deLinha);
+        if (encontrada.isEmpty() || encontrada.get().situacao() != SituacaoProvedor.EMITINDO) {
+            return false;
+        }
+        Instant agora = clock.instant();
+        Optional<CobrancaProvedor> achada = noProvedor.filter(RoteadorEventos::existeNoProvedor);
+        if (achada.isEmpty()) {
+            return cobrancaRepository.marcarFalhaEmissaoPeloProvedor(cobrancaId, NAO_ACHADA_NO_PROVEDOR, agora) == 1;
+        }
+        CobrancaProvedor cobranca = achada.get();
+        if (cobrancaRepository.marcarEmitidaPeloProvedor(cobrancaId, cobranca.idCobrancaExterna(), agora) != 1) {
+            return false;
+        }
+        if (RoteadorFatura.pago(cobranca) && cobranca.valorPago() != null
+                && pagamentoRepository.findByCobrancaId(cobrancaId).isEmpty()) {
+            gravarPagamento(encontrada.get(), cobranca, LocalDate.now(clock), null, agora);
+        }
+        return true;
+    }
+
+    /**
+     * A mesma regra de {@link #reconciliarCobranca} para a fatura da
+     * plataforma, buscada na conta-pai.
+     *
+     * @return false se a fatura ja tinha saido de EMITINDO
+     */
+    @Transactional
+    boolean reconciliarFatura(UUID faturaId, Optional<CobrancaProvedor> noProvedor) {
+        Optional<FaturaPlataforma> encontrada = faturaRepository.travar(faturaId);
+        if (encontrada.isEmpty() || encontrada.get().getSituacaoProvedor() != SituacaoProvedor.EMITINDO) {
+            return false;
+        }
+        FaturaPlataforma fatura = encontrada.get();
+        Instant agora = clock.instant();
+        Optional<CobrancaProvedor> achada = noProvedor.filter(RoteadorEventos::existeNoProvedor);
+        if (achada.isEmpty()) {
+            marcarFaturaComFalhaDeEmissao(fatura, NAO_ACHADA_NO_PROVEDOR, agora);
+            return true;
+        }
+        marcarFaturaEmitida(fatura, achada.get().idCobrancaExterna(), agora);
+        if (RoteadorFatura.pago(achada.get()) && achada.get().valorPago() != null
+                && fatura.getStatus() != StatusCobranca.PAGA) {
+            pagarFatura(fatura, achada.get(), LocalDate.now(clock), agora);
+        }
+        return true;
+    }
+
+    private static boolean existeNoProvedor(CobrancaProvedor cobranca) {
+        return cobranca.idCobrancaExterna() != null && cobranca.status() != StatusCobrancaProvedor.REMOVIDA;
     }
 
     private enum PagamentoGravado {
@@ -408,11 +497,7 @@ class RoteadorEventos {
         switch (evento.tipo()) {
             case COBRANCA_CRIADA -> {
                 if (fatura.getSituacaoProvedor() == SituacaoProvedor.EMITINDO && doAviso.idCobrancaExterna() != null) {
-                    fatura.setSituacaoProvedor(SituacaoProvedor.EMITIDA);
-                    fatura.setIdCobrancaExterna(doAviso.idCobrancaExterna());
-                    fatura.setEmitidaEm(agora);
-                    fatura.setUltimoErroProvedor(null);
-                    fatura.setAtualizadoEm(agora);
+                    marcarFaturaEmitida(fatura, doAviso.idCobrancaExterna(), agora);
                     encerrar(registro, StatusEventoProvedor.PROCESSADO, null);
                 } else {
                     encerrar(registro, StatusEventoProvedor.IGNORADO,
@@ -424,28 +509,17 @@ class RoteadorEventos {
                     encerrar(registro, StatusEventoProvedor.IGNORADO, "Aviso de pagamento sem cobranca paga");
                 } else if (fatura.getStatus() == StatusCobranca.PAGA) {
                     encerrar(registro, StatusEventoProvedor.IGNORADO, "Pagamento da fatura ja registrado");
+                } else if (pagarFatura(fatura, doAviso,
+                        evento.dataEvento() != null ? evento.dataEvento() : LocalDate.now(clock), agora)) {
+                    encerrar(registro, StatusEventoProvedor.PROCESSADO,
+                            "Pagamento apos cancelamento; fatura marcada como PAGA");
                 } else {
-                    StatusCobranca antes = fatura.getStatus();
-                    RoteadorFatura.registrarPagamento(fatura, doAviso,
-                            evento.dataEvento() != null ? evento.dataEvento() : LocalDate.now(clock), agora);
-                    if (antes == StatusCobranca.CANCELADA) {
-                        // R23: o dinheiro prevalece. Fica sinalizado na auditoria.
-                        auditarFatura(OperacaoAuditoria.PAGO_APOS_CANCELAR, fatura);
-                        log.warn("PAGAMENTO_APOS_CANCELAMENTO: fatura {} cancelada foi paga; marcada como PAGA",
-                                faturaId);
-                        encerrar(registro, StatusEventoProvedor.PROCESSADO,
-                                "Pagamento apos cancelamento; fatura marcada como PAGA");
-                    } else {
-                        auditarFatura(OperacaoAuditoria.CONFIRMAR_PAGAMENTO, fatura);
-                        encerrar(registro, StatusEventoProvedor.PROCESSADO, null);
-                    }
+                    encerrar(registro, StatusEventoProvedor.PROCESSADO, null);
                 }
             }
             case COBRANCA_REMOVIDA -> {
                 if (fatura.getSituacaoProvedor() == SituacaoProvedor.EMITINDO) {
-                    fatura.setSituacaoProvedor(SituacaoProvedor.FALHA_EMISSAO);
-                    fatura.setUltimoErroProvedor("Cobranca removida no provedor");
-                    fatura.setAtualizadoEm(agora);
+                    marcarFaturaComFalhaDeEmissao(fatura, "Cobranca removida no provedor", agora);
                     encerrar(registro, StatusEventoProvedor.PROCESSADO, null);
                 } else if (fatura.getSituacaoProvedor() == SituacaoProvedor.EMITIDA && fatura.getStatus().emAberto()) {
                     fatura.setStatus(StatusCobranca.CANCELADA);
@@ -468,6 +542,37 @@ class RoteadorEventos {
             default -> encerrar(registro, StatusEventoProvedor.IGNORADO,
                     "Tipo de aviso sem efeito no webhook: " + evento.tipo());
         }
+    }
+
+    private static void marcarFaturaEmitida(FaturaPlataforma fatura, String idCobrancaExterna, Instant agora) {
+        fatura.setSituacaoProvedor(SituacaoProvedor.EMITIDA);
+        fatura.setIdCobrancaExterna(idCobrancaExterna);
+        fatura.setEmitidaEm(agora);
+        fatura.setUltimoErroProvedor(null);
+        fatura.setAtualizadoEm(agora);
+    }
+
+    private static void marcarFaturaComFalhaDeEmissao(FaturaPlataforma fatura, String motivo, Instant agora) {
+        fatura.setSituacaoProvedor(SituacaoProvedor.FALHA_EMISSAO);
+        fatura.setUltimoErroProvedor(motivo);
+        fatura.setAtualizadoEm(agora);
+    }
+
+    /**
+     * Grava na fatura o pagamento confirmado e audita sem autor.
+     *
+     * @return true se a fatura estava CANCELADA: o dinheiro prevalece (R23)
+     */
+    private boolean pagarFatura(FaturaPlataforma fatura, CobrancaProvedor pago, LocalDate dataPadrao, Instant agora) {
+        boolean cancelada = fatura.getStatus() == StatusCobranca.CANCELADA;
+        RoteadorFatura.registrarPagamento(fatura, pago, dataPadrao, agora);
+        if (cancelada) {
+            auditarFatura(OperacaoAuditoria.PAGO_APOS_CANCELAR, fatura);
+            log.warn("PAGAMENTO_APOS_CANCELAMENTO: fatura {} cancelada foi paga; marcada como PAGA", fatura.getId());
+        } else {
+            auditarFatura(OperacaoAuditoria.CONFIRMAR_PAGAMENTO, fatura);
+        }
+        return cancelada;
     }
 
     private void auditarFatura(OperacaoAuditoria operacao, FaturaPlataforma fatura) {

@@ -129,4 +129,23 @@ public interface CobrancaRepository
             + "VERSAO = VERSAO + 1 WHERE ID_COBRANCA = :id AND SITUACAO_PROVEDOR = 'EMITIDA' "
             + "AND STATUS IN ('PENDENTE', 'EM_ATRASO')", nativeQuery = true)
     int cancelarPeloProvedor(@Param("id") UUID id, @Param("agora") Instant agora);
+
+    /**
+     * Cobrancas que ficaram EMITINDO desde antes de {@code iniciadaAntes}, as
+     * mais antigas primeiro, com a credencial da conta da escola, para a
+     * reconciliacao (spec §8.4). Nativo: a rotina roda sem usuario.
+     */
+    @Query(value = "SELECT c.ID_COBRANCA AS id, conta.CREDENCIAL_CIFRADA AS credencialCifrada FROM COBRANCA c "
+            + "JOIN CONTA_RECEBIMENTO_ESCOLA conta ON conta.ESCOLA_ID = c.ESCOLA_ID "
+            + "WHERE c.SITUACAO_PROVEDOR = 'EMITINDO' AND c.EMISSAO_INICIADA_EM < :iniciadaAntes "
+            + "AND conta.CREDENCIAL_CIFRADA IS NOT NULL ORDER BY c.EMISSAO_INICIADA_EM LIMIT :lote",
+            nativeQuery = true)
+    List<EmissaoSemResposta> buscarEmissoesSemResposta(@Param("iniciadaAntes") Instant iniciadaAntes,
+            @Param("lote") int lote);
+
+    interface EmissaoSemResposta {
+        UUID getId();
+
+        byte[] getCredencialCifrada();
+    }
 }
