@@ -1,5 +1,7 @@
+import type { PerfilUsuario } from '../services/authService'
 import type { Turno } from './alocacao'
 import type { StatusMatricula } from './matricula'
+import type { FormaPagamento, StatusCobrancaAluno } from './pagamentoAluno'
 import type { TipoAvaliacao } from './portalAluno'
 
 // Espelha o DashboardEscolaResponse do backend (GET /dashboard/escola).
@@ -95,4 +97,107 @@ export type DashboardProfessor = {
   proximasAvaliacoes: AvaliacaoResumo[]
   /** Já realizadas (antes de hoje) e com aluno ativo sem nota, da mais antiga para a mais recente. */
   avaliacoesPendentes: AvaliacaoResumo[]
+}
+
+// Espelha o DashboardFinanceiroResponse.Total.
+export type TotalFinanceiro = {
+  valor: number
+  quantidade: number
+}
+
+// Espelha o DashboardFinanceiroResponse.Mes.
+export type MesFinanceiro = {
+  /** "AAAA-MM". */
+  mes: string
+  /** Cobranças pagas no mês. */
+  entrou: number
+  /** Despesas pagas no mês. */
+  saiu: number
+}
+
+// Espelha o DashboardFinanceiroResponse.CobrancaDaSemana.
+export type CobrancaDaSemana = {
+  id: string
+  alunoId: string
+  alunoNome: string | null
+  descricao: string
+  valor: number
+  /** ISO (yyyy-MM-dd). */
+  dataVencimento: string
+  /** PENDENTE vencida já chega como EM_ATRASO. */
+  status: StatusCobrancaAluno
+}
+
+export type OrigemPagamento = 'ONLINE' | 'MANUAL'
+
+// Espelha o DashboardFinanceiroResponse.PagamentoRecente.
+export type PagamentoRecente = {
+  cobrancaId: string
+  alunoNome: string | null
+  descricao: string
+  /** O valor pago no Asaas; na baixa manual, o da cobrança. */
+  valor: number
+  /** Nula na baixa manual. */
+  forma: FormaPagamento | null
+  origem: OrigemPagamento
+  /** Instante (ISO). */
+  pagoEm: string
+}
+
+export type OperacaoAuditoria =
+  | 'CRIAR'
+  | 'EDITAR'
+  | 'CANCELAR'
+  | 'PAGAR'
+  | 'CONFIRMAR_PAGAMENTO'
+  | 'PAGO_APOS_CANCELAR'
+  | 'ESTORNAR'
+  | 'CONTESTAR'
+  | 'ATIVAR'
+  | 'ALTERAR_SITUACAO'
+
+export type EntidadeAuditada = 'COBRANCA' | 'PAGAMENTO' | 'DESPESA' | 'CONTA_RECEBIMENTO' | 'FATURA_PLATAFORMA'
+
+// Espelha o DashboardFinanceiroResponse.AcaoRecente.
+export type AcaoRecente = {
+  /** Nulo nas ações que vêm do Asaas (webhook), sem usuário da escola. */
+  usuarioId: string | null
+  usuarioNome: string | null
+  perfil: PerfilUsuario | null
+  operacao: OperacaoAuditoria
+  entidade: EntidadeAuditada
+  registroId: string
+  /** Instante (ISO). */
+  dataHora: string
+}
+
+// Espelha o DashboardFinanceiroResponse do backend (GET /dashboard/financeiro).
+export type DashboardFinanceiro = {
+  /** Cobranças pagas neste mês, online ou com baixa manual. */
+  recebidoNoMes: TotalFinanceiro
+  /** Cobranças em aberto (pendentes e em atraso). */
+  faltaReceber: TotalFinanceiro
+  emAtraso: {
+    /** Alunos com pelo menos uma cobrança em atraso. */
+    alunos: number
+    cobrancas: number
+    valor: number
+    /** 0 a 100: o em atraso sobre tudo o que já venceu; nulo enquanto nada venceu. */
+    inadimplencia: number | null
+  }
+  /** Despesas a pagar com vencimento até o fim do mês, inclusive as atrasadas. */
+  despesasAPagar: {
+    valor: number
+    quantidade: number
+    /** ISO (yyyy-MM-dd), de hoje em diante; nulo se não houver. */
+    proximoVencimento: string | null
+  }
+  /** Os 6 últimos meses, do mais antigo ao atual. */
+  ultimosMeses: MesFinanceiro[]
+  /** Em atraso e as que vencem até daqui a 6 dias, pelo vencimento; no máximo 10. */
+  vencemNaSemana: CobrancaDaSemana[]
+  /** Mais recentes primeiro; no máximo 10. */
+  ultimosPagamentos: PagamentoRecente[]
+  /** Do log de auditoria, mais recentes primeiro; no máximo 10. */
+  ultimasAcoes: AcaoRecente[]
 }

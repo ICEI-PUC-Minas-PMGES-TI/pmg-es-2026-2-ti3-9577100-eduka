@@ -131,6 +131,67 @@ export function GraficoBarras({ itens, rotulo }: { itens: Barra[]; rotulo: strin
   )
 }
 
+/** Cor de cada série, pela posição: a primeira lavanda, a segunda verde-azulada. */
+const CORES_SERIE = [styles.serie1, styles.serie2]
+
+export type GrupoBarras = {
+  rotulo: string
+  /** Um valor por série, na ordem das séries. */
+  valores: number[]
+  /** Rótulo completo no tooltip (ex.: "outubro de 2026"); o padrão é o rótulo. */
+  titulo?: string
+}
+
+type GraficoComparativoProps = {
+  rotulo: string
+  /** Nomes das séries (até duas), na ordem das cores. */
+  series: string[]
+  grupos: GrupoBarras[]
+  /** Texto de cada valor no tooltip e no leitor de tela. */
+  formatar: (valor: number) => string
+}
+
+/** Barras verticais lado a lado por grupo (ex.: entrou e saiu em cada mês), com legenda. */
+export function GraficoComparativo({ rotulo, series, grupos, formatar }: GraficoComparativoProps) {
+  const maximo = Math.max(1, ...grupos.flatMap((grupo) => grupo.valores))
+  return (
+    <div className={styles.comparativo}>
+      <ul className={styles.legenda}>
+        {series.map((serie, indice) => (
+          <li key={serie}>
+            <span className={`${styles.amostra} ${CORES_SERIE[indice]}`} aria-hidden="true" />
+            {serie}
+          </li>
+        ))}
+      </ul>
+      <ul className={styles.grafico} aria-label={rotulo}>
+        {grupos.map((grupo) => (
+          <li key={grupo.rotulo} className={styles.colunaGrafico}>
+            <div className={`${styles.trilho} ${styles.trilhoAgrupado}`}>
+              {grupo.valores.map((valor, indice) => {
+                const texto = `${series[indice]} em ${grupo.titulo ?? grupo.rotulo}: ${formatar(valor)}`
+                return (
+                  <div
+                    key={series[indice]}
+                    role="img"
+                    aria-label={texto}
+                    title={texto}
+                    className={`${styles.barraAgrupada} ${CORES_SERIE[indice]}`}
+                    style={{ height: `${(valor / maximo) * 100}%` }}
+                  />
+                )
+              })}
+            </div>
+            <span className={styles.rotuloBarra} title={grupo.titulo}>
+              {grupo.rotulo}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 /** Lista de pares rótulo/valor. */
 export function Linhas({ itens }: { itens: { rotulo: string; valor: ReactNode }[] }) {
   return (
