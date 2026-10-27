@@ -33,8 +33,16 @@ emite esse evento para PIX/boleto, ver A3). Os achados da §4 mudam contratos da
   ```
   `ASAAS_WEBHOOK_URL=https://<nome>.trycloudflare.com/webhooks/asaas`
 - **A URL muda a cada execução**, então não é estável. Ao reiniciar o túnel, o webhook das contas já criadas
-  continua apontando para a URL antiga. Em dev, a reconciliação (§8.4) cobre o intervalo. URL fixa exige túnel
-  nomeado (conta Cloudflare + domínio) e está fora da sprint.
+  continua apontando para a URL antiga. URL fixa exige túnel nomeado (conta Cloudflare + domínio) e está fora da
+  sprint. O que as rotinas cobrem nesse intervalo:
+  - **Situação da conta filha:** a rotina de contas (a cada 15 min) lê a situação no Asaas.
+  - **Cobrança e fatura presas em `EMITINDO`:** a reconciliação (a cada 10 min, `ReconciliacaoRotina`) acha pela
+    referência e grava emitida, paga ou com falha de emissão.
+  - **Pagamento de cobrança já emitida:** nenhuma rotina cobre, o aviso precisa chegar. Atualize a URL do
+    webhook no Asaas e, se a fila tiver sido interrompida pelas falhas, reative-a no painel: o Asaas guarda os
+    avisos não entregues e os reenvia.
+- Aviso que chegou mas falhou ao aplicar fica em `ERRO` e é reaplicado a cada 5 min (`EventoProvedorRotina`), até 10
+  tentativas.
 - O webhook da subconta criado por `webhooks[]` em `POST /v3/accounts` funcionou: os eventos de situação da conta
   e de cobrança chegaram.
 - O webhook da conta-pai (Fluxo A) também pode ser criado **por API** (`POST /v3/webhooks`), não só pelo painel:

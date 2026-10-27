@@ -298,6 +298,27 @@ Se a aplicação falhar, o aviso fica em `ERRO` para nova tentativa e o webhook 
 Estorno e contestação feitos no Asaas ficam registrados na auditoria, sem mudar a cobrança (ver
 Auditoria, abaixo).
 
+Duas rotinas cobrem o que o webhook não resolveu. Rodam sem usuário e chamam o Asaas fora de
+transação, pelo `PaymentRoutingService`. Uma falha num item não para os outros.
+
+| Rotina | Intervalo | O que faz |
+|---|---|---|
+| `EventoProvedorRotina` (`app.pagamento.eventos.*`) | 5 min | Reaplica os avisos de `EVENTO_PROVEDOR` em `RECEBIDO`, `PROCESSANDO` ou `ERRO` recebidos há mais de 1 min (para não disputar com o webhook), os mais antigos primeiro, até 50 por vez. O aviso é aplicado pelo mesmo caminho do webhook, com a trava do registro, então nunca vale duas vezes. Cada tentativa soma em `TENTATIVAS`; com 10, o aviso fica em `ERRO` para análise manual. |
+| `ReconciliacaoRotina` (`app.pagamento.reconciliacao.*`) | 10 min | Procura no Asaas, pela referência, as cobranças (`EDK-B-<id>`, na conta da escola) e faturas (`EDK-A-<id>`, na conta-pai) que estão em `EMITINDO` há mais de 5 min, porque a resposta da criação e o aviso `PAYMENT_CREATED` se perderam. Até 50 de cada por vez. |
+
+A reconciliação grava o mesmo resultado que o aviso gravaria:
+
+| Achado no Asaas | Resultado no Edúka |
+|---|---|
+| A cobrança, em aberto | `EMITIDA` com o id do Asaas, como no `PAYMENT_CREATED` |
+| A cobrança, já paga | `EMITIDA` e `PAGA`, com `PAGAMENTO_COBRANCA` `ONLINE` sem evento, auditoria `CONFIRMAR_PAGAMENTO` e e-mail de confirmação, como no `PAYMENT_RECEIVED` |
+| Nada (o Asaas omite as removidas) | `FALHA_EMISSAO`, como no `PAYMENT_DELETED`; o próximo Pagar emite de novo |
+
+Se o aviso chegou antes, a cobrança já saiu de `EMITINDO` e a reconciliação não muda nada. O
+pagamento também não duplica, porque `PAGAMENTO_COBRANCA` tem uma linha por cobrança. Se o Asaas
+não responder, ou se a conta-pai não estiver configurada, a cobrança continua em `EMITINDO` para a
+execução seguinte.
+
 Fatura da plataforma (Fluxo A, `FATURA_PLATAFORMA`): o Super Admin lança a fatura da escola e o MASTER paga com
 PIX ou boleto numa cobrança da **conta-pai** do Edúka (referência `EDK-A-<id>`, a escola como pagadora). O aviso
 de pagamento com essa referência marca a própria fatura como `PAGA`; aviso de fatura vindo da conta de uma escola
