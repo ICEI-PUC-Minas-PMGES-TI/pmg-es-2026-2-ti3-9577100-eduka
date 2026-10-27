@@ -43,8 +43,8 @@ public class ContaRecebimentoController {
     @Operation(summary = "Ativar recebimentos", description = "Perfil: MASTER. Cria a conta filha da escola com o "
             + "CNPJ do cadastro dela. Permitido em NAO_INICIADA, ERRO_CRIACAO e VERIFICACAO_PENDENTE. Devolve a "
             + "conta em AGUARDANDO_APROVACAO (ou APROVADA), ou VERIFICACAO_PENDENTE se o provedor nao respondeu. "
-            + "409 ATIVACAO_EM_ANDAMENTO ou CONTA_JA_CRIADA; 400 PROVEDOR_RECUSOU (a conta fica ERRO_CRIACAO); "
-            + "503 PROVEDOR_NAO_CONFIGURADO.")
+            + "O pedido aceito fica no log de auditoria com o MASTER. 409 ATIVACAO_EM_ANDAMENTO ou "
+            + "CONTA_JA_CRIADA; 400 PROVEDOR_RECUSOU (a conta fica ERRO_CRIACAO); 503 PROVEDOR_NAO_CONFIGURADO.")
     public ContaRecebimentoResponse ativar(@Valid @RequestBody AtivarRecebimentosRequest request) {
         return paymentRoutingService.ativarRecebimentos(request);
     }
@@ -52,8 +52,8 @@ public class ContaRecebimentoController {
     @PostMapping("/config-pagamento/conta/sincronizar")
     @PreAuthorize(Perfis.GESTAO)
     @Operation(summary = "Sincronizar a conta", description = "Perfil: MASTER. Le a situacao da conta no "
-            + "provedor e grava. Conta ainda nao criada no provedor volta como esta. 404 sem conta; 503 "
-            + "PROVEDOR_INDISPONIVEL.")
+            + "provedor e grava; mudanca de situacao fica no log de auditoria, sem autor. Conta ainda nao criada "
+            + "no provedor volta como esta. 404 sem conta; 503 PROVEDOR_INDISPONIVEL.")
     public ContaRecebimentoResponse sincronizar() {
         return paymentRoutingService.sincronizarConta();
     }
