@@ -14,6 +14,12 @@ public enum OperacaoAuditoria {
     CONFIRMAR_PAGAMENTO,
     /** O provedor recebeu o pagamento de uma cobranca ja cancelada, que voltou a PAGA (V33). */
     PAGO_APOS_CANCELAR,
-    /** Desfazer um pagamento ja registrado. */
-    ESTORNAR
+    /** Desfazer um pagamento ja registrado; tambem o estorno feito no provedor (V34). */
+    ESTORNAR,
+    /** O pagador contestou o pagamento no provedor (chargeback), sem autor (V34). */
+    CONTESTAR,
+    /** O MASTER pediu a criacao da conta de recebimento da escola (V34). */
+    ATIVAR,
+    /** O provedor mudou a situacao da conta de recebimento, sem autor (V34). */
+    ALTERAR_SITUACAO
 }

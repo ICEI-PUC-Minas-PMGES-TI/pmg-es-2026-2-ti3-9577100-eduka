@@ -43,6 +43,7 @@ import br.pucminas.eduka.backend.pagamento.tipos.StatusCobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.TipoEventoProvedor;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
 import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
+import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository.ContaPorIdExterno;
 import br.pucminas.eduka.backend.repository.EventoProvedorRepository;
 import br.pucminas.eduka.backend.repository.FaturaPlataformaRepository;
 import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
@@ -86,7 +87,8 @@ class RoteadorEventosTest {
     @BeforeEach
     void setUp() {
         roteador = new RoteadorEventos(eventoRepository, cobrancaRepository, contaRepository, pagamentoRepository,
-                faturaRepository, avisoCobrancaService, auditoriaService, Clock.fixed(AGORA, ZoneOffset.UTC));
+                faturaRepository, avisoCobrancaService, auditoriaService,
+                new GravadorSituacaoConta(contaRepository, auditoriaService), Clock.fixed(AGORA, ZoneOffset.UTC));
         registro = br.pucminas.eduka.backend.domain.EventoProvedor.builder()
                 .id(EVENTO)
                 .idEventoExterno("evt_1&1")
@@ -538,6 +540,39 @@ class RoteadorEventosTest {
     }
 
     @Test
+    void contaAprovadaPeloAvisoFicaNoLogSemAutor() {
+        UUID conta = UUID.randomUUID();
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+        when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_ESCOLA)).thenReturn(Optional.of(ESCOLA));
+        when(contaRepository.buscarPorIdContaExterna(CONTA_ESCOLA))
+                .thenReturn(Optional.of(contaNoBanco(conta, "AGUARDANDO_APROVACAO")));
+        when(contaRepository.gravarSituacao(eq(CONTA_ESCOLA), eq("APROVADA"), any(), any(), any(), any(), eq(AGORA)))
+                .thenReturn(1);
+
+        roteador.aplicar(EVENTO, avisoDeConta(CONTA_ESCOLA, new SituacaoContaProvedor(SituacaoCadastral.APROVADO,
+                null, null, null)));
+
+        verify(auditoriaService).registrarDoProvedor(OperacaoAuditoria.ALTERAR_SITUACAO,
+                EntidadeAuditada.CONTA_RECEBIMENTO, conta, ESCOLA);
+    }
+
+    @Test
+    void avisoQueRepeteASituacaoDaContaNaoGeraLog() {
+        when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
+        when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_ESCOLA)).thenReturn(Optional.of(ESCOLA));
+        when(contaRepository.buscarPorIdContaExterna(CONTA_ESCOLA))
+                .thenReturn(Optional.of(contaNoBanco(UUID.randomUUID(), "APROVADA")));
+        when(contaRepository.gravarSituacao(eq(CONTA_ESCOLA), eq("APROVADA"), any(), any(), any(), any(), eq(AGORA)))
+                .thenReturn(1);
+
+        roteador.aplicar(EVENTO, avisoDeConta(CONTA_ESCOLA, new SituacaoContaProvedor(SituacaoCadastral.APROVADO,
+                null, null, null)));
+
+        assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.PROCESSADO);
+        verifyNoInteractions(auditoriaService);
+    }
+
+    @Test
     void avisoDeContaQueNaoEDeEscolaEIgnorado() {
         when(eventoRepository.travar(EVENTO)).thenReturn(Optional.of(registro));
         when(contaRepository.buscarEscolaPorIdContaExterna(CONTA_PAI)).thenReturn(Optional.empty());
@@ -571,6 +606,25 @@ class RoteadorEventosTest {
 
         assertThat(registro.getStatus()).isEqualTo(StatusEventoProvedor.IGNORADO);
         verify(contaRepository, never()).gravarSituacao(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    private static ContaPorIdExterno contaNoBanco(UUID id, String status) {
+        return new ContaPorIdExterno() {
+            @Override
+            public UUID getId() {
+                return id;
+            }
+
+            @Override
+            public UUID getEscolaId() {
+                return ESCOLA;
+            }
+
+            @Override
+            public String getStatus() {
+                return status;
+            }
+        };
     }
 
     private static EventoProvedor avisoDeConta(String idConta, SituacaoContaProvedor situacao) {

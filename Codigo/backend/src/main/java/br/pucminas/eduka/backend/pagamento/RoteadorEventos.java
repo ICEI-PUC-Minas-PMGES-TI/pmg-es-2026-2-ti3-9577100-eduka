@@ -25,7 +25,6 @@ import br.pucminas.eduka.backend.domain.StatusEventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.EventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
-import br.pucminas.eduka.backend.pagamento.tipos.SituacaoCadastral;
 import br.pucminas.eduka.backend.pagamento.tipos.SituacaoContaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.TipoEventoProvedor;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
@@ -72,6 +71,7 @@ class RoteadorEventos {
     private final FaturaPlataformaRepository faturaRepository;
     private final AvisoCobrancaService avisoCobrancaService;
     private final AuditoriaService auditoriaService;
+    private final GravadorSituacaoConta gravadorSituacao;
     private final Clock clock;
 
     /** Avisos sobre uma cobranca; os de fatura ({@code EDK-A-}) seguem a coluna da fatura na §8.4. */
@@ -82,7 +82,7 @@ class RoteadorEventos {
     RoteadorEventos(EventoProvedorRepository eventoRepository, CobrancaRepository cobrancaRepository,
             ContaRecebimentoEscolaRepository contaRepository, PagamentoCobrancaRepository pagamentoRepository,
             FaturaPlataformaRepository faturaRepository, AvisoCobrancaService avisoCobrancaService,
-            AuditoriaService auditoriaService, Clock clock) {
+            AuditoriaService auditoriaService, GravadorSituacaoConta gravadorSituacao, Clock clock) {
         this.eventoRepository = eventoRepository;
         this.cobrancaRepository = cobrancaRepository;
         this.contaRepository = contaRepository;
@@ -90,6 +90,7 @@ class RoteadorEventos {
         this.faturaRepository = faturaRepository;
         this.avisoCobrancaService = avisoCobrancaService;
         this.auditoriaService = auditoriaService;
+        this.gravadorSituacao = gravadorSituacao;
         this.clock = clock;
     }
 
@@ -182,19 +183,12 @@ class RoteadorEventos {
             encerrar(registro, StatusEventoProvedor.IGNORADO, "Aviso de conta sem situacao; a rotina sincroniza");
             return;
         }
-        int gravadas = contaRepository.gravarSituacao(evento.idContaExterna(),
-                RoteadorConta.statusDaSituacao(situacao).name(), nome(situacao.geral()),
-                nome(situacao.documentacao()), nome(situacao.dadosComerciais()), nome(situacao.contaBancaria()),
-                clock.instant());
+        int gravadas = gravadorSituacao.gravar(evento.idContaExterna(), situacao, clock.instant());
         if (gravadas == 0) {
             encerrar(registro, StatusEventoProvedor.IGNORADO, "Conta de recebimento ainda em criacao");
             return;
         }
         encerrar(registro, StatusEventoProvedor.PROCESSADO, null);
-    }
-
-    private static String nome(SituacaoCadastral situacao) {
-        return situacao == null ? null : situacao.name();
     }
 
     private void aplicarPagamento(br.pucminas.eduka.backend.domain.EventoProvedor registro, EventoProvedor evento) {

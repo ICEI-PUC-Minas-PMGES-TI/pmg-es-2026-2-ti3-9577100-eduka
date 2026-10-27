@@ -18,6 +18,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import br.pucminas.eduka.backend.domain.ContaRecebimentoEscola;
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.Escola;
 import br.pucminas.eduka.backend.domain.StatusContaRecebimento;
 import br.pucminas.eduka.backend.dto.AtivarRecebimentosRequest;
@@ -39,6 +41,7 @@ import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository.Con
 import br.pucminas.eduka.backend.repository.EscolaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.PiiCryptoService;
+import br.pucminas.eduka.backend.service.AuditoriaService;
 
 /**
  * Conta de recebimento da escola (conta filha no provedor), por tras do
@@ -58,6 +61,12 @@ import br.pucminas.eduka.backend.security.PiiCryptoService;
  * VERIFICACAO_PENDENTE: a proxima ativacao procura a conta pelo CNPJ antes de
  * criar outra. Achada assim, a conta vem sem chave (o provedor nao a devolve
  * de novo) e fica CREDENCIAL_INDISPONIVEL.
+ * </p>
+ *
+ * <p>
+ * Auditoria (RF22.2): o pedido de ativacao entra no log com o MASTER que
+ * pediu; a mudanca de situacao lida do provedor, sem autor
+ * ({@link GravadorSituacaoConta}).
  * </p>
  */
 @Component
@@ -88,17 +97,22 @@ class RoteadorConta {
     private final EscolaRepository escolaRepository;
     private final IsolamentoEscola isolamentoEscola;
     private final PiiCryptoService piiCryptoService;
+    private final AuditoriaService auditoriaService;
+    private final GravadorSituacaoConta gravadorSituacao;
     private final ChamadorProvedor provedor;
     private final TransactionTemplate transacao;
     private final Clock clock;
 
     RoteadorConta(ContaRecebimentoEscolaRepository contaRepository, EscolaRepository escolaRepository,
-            IsolamentoEscola isolamentoEscola, PiiCryptoService piiCryptoService, ChamadorProvedor provedor,
+            IsolamentoEscola isolamentoEscola, PiiCryptoService piiCryptoService, AuditoriaService auditoriaService,
+            GravadorSituacaoConta gravadorSituacao, ChamadorProvedor provedor,
             PlatformTransactionManager transactionManager, Clock clock) {
         this.contaRepository = contaRepository;
         this.escolaRepository = escolaRepository;
         this.isolamentoEscola = isolamentoEscola;
         this.piiCryptoService = piiCryptoService;
+        this.auditoriaService = auditoriaService;
+        this.gravadorSituacao = gravadorSituacao;
         this.provedor = provedor;
         this.transacao = new TransactionTemplate(transactionManager);
         this.clock = clock;
@@ -273,6 +287,7 @@ class RoteadorConta {
             conta.setAtualizadoEm(agora);
         }
         contaRepository.saveAndFlush(conta);
+        auditoriaService.registrar(OperacaoAuditoria.ATIVAR, EntidadeAuditada.CONTA_RECEBIMENTO, conta.getId());
 
         DadosNovaConta novaConta = new DadosNovaConta(conta.getRazaoSocial(), conta.getEmailFinanceiro(), cnpj,
                 conta.getTelefoneCelular(), conta.getTipoEmpresa(), conta.getFaturamentoMensal(),
@@ -382,9 +397,7 @@ class RoteadorConta {
     private StatusContaRecebimento sincronizar(String idContaExterna, CredencialProvedor credencial) {
         SituacaoContaProvedor situacao = provedor.chamar(p -> p.consultarSituacaoConta(credencial));
         StatusContaRecebimento status = statusDaSituacao(situacao);
-        transacao.executeWithoutResult(t -> contaRepository.gravarSituacao(idContaExterna, status.name(),
-                nome(situacao.geral()), nome(situacao.documentacao()), nome(situacao.dadosComerciais()),
-                nome(situacao.contaBancaria()), clock.instant()));
+        transacao.executeWithoutResult(t -> gravadorSituacao.gravar(idContaExterna, situacao, clock.instant()));
         if (status == StatusContaRecebimento.APROVADA) {
             garantirChavePix(idContaExterna, credencial);
         }
