@@ -6,8 +6,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.pucminas.eduka.backend.dto.DashboardEscolaResponse;
+import br.pucminas.eduka.backend.dto.DashboardFinanceiroResponse;
 import br.pucminas.eduka.backend.dto.DashboardSecretariaResponse;
 import br.pucminas.eduka.backend.security.Perfis;
+import br.pucminas.eduka.backend.service.DashboardFinanceiroService;
 import br.pucminas.eduka.backend.service.DashboardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,9 +24,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public class DashboardController {
 
     private final DashboardService dashboardService;
+    private final DashboardFinanceiroService dashboardFinanceiroService;
 
-    public DashboardController(DashboardService dashboardService) {
+    public DashboardController(DashboardService dashboardService,
+            DashboardFinanceiroService dashboardFinanceiroService) {
         this.dashboardService = dashboardService;
+        this.dashboardFinanceiroService = dashboardFinanceiroService;
     }
 
     @GetMapping("/escola")
@@ -39,5 +44,14 @@ public class DashboardController {
     @Operation(summary = "Resumo de matriculas", description = "Matriculas por situacao, vagas e ocupacao das turmas ativas. Perfis: MASTER, SECRETARIA.")
     public DashboardSecretariaResponse secretaria() {
         return dashboardService.secretaria();
+    }
+
+    @GetMapping("/financeiro")
+    @PreAuthorize(Perfis.FINANCEIRO)
+    @Operation(summary = "Painel financeiro", description = "Recebido no mes, falta receber, alunos em atraso e "
+            + "inadimplencia, despesas a pagar, entradas e saidas dos 6 ultimos meses, cobrancas que vencem na "
+            + "semana, ultimos pagamentos e ultimas acoes do log de auditoria. Perfis: MASTER, FINANCEIRO.")
+    public DashboardFinanceiroResponse financeiro() {
+        return dashboardFinanceiroService.painel();
     }
 }
