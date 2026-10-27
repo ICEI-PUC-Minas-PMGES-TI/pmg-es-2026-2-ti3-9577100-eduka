@@ -224,7 +224,7 @@ public class CobrancaService {
 
     /**
      * Uma cobranca do aluno dono do login (portal do aluno), com a situacao do
-     * pagamento e as acoes da tela.
+     * pagamento, o pagamento registrado (se ja pago online) e as acoes da tela.
      *
      * @throws RecursoNaoEncontradoException se a cobranca nao existe, e de
      *                                       outra escola ou de outro aluno
@@ -239,7 +239,9 @@ public class CobrancaService {
         if (!cobranca.getAluno().getId().equals(alunoId)) {
             throw new RecursoNaoEncontradoException("Cobranca nao encontrada");
         }
-        return CobrancaAlunoResponse.de(cobranca, hoje());
+        PagamentoCobranca pagamento = cobranca.getStatus() != StatusCobranca.PAGA ? null
+                : pagamentoRepository.findByEscolaIdAndCobrancaId(usuario.escolaId(), id).orElse(null);
+        return CobrancaAlunoResponse.de(cobranca, pagamento, hoje());
     }
 
     /**

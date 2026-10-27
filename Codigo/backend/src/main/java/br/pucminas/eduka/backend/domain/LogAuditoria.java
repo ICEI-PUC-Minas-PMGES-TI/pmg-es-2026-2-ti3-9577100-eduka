@@ -19,7 +19,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * Uma linha da trilha de auditoria. Mapeia a tabela {@code LOG_AUDITORIA}
- * (V22). Imutavel: so e inserida, por
+ * (V22, V32). Imutavel: so e inserida, por
  * {@link br.pucminas.eduka.backend.service.AuditoriaService}.
  *
  * <p>
@@ -44,9 +44,13 @@ public class LogAuditoria {
     @Column(name = "ESCOLA_ID", updatable = false)
     private UUID escolaId;
 
-    /** Quem fez a operacao. */
-    @Column(name = "USUARIO_ID", nullable = false, updatable = false)
+    /** Quem fez a operacao. Nulo so na origem {@link OrigemAuditoria#PROVEDOR}. */
+    @Column(name = "USUARIO_ID", updatable = false)
     private UUID usuarioId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ORIGEM", nullable = false, updatable = false, length = 10)
+    private OrigemAuditoria origem;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "OPERACAO", nullable = false, updatable = false, length = 20)

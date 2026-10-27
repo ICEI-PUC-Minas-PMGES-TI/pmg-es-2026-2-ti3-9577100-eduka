@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -19,16 +20,21 @@ import br.pucminas.eduka.backend.domain.ClienteProvedor;
 import br.pucminas.eduka.backend.domain.Cobranca;
 import br.pucminas.eduka.backend.domain.ContaProvedorCliente;
 import br.pucminas.eduka.backend.domain.ContaRecebimentoEscola;
+import br.pucminas.eduka.backend.domain.Escola;
+import br.pucminas.eduka.backend.domain.PagamentoCobranca;
+import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.dto.BoletoResponse;
+import br.pucminas.eduka.backend.dto.ComprovanteResponse;
 import br.pucminas.eduka.backend.dto.DadosPagamentoResponse;
 import br.pucminas.eduka.backend.dto.HabilitacaoRecebimentos;
 import br.pucminas.eduka.backend.dto.PixResponse;
 import br.pucminas.eduka.backend.exception.BoletoNaoGeradoException;
 import br.pucminas.eduka.backend.exception.CobrancaJaPagaException;
 import br.pucminas.eduka.backend.exception.CobrancaNaoPagavelException;
+import br.pucminas.eduka.backend.exception.ComprovanteIndisponivelException;
 import br.pucminas.eduka.backend.exception.FormaPagamentoInvalidaException;
 import br.pucminas.eduka.backend.exception.PagadorSemCpfException;
 import br.pucminas.eduka.backend.exception.PagamentoEmProcessamentoException;
@@ -46,6 +52,8 @@ import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.ClienteProvedorRepository;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
 import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
+import br.pucminas.eduka.backend.repository.EscolaRepository;
+import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.PiiCryptoService;
@@ -65,7 +73,8 @@ import br.pucminas.eduka.backend.validation.CpfValidator;
  * </p>
  *
  * <p>
- * Tambem remove no provedor a cobranca que a escola vai cancelar (spec §8.5).
+ * Tambem remove no provedor a cobranca que a escola vai cancelar (spec §8.5)
+ * e monta o comprovante do pagamento online (R28 a R30).
  * </p>
  */
 @Component
@@ -90,6 +99,8 @@ class RoteadorPagamento {
     private final PessoaRepository pessoaRepository;
     private final ContaRecebimentoEscolaRepository contaRepository;
     private final ClienteProvedorRepository clienteRepository;
+    private final PagamentoCobrancaRepository pagamentoRepository;
+    private final EscolaRepository escolaRepository;
     private final RoteadorConta roteadorConta;
     private final RoteadorEventos eventos;
     private final IsolamentoEscola isolamentoEscola;
@@ -101,6 +112,7 @@ class RoteadorPagamento {
     RoteadorPagamento(CobrancaRepository cobrancaRepository, AlunoRepository alunoRepository,
             AlunoResponsavelRepository alunoResponsavelRepository, PessoaRepository pessoaRepository,
             ContaRecebimentoEscolaRepository contaRepository, ClienteProvedorRepository clienteRepository,
+            PagamentoCobrancaRepository pagamentoRepository, EscolaRepository escolaRepository,
             RoteadorConta roteadorConta, RoteadorEventos eventos, IsolamentoEscola isolamentoEscola,
             PiiCryptoService piiCryptoService, ChamadorProvedor provedor,
             PlatformTransactionManager transactionManager, Clock clock) {
@@ -110,6 +122,8 @@ class RoteadorPagamento {
         this.pessoaRepository = pessoaRepository;
         this.contaRepository = contaRepository;
         this.clienteRepository = clienteRepository;
+        this.pagamentoRepository = pagamentoRepository;
+        this.escolaRepository = escolaRepository;
         this.roteadorConta = roteadorConta;
         this.eventos = eventos;
         this.isolamentoEscola = isolamentoEscola;
@@ -188,6 +202,56 @@ class RoteadorPagamento {
     }
 
     private record BoletoEmitido(String idCobrancaExterna, byte[] credencialCifrada) {
+    }
+
+    // ---- Comprovante (R28 a R30) ----
+
+    /**
+     * Comprovante do pagamento online da cobranca, montado pelo Eduka, nunca a
+     * pagina do provedor. O ALUNO ve so os das proprias cobrancas; MASTER e
+     * FINANCEIRO, os da escola do token. O beneficiario e a escola; o pagador
+     * segue o R18 e sai com o CPF mascarado.
+     *
+     * @throws ComprovanteIndisponivelException sem pagamento online registrado
+     *                                          (a baixa manual nao tem)
+     */
+    ComprovanteResponse comprovante(UUID cobrancaId) {
+        return transacao.execute(status -> {
+            UsuarioAutenticado usuario = isolamentoEscola.usuarioAtual();
+            UUID escolaId = usuario.escolaId();
+            Cobranca cobranca = cobrancaRepository.findByIdAndEscolaId(cobrancaId, escolaId)
+                    .orElseThrow(RoteadorPagamento::cobrancaNaoEncontrada);
+            // R2: cobranca de outro aluno responde 404, como se nao existisse.
+            if (usuario.perfilUsuario() == PerfilUsuario.ALUNO && alunoRepository
+                    .findByUsuarioIdAndEscolaId(usuario.id(), escolaId)
+                    .filter(aluno -> aluno.getId().equals(cobranca.getAluno().getId()))
+                    .isEmpty()) {
+                throw cobrancaNaoEncontrada();
+            }
+            PagamentoCobranca pagamento = cobranca.getStatus() != StatusCobranca.PAGA ? null
+                    : pagamentoRepository.findByEscolaIdAndCobrancaId(escolaId, cobrancaId).orElse(null);
+            if (pagamento == null) {
+                throw new ComprovanteIndisponivelException();
+            }
+            Escola escola = escolaRepository.findById(escolaId)
+                    .orElseThrow(() -> new IllegalStateException("Cobranca sem escola"));
+            Optional<Pessoa> pagador = pessoaPagadora(cobranca, cobranca.getAluno(), escolaId);
+            return new ComprovanteResponse(cobranca.getId(), escola.getNome(),
+                    documentoDoBeneficiario(escola.getCnpjCpf()), pagador.map(Pessoa::getNome).orElse(null),
+                    pagador.map(p -> RoteadorFatura.mascarar(p.getCpf())).orElse(null), cobranca.getDescricao(),
+                    cobranca.getDataVencimento(), pagamento.getValorPago(), pagamento.getDataPagamento(),
+                    pagamento.getFormaPagamento(), pagamento.getIdTransacaoExterna());
+        });
+    }
+
+    /** CNPJ da escola sai inteiro, como em qualquer recibo; escola cadastrada com CPF sai mascarada (R30). */
+    static String documentoDoBeneficiario(String documento) {
+        String digitos = documento == null ? "" : documento.replaceAll("\\D", "");
+        if (digitos.length() == 14) {
+            return digitos.substring(0, 2) + "." + digitos.substring(2, 5) + "." + digitos.substring(5, 8) + "/"
+                    + digitos.substring(8, 12) + "-" + digitos.substring(12);
+        }
+        return RoteadorFatura.mascarar(documento);
     }
 
     // ---- Cancelar (spec §8.5) ----
@@ -292,17 +356,21 @@ class RoteadorPagamento {
      * do aluno; senao o proprio aluno. CPF valido e obrigatorio.
      */
     private DadosPagador pagadorDa(Cobranca cobranca, Aluno aluno, UUID escolaId) {
+        Pessoa pessoa = pessoaPagadora(cobranca, aluno, escolaId).orElseThrow(PagadorSemCpfException::new);
+        if (pessoa.getCpf() == null || !new CpfValidator().isValid(pessoa.getCpf(), null)) {
+            throw new PagadorSemCpfException();
+        }
+        return new DadosPagador(PREFIXO_PESSOA + pessoa.getId(), pessoa.getNome(), pessoa.getCpf(), pessoa.getEmail());
+    }
+
+    /** Quem paga pela regra do R18, sem conferir o CPF. */
+    private Optional<Pessoa> pessoaPagadora(Cobranca cobranca, Aluno aluno, UUID escolaId) {
         UUID pessoaId = cobranca.getResponsavelId() != null
                 ? cobranca.getResponsavelId()
                 : alunoResponsavelRepository.findById_AlunoIdAndFinanceiroTrue(aluno.getId())
                         .map(vinculo -> vinculo.getId().pessoaId())
                         .orElse(aluno.getPessoaId());
-        Pessoa pessoa = pessoaRepository.findByIdAndEscolaId(pessoaId, escolaId)
-                .orElseThrow(PagadorSemCpfException::new);
-        if (pessoa.getCpf() == null || !new CpfValidator().isValid(pessoa.getCpf(), null)) {
-            throw new PagadorSemCpfException();
-        }
-        return new DadosPagador(PREFIXO_PESSOA + pessoa.getId(), pessoa.getNome(), pessoa.getCpf(), pessoa.getEmail());
+        return pessoaRepository.findByIdAndEscolaId(pessoaId, escolaId);
     }
 
     // ---- Passos 2 e 3: emitir [HTTP] e gravar [T] ----

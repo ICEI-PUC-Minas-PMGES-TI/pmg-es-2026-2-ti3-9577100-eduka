@@ -276,6 +276,7 @@ tabelas abaixo resumem as rotas por módulo.
 | `POST` | `/cobrancas` (aluno, descrição, valor e vencimento; matrícula e responsável opcionais, mas têm de ser do aluno) | `MASTER`, `FINANCEIRO` |
 | `PUT` | `/cobrancas/{id}` (400 se a cobrança já foi paga ou cancelada; 409 `COBRANCA_NAO_EDITAVEL` depois que alguém clicou em Pagar, porque a cobrança já está no Asaas: aí só cancelando e lançando outra; a situação acompanha o novo vencimento) | `MASTER`, `FINANCEIRO` |
 | `PATCH` | `/cobrancas/{id}/cancelar` (a cobrança fica no histórico como `CANCELADA`; se já foi emitida, é removida antes no Asaas, fora de transação; 409 `COBRANCA_JA_PAGA` se já foi paga, aqui ou no Asaas, e nesse caso o pagamento achado fica registrado; 409 `PAGAMENTO_EM_PROCESSAMENTO` enquanto o pagamento está sendo gerado) | `MASTER`, `FINANCEIRO` |
+| `GET` | `/cobrancas/{id}/comprovante` (comprovante do pagamento online montado pelo Edúka: a escola como beneficiária, o pagador com CPF mascarado, valor, data, forma e código da transação; 404 `COMPROVANTE_INDISPONIVEL` enquanto não há pagamento online registrado, inclusive na baixa manual) | `MASTER`, `FINANCEIRO` |
 | `GET` | `/despesas?situacao&categoriaId&vencimentoDe&vencimentoAte` · `/despesas/{id}` (ordenado pelo vencimento) | `MASTER`, `FINANCEIRO` |
 | `POST` | `/despesas` (descrição, categoria, valor e vencimento; `paga: true` lança já como `PAGA`; 404 se a categoria não for da escola) | `MASTER`, `FINANCEIRO` |
 | `PUT` | `/despesas/{id}` (substitui descrição, categoria, valor e vencimento; a paga também é editada; 400 se foi cancelada) | `MASTER`, `FINANCEIRO` |
@@ -290,7 +291,7 @@ Webhook do gateway: o aviso é gravado em `EVENTO_PROVEDOR` antes de ser aplicad
 cobrança como `PAGA` na mesma transação, desde que a conta que mandou o aviso seja a conta de
 recebimento da escola da cobrança. Um segundo aviso do mesmo pagamento não cria outro registro: só
 completa a data de crédito e o valor líquido. Pagamento de cobrança `CANCELADA` a marca como `PAGA`
-(o dinheiro entrou). A criação confirmada (`PAYMENT_CREATED`) tira de `EMITINDO` a cobrança cuja
+(o dinheiro entrou) e fica sinalizado na auditoria. A criação confirmada (`PAYMENT_CREATED`) tira de `EMITINDO` a cobrança cuja
 resposta de criação se perdeu; a remoção no provedor (`PAYMENT_DELETED`) leva a cobrança em
 `EMITINDO` para `FALHA_EMISSAO` e cancela a emitida em aberto. Aviso sem id ou sem tipo responde 400.
 Se a aplicação falhar, o aviso fica em `ERRO` para nova tentativa e o webhook continua respondendo 200.
@@ -320,6 +321,12 @@ por engano); `CANCELADA` é final e a despesa continua no histórico. Criar, edi
 gravam em `LOG_AUDITORIA` com a entidade `DESPESA`: pagar é `PAGAR`, voltar para a pagar é
 `ESTORNAR` e cancelar é `CANCELAR`.
 
+O que vem do Asaas chega sem usuário e é auditado com `ORIGEM = PROVEDOR`, sem autor e com a escola
+da própria cobrança (`AuditoriaService.registrarDoProvedor`). Pagamento confirmado grava
+`CONFIRMAR_PAGAMENTO`, pelo webhook ou pelo pagamento achado ao cancelar; pagamento de cobrança já
+cancelada grava `PAGO_APOS_CANCELAR`, para a escola resolver com o pagador. Linha de usuário
+continua exigindo autor (restrição no banco, V32).
+
 **Portais e dashboards**
 
 | Método | Rota | Perfis autorizados |
@@ -336,7 +343,8 @@ gravam em `LOG_AUDITORIA` com a entidade `DESPESA`: pagar é `PAGAR`, voltar par
 | `GET` | `/portal/aluno/turmas` (turmas do aluno, com a grade e os professores) | `ALUNO` |
 | `GET` | `/portal/aluno/boletim` (notas por turma e disciplina, com os totais de pontos) | `ALUNO` |
 | `GET` | `/portal/aluno/avaliacoes` (agenda de provas, trabalhos e tarefas das turmas ativas) | `ALUNO` |
-| `GET` | `/portal/aluno/cobrancas/{id}` (uma cobrança do próprio aluno com `situacaoPagamento`, forma e `acoes`; 404 se for de outro aluno) | `ALUNO` |
+| `GET` | `/portal/aluno/cobrancas/{id}` (uma cobrança do próprio aluno com `situacaoPagamento`, forma, `pagamento` (valor, data e forma, quando já pago online) e `acoes`: `PAGAR` em aberto, `VER_COMPROVANTE` quando paga com pagamento registrado; 404 se for de outro aluno) | `ALUNO` |
+| `GET` | `/portal/aluno/cobrancas/{id}/comprovante` (o mesmo comprovante da gestão, sem nenhuma URL do Asaas; 404 `COMPROVANTE_INDISPONIVEL` antes da confirmação; 404 se for de outro aluno) | `ALUNO` |
 | `POST` | `/portal/aluno/cobrancas/{id}/pagar` (`forma` `PIX` ou `BOLETO`; cria ou reaproveita a cobrança na conta filha da escola e devolve QR Code e copia e cola ou linha digitável; trocar a forma altera a mesma cobrança; 202 `PROCESSANDO` se o provedor não respondeu; erros com `codigo`) | `ALUNO` |
 | `GET` | `/dashboard/escola` (pessoas, estrutura, ocupação de vagas e aproveitamento) | `MASTER` |
 | `GET` | `/dashboard/secretaria` (matrículas por situação, vagas e ocupação por turma) | `MASTER`, `SECRETARIA` |
@@ -546,7 +554,7 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | Isolamento entre escolas | `IsolamentoEscola` nos services e `@TenantId` no Hibernate; escola vem do token |
 | Confidencialidade de senha | BCrypt custo 12; a coluna `senha_hash` nunca recebe texto puro |
 | Confidencialidade de dados pessoais | `PESSOA` cifrada com AES-256-GCM pela aplicação; o banco nunca vê a chave |
-| Auditoria (RNF05) | Operações financeiras gravam autor, operação, entidade, registro e data/hora em `LOG_AUDITORIA`, na mesma transação |
+| Auditoria (RNF05) | Operações financeiras gravam autor, operação, entidade, registro e data/hora em `LOG_AUDITORIA`, na mesma transação; o que vem do Asaas entra sem autor, com origem `PROVEDOR` |
 | Não vazamento de informação | Login inexistente, senha errada e usuário inativo devolvem a mesma mensagem |
 | Portabilidade de ambiente | Todo o stack sobe por Docker Compose, em dev e em prod |
 

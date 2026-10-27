@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.UUID;
 
 import br.pucminas.eduka.backend.domain.Cobranca;
+import br.pucminas.eduka.backend.domain.PagamentoCobranca;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
@@ -19,9 +20,12 @@ import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
  *                          provedor), PAGA ou CANCELADA
  * @param formaPagamento    forma escolhida no ultimo Pagar; nula se ninguem
  *                          clicou
- * @param pagamento         resumo do pagamento confirmado; nulo enquanto nao
- *                          ha registro de pagamento (RF16.1)
- * @param acoes             o que a tela mostra: {@value #PAGAR}
+ * @param pagamento         resumo do pagamento online confirmado; nulo
+ *                          enquanto nao ha registro de pagamento (e na baixa
+ *                          manual, que nao tem)
+ * @param acoes             o que a tela mostra: {@value #PAGAR} na cobranca em
+ *                          aberto, {@value #VER_COMPROVANTE} na paga com
+ *                          pagamento registrado (RF16.1)
  */
 public record CobrancaAlunoResponse(
         UUID id,
@@ -35,12 +39,17 @@ public record CobrancaAlunoResponse(
         List<String> acoes) {
 
     public static final String PAGAR = "PAGAR";
+    public static final String VER_COMPROVANTE = "VER_COMPROVANTE";
 
-    public static CobrancaAlunoResponse de(Cobranca cobranca, LocalDate hoje) {
+    /** {@code pagamento} e o registro do pagamento online da cobranca, ou nulo. */
+    public static CobrancaAlunoResponse de(Cobranca cobranca, PagamentoCobranca pagamento, LocalDate hoje) {
         StatusCobranca status = StatusCobranca.efetivo(cobranca.getStatus(), cobranca.getDataVencimento(), hoje);
+        // So ha comprovante com o pagamento registrado (R28).
+        boolean temComprovante = status == StatusCobranca.PAGA && pagamento != null;
         return new CobrancaAlunoResponse(cobranca.getId(), cobranca.getDescricao(), cobranca.getValor(),
                 cobranca.getDataVencimento(), status.name(), situacaoPagamento(cobranca), cobranca.getFormaPagamento(),
-                null, status.emAberto() ? List.of(PAGAR) : List.of());
+                temComprovante ? PagamentoResumoResponse.de(pagamento) : null,
+                status.emAberto() ? List.of(PAGAR) : temComprovante ? List.of(VER_COMPROVANTE) : List.of());
     }
 
     private static String situacaoPagamento(Cobranca cobranca) {

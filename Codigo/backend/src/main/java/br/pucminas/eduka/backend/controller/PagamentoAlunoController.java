@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.pucminas.eduka.backend.dto.CobrancaAlunoResponse;
+import br.pucminas.eduka.backend.dto.ComprovanteResponse;
 import br.pucminas.eduka.backend.dto.DadosPagamentoResponse;
 import br.pucminas.eduka.backend.dto.PagarRequest;
 import br.pucminas.eduka.backend.pagamento.PaymentRoutingService;
@@ -71,6 +72,15 @@ public class PagamentoAlunoController {
                 // Documento de pagamento: nao fica em cache compartilhado.
                 .cacheControl(CacheControl.noStore())
                 .body(pdf);
+    }
+
+    /** Comprovante montado pelo Eduka; o link do recibo do provedor nunca sai do backend. */
+    @GetMapping("/{id}/comprovante")
+    @PreAuthorize(Perfis.ALUNO)
+    @Operation(summary = "Comprovante do pagamento", description = "Perfil: ALUNO, dono da cobranca. 404 "
+            + "COMPROVANTE_INDISPONIVEL enquanto o pagamento nao foi confirmado; 404 se a cobranca nao e do aluno.")
+    public ComprovanteResponse comprovante(@PathVariable UUID id) {
+        return paymentRoutingService.comprovanteCobranca(id);
     }
 
     /** Gera (ou reaproveita) o pagamento da cobranca na forma escolhida. */

@@ -25,11 +25,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import br.pucminas.eduka.backend.domain.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.LogAuditoria;
 import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.OrigemAuditoria;
 import br.pucminas.eduka.backend.repository.LogAuditoriaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 
-/** O log grava autor e escola do token, a entidade, o registro e a hora. */
+/** O log grava autor e escola do token (ou, do provedor, so a escola), a entidade, o registro e a hora. */
 @ExtendWith(MockitoExtension.class)
 class AuditoriaServiceTest {
 
@@ -65,6 +66,7 @@ class AuditoriaServiceTest {
         verify(logAuditoriaRepository).save(log.capture());
         assertThat(log.getValue().getUsuarioId()).isEqualTo(USUARIO);
         assertThat(log.getValue().getEscolaId()).isEqualTo(ESCOLA);
+        assertThat(log.getValue().getOrigem()).isEqualTo(OrigemAuditoria.USUARIO);
         assertThat(log.getValue().getOperacao()).isEqualTo(OperacaoAuditoria.CANCELAR);
         assertThat(log.getValue().getEntidade()).isEqualTo(EntidadeAuditada.COBRANCA);
         assertThat(log.getValue().getRegistroId()).isEqualTo(cobrancaId);
@@ -77,5 +79,23 @@ class AuditoriaServiceTest {
                 () -> service.registrar(OperacaoAuditoria.CRIAR, EntidadeAuditada.COBRANCA, UUID.randomUUID()))
                 .isInstanceOf(AuthenticationCredentialsNotFoundException.class);
         verify(logAuditoriaRepository, never()).save(any());
+    }
+
+    @Test
+    void doProvedorGravaSemAutorNaEscolaDoRegistro() {
+        UUID cobrancaId = UUID.randomUUID();
+
+        service.registrarDoProvedor(OperacaoAuditoria.CONFIRMAR_PAGAMENTO, EntidadeAuditada.COBRANCA, cobrancaId,
+                ESCOLA);
+
+        ArgumentCaptor<LogAuditoria> log = ArgumentCaptor.forClass(LogAuditoria.class);
+        verify(logAuditoriaRepository).save(log.capture());
+        assertThat(log.getValue().getUsuarioId()).isNull();
+        assertThat(log.getValue().getOrigem()).isEqualTo(OrigemAuditoria.PROVEDOR);
+        assertThat(log.getValue().getEscolaId()).isEqualTo(ESCOLA);
+        assertThat(log.getValue().getOperacao()).isEqualTo(OperacaoAuditoria.CONFIRMAR_PAGAMENTO);
+        assertThat(log.getValue().getEntidade()).isEqualTo(EntidadeAuditada.COBRANCA);
+        assertThat(log.getValue().getRegistroId()).isEqualTo(cobrancaId);
+        assertThat(log.getValue().getDataHora()).isEqualTo(AGORA);
     }
 }

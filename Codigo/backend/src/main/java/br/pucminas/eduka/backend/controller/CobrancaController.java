@@ -21,7 +21,9 @@ import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.dto.AtualizarCobrancaRequest;
 import br.pucminas.eduka.backend.dto.CobrancaRequest;
 import br.pucminas.eduka.backend.dto.CobrancaResponse;
+import br.pucminas.eduka.backend.dto.ComprovanteResponse;
 import br.pucminas.eduka.backend.dto.PaginaCobrancasResponse;
+import br.pucminas.eduka.backend.pagamento.PaymentRoutingService;
 import br.pucminas.eduka.backend.repository.CobrancaFiltro;
 import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.CobrancaService;
@@ -39,9 +41,11 @@ import jakarta.validation.Valid;
 public class CobrancaController {
 
     private final CobrancaService cobrancaService;
+    private final PaymentRoutingService paymentRoutingService;
 
-    public CobrancaController(CobrancaService cobrancaService) {
+    public CobrancaController(CobrancaService cobrancaService, PaymentRoutingService paymentRoutingService) {
         this.cobrancaService = cobrancaService;
+        this.paymentRoutingService = paymentRoutingService;
     }
 
     @GetMapping
@@ -82,6 +86,15 @@ public class CobrancaController {
         return cobrancaService.buscar(id);
     }
 
+    @GetMapping("/{id}/comprovante")
+    @PreAuthorize(Perfis.FINANCEIRO)
+    @Operation(summary = "Comprovante do pagamento online", description = "Montado pelo Eduka, com a escola como "
+            + "beneficiaria e o CPF do pagador mascarado. 404 COMPROVANTE_INDISPONIVEL enquanto nao ha pagamento "
+            + "online registrado (a baixa manual nao tem comprovante).")
+    public ComprovanteResponse comprovante(@PathVariable UUID id) {
+        return paymentRoutingService.comprovanteCobranca(id);
+    }
+
     @PostMapping
     @PreAuthorize(Perfis.FINANCEIRO)
     @Operation(summary = "Lanca uma cobranca para um aluno",
@@ -97,7 +110,8 @@ public class CobrancaController {
     @PreAuthorize(Perfis.FINANCEIRO)
     @Operation(summary = "Edita uma cobranca",
             description = "Substitui matricula, responsavel, descricao, valor e vencimento; o aluno nao muda. "
-                    + "400 se a cobranca ja foi paga ou cancelada.")
+                    + "400 se a cobranca ja foi paga ou cancelada; 409 COBRANCA_NAO_EDITAVEL depois que alguem "
+                    + "clicou em Pagar (para mudar, cancele e lance outra).")
     public CobrancaResponse atualizar(@PathVariable UUID id, @Valid @RequestBody AtualizarCobrancaRequest request) {
         return cobrancaService.atualizar(id, request);
     }
@@ -105,7 +119,10 @@ public class CobrancaController {
     @PatchMapping("/{id}/cancelar")
     @PreAuthorize(Perfis.FINANCEIRO)
     @Operation(summary = "Cancela uma cobranca",
-            description = "A cobranca continua no historico, como CANCELADA. 400 se ja foi paga ou cancelada.")
+            description = "A cobranca continua no historico, como CANCELADA. Se ja foi emitida, e removida antes "
+                    + "no Asaas. 409 COBRANCA_JA_PAGA se ja foi paga, aqui ou no Asaas (o pagamento achado fica "
+                    + "registrado); 409 PAGAMENTO_EM_PROCESSAMENTO enquanto o pagamento esta sendo gerado; 400 se "
+                    + "ja foi cancelada.")
     public CobrancaResponse cancelar(@PathVariable UUID id) {
         return cobrancaService.cancelar(id);
     }
