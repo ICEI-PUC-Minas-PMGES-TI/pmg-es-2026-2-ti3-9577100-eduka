@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Badge } from '../../../../components/Badge/Badge'
 import { Button } from '../../../../components/Button/Button'
+import { ModalComprovante } from '../../../../components/Comprovante/ModalComprovante'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
-import { buscarHistoricoFinanceiro } from '../../../../services/pagamentoAlunoService'
+import { buscarComprovante, buscarHistoricoFinanceiro } from '../../../../services/pagamentoAlunoService'
 import {
   podePagar,
   ROTULOS_FORMA_PAGAMENTO,
@@ -50,8 +51,8 @@ type Pagando = { cobranca: CobrancaDoHistorico; forma: FormaPagamento }
 
 /**
  * Pagamentos do aluno: a próxima mensalidade em destaque, com PIX e boleto
- * (baixar o PDF e copiar o código), as demais em aberto e o histórico do que
- * já foi pago ou cancelado.
+ * (baixar o PDF e copiar o código), as demais em aberto, as pagas com o
+ * comprovante de cada pagamento online e as canceladas.
  */
 export function Pagamentos() {
   const { dados: historico, carregando, erro, recarregar } = useDadosDoAluno<HistoricoFinanceiro | null>(
@@ -60,6 +61,8 @@ export function Pagamentos() {
   )
   const [pagando, setPagando] = useState<Pagando | null>(null)
   const [pagouAlguma, setPagouAlguma] = useState(false)
+  /** `comprovanteUrl` do pagamento cujo comprovante está aberto. */
+  const [comprovanteDe, setComprovanteDe] = useState<string | null>(null)
 
   const cobrancas = historico?.cobrancas ?? []
   // Em aberto: a que vence (ou venceu) primeiro vem antes. A primeira é a "próxima".
@@ -67,7 +70,11 @@ export function Pagamentos() {
     .filter((c) => podePagar(c.status))
     .sort((a, b) => a.dataVencimento.localeCompare(b.dataVencimento))
   const [proxima, ...outrasEmAberto] = emAberto
-  const encerradas = cobrancas.filter((c) => !podePagar(c.status))
+  // O histórico já vem do vencimento mais recente para o mais antigo.
+  const pagas = cobrancas.filter((c) => c.status === 'PAGA')
+  const canceladas = cobrancas.filter((c) => c.status === 'CANCELADA')
+
+  const buscarComprovanteAberto = useCallback(() => buscarComprovante(comprovanteDe ?? ''), [comprovanteDe])
 
   function pagar(cobranca: CobrancaDoHistorico, forma: FormaPagamento) {
     setPagando({ cobranca, forma })
@@ -183,10 +190,64 @@ export function Pagamentos() {
             </section>
           )}
 
-          {encerradas.length > 0 && (
-            <section className={styles.cartao} aria-labelledby="titulo-historico">
-              <h2 id="titulo-historico" className={styles.tituloSecao}>
-                Histórico de pagamentos
+          {pagas.length > 0 && (
+            <section className={styles.cartao} aria-labelledby="titulo-pagas">
+              <h2 id="titulo-pagas" className={styles.tituloSecao}>
+                Pagas
+              </h2>
+              <div className={styles.rolagem}>
+                <table className={styles.tabela}>
+                  <thead>
+                    <tr>
+                      <th scope="col">Descrição</th>
+                      <th scope="col">Vencimento</th>
+                      <th scope="col" className={styles.numero}>
+                        Valor pago
+                      </th>
+                      <th scope="col">Pagamento</th>
+                      <th scope="col" className={styles.acao}>
+                        <span className={styles.somenteLeitor}>Comprovante</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagas.map((c) => (
+                      <tr key={c.id}>
+                        <td>
+                          <span className={styles.descricao}>{c.descricao}</span>
+                          {c.turmaNome && <span className={styles.secundario}>{c.turmaNome}</span>}
+                        </td>
+                        <td className={styles.data}>{formatarData(c.dataVencimento)}</td>
+                        <td className={styles.numero}>{formatarMoeda(c.pagamento?.valorPago ?? c.valor)}</td>
+                        <td className={styles.secundario}>{descreverPagamento(c) ?? '—'}</td>
+                        <td className={styles.acao}>
+                          {c.pagamento?.comprovanteUrl ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              icon="eye"
+                              onClick={() => setComprovanteDe(c.pagamento?.comprovanteUrl ?? null)}
+                              aria-label={`Ver o comprovante de ${c.descricao}`}
+                            >
+                              Comprovante
+                            </Button>
+                          ) : (
+                            // Baixa feita pela escola: o Eduka não tem comprovante para mostrar.
+                            <span className={styles.secundario}>Sem comprovante</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {canceladas.length > 0 && (
+            <section className={styles.cartao} aria-labelledby="titulo-canceladas">
+              <h2 id="titulo-canceladas" className={styles.tituloSecao}>
+                Canceladas
               </h2>
               <div className={styles.rolagem}>
                 <table className={styles.tabela}>
@@ -198,24 +259,20 @@ export function Pagamentos() {
                         Valor
                       </th>
                       <th scope="col">Situação</th>
-                      <th scope="col">Pagamento</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {encerradas.map((c) => (
+                    {canceladas.map((c) => (
                       <tr key={c.id}>
                         <td>
                           <span className={styles.descricao}>{c.descricao}</span>
                           {c.turmaNome && <span className={styles.secundario}>{c.turmaNome}</span>}
                         </td>
                         <td className={styles.data}>{formatarData(c.dataVencimento)}</td>
-                        <td className={styles.numero}>
-                          {formatarMoeda(c.pagamento?.valorPago ?? c.valor)}
-                        </td>
+                        <td className={styles.numero}>{formatarMoeda(c.valor)}</td>
                         <td>
                           <Badge tone={TOM_STATUS[c.status]}>{ROTULOS_STATUS_COBRANCA_ALUNO[c.status]}</Badge>
                         </td>
-                        <td className={styles.secundario}>{descreverPagamento(c) ?? '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -234,6 +291,8 @@ export function Pagamentos() {
           onFechar={fecharPagamento}
         />
       )}
+
+      {comprovanteDe && <ModalComprovante buscar={buscarComprovanteAberto} onFechar={() => setComprovanteDe(null)} />}
     </AlunoLayout>
   )
 }
