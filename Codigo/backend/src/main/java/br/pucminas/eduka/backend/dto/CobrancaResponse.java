@@ -29,8 +29,8 @@ public record CobrancaResponse(
         StatusCobranca status,
         Instant canceladaEm,
         Instant pagaEm,
-        /** Pagamento registrado (online); nulo na baixa manual e enquanto nao paga. */
-        PagamentoResumoResponse pagamento,
+        /** Pagamento online ou baixa manual, com o link do comprovante; nulo enquanto nao paga. */
+        PagamentoDaCobrancaResponse pagamento,
         Instant criadoEm,
         Instant atualizadoEm) {
 
@@ -43,7 +43,7 @@ public record CobrancaResponse(
     }
 
     public static CobrancaResponse de(Cobranca cobranca, Pessoa pessoaAluno, Pessoa responsavel,
-            PagamentoResumoResponse pagamento, LocalDate hoje) {
+            PagamentoDaCobrancaResponse pagamento, LocalDate hoje) {
         Aluno aluno = cobranca.getAluno();
         MatriculaTurma matricula = cobranca.getMatricula();
         return new CobrancaResponse(cobranca.getId(), aluno.getId(),

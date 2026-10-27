@@ -54,7 +54,7 @@ import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 import br.pucminas.eduka.backend.domain.PagamentoCobranca;
-import br.pucminas.eduka.backend.dto.PagamentoResumoResponse;
+import br.pucminas.eduka.backend.dto.PagamentoDaCobrancaResponse;
 import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
 
 /**
@@ -205,7 +205,7 @@ public class CobrancaService {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         Aluno aluno = alunoRepository.findByIdAndEscolaId(alunoId, escolaId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Aluno nao encontrado"));
-        return historico(aluno, escolaId);
+        return historico(aluno, escolaId, CobrancaService::comprovanteDaEscola);
     }
 
     /**
@@ -219,7 +219,7 @@ public class CobrancaService {
         UsuarioAutenticado usuario = isolamentoEscola.usuarioAtual();
         Aluno aluno = alunoRepository.findByUsuarioIdAndEscolaId(usuario.id(), usuario.escolaId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Aluno nao encontrado"));
-        return historico(aluno, usuario.escolaId());
+        return historico(aluno, usuario.escolaId(), CobrancaService::comprovanteDoAluno);
     }
 
     /**
@@ -435,11 +435,11 @@ public class CobrancaService {
     }
 
     /** Todas as cobrancas do aluno, inclusive canceladas, da mais recente para a mais antiga. */
-    private HistoricoFinanceiroResponse historico(Aluno aluno, UUID escolaId) {
+    private HistoricoFinanceiroResponse historico(Aluno aluno, UUID escolaId, Function<UUID, String> linkComprovante) {
         List<Cobranca> cobrancas = cobrancaRepository.findAllByEscolaIdAndAlunoId(escolaId, aluno.getId()).stream()
                 .sorted(Comparator.comparing(Cobranca::getDataVencimento).reversed())
                 .toList();
-        List<CobrancaResponse> respostas = paraRespostas(cobrancas, escolaId, hoje());
+        List<CobrancaResponse> respostas = paraRespostas(cobrancas, escolaId, hoje(), linkComprovante);
         String alunoNome = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
                 .map(Pessoa::getNome)
                 .orElse(null);
@@ -535,6 +535,12 @@ public class CobrancaService {
 
     /** Busca de uma vez as pessoas (alunos e responsaveis) que dao nome as cobrancas. */
     private List<CobrancaResponse> paraRespostas(List<Cobranca> cobrancas, UUID escolaId, LocalDate hoje) {
+        return paraRespostas(cobrancas, escolaId, hoje, CobrancaService::comprovanteDaEscola);
+    }
+
+    /** {@code linkComprovante}: a rota do comprovante no perfil de quem pediu. */
+    private List<CobrancaResponse> paraRespostas(List<Cobranca> cobrancas, UUID escolaId, LocalDate hoje,
+            Function<UUID, String> linkComprovante) {
         if (cobrancas.isEmpty()) {
             return List.of();
         }
@@ -550,14 +556,41 @@ public class CobrancaService {
                 .filter(c -> c.getStatus() == StatusCobranca.PAGA)
                 .map(Cobranca::getId)
                 .toList();
-        Map<UUID, PagamentoResumoResponse> pagamentos = pagas.isEmpty() ? Map.of()
+        Map<UUID, PagamentoCobranca> pagamentos = pagas.isEmpty() ? Map.of()
                 : pagamentoRepository.findAllByEscolaIdAndCobrancaIdIn(escolaId, pagas).stream()
-                        .collect(Collectors.toMap(PagamentoCobranca::getCobrancaId, PagamentoResumoResponse::de));
+                        .collect(Collectors.toMap(PagamentoCobranca::getCobrancaId, Function.identity()));
         return cobrancas.stream()
                 .map(c -> CobrancaResponse.de(c, pessoasPorId.get(c.getAluno().getPessoaId()),
                         c.getResponsavelId() != null ? pessoasPorId.get(c.getResponsavelId()) : null,
-                        pagamentos.get(c.getId()), hoje))
+                        pagamentoDa(c, pagamentos.get(c.getId()), linkComprovante), hoje))
                 .toList();
+    }
+
+    /**
+     * Pagamento registrado pelo provedor (com comprovante) ou, sem registro, a
+     * baixa manual (sem comprovante). Nulo enquanto a cobranca nao foi paga.
+     */
+    private PagamentoDaCobrancaResponse pagamentoDa(Cobranca cobranca, PagamentoCobranca pagamento,
+            Function<UUID, String> linkComprovante) {
+        if (cobranca.getStatus() != StatusCobranca.PAGA) {
+            return null;
+        }
+        if (pagamento != null) {
+            return PagamentoDaCobrancaResponse.online(pagamento, linkComprovante.apply(cobranca.getId()));
+        }
+        return cobranca.getPagaEm() == null ? null
+                : PagamentoDaCobrancaResponse.manual(cobranca.getValor(),
+                        LocalDate.ofInstant(cobranca.getPagaEm(), FUSO_ESCOLA));
+    }
+
+    /** Comprovante pela rota da escola (MASTER e FINANCEIRO). */
+    private static String comprovanteDaEscola(UUID cobrancaId) {
+        return "/cobrancas/" + cobrancaId + "/comprovante";
+    }
+
+    /** Comprovante pela rota do portal (o aluno dono da cobranca). */
+    private static String comprovanteDoAluno(UUID cobrancaId) {
+        return "/portal/aluno/cobrancas/" + cobrancaId + "/comprovante";
     }
 
     private LocalDate hoje() {

@@ -22,7 +22,8 @@ const TOM_STATUS: Record<StatusCobrancaAluno, 'success' | 'danger' | 'neutral' |
 /** Como a cobrança foi paga: pagamento online registrado, ou só a data da baixa manual. */
 function descreverPagamento(c: CobrancaDoHistorico): string | null {
   if (c.pagamento) {
-    return `${ROTULOS_FORMA_PAGAMENTO[c.pagamento.forma]} · ${formatarData(c.pagamento.dataPagamento)} · ${formatarMoeda(c.pagamento.valorPago)}`
+    const como = c.pagamento.forma ? ROTULOS_FORMA_PAGAMENTO[c.pagamento.forma] : 'Baixa manual'
+    return `${como} · ${formatarData(c.pagamento.dataPagamento)} · ${formatarMoeda(c.pagamento.valorPago)}`
   }
   if (c.pagaEm) {
     return `Baixa manual · ${new Date(c.pagaEm).toLocaleDateString('pt-BR')}`

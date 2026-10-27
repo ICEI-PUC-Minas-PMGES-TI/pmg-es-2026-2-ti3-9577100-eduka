@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +29,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.Cobranca;
+import br.pucminas.eduka.backend.domain.OrigemPagamento;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 import br.pucminas.eduka.backend.domain.PagamentoCobranca;
 import br.pucminas.eduka.backend.domain.Pessoa;
@@ -178,14 +180,36 @@ class AlunoFinanceiroControllerSecurityTest {
         when(pagamentoRepository.findAllByEscolaIdAndCobrancaIdIn(ESCOLA_A, List.of(paga.getId()))).thenReturn(List.of(
                 PagamentoCobranca.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).cobrancaId(paga.getId())
                         .valorPago(new BigDecimal("450.00")).dataPagamento(LocalDate.of(2026, 2, 8))
-                        .formaPagamento(FormaPagamento.PIX).build()));
+                        .formaPagamento(FormaPagamento.PIX).origem(OrigemPagamento.ONLINE).build()));
 
         mockMvc.perform(com(get(url(ana)), token("FINANCEIRO", ESCOLA_A)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.cobrancas[0].descricao").value("Marco"))
                 .andExpect(jsonPath("$.cobrancas[0].pagamento").doesNotExist())
+                .andExpect(jsonPath("$.cobrancas[1].pagamento.origem").value("ONLINE"))
                 .andExpect(jsonPath("$.cobrancas[1].pagamento.forma").value("PIX"))
                 .andExpect(jsonPath("$.cobrancas[1].pagamento.dataPagamento").value("2026-02-08"))
-                .andExpect(jsonPath("$.cobrancas[1].pagamento.valorPago").value(450.00));
+                .andExpect(jsonPath("$.cobrancas[1].pagamento.valorPago").value(450.00))
+                // A escola abre o comprovante pela rota dela, nao pela do portal.
+                .andExpect(jsonPath("$.cobrancas[1].pagamento.comprovanteUrl")
+                        .value("/cobrancas/" + paga.getId() + "/comprovante"));
+    }
+
+    @Test
+    void baixaManualApareceComoPagamentoSemComprovante() throws Exception {
+        Cobranca paga = Cobranca.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).aluno(ana).descricao("Fevereiro")
+                .valor(new BigDecimal("450.00")).dataVencimento(LocalDate.of(2026, 2, 10))
+                .status(StatusCobranca.PAGA).pagaEm(Instant.parse("2026-02-09T15:00:00Z")).build();
+        when(cobrancaRepository.findAllByEscolaIdAndAlunoId(ESCOLA_A, ana.getId())).thenReturn(List.of(paga));
+        when(pagamentoRepository.findAllByEscolaIdAndCobrancaIdIn(ESCOLA_A, List.of(paga.getId())))
+                .thenReturn(List.of());
+
+        mockMvc.perform(com(get(url(ana)), token("MASTER", ESCOLA_A)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cobrancas[0].pagamento.origem").value("MANUAL"))
+                .andExpect(jsonPath("$.cobrancas[0].pagamento.valorPago").value(450.00))
+                .andExpect(jsonPath("$.cobrancas[0].pagamento.dataPagamento").value("2026-02-09"))
+                .andExpect(jsonPath("$.cobrancas[0].pagamento.forma").doesNotExist())
+                .andExpect(jsonPath("$.cobrancas[0].pagamento.comprovanteUrl").doesNotExist());
     }
 }

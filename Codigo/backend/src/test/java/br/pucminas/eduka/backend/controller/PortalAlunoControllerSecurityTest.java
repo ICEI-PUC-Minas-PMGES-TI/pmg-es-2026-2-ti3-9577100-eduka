@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -27,7 +28,10 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.Cobranca;
+import br.pucminas.eduka.backend.domain.OrigemPagamento;
+import br.pucminas.eduka.backend.domain.PagamentoCobranca;
 import br.pucminas.eduka.backend.domain.Pessoa;
+import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
 import br.pucminas.eduka.backend.pagamento.PaymentRoutingService;
@@ -214,6 +218,44 @@ class PortalAlunoControllerSecurityTest {
                 .andExpect(jsonPath("$.cobrancas[3].descricao").value("Janeiro"));
 
         verify(cobrancaRepository, never()).findAllByEscolaId(any());
+    }
+
+    @Test
+    void financeiroTrazOPagamentoEOComprovantePelaRotaDoPortal() throws Exception {
+        UUID usuarioId = UUID.randomUUID();
+        Pessoa pessoa = Pessoa.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).nome("Ana").ativo(true).build();
+        Aluno aluno = Aluno.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).pessoaId(pessoa.getId())
+                .usuarioId(usuarioId).matricula("2026-001").build();
+        Cobranca online = cobranca(aluno, "Fevereiro", "500.00", LocalDate.of(2026, 2, 10), StatusCobranca.PAGA);
+        Cobranca manual = cobranca(aluno, "Janeiro", "450.00", LocalDate.of(2026, 1, 10), StatusCobranca.PAGA);
+        // 01:30 UTC do dia 9 ainda e dia 8 na escola.
+        manual.setPagaEm(Instant.parse("2026-01-09T01:30:00Z"));
+        when(alunoRepository.findByUsuarioIdAndEscolaId(usuarioId, ESCOLA_A)).thenReturn(Optional.of(aluno));
+        when(pessoaRepository.findAllByIdInAndEscolaId(any(), eq(ESCOLA_A))).thenReturn(List.of(pessoa));
+        when(cobrancaRepository.findAllByEscolaIdAndAlunoId(ESCOLA_A, aluno.getId()))
+                .thenReturn(List.of(manual, online));
+        when(pagamentoRepository.findAllByEscolaIdAndCobrancaIdIn(eq(ESCOLA_A), any())).thenReturn(List.of(
+                PagamentoCobranca.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).cobrancaId(online.getId())
+                        .valorPago(new BigDecimal("500.00")).dataPagamento(LocalDate.of(2026, 2, 8))
+                        .formaPagamento(FormaPagamento.PIX).origem(OrigemPagamento.ONLINE)
+                        .idTransacaoExterna("pay_123").urlReciboProvedor("https://www.asaas.com/i/123").build()));
+
+        mockMvc.perform(com(get("/portal/aluno/financeiro"), accessToken(usuarioId, "ALUNO", ESCOLA_A)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cobrancas[0].descricao").value("Fevereiro"))
+                .andExpect(jsonPath("$.cobrancas[0].pagamento.origem").value("ONLINE"))
+                .andExpect(jsonPath("$.cobrancas[0].pagamento.forma").value("PIX"))
+                .andExpect(jsonPath("$.cobrancas[0].pagamento.valorPago").value(500.00))
+                .andExpect(jsonPath("$.cobrancas[0].pagamento.comprovanteUrl")
+                        .value("/portal/aluno/cobrancas/" + online.getId() + "/comprovante"))
+                // Nada do provedor sai no historico.
+                .andExpect(jsonPath("$.cobrancas[0].pagamento.urlReciboProvedor").doesNotExist())
+                .andExpect(jsonPath("$.cobrancas[0].pagamento.idTransacaoExterna").doesNotExist())
+                .andExpect(jsonPath("$.cobrancas[1].pagamento.origem").value("MANUAL"))
+                .andExpect(jsonPath("$.cobrancas[1].pagamento.valorPago").value(450.00))
+                .andExpect(jsonPath("$.cobrancas[1].pagamento.dataPagamento").value("2026-01-08"))
+                .andExpect(jsonPath("$.cobrancas[1].pagamento.forma").doesNotExist())
+                .andExpect(jsonPath("$.cobrancas[1].pagamento.comprovanteUrl").doesNotExist());
     }
 
     @Test
