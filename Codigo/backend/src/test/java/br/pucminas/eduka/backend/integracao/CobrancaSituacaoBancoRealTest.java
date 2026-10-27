@@ -2,6 +2,7 @@ package br.pucminas.eduka.backend.integracao;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -15,8 +16,11 @@ import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.dto.AtualizarCobrancaRequest;
 import br.pucminas.eduka.backend.dto.CobrancaResponse;
+import br.pucminas.eduka.backend.dto.PaginaCobrancasResponse;
+import br.pucminas.eduka.backend.dto.PaginaCobrancasResponse.TotalPorStatus;
 import br.pucminas.eduka.backend.exception.CobrancaJaPagaException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.repository.CobrancaFiltro;
 import br.pucminas.eduka.backend.service.CobrancaService;
 
 /**
@@ -102,6 +106,26 @@ class CobrancaSituacaoBancoRealTest extends BancoRealTest {
         UUID atrasada = dados.cobranca(escola, aluno, StatusCobranca.EM_ATRASO, LocalDate.now().minusDays(15));
 
         assertThat(cobrancaService.confirmarPagamento(atrasada).status()).isEqualTo(StatusCobranca.PAGA);
+    }
+
+    @Test
+    void listagemPaginadaSomaOsTotaisDeCadaSituacao() {
+        dados.cobranca(escola, aluno, StatusCobranca.PENDENTE, LocalDate.now().minusDays(2), new BigDecimal("50.00"));
+        dados.cobranca(escola, aluno, StatusCobranca.PAGA, LocalDate.now(), new BigDecimal("30.00"));
+        dados.cobranca(escola, aluno, StatusCobranca.CANCELADA, LocalDate.now(), new BigDecimal("20.00"));
+        UUID outraEscola = dados.escola();
+        dados.cobranca(outraEscola, dados.aluno(outraEscola), StatusCobranca.PAGA, LocalDate.now(),
+                new BigDecimal("999.00"));
+
+        PaginaCobrancasResponse pagina = cobrancaService
+                .listarPaginado(new CobrancaFiltro(null, null, null, null, null), 0, 20);
+
+        assertThat(pagina.totalElementos()).isEqualTo(4);
+        // A pendente vencida conta como EM_ATRASO, mesmo antes da rotina diaria marcar.
+        assertThat(pagina.totaisPorStatus())
+                .extracting(TotalPorStatus::status, TotalPorStatus::quantidade, t -> t.valor().intValue())
+                .containsExactly(tuple(StatusCobranca.PENDENTE, 1L, 100), tuple(StatusCobranca.EM_ATRASO, 1L, 50),
+                        tuple(StatusCobranca.PAGA, 1L, 30), tuple(StatusCobranca.CANCELADA, 1L, 20));
     }
 
     @Test
