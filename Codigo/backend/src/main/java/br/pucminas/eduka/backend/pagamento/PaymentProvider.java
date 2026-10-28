@@ -87,6 +87,14 @@ public interface PaymentProvider {
 
     EventoProvedor interpretarEvento(String corpoJson);
 
+    /**
+     * Cadastra na conta-pai o webhook dos avisos de pagamento das faturas da
+     * plataforma (Fluxo A), se ainda nao houver um para a mesma URL; chamar de
+     * novo nao duplica. Sem webhook ou chave configurados, so registra aviso
+     * no log.
+     */
+    void garantirWebhookDaContaPai();
+
     // Somente Sandbox: fora dele lancam IllegalStateException
 
     void sandboxAprovarConta(CredencialProvedor credencialDaConta);
