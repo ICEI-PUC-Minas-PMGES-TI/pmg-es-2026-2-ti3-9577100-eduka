@@ -74,6 +74,16 @@
   gap: 8px;
 }
 
+.avisoSandbox {
+  font-size: 13.5px;
+  color: var(--color-text-muted);
+}
+
+.erroSandbox {
+  font-size: 13.5px;
+  color: var(--color-danger);
+}
+
 @media (max-width: 900px) {
   .painel {
     position: static;

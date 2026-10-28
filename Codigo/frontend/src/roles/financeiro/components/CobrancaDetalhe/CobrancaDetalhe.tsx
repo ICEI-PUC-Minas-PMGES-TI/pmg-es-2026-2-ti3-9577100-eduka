@@ -9,9 +9,16 @@ import {
 import { formatarMoeda } from '../../../../utils/formatters'
 import styles from './CobrancaDetalhe.module.css'
 
+/** Resultado do atalho de Sandbox, mostrado abaixo do botão. */
+export type MensagemSandbox = { texto: string; erro: boolean }
+
 type CobrancaDetalheProps = {
   cobranca: Cobranca
   onVerBoleto: (cobranca: Cobranca) => void
+  /** Atalho de teste do Sandbox; sem ele o botão não aparece. */
+  onSimularPagamento?: (cobranca: Cobranca) => void
+  simulandoPagamento?: boolean
+  mensagemSandbox?: MensagemSandbox | null
 }
 
 function obterTomBadge(status: StatusCobranca): 'primary' | 'danger' | 'success' | 'neutral' {
@@ -34,8 +41,15 @@ function formatarDataBr(isoDate: string): string {
   return isoDate
 }
 
-export function CobrancaDetalhe({ cobranca, onVerBoleto }: CobrancaDetalheProps) {
+export function CobrancaDetalhe({
+  cobranca,
+  onVerBoleto,
+  onSimularPagamento,
+  simulandoPagamento = false,
+  mensagemSandbox = null,
+}: CobrancaDetalheProps) {
   const dataPagamento = cobranca.status === 'PAGA' ? cobranca.pagamento?.dataPagamento : null
+  const emAberto = cobranca.status === 'PENDENTE' || cobranca.status === 'EM_ATRASO'
 
   return (
     <aside className={styles.painel} aria-label="Detalhes da cobrança selecionada">
@@ -71,6 +85,25 @@ export function CobrancaDetalhe({ cobranca, onVerBoleto }: CobrancaDetalheProps)
         >
           Ver boleto anexado
         </Button>
+        {onSimularPagamento && emAberto && (
+          <Button
+            variant="accent"
+            icon="check"
+            className={styles.botaoBoleto}
+            onClick={() => onSimularPagamento(cobranca)}
+            disabled={simulandoPagamento}
+          >
+            {simulandoPagamento ? 'Simulando…' : 'Simular pagamento no Sandbox'}
+          </Button>
+        )}
+        {mensagemSandbox && (
+          <p
+            className={mensagemSandbox.erro ? styles.erroSandbox : styles.avisoSandbox}
+            role={mensagemSandbox.erro ? 'alert' : 'status'}
+          >
+            {mensagemSandbox.texto}
+          </p>
+        )}
       </div>
     </aside>
   )

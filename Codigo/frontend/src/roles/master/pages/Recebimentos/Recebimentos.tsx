@@ -11,6 +11,11 @@ import {
   sincronizarContaRecebimento,
 } from '../../../../services/contaRecebimentoService'
 import { buscarComprovanteDaMinhaFatura, listarMinhasFaturas } from '../../../../services/faturaPlataformaService'
+import {
+  aprovarContaNoSandbox,
+  atalhosSandboxHabilitados,
+  mensagemErroSandbox,
+} from '../../../../services/sandboxService'
 import type { AtivarRecebimentosRequest, ContaRecebimento } from '../../../../types/contaRecebimento'
 import type { FaturaPlataforma } from '../../../../types/faturaPlataforma'
 import type { FormaPagamento } from '../../../../types/pagamentoAluno'
@@ -72,6 +77,22 @@ export function Recebimentos() {
     }
   }
 
+  /** Atalho de teste: aprova a conta no Sandbox e já lê a situação nova. */
+  async function aprovarNoSandbox() {
+    setSincronizando(true)
+    setErroSincronizar(null)
+    try {
+      await aprovarContaNoSandbox()
+      setContaAtualizada(await sincronizarContaRecebimento())
+    } catch (e) {
+      setErroSincronizar(
+        mensagemErroSandbox(e, 'A conta ainda não foi criada no provedor. Envie o cadastro antes de aprovar.'),
+      )
+    } finally {
+      setSincronizando(false)
+    }
+  }
+
   const buscarComprovante = useCallback(
     () => buscarComprovanteDaMinhaFatura(comprovanteDe ?? ''),
     [comprovanteDe],
@@ -96,6 +117,7 @@ export function Recebimentos() {
           erroSincronizar={erroSincronizar}
           onAtivar={() => setAtivando(true)}
           onSincronizar={sincronizar}
+          onAprovarNoSandbox={atalhosSandboxHabilitados ? aprovarNoSandbox : undefined}
         />
       )}
 

@@ -52,6 +52,8 @@ type PainelContaRecebimentoProps = {
   erroSincronizar: string | null
   onAtivar: () => void
   onSincronizar: () => void
+  /** Atalho de teste do Sandbox; sem ele o botão não aparece. */
+  onAprovarNoSandbox?: () => void
 }
 
 /** Situação da conta de recebimento da escola, com Ativar e Sincronizar conforme o backend libera. */
@@ -61,9 +63,15 @@ export function PainelContaRecebimento({
   erroSincronizar,
   onAtivar,
   onSincronizar,
+  onAprovarNoSandbox,
 }: PainelContaRecebimentoProps) {
   const acao = (
     <div className={styles.acoes}>
+      {onAprovarNoSandbox && conta.status === 'AGUARDANDO_APROVACAO' && (
+        <Button size="sm" variant="accent" icon="check" onClick={onAprovarNoSandbox} disabled={sincronizando}>
+          Aprovar no Sandbox
+        </Button>
+      )}
       {conta.podeSincronizar && (
         <Button size="sm" variant="outline" icon="clock" onClick={onSincronizar} disabled={sincronizando}>
           {sincronizando ? 'Sincronizando…' : 'Sincronizar'}
