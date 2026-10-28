@@ -83,6 +83,19 @@ class DemoAcessoServiceTest {
     }
 
     @Test
+    void variavelAusenteDerrubaASubida() {
+        // O binder guarda o placeholder literal quando a variavel de ambiente nao existe.
+        assertThatThrownBy(() -> new DemoAcessoService(new DemoAcessoProperties(LOGIN, "${DEMO_ACESSO_SENHA}"),
+                usuarioRepository, jwtService, ""))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("DEMO_ACESSO_SENHA");
+        assertThatThrownBy(() -> new DemoAcessoService(new DemoAcessoProperties(" ", SENHA),
+                usuarioRepository, jwtService, ""))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("DEMO_ACESSO_LOGIN");
+    }
+
+    @Test
     void acessoErradoNaoListaNada() {
         assertThatThrownBy(() -> service.contas(LOGIN, "errada")).isInstanceOf(CredenciaisInvalidasException.class);
         assertThatThrownBy(() -> service.contas("outro@gmail.com", SENHA))

@@ -68,8 +68,8 @@ public class DemoAcessoService {
     public DemoAcessoService(DemoAcessoProperties acesso, UsuarioRepository usuarioRepository,
             JwtService jwtService, @Value("${app.super-admin.login:}") String loginSuperAdmin) {
         // Espaco ou quebra de linha nas pontas e comum ao colar no painel da hospedagem.
-        this.loginAcesso = normalizarAcesso(acesso.login());
-        this.senhaAcesso = acesso.senha().strip();
+        this.loginAcesso = normalizarAcesso(exigirDefinida(acesso.login(), "DEMO_ACESSO_LOGIN"));
+        this.senhaAcesso = exigirDefinida(acesso.senha(), "DEMO_ACESSO_SENHA").strip();
         this.usuarioRepository = usuarioRepository;
         this.jwtService = jwtService;
         this.loginSuperAdmin = loginSuperAdmin.isBlank() ? "" : UsuarioService.normalizarLogin(loginSuperAdmin);
@@ -124,6 +124,18 @@ public class DemoAcessoService {
         if (!loginConfere || !senhaConfere) {
             throw new CredenciaisInvalidasException();
         }
+    }
+
+    /**
+     * O binder das @ConfigurationProperties nao falha com variavel de ambiente
+     * ausente: guarda o proprio "${VARIAVEL}" como valor. Sem esta conferencia,
+     * o acesso subiria com uma senha que ninguem sabe.
+     */
+    private static String exigirDefinida(String valor, String variavel) {
+        if (valor == null || valor.isBlank() || valor.contains("${")) {
+            throw new IllegalStateException(variavel + " nao definida: o perfil demo precisa dela");
+        }
+        return valor;
     }
 
     private static String normalizarAcesso(String login) {
