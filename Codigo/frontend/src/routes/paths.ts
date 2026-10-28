@@ -10,6 +10,8 @@ export const paths = {
   loginAdmin: '/login/admin',
   /** Só existe em dev (import.meta.env.DEV). */
   loginDev: '/login/dev',
+  /** Só existe no build de apresentação (VITE_DEMO=true) e em dev. */
+  loginDemo: '/login/demo',
   superAdmin: {
     raiz: '/super-admin',
     /** Atalho antigo: redireciona para loginAdmin. */
