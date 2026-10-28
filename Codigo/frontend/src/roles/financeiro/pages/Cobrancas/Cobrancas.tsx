@@ -3,23 +3,16 @@ import { useNavigate, useSearchParams } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
 import { paths } from '../../../../routes/paths'
-import {
-  listarCobrancas,
-  registrarPagamento,
-} from '../../../../services/cobrancaService'
-import {
-  COBRANCAS_MOCK_INICIAIS,
-  type Cobranca,
-  type DadosRegistroPagamento,
-  type FiltroCobranca,
-} from '../../../../types/cobranca'
+import { ApiError } from '../../../../services/api'
+import { listarCobrancas } from '../../../../services/cobrancaService'
+import type { Cobranca, FiltroCobranca } from '../../../../types/cobranca'
 import { CobrancaCard } from '../../components/CobrancaCard/CobrancaCard'
 import { CobrancaDetalhe } from '../../components/CobrancaDetalhe/CobrancaDetalhe'
 import { ModalBoleto } from '../../components/ModalBoleto/ModalBoleto'
 import { FinanceiroLayout } from '../../layouts/FinanceiroLayout'
 import styles from './Cobrancas.module.css'
 
-const FILTROS: FiltroCobranca[] = ['TODAS', 'A_PAGAR', 'EM_ATRASO', 'PAGA']
+const FILTROS: FiltroCobranca[] = ['TODAS', 'PENDENTE', 'EM_ATRASO', 'PAGA']
 
 /** O ?status= da URL (atalho do Início), ou Todas. */
 function filtroDaUrl(status: string | null): FiltroCobranca {
@@ -29,10 +22,10 @@ function filtroDaUrl(status: string | null): FiltroCobranca {
 export function Cobrancas() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const [cobrancas, setCobrancas] = useState<Cobranca[]>(COBRANCAS_MOCK_INICIAIS)
-  const [idSelecionado, setIdSelecionado] = useState<string>(
-    COBRANCAS_MOCK_INICIAIS[0]?.id || '',
-  )
+  const [cobrancas, setCobrancas] = useState<Cobranca[]>([])
+  const [carregando, setCarregando] = useState(true)
+  const [erro, setErro] = useState<string | null>(null)
+  const [idSelecionado, setIdSelecionado] = useState<string>('')
   const [termoBusca, setTermoBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<FiltroCobranca>(() => filtroDaUrl(searchParams.get('status')))
   const [boletoModalCobranca, setBoletoModalCobranca] = useState<Cobranca | null>(null)
@@ -43,8 +36,12 @@ export function Cobrancas() {
       .then((dados) => {
         setCobrancas(dados)
       })
-      .catch(() => {
-        // Fallback garantido
+      .catch((e: unknown) => {
+        if (controller.signal.aborted) return
+        setErro(e instanceof ApiError ? (e.detalhe ?? e.message) : 'Não foi possível carregar as cobranças.')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCarregando(false)
       })
 
     return () => controller.abort()
@@ -54,7 +51,7 @@ export function Cobrancas() {
   const contadores = useMemo(() => {
     return {
       todas: cobrancas.length,
-      aPagar: cobrancas.filter((c) => c.status === 'A_PAGAR').length,
+      pendentes: cobrancas.filter((c) => c.status === 'PENDENTE').length,
       emAtraso: cobrancas.filter((c) => c.status === 'EM_ATRASO').length,
       pagas: cobrancas.filter((c) => c.status === 'PAGA').length,
     }
@@ -64,7 +61,7 @@ export function Cobrancas() {
   const cobrancasFiltradas = useMemo(() => {
     const busca = termoBusca.trim().toLowerCase()
     return cobrancas.filter((c) => {
-      const matchBusca = !busca || c.alunoNome.toLowerCase().includes(busca)
+      const matchBusca = !busca || (c.alunoNome ?? '').toLowerCase().includes(busca)
       if (!matchBusca) return false
 
       if (filtroStatus === 'TODAS') return true
@@ -82,15 +79,10 @@ export function Cobrancas() {
     )
   }, [cobrancasFiltradas, cobrancas, idSelecionado])
 
-  async function handleRegistrarPagamento(id: string, dados?: DadosRegistroPagamento) {
-    const atualizada = await registrarPagamento(id, dados)
-    setCobrancas((prev) => prev.map((c) => (c.id === id ? atualizada : c)))
-  }
-
   return (
     <FinanceiroLayout
       titulo="Cobranças"
-      subtitulo="Clique em uma cobrança para ver os detalhes ou registrar o pagamento."
+      subtitulo="Clique em uma cobrança para ver os detalhes."
       acao={
         <Button
           variant="primary"
@@ -131,12 +123,12 @@ export function Cobrancas() {
           <button
             type="button"
             role="tab"
-            aria-selected={filtroStatus === 'A_PAGAR'}
-            className={`${styles.pillBtn} ${filtroStatus === 'A_PAGAR' ? styles.pillAtivo : ''}`}
-            onClick={() => setFiltroStatus('A_PAGAR')}
+            aria-selected={filtroStatus === 'PENDENTE'}
+            className={`${styles.pillBtn} ${filtroStatus === 'PENDENTE' ? styles.pillAtivo : ''}`}
+            onClick={() => setFiltroStatus('PENDENTE')}
           >
-            A pagar
-            <span className={styles.badge}>{contadores.aPagar}</span>
+            Pendentes
+            <span className={styles.badge}>{contadores.pendentes}</span>
           </button>
           <button
             type="button"
@@ -164,7 +156,16 @@ export function Cobrancas() {
       {/* Conteúdo Master-Detail em Split Screen */}
       <div className={styles.conteudoSplit}>
         <div className={styles.listaCobrancas}>
-          {cobrancasFiltradas.length === 0 ? (
+          {carregando ? (
+            <div className={styles.vazio}>
+              <p>Carregando cobranças…</p>
+            </div>
+          ) : erro ? (
+            <div className={styles.vazio} role="alert">
+              <Icon name="fileText" size={32} />
+              <p>{erro}</p>
+            </div>
+          ) : cobrancasFiltradas.length === 0 ? (
             <div className={styles.vazio}>
               <Icon name="fileText" size={32} />
               <p>Nenhuma cobrança encontrada para este filtro.</p>
@@ -185,7 +186,6 @@ export function Cobrancas() {
           <CobrancaDetalhe
             cobranca={cobrancaSelecionada}
             onVerBoleto={(c) => setBoletoModalCobranca(c)}
-            onRegistrarPagamento={handleRegistrarPagamento}
           />
         )}
       </div>
