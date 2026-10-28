@@ -85,7 +85,9 @@ async function enviar(caminho: string, init: RequestInit, accept: string): Promi
 export async function apiRequest<T>(caminho: string, init: RequestInit = {}): Promise<T> {
   const resposta = await enviar(caminho, init, 'application/json')
   if (resposta.status === 204) return undefined as T
-  return (await resposta.json()) as T
+  // 202 sem corpo (ex.: atalhos de Sandbox): não há JSON para ler.
+  const texto = await resposta.text()
+  return (texto ? JSON.parse(texto) : undefined) as T
 }
 
 /** Baixa um arquivo (ex.: PDF do boleto). Erros chegam como ApiError, igual ao apiRequest. */
