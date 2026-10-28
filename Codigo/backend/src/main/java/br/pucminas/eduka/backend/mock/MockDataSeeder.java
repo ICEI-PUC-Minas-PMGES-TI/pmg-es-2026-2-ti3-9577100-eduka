@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -94,13 +95,16 @@ import br.pucminas.eduka.backend.service.CategoriaDespesaService;
  *
  * <p>
  * So existe em dev ({@code MOCK_DATA=true} no .env, que o docker-compose.yml
- * de dev ja liga). Em prod nao sobe: o perfil {@code prod} exclui a classe e
- * o application-prod.properties fixa {@code app.mock.habilitado=false}.
+ * de dev ja liga) e no ambiente de apresentacao (perfis {@code prod,demo}, ver
+ * application-demo.properties). Em prod sozinho nao sobe: o perfil
+ * {@code prod} exclui a classe e o application-prod.properties fixa
+ * {@code app.mock.habilitado=false}.
  * </p>
  *
  * <p>
  * Todas as pessoas sao ficticias ({@link GeradorMock}); todos os logins
- * terminam em {@value GeradorMock#DOMINIO} e entram com {@value #SENHA}. As
+ * terminam em {@value GeradorMock#DOMINIO} e entram com {@code app.mock.senha}
+ * ({@value #SENHA} em dev; no demo, a senha de {@code MOCK_SENHA}). As
  * datas sao relativas ao dia em que o banco e semeado: o semestre e o atual,
  * o que ja venceu esta pago (com alguns atrasos) e o resto esta em aberto.
  * Semeia uma vez so, enquanto a escola nao existe; para recriar, apague o
@@ -108,7 +112,7 @@ import br.pucminas.eduka.backend.service.CategoriaDespesaService;
  * </p>
  */
 @Component
-@Profile("dev & !prod")
+@Profile("(dev & !prod) | demo")
 @ConditionalOnProperty(name = "app.mock.habilitado", havingValue = "true")
 @Order(3)
 public class MockDataSeeder implements ApplicationRunner {
@@ -233,6 +237,7 @@ public class MockDataSeeder implements ApplicationRunner {
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
     private final TransactionTemplate transactionTemplate;
+    private final String senha;
 
     public MockDataSeeder(EscolaRepository escolaRepository, PessoaRepository pessoaRepository,
             PessoaPapelRepository pessoaPapelRepository, UsuarioRepository usuarioRepository,
@@ -244,7 +249,8 @@ public class MockDataSeeder implements ApplicationRunner {
             AvaliacaoRepository avaliacaoRepository, NotaRepository notaRepository,
             CobrancaRepository cobrancaRepository, CategoriaDespesaService categoriaDespesaService,
             CategoriaDespesaRepository categoriaDespesaRepository, DespesaRepository despesaRepository,
-            PasswordEncoder passwordEncoder, Clock clock, PlatformTransactionManager transactionManager) {
+            PasswordEncoder passwordEncoder, Clock clock, PlatformTransactionManager transactionManager,
+            @Value("${app.mock.senha:" + SENHA + "}") String senha) {
         this.escolaRepository = escolaRepository;
         this.pessoaRepository = pessoaRepository;
         this.pessoaPapelRepository = pessoaPapelRepository;
@@ -267,6 +273,7 @@ public class MockDataSeeder implements ApplicationRunner {
         this.despesaRepository = despesaRepository;
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
+        this.senha = senha;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -283,14 +290,15 @@ public class MockDataSeeder implements ApplicationRunner {
         }
         LocalDate hoje = LocalDate.now(clock.withZone(ZONA));
         GeradorMock gerador = new GeradorMock(SEMENTE);
-        String senhaHash = passwordEncoder.encode(SENHA);
+        String senhaHash = passwordEncoder.encode(senha);
 
         Usuario master = transactionTemplate.execute(status -> criarEscolaEEquipe(hoje, gerador, senhaHash));
         comoEscola(master, () -> transactionTemplate
                 .executeWithoutResult(status -> semear(master.getEscolaId(), hoje, gerador, senhaHash)));
 
+        // A senha padrao de dev esta no README; uma senha propria (demo) nunca vai para o log.
         log.info("Mock: {} semeado. Logins em @{} com a senha {} (diretora: {})", NOME_ESCOLA,
-                GeradorMock.DOMINIO, SENHA, master.getLogin());
+                GeradorMock.DOMINIO, SENHA.equals(senha) ? SENHA : "de MOCK_SENHA", master.getLogin());
     }
 
     private Usuario criarEscolaEEquipe(LocalDate hoje, GeradorMock gerador, String senhaHash) {

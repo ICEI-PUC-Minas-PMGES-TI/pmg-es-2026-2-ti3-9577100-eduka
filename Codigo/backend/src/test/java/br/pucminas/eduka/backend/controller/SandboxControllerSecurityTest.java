@@ -98,6 +98,29 @@ class SandboxControllerSecurityTest {
         }
     }
 
+    /** Ambiente de apresentacao (prod,demo): os atalhos existem para mostrar o pagamento no Sandbox. */
+    @Nested
+    @WebMvcTest(SandboxController.class)
+    @ActiveProfiles({ "prod", "demo" })
+    @Import({ JwtConfig.class, JwtService.class, IsolamentoEscola.class, ApiExceptionHandler.class })
+    class NoPerfilDemo {
+
+        @Autowired
+        private MockMvc mockMvc;
+
+        @Autowired
+        private JwtService jwtService;
+
+        @MockitoBean
+        private PaymentRoutingService paymentRoutingService;
+
+        @Test
+        void masterAprovaAConta() throws Exception {
+            mockMvc.perform(comToken(post(APROVAR), token(jwtService, "MASTER"))).andExpect(status().isAccepted());
+            verify(paymentRoutingService).sandboxAprovarConta();
+        }
+    }
+
     @Nested
     @WebMvcTest(SandboxController.class)
     @Import({ JwtConfig.class, JwtService.class, IsolamentoEscola.class, ApiExceptionHandler.class })
