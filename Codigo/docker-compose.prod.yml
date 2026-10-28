@@ -49,6 +49,13 @@ services:
 
       BREVO_REMETENTE_NOME: ${BREVO_REMETENTE_NOME:-Eduka}
 
+      LOGIN_VERIFICACAO_HABILITADA: ${LOGIN_VERIFICACAO_HABILITADA:-true}
+
+      # Primeiro super admin (SuperAdminInicialSeeder). Sem eles o banco nasce sem ninguem que entre.
+      SUPER_ADMIN_LOGIN: ${SUPER_ADMIN_LOGIN:-}
+
+      SUPER_ADMIN_SENHA: ${SUPER_ADMIN_SENHA:-}
+
       ASAAS_API_URL: ${ASAAS_API_URL:-https://api-sandbox.asaas.com}
 
       ASAAS_API_KEY: ${ASAAS_API_KEY:-}

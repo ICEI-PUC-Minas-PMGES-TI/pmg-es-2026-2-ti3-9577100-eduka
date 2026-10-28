@@ -5,9 +5,14 @@ import { Icon } from '../../../../components/Icon/Icon'
 import { paths } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
 import { listarCobrancas } from '../../../../services/cobrancaService'
+import {
+  atalhosSandboxHabilitados,
+  mensagemErroSandbox,
+  simularPagamentoNoSandbox,
+} from '../../../../services/sandboxService'
 import type { Cobranca, FiltroCobranca } from '../../../../types/cobranca'
 import { CobrancaCard } from '../../components/CobrancaCard/CobrancaCard'
-import { CobrancaDetalhe } from '../../components/CobrancaDetalhe/CobrancaDetalhe'
+import { CobrancaDetalhe, type MensagemSandbox } from '../../components/CobrancaDetalhe/CobrancaDetalhe'
 import { ModalBoleto } from '../../components/ModalBoleto/ModalBoleto'
 import { FinanceiroLayout } from '../../layouts/FinanceiroLayout'
 import styles from './Cobrancas.module.css'
@@ -29,6 +34,10 @@ export function Cobrancas() {
   const [termoBusca, setTermoBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<FiltroCobranca>(() => filtroDaUrl(searchParams.get('status')))
   const [boletoModalCobranca, setBoletoModalCobranca] = useState<Cobranca | null>(null)
+  const [simulando, setSimulando] = useState(false)
+  const [mensagemSandbox, setMensagemSandbox] = useState<MensagemSandbox | null>(null)
+  // Cada incremento busca a lista de novo, sem voltar ao "Carregando".
+  const [recarga, setRecarga] = useState(0)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -45,7 +54,41 @@ export function Cobrancas() {
       })
 
     return () => controller.abort()
-  }, [])
+  }, [recarga])
+
+  /**
+   * Atalho de teste: paga a cobrança no Sandbox. Ela só vira PAGA quando o
+   * aviso do provedor chega, então a lista é lida de novo algumas vezes.
+   */
+  async function simularPagamento(cobranca: Cobranca) {
+    setSimulando(true)
+    setMensagemSandbox(null)
+    try {
+      await simularPagamentoNoSandbox(cobranca.id)
+      setMensagemSandbox({
+        texto: 'Pagamento confirmado no Asaas. A cobrança vira paga quando o aviso do Asaas chegar.',
+        erro: false,
+      })
+      for (const espera of [4000, 10000]) {
+        window.setTimeout(() => setRecarga((n) => n + 1), espera)
+      }
+    } catch (e) {
+      setMensagemSandbox({
+        texto: mensagemErroSandbox(
+          e,
+          'Esta cobrança ainda não foi emitida no Asaas: o aluno precisa gerar o PIX ou o boleto no portal antes.',
+        ),
+        erro: true,
+      })
+    } finally {
+      setSimulando(false)
+    }
+  }
+
+  function selecionar(id: string) {
+    setIdSelecionado(id)
+    setMensagemSandbox(null)
+  }
 
   // Contadores dinâmicos para as pílulas de filtro
   const contadores = useMemo(() => {
@@ -176,7 +219,7 @@ export function Cobrancas() {
                 key={c.id}
                 cobranca={c}
                 selecionada={cobrancaSelecionada?.id === c.id}
-                onClick={() => setIdSelecionado(c.id)}
+                onClick={() => selecionar(c.id)}
               />
             ))
           )}
@@ -186,6 +229,9 @@ export function Cobrancas() {
           <CobrancaDetalhe
             cobranca={cobrancaSelecionada}
             onVerBoleto={(c) => setBoletoModalCobranca(c)}
+            onSimularPagamento={atalhosSandboxHabilitados ? simularPagamento : undefined}
+            simulandoPagamento={simulando}
+            mensagemSandbox={mensagemSandbox}
           />
         )}
       </div>

@@ -25,6 +25,16 @@ export const router = createBrowserRouter([
         },
       ]
     : []),
+  // Acesso de demonstração, protegido pelo backend (perfil demo). Fora do
+  // build de apresentação a rota não existe, como o /login/dev.
+  ...(import.meta.env.DEV || import.meta.env.VITE_DEMO === 'true'
+    ? [
+        {
+          path: paths.loginDemo,
+          lazy: async () => ({ Component: (await import('../pages/LoginDemo/LoginDemo')).LoginDemo }),
+        },
+      ]
+    : []),
   superAdminRoutes,
   masterRoutes,
   secretariaRoutes,
