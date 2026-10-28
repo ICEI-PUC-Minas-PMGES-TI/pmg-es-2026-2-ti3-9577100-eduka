@@ -36,7 +36,7 @@ Pacote raiz: `br.pucminas.eduka.backend`.
 | `validation` | Bean Validation próprio: `@Cpf` (11 dígitos e dígitos verificadores corretos). |
 | `openapi` | `OpenApiConfig`: Swagger UI em `/swagger-ui.html` e contrato em `/v3/api-docs`, com o botão "Authorize" para o access token. Desligado no perfil `prod`. |
 
-Na raiz do pacote, só com o perfil `dev` ativo: `DevDataSeeder` cria o super admin e a "Escola Dev" com um usuário de cada perfil, e `DevAcademicoSeeder` monta nela uma estrutura acadêmica de exemplo (período letivo, cursos, disciplinas e turmas) quando ainda não há turma.
+Na raiz do pacote, só com o perfil `dev` ativo: `DevDataSeeder` cria o super admin e a "Escola Dev" com um usuário de cada perfil, e `DevAcademicoSeeder` monta nela uma estrutura acadêmica de exemplo (período letivo, cursos, disciplinas e turmas) quando ainda não há turma. No pacote `mock`, também só em `dev` e só com `MOCK_DATA=true`: `MockDataSeeder` cria a escola de demonstração (ver o [README da raiz](../README.md)), com pessoas fictícias geradas pelo `GeradorMock`.
 
 Convenções:
 
