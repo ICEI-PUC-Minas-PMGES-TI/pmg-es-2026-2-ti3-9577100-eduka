@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import br.pucminas.eduka.backend.domain.FaturaPlataforma;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.CredencialProvedor;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
@@ -30,6 +31,11 @@ import br.pucminas.eduka.backend.security.PiiCryptoService;
  * {@code EDK-A-} na conta-pai) e grava o mesmo resultado do aviso. Chama o
  * provedor sem transacao; cada gravacao e uma transacao curta no
  * {@link RoteadorEventos}.
+ * </p>
+ *
+ * <p>
+ * Tambem confere no provedor as faturas EMITIDAS em aberto: a conta-pai pode
+ * nao ter webhook, e sem o aviso a fatura paga ficaria em aberto no Eduka.
  * </p>
  */
 @Component
@@ -59,11 +65,12 @@ class RoteadorReconciliacao {
 
     /**
      * @param lote quantas cobrancas e quantas faturas por execucao, as mais antigas primeiro
-     * @return quantas sairam de EMITINDO
+     * @return quantas sairam de EMITINDO mais quantas faturas EMITIDAS foram pagas
      */
     int reconciliar(int lote) {
         Instant iniciadaAntes = clock.instant().minus(EMISSAO_SEM_RESPOSTA);
-        return reconciliarCobrancas(iniciadaAntes, lote) + reconciliarFaturas(iniciadaAntes, lote);
+        return reconciliarCobrancas(iniciadaAntes, lote) + reconciliarFaturas(iniciadaAntes, lote)
+                + conferirFaturasEmitidas(lote);
     }
 
     private int reconciliarCobrancas(Instant iniciadaAntes, int lote) {
@@ -114,5 +121,34 @@ class RoteadorReconciliacao {
             }
         }
         return resolvidas;
+    }
+
+    private int conferirFaturasEmitidas(int lote) {
+        List<FaturaPlataforma> faturas = faturaRepository.buscarEmitidasEmAberto(PageRequest.of(0, lote));
+        if (faturas.isEmpty()) {
+            return 0;
+        }
+        CredencialProvedor credencial;
+        try {
+            credencial = provedor.chamar(PaymentProvider::credencialDaContaPai);
+        } catch (RuntimeException e) {
+            log.warn("Nao foi possivel conferir as faturas emitidas: {}", e.getClass().getSimpleName());
+            return 0;
+        }
+        int pagas = 0;
+        for (FaturaPlataforma fatura : faturas) {
+            try {
+                CobrancaProvedor noProvedor = provedor
+                        .chamar(p -> p.consultarCobranca(credencial, fatura.getIdCobrancaExterna()));
+                if (RoteadorFatura.pago(noProvedor)
+                        && eventos.registrarPagamentoDaFaturaEncontrado(fatura.getId(), noProvedor)) {
+                    pagas++;
+                }
+            } catch (RuntimeException e) {
+                // Continua em aberto; a proxima execucao confere de novo.
+                log.warn("Nao foi possivel conferir a fatura {}: {}", fatura.getId(), e.getClass().getSimpleName());
+            }
+        }
+        return pagas;
     }
 }

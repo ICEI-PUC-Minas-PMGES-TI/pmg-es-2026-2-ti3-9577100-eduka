@@ -16,11 +16,11 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 /**
- * Atalhos de teste no Sandbox do provedor (NOVA-6). So existem no perfil dev:
- * fora dele as rotas respondem 404.
+ * Atalhos de teste no Sandbox do provedor (NOVA-6). So existem nos perfis dev
+ * e demo (ambiente de apresentacao): fora deles as rotas respondem 404.
  */
 @RestController
-@Profile("dev")
+@Profile({ "dev", "demo" })
 @Tag(name = "Sandbox", description = "Atalhos de teste do provedor de pagamento, so em desenvolvimento. "
         + "Perfis: MASTER (conta) e FINANCEIRO (cobranca).")
 public class SandboxController {

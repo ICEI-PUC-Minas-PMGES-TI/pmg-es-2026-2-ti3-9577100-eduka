@@ -162,6 +162,9 @@ public class JwtConfig {
 									"/primeiro-acesso").permitAll()
 							// Avisos do provedor: autenticados pelo token do webhook (WebhookController).
 							.requestMatchers(HttpMethod.POST, "/webhooks/asaas").permitAll()
+							// Acesso de demonstracao (DemoController): conferido pelo login e senha do proprio
+							// acesso. Fora do perfil demo as rotas nao existem e dao 404.
+							.requestMatchers(HttpMethod.POST, "/demo/contas", "/demo/entrar").permitAll()
 							// Swagger (OpenApiConfig). Em prod o springdoc fica desligado e estas rotas dao 404.
 							.requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll();
 					RotasPorPerfil.aplicar(authorize);

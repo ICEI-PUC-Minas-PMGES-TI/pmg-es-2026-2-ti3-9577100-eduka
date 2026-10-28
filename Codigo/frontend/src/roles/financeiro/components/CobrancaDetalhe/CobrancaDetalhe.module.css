@@ -74,23 +74,14 @@
   gap: 8px;
 }
 
-.botaoRegistrar {
-  width: 100%;
-  justify-content: center;
+.avisoSandbox {
+  font-size: 13.5px;
+  color: var(--color-text-muted);
 }
 
-.sucessoRegistro {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 12px;
-  border-radius: var(--radius-md);
-  background: var(--color-success-bg);
-  color: var(--color-success);
-  font-size: 14px;
-  font-weight: 700;
-  animation: var(--animacao-surgir);
+.erroSandbox {
+  font-size: 13.5px;
+  color: var(--color-danger);
 }
 
 @media (max-width: 900px) {

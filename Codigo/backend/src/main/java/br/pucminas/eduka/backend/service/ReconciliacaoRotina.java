@@ -32,7 +32,7 @@ public class ReconciliacaoRotina {
     public void reconciliar() {
         int resolvidas = paymentRoutingService.reconciliarEmissoesPendentes(lote);
         if (resolvidas > 0) {
-            log.info("Rotina de reconciliacao: {} emissao(oes) sem resposta resolvida(s)", resolvidas);
+            log.info("Rotina de reconciliacao: {} pendencia(s) resolvida(s)", resolvidas);
         }
     }
 }

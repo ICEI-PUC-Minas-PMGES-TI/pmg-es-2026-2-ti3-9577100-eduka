@@ -102,6 +102,24 @@ class ProductionProfileConfigTest {
     }
 
     @Test
+    void soODemoLigaOMockEmProd() {
+        runnerComPerfil("prod").run(context -> assertThat(
+                context.getEnvironment().getProperty("app.mock.habilitado")).isEqualTo("false"));
+
+        runnerComPerfil("prod,demo").run(context -> {
+            Environment env = context.getEnvironment();
+            assertThat(env.getProperty("app.mock.habilitado")).isEqualTo("true");
+            // Sem default: a senha do mock e a do acesso nunca sao as do README.
+            assertThatThrownBy(() -> env.getProperty("app.mock.senha"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("MOCK_SENHA");
+            assertThatThrownBy(() -> env.getProperty("app.demo.acesso.senha"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("DEMO_ACESSO_SENHA");
+        });
+    }
+
+    @Test
     void prodProfileStillValidatesSchemaInsteadOfAlteringIt() {
         runnerComPerfil("prod").run(context -> assertThat(
                 context.getEnvironment().getProperty("spring.jpa.hibernate.ddl-auto"))

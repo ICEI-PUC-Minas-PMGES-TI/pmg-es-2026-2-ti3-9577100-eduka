@@ -1,40 +1,15 @@
-import { useMemo, useRef, useState, type DragEvent, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Icon } from '../../../../components/Icon/Icon'
 import { paths } from '../../../../routes/paths'
+import { ApiError } from '../../../../services/api'
 import { criarCobranca } from '../../../../services/cobrancaService'
+import { listarAlunos } from '../../../../services/matriculaService'
+import type { AlunoResumo } from '../../../../types/aluno'
 import { FinanceiroLayout } from '../../layouts/FinanceiroLayout'
 import styles from './NovaCobranca.module.css'
 
 type TipoCobranca = 'Mensalidade' | 'Matrícula' | 'Material' | 'Outro'
-
-type AlunoPreset = {
-  id: string
-  nome: string
-  turmaCurso: string
-  responsavel: string
-}
-
-const ALUNOS_EXEMPLO: AlunoPreset[] = [
-  {
-    id: '1',
-    nome: 'Lucas Andrade',
-    turmaCurso: '2º ano A · Ensino Médio',
-    responsavel: 'Cláudia Andrade',
-  },
-  {
-    id: '2',
-    nome: 'Helena Castro',
-    turmaCurso: '2º ano B · Ensino Médio',
-    responsavel: 'Eduardo Castro',
-  },
-  {
-    id: '3',
-    nome: 'Caio Ferreira',
-    turmaCurso: 'Inglês B1 · Curso livre',
-    responsavel: 'Marcos Ferreira',
-  },
-]
 
 const TIPOS_COBRANCA: TipoCobranca[] = ['Mensalidade', 'Matrícula', 'Material', 'Outro']
 
@@ -42,8 +17,10 @@ export function NovaCobranca() {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const [alunos, setAlunos] = useState<AlunoResumo[]>([])
+  const [carregandoAlunos, setCarregandoAlunos] = useState(true)
   const [buscaAluno, setBuscaAluno] = useState('')
-  const [alunoSelecionadoId, setAlunoSelecionadoId] = useState('1')
+  const [alunoSelecionadoId, setAlunoSelecionadoId] = useState<string | null>(null)
   const [tipoCobranca, setTipoCobranca] = useState<TipoCobranca>('Mensalidade')
   const [valor, setValor] = useState('890,00')
   const [dataVencimento, setDataVencimento] = useState('2026-10-10')
@@ -53,38 +30,31 @@ export function NovaCobranca() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
-  // Filtra ou inclui aluno personalizado caso a busca não coincida
+  useEffect(() => {
+    const controller = new AbortController()
+    listarAlunos(controller.signal)
+      .then(setAlunos)
+      .catch(() => {
+        if (!controller.signal.aborted) setErro('Não foi possível carregar os alunos da escola.')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCarregandoAlunos(false)
+      })
+    return () => controller.abort()
+  }, [])
+
   const alunosFiltrados = useMemo(() => {
     const termo = buscaAluno.trim().toLowerCase()
-    if (!termo) return ALUNOS_EXEMPLO
-
-    const filtrados = ALUNOS_EXEMPLO.filter(
-      (a) =>
-        a.nome.toLowerCase().includes(termo) ||
-        a.turmaCurso.toLowerCase().includes(termo),
+    if (!termo) return alunos
+    return alunos.filter(
+      (a) => a.nome.toLowerCase().includes(termo) || a.matricula.toLowerCase().includes(termo),
     )
+  }, [alunos, buscaAluno])
 
-    if (filtrados.length === 0) {
-      return [
-        {
-          id: 'custom',
-          nome: buscaAluno.trim(),
-          turmaCurso: 'Aluno selecionado',
-          responsavel: 'Responsável legal',
-        },
-      ]
-    }
-
-    return filtrados
-  }, [buscaAluno])
-
-  const alunoSelecionado = useMemo(() => {
-    return (
-      alunosFiltrados.find((a) => a.id === alunoSelecionadoId) ??
-      ALUNOS_EXEMPLO.find((a) => a.id === alunoSelecionadoId) ??
-      alunosFiltrados[0]
-    )
-  }, [alunosFiltrados, alunoSelecionadoId])
+  const alunoSelecionado = useMemo(
+    () => alunos.find((a) => a.id === alunoSelecionadoId) ?? null,
+    [alunos, alunoSelecionadoId],
+  )
 
   function handleSelecionarTipo(tipo: TipoCobranca) {
     setTipoCobranca(tipo)
@@ -159,16 +129,19 @@ export function NovaCobranca() {
     setIsSubmitting(true)
     try {
       await criarCobranca({
-        alunoNome: alunoSelecionado.nome,
-        responsavelNome: alunoSelecionado.responsavel,
+        alunoId: alunoSelecionado.id,
         valor: valorNumerico,
         dataVencimento,
         descricao: descricao.trim(),
       })
 
       navigate(paths.financeiro.cobrancas)
-    } catch {
-      setErro('Ocorreu um erro ao gerar a cobrança. Tente novamente.')
+    } catch (e) {
+      setErro(
+        e instanceof ApiError
+          ? (e.detalhe ?? e.message)
+          : 'Ocorreu um erro ao gerar a cobrança. Tente novamente.',
+      )
     } finally {
       setIsSubmitting(false)
     }
@@ -201,6 +174,10 @@ export function NovaCobranca() {
           </div>
 
           <div className={styles.alunosGrid}>
+            {carregandoAlunos && <p className={styles.helperBoleto}>Carregando alunos…</p>}
+            {!carregandoAlunos && alunosFiltrados.length === 0 && (
+              <p className={styles.helperBoleto}>Nenhum aluno encontrado.</p>
+            )}
             {alunosFiltrados.map((aluno) => {
               const ativo = alunoSelecionado?.id === aluno.id
               return (
@@ -211,7 +188,7 @@ export function NovaCobranca() {
                   onClick={() => setAlunoSelecionadoId(aluno.id)}
                 >
                   <span className={styles.alunoNome}>{aluno.nome}</span>
-                  <span className={styles.alunoDetalhe}>{aluno.turmaCurso}</span>
+                  <span className={styles.alunoDetalhe}>Matrícula {aluno.matricula}</span>
                 </button>
               )
             })}
@@ -357,7 +334,7 @@ export function NovaCobranca() {
           <button
             type="submit"
             className={styles.botaoCriar}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !alunoSelecionado}
           >
             {isSubmitting ? 'Criando…' : 'Criar cobrança'}
           </button>

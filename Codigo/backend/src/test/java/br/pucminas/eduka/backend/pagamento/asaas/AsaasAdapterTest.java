@@ -556,6 +556,66 @@ class AsaasAdapterTest {
         assertThat(semToken.webhookAutentico(null)).isFalse();
     }
 
+    // ---- Webhook da conta-pai ----
+
+    @Test
+    void garantirWebhookDaContaPaiCadastraSoOsEventosDePagamento() {
+        servidor.expect(requestTo(URL + "/v3/webhooks?limit=100"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("access_token", CHAVE_PAI))
+                .andRespond(withSuccess(listaCom("{\"id\":\"wh-1\",\"url\":\"https://outro.example.com/hook\"}"),
+                        MediaType.APPLICATION_JSON));
+        servidor.expect(requestTo(URL + "/v3/webhooks"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("access_token", CHAVE_PAI))
+                .andExpect(jsonPath("$.name").value("Eduka"))
+                .andExpect(jsonPath("$.url").value("https://tunel.example.com/webhooks/asaas"))
+                .andExpect(jsonPath("$.email").value("falhas@example.com"))
+                .andExpect(jsonPath("$.authToken").value(TOKEN_WEBHOOK))
+                .andExpect(jsonPath("$.enabled").value(true))
+                .andExpect(jsonPath("$.interrupted").value(false))
+                .andExpect(jsonPath("$.sendType").value("SEQUENTIALLY"))
+                .andExpect(jsonPath("$.events.length()").value(AsaasAdapter.EVENTOS_WEBHOOK_CONTA_PAI.size()))
+                .andExpect(jsonPath("$.events[0]").value("PAYMENT_CREATED"))
+                .andRespond(withSuccess("{\"id\":\"wh-2\"}", MediaType.APPLICATION_JSON));
+
+        adapter.garantirWebhookDaContaPai();
+
+        servidor.verify();
+        assertThat(AsaasAdapter.EVENTOS_WEBHOOK_CONTA_PAI)
+                .isNotEmpty()
+                .allMatch(evento -> evento.startsWith("PAYMENT_"));
+    }
+
+    @Test
+    void garantirWebhookDaContaPaiNaoDuplicaOJaCadastrado() {
+        servidor.expect(requestTo(URL + "/v3/webhooks?limit=100"))
+                .andRespond(withSuccess(listaCom("{\"id\":\"wh-1\",\"url\":\"https://tunel.example.com/webhooks/asaas\"}"),
+                        MediaType.APPLICATION_JSON));
+
+        adapter.garantirWebhookDaContaPai();
+
+        // Um POST inesperado falharia aqui.
+        servidor.verify();
+    }
+
+    @Test
+    void garantirWebhookDaContaPaiSemWebhookOuChaveNaoChamaOAsaas(CapturedOutput saida) {
+        AsaasAdapter semEmail = adapterCom(new AsaasProperties(URL, CHAVE_PAI,
+                "https://tunel.example.com/webhooks/asaas", TOKEN_WEBHOOK, ""));
+        servidor.expect(never(), anything());
+        semEmail.garantirWebhookDaContaPai();
+        servidor.verify();
+
+        AsaasAdapter semChave = adapterCom(new AsaasProperties(URL, "",
+                "https://tunel.example.com/webhooks/asaas", TOKEN_WEBHOOK, "falhas@example.com"));
+        servidor.expect(never(), anything());
+        semChave.garantirWebhookDaContaPai();
+        servidor.verify();
+
+        assertThat(saida.getOut()).contains("Webhook da conta-pai nao cadastrado");
+    }
+
     // ---- A03: erros HTTP ----
 
     @Test

@@ -851,6 +851,31 @@ class RoteadorEventosTest {
     }
 
     @Test
+    void pagamentoDaFaturaEmitidaAchadoSemAvisoAMarcaComoPaga() {
+        FaturaPlataforma fatura = fatura(StatusCobranca.EM_ATRASO, SituacaoProvedor.EMITIDA);
+        when(faturaRepository.travar(FATURA)).thenReturn(Optional.of(fatura));
+
+        assertThat(roteador.registrarPagamentoDaFaturaEncontrado(FATURA,
+                avisoDeFatura(TipoEventoProvedor.PAGAMENTO_RECEBIDO, CONTA_PAI, true).cobranca())).isTrue();
+
+        assertThat(fatura.getStatus()).isEqualTo(StatusCobranca.PAGA);
+        assertThat(fatura.getValorPago()).isEqualByComparingTo("150.00");
+        verify(auditoriaService).registrarDoProvedor(OperacaoAuditoria.CONFIRMAR_PAGAMENTO,
+                EntidadeAuditada.FATURA_PLATAFORMA, FATURA, ESCOLA);
+    }
+
+    @Test
+    void pagamentoDaFaturaQueOAvisoJaGravouNaoMudaNada() {
+        FaturaPlataforma fatura = fatura(StatusCobranca.PAGA, SituacaoProvedor.EMITIDA);
+        when(faturaRepository.travar(FATURA)).thenReturn(Optional.of(fatura));
+
+        assertThat(roteador.registrarPagamentoDaFaturaEncontrado(FATURA,
+                avisoDeFatura(TipoEventoProvedor.PAGAMENTO_RECEBIDO, CONTA_PAI, true).cobranca())).isFalse();
+
+        verifyNoInteractions(auditoriaService);
+    }
+
+    @Test
     void faturaAchadaJaPagaFicaPagaEAuditada() {
         FaturaPlataforma fatura = fatura(StatusCobranca.PENDENTE, SituacaoProvedor.EMITINDO);
         when(faturaRepository.travar(FATURA)).thenReturn(Optional.of(fatura));

@@ -51,6 +51,7 @@ import br.pucminas.eduka.backend.pagamento.asaas.dto.NovoClienteAsaas;
 import br.pucminas.eduka.backend.pagamento.asaas.dto.PixQrCodeAsaas;
 import br.pucminas.eduka.backend.pagamento.asaas.dto.SituacaoContaAsaas;
 import br.pucminas.eduka.backend.pagamento.asaas.dto.WebhookAsaas;
+import br.pucminas.eduka.backend.pagamento.asaas.dto.WebhookCadastradoAsaas;
 import br.pucminas.eduka.backend.pagamento.tipos.BoletoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.ContaProvedor;
@@ -123,6 +124,14 @@ public class AsaasAdapter implements PaymentProvider {
             "ACCOUNT_STATUS_BANK_ACCOUNT_INFO_APPROVED", "ACCOUNT_STATUS_BANK_ACCOUNT_INFO_AWAITING_APPROVAL",
             "ACCOUNT_STATUS_BANK_ACCOUNT_INFO_PENDING", "ACCOUNT_STATUS_BANK_ACCOUNT_INFO_REJECTED");
 
+    /** Eventos do webhook da conta-pai: so os de pagamento; os ACCOUNT_STATUS_ sao das contas filhas. */
+    static final List<String> EVENTOS_WEBHOOK_CONTA_PAI = EVENTOS_WEBHOOK.stream()
+            .filter(evento -> evento.startsWith("PAYMENT_"))
+            .toList();
+
+    /** Maior pagina aceita pelo Asaas nas listagens. */
+    private static final int LIMITE_LISTAGEM = 100;
+
     private static final ParameterizedTypeReference<ListaAsaas<ContaAsaas>> LISTA_CONTAS = new ParameterizedTypeReference<>() {
     };
     private static final ParameterizedTypeReference<ListaAsaas<ClienteAsaas>> LISTA_CLIENTES = new ParameterizedTypeReference<>() {
@@ -130,6 +139,8 @@ public class AsaasAdapter implements PaymentProvider {
     private static final ParameterizedTypeReference<ListaAsaas<CobrancaAsaas>> LISTA_COBRANCAS = new ParameterizedTypeReference<>() {
     };
     private static final ParameterizedTypeReference<ListaAsaas<ChavePixAsaas>> LISTA_CHAVES_PIX = new ParameterizedTypeReference<>() {
+    };
+    private static final ParameterizedTypeReference<ListaAsaas<WebhookCadastradoAsaas>> LISTA_WEBHOOKS = new ParameterizedTypeReference<>() {
     };
 
     private final RestClient restClient;
@@ -446,6 +457,41 @@ public class AsaasAdapter implements PaymentProvider {
         }
     }
 
+    /**
+     * Mesmo corpo do webhook das contas filhas, mas so com os eventos de
+     * pagamento. Confere pela URL antes de criar, para cada reinicio nao
+     * cadastrar outro.
+     */
+    @Override
+    public void garantirWebhookDaContaPai() {
+        if (!properties.configurado()) {
+            log.warn("Webhook da conta-pai nao cadastrado: ASAAS_API_KEY nao configurada");
+            return;
+        }
+        if (!properties.webhookConfigurado()) {
+            log.warn("Webhook da conta-pai nao cadastrado: webhook do Asaas nao configurado");
+            return;
+        }
+        String chavePai = chaveDaContaPai();
+        ListaAsaas<WebhookCadastradoAsaas> cadastrados = corpo("listarWebhooks", null, () -> restClient.get()
+                .uri(uri -> uri.path("/v3/webhooks").queryParam("limit", LIMITE_LISTAGEM).build())
+                .header(HEADER_CHAVE, chavePai)
+                .retrieve()
+                .toEntity(LISTA_WEBHOOKS));
+        boolean jaCadastrado = cadastrados.itens().stream()
+                .anyMatch(w -> properties.webhookUrl().equals(w.url()));
+        if (jaCadastrado) {
+            return;
+        }
+        chamar("criarWebhook", null, false, () -> restClient.post()
+                .uri("/v3/webhooks")
+                .header(HEADER_CHAVE, chavePai)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(webhook(EVENTOS_WEBHOOK_CONTA_PAI))
+                .retrieve()
+                .toBodilessEntity());
+    }
+
     // ---- Somente Sandbox ----
 
     @Override
@@ -575,8 +621,12 @@ public class AsaasAdapter implements PaymentProvider {
             log.warn("Webhook do Asaas nao configurado: conta filha criada sem webhook");
             return null;
         }
-        return List.of(new WebhookAsaas("Eduka", properties.webhookUrl(), properties.webhookEmail(), true, false,
-                properties.webhookToken(), "SEQUENTIALLY", EVENTOS_WEBHOOK));
+        return List.of(webhook(EVENTOS_WEBHOOK));
+    }
+
+    private WebhookAsaas webhook(List<String> eventos) {
+        return new WebhookAsaas("Eduka", properties.webhookUrl(), properties.webhookEmail(), true, false,
+                properties.webhookToken(), "SEQUENTIALLY", eventos);
     }
 
     // ---- Mapeamentos (so aqui) ----

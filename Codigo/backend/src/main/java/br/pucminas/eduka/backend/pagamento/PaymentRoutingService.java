@@ -278,6 +278,18 @@ public class PaymentRoutingService {
         return roteadorConta.sincronizarAguardando();
     }
 
+    /**
+     * Na subida da aplicacao, sem usuario autenticado. Cadastra o webhook da
+     * conta-pai (Fluxo A) se ainda nao existir.
+     *
+     * @throws ProvedorIndisponivelException   resultado inconclusivo
+     * @throws ProvedorRecusouException        o provedor recusou o cadastro
+     * @throws ProvedorNaoConfiguradoException chave invalida ou sem permissao
+     */
+    public void garantirWebhookDaContaPai() {
+        provedor.executar(PaymentProvider::garantirWebhookDaContaPai);
+    }
+
     // ---- Atalhos de Sandbox (NOVA-6, so no perfil dev) ----
 
     /** MASTER da escola do token: aprova a conta filha no Sandbox. */
