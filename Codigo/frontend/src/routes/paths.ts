@@ -44,6 +44,9 @@ export const paths = {
   },
   financeiro: {
     raiz: '/financeiro',
+    /** Dashboard: recebido, em aberto, atraso, despesas e movimentações recentes. */
+    inicio: '/financeiro/inicio',
+    /** Aceita ?status=EM_ATRASO (ou A_PAGAR, PAGA) para abrir já filtrada. */
     cobrancas: '/financeiro/cobrancas',
     novaCobranca: '/financeiro/cobrancas/nova',
     despesas: '/financeiro/despesas',
@@ -81,7 +84,7 @@ export const rotaInicialPorPerfil: Record<PerfilUsuario, string> = {
   SUPER_ADMIN: paths.superAdmin.escolas,
   MASTER: paths.master.raiz,
   SECRETARIA: paths.secretaria.raiz,
-  FINANCEIRO: paths.financeiro.cobrancas,
+  FINANCEIRO: paths.financeiro.raiz,
   PROFESSOR: paths.professor.raiz,
   ALUNO: paths.aluno.raiz,
 }

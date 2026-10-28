@@ -203,8 +203,11 @@ flowchart TB
 
 ### Superfície da API hoje
 
-A documentação interativa fica no Swagger UI (`/swagger-ui.html`, desligado em produção). As
-tabelas abaixo resumem as rotas por módulo.
+A documentação interativa fica no Swagger UI (`/swagger-ui.html`, desligado em produção). Cada
+rota lista as respostas possíveis: 401 sem token, 403 de perfil e 400 de corpo inválido entram em
+todas as que se aplicam, e as rotas do financeiro listam também os erros próprios com o `codigo`
+que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o esquema `Erro`
+(ProblemDetail). As tabelas abaixo resumem as rotas por módulo.
 
 **Acesso e plataforma**
 
@@ -298,6 +301,27 @@ Se a aplicação falhar, o aviso fica em `ERRO` para nova tentativa e o webhook 
 Estorno e contestação feitos no Asaas ficam registrados na auditoria, sem mudar a cobrança (ver
 Auditoria, abaixo).
 
+Duas rotinas cobrem o que o webhook não resolveu. Rodam sem usuário e chamam o Asaas fora de
+transação, pelo `PaymentRoutingService`. Uma falha num item não para os outros.
+
+| Rotina | Intervalo | O que faz |
+|---|---|---|
+| `EventoProvedorRotina` (`app.pagamento.eventos.*`) | 5 min | Reaplica os avisos de `EVENTO_PROVEDOR` em `RECEBIDO`, `PROCESSANDO` ou `ERRO` recebidos há mais de 1 min (para não disputar com o webhook), os mais antigos primeiro, até 50 por vez. O aviso é aplicado pelo mesmo caminho do webhook, com a trava do registro, então nunca vale duas vezes. Cada tentativa soma em `TENTATIVAS`; com 10, o aviso fica em `ERRO` para análise manual. |
+| `ReconciliacaoRotina` (`app.pagamento.reconciliacao.*`) | 10 min | Procura no Asaas, pela referência, as cobranças (`EDK-B-<id>`, na conta da escola) e faturas (`EDK-A-<id>`, na conta-pai) que estão em `EMITINDO` há mais de 5 min, porque a resposta da criação e o aviso `PAYMENT_CREATED` se perderam. Até 50 de cada por vez. |
+
+A reconciliação grava o mesmo resultado que o aviso gravaria:
+
+| Achado no Asaas | Resultado no Edúka |
+|---|---|
+| A cobrança, em aberto | `EMITIDA` com o id do Asaas, como no `PAYMENT_CREATED` |
+| A cobrança, já paga | `EMITIDA` e `PAGA`, com `PAGAMENTO_COBRANCA` `ONLINE` sem evento, auditoria `CONFIRMAR_PAGAMENTO` e e-mail de confirmação, como no `PAYMENT_RECEIVED` |
+| Nada (o Asaas omite as removidas) | `FALHA_EMISSAO`, como no `PAYMENT_DELETED`; o próximo Pagar emite de novo |
+
+Se o aviso chegou antes, a cobrança já saiu de `EMITINDO` e a reconciliação não muda nada. O
+pagamento também não duplica, porque `PAGAMENTO_COBRANCA` tem uma linha por cobrança. Se o Asaas
+não responder, ou se a conta-pai não estiver configurada, a cobrança continua em `EMITINDO` para a
+execução seguinte.
+
 Fatura da plataforma (Fluxo A, `FATURA_PLATAFORMA`): o Super Admin lança a fatura da escola e o MASTER paga com
 PIX ou boleto numa cobrança da **conta-pai** do Edúka (referência `EDK-A-<id>`, a escola como pagadora). O aviso
 de pagamento com essa referência marca a própria fatura como `PAGA`; aviso de fatura vindo da conta de uma escola
@@ -367,6 +391,7 @@ sem isso, esses avisos não chegam.
 | `POST` | `/portal/aluno/cobrancas/{id}/pagar` (`forma` `PIX` ou `BOLETO`; cria ou reaproveita a cobrança na conta filha da escola e devolve QR Code e copia e cola ou linha digitável; trocar a forma altera a mesma cobrança; 202 `PROCESSANDO` se o provedor não respondeu; erros com `codigo`) | `ALUNO` |
 | `GET` | `/dashboard/escola` (pessoas, estrutura, ocupação de vagas e aproveitamento) | `MASTER` |
 | `GET` | `/dashboard/secretaria` (matrículas por situação, vagas e ocupação por turma) | `MASTER`, `SECRETARIA` |
+| `GET` | `/dashboard/financeiro` (recebido no mês, falta receber, alunos em atraso e inadimplência, despesas a pagar, entradas e saídas dos 6 últimos meses, cobranças que vencem na semana, últimos pagamentos e últimas ações do `LOG_AUDITORIA`; serve o Início do financeiro e o do `MASTER`) | `MASTER`, `FINANCEIRO` |
 
 Qualquer rota não listada como pública exige `Authorization: Bearer <access token>` e responde
 `401` sem ele. Perfil sem permissão recebe `403`.
@@ -458,11 +483,11 @@ flowchart TB
 
     subgraph roles["roles/ — um módulo por perfil"]
         SAD["<b>super_admin/</b><br/>escolas"]
-        MAS["<b>master/</b><br/>início"]
+        MAS["<b>master/</b><br/>início · recebimentos"]
         SEC["<b>secretaria/</b><br/>início · alunos · professores<br/>acadêmico · alocação · matrículas"]
         PROF["<b>professor/</b><br/>início · turmas · avaliações · notas"]
         ALU["<b>aluno/</b><br/>boletim · provas e tarefas · meus dados"]
-        FIN["<i>financeiro/ — Área em construção</i>"]
+        FIN["<b>financeiro/</b><br/>início · cobranças · despesas"]
     end
 
     subgraph shared["Compartilhado"]

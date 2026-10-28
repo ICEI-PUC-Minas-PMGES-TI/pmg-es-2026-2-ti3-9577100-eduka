@@ -8,8 +8,9 @@ import br.pucminas.eduka.backend.domain.StatusCobranca;
 
 /**
  * Historico financeiro de um aluno: resumo e todas as cobrancas, da mais
- * recente para a mais antiga (pelo vencimento). Pagamentos e boletos entram
- * aqui quando existirem no sistema.
+ * recente para a mais antiga (pelo vencimento). Cada cobranca paga traz o
+ * pagamento (online ou baixa manual) e, no online, o link do comprovante na
+ * rota do perfil de quem pediu.
  */
 public record HistoricoFinanceiroResponse(
         UUID alunoId,

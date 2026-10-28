@@ -1,0 +1,212 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.resumoCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.resumoTopo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.alunoNome {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0;
+}
+
+.resumoValor {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 900;
+  color: #7c3aed;
+  white-space: nowrap;
+}
+
+.resumoDetalhes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.resumoItem strong {
+  color: #334155;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.input {
+  width: 100%;
+  height: 44px;
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #1e293b;
+  background: #ffffff;
+  outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.input:focus {
+  border-color: #9366ea;
+  box-shadow: 0 0 0 3px rgba(147, 102, 234, 0.15);
+}
+
+.formasGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.formaBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.formaBtn:hover:not(.formaBtnAtivo) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.formaBtnAtivo {
+  background: #9366ea;
+  border-color: #9366ea;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(147, 102, 234, 0.25);
+}
+
+/* Etapa de Confirmação */
+.confirmacaoContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.alertaConfirmacao {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  color: #5b21b6;
+}
+
+.alertaIcone {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #7c3aed;
+}
+
+.alertaTexto {
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.alertaTexto strong {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.conferenciaCard {
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 4px 16px;
+}
+
+.conferenciaLinha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 13.5px;
+}
+
+.conferenciaLinha:last-child {
+  border-bottom: none;
+}
+
+.conferenciaRotulo {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.conferenciaValor {
+  font-weight: 700;
+  color: #1e293b;
+  text-align: right;
+}
+
+.valorDestaque {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 900;
+  color: #7c3aed;
+}
+
+.rodapeBotoes {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  width: 100%;
+}
+
+.erro {
+  color: #dc2626;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+}
+

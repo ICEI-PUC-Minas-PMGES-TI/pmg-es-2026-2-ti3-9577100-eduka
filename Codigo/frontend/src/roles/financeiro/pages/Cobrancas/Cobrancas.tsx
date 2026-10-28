@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
 import { paths } from '../../../../routes/paths'
@@ -10,6 +10,7 @@ import {
 import {
   COBRANCAS_MOCK_INICIAIS,
   type Cobranca,
+  type DadosRegistroPagamento,
   type FiltroCobranca,
 } from '../../../../types/cobranca'
 import { CobrancaCard } from '../../components/CobrancaCard/CobrancaCard'
@@ -18,14 +19,22 @@ import { ModalBoleto } from '../../components/ModalBoleto/ModalBoleto'
 import { FinanceiroLayout } from '../../layouts/FinanceiroLayout'
 import styles from './Cobrancas.module.css'
 
+const FILTROS: FiltroCobranca[] = ['TODAS', 'A_PAGAR', 'EM_ATRASO', 'PAGA']
+
+/** O ?status= da URL (atalho do Início), ou Todas. */
+function filtroDaUrl(status: string | null): FiltroCobranca {
+  return FILTROS.find((filtro) => filtro === status) ?? 'TODAS'
+}
+
 export function Cobrancas() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [cobrancas, setCobrancas] = useState<Cobranca[]>(COBRANCAS_MOCK_INICIAIS)
   const [idSelecionado, setIdSelecionado] = useState<string>(
     COBRANCAS_MOCK_INICIAIS[0]?.id || '',
   )
   const [termoBusca, setTermoBusca] = useState('')
-  const [filtroStatus, setFiltroStatus] = useState<FiltroCobranca>('TODAS')
+  const [filtroStatus, setFiltroStatus] = useState<FiltroCobranca>(() => filtroDaUrl(searchParams.get('status')))
   const [boletoModalCobranca, setBoletoModalCobranca] = useState<Cobranca | null>(null)
 
   useEffect(() => {
@@ -73,8 +82,8 @@ export function Cobrancas() {
     )
   }, [cobrancasFiltradas, cobrancas, idSelecionado])
 
-  async function handleRegistrarPagamento(id: string) {
-    const atualizada = await registrarPagamento(id)
+  async function handleRegistrarPagamento(id: string, dados?: DadosRegistroPagamento) {
+    const atualizada = await registrarPagamento(id, dados)
     setCobrancas((prev) => prev.map((c) => (c.id === id ? atualizada : c)))
   }
 

@@ -12,6 +12,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -27,6 +28,7 @@ import br.pucminas.eduka.backend.pagamento.tipos.TipoEventoProvedor;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
 import br.pucminas.eduka.backend.repository.EventoProvedorRepository;
 import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
+import br.pucminas.eduka.backend.security.PiiCryptoService;
 import br.pucminas.eduka.backend.service.CobrancaService;
 
 /**
@@ -47,6 +49,8 @@ class PagamentoBancoRealTest extends BancoRealTest {
     private CobrancaService cobrancaService;
     @Autowired
     private PlatformTransactionManager transactionManager;
+    @Autowired
+    private PiiCryptoService pii;
 
     private static EventoProvedor evento(String idEventoExterno) {
         return EventoProvedor.builder()
@@ -81,6 +85,33 @@ class PagamentoBancoRealTest extends BancoRealTest {
         assertThatThrownBy(() -> eventoRepository.saveAndFlush(evento(idEvento)))
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThat(eventoRepository.existsByIdEventoExterno(idEvento)).isTrue();
+    }
+
+    @Test
+    void agendadorPegaSoOsAvisosNaoTerminadosComTentativasSobrandoEForaDaJanela() {
+        EventoProvedor recebido = eventoRepository.saveAndFlush(evento("evt_" + DadosDeTeste.unico()));
+        EventoProvedor comErro = evento("evt_" + DadosDeTeste.unico());
+        comErro.setStatus(StatusEventoProvedor.ERRO);
+        comErro.setTentativas(3);
+        comErro = eventoRepository.saveAndFlush(comErro);
+        EventoProvedor esgotado = evento("evt_" + DadosDeTeste.unico());
+        esgotado.setStatus(StatusEventoProvedor.ERRO);
+        esgotado.setTentativas(10);
+        esgotado = eventoRepository.saveAndFlush(esgotado);
+        EventoProvedor processado = evento("evt_" + DadosDeTeste.unico());
+        processado.setStatus(StatusEventoProvedor.PROCESSADO);
+        processado = eventoRepository.saveAndFlush(processado);
+        List<StatusEventoProvedor> pendentes = List.of(StatusEventoProvedor.RECEBIDO,
+                StatusEventoProvedor.PROCESSANDO, StatusEventoProvedor.ERRO);
+
+        List<UUID> agora = eventoRepository.buscarPendentes(pendentes, 10, Instant.now().plusSeconds(60),
+                PageRequest.of(0, 1000));
+        List<UUID> antesDeChegarem = eventoRepository.buscarPendentes(pendentes, 10,
+                Instant.now().minusSeconds(3600), PageRequest.of(0, 1000));
+
+        assertThat(agora).contains(recebido.getId(), comErro.getId())
+                .doesNotContain(esgotado.getId(), processado.getId());
+        assertThat(antesDeChegarem).doesNotContain(recebido.getId(), comErro.getId());
     }
 
     @Test
@@ -122,6 +153,28 @@ class PagamentoBancoRealTest extends BancoRealTest {
         assertThat(linha[8]).isEqualTo("BOLETO");
         assertThat(linha[9]).isEqualTo("EMITIDA");
         assertThat(cobrancaRepository.buscarParaPagamentoOnlinePorIdExterno("pay_inexistente")).isEmpty();
+    }
+
+    @Test
+    void reconciliacaoPegaSoAsEmissoesAntigasDeEscolaComContaComACredencial() {
+        Instant agora = Instant.now();
+        UUID escola = dados.escola();
+        dados.contaAprovada(escola, "chave-da-escola");
+        UUID antiga = dados.cobrancaEmitindo(escola, dados.aluno(escola), agora.minusSeconds(3600));
+        UUID recente = dados.cobrancaEmitindo(escola, dados.aluno(escola), agora);
+        UUID emitida = dados.cobrancaEmitida(escola, dados.aluno(escola), "pay_" + DadosDeTeste.unico(),
+                FormaPagamento.PIX);
+        UUID semConta = dados.escola();
+        UUID daEscolaSemConta = dados.cobrancaEmitindo(semConta, dados.aluno(semConta), agora.minusSeconds(3600));
+
+        List<CobrancaRepository.EmissaoSemResposta> pendentes = cobrancaRepository
+                .buscarEmissoesSemResposta(agora.minusSeconds(300), 1000);
+
+        assertThat(pendentes).extracting(CobrancaRepository.EmissaoSemResposta::getId).contains(antiga)
+                .doesNotContain(recente, emitida, daEscolaSemConta);
+        CobrancaRepository.EmissaoSemResposta encontrada = pendentes.stream()
+                .filter(p -> p.getId().equals(antiga)).findFirst().orElseThrow();
+        assertThat(pii.decifrar(encontrada.getCredencialCifrada())).isEqualTo("chave-da-escola");
     }
 
     @Test

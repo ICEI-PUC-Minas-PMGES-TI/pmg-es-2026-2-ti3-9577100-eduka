@@ -39,6 +39,12 @@ export function hojeIso(): string {
   return DATA_DA_ESCOLA.format(new Date())
 }
 
+/** Dia e mês de uma data ISO: "2026-10-27" -> "27/10". */
+export function formatarDiaMes(data: string): string {
+  const [, mes, dia] = data.split('-')
+  return `${dia}/${mes}`
+}
+
 /** Iniciais do primeiro e do último nome: "Lucas Silva" -> "LS". */
 export function iniciais(nome: string): string {
   const partes = nome.trim().split(/\s+/)

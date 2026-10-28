@@ -34,6 +34,25 @@ export type PagamentoResumo = {
   forma: FormaPagamento
 }
 
+/** ONLINE: confirmado pelo provedor. MANUAL: baixa feita pela escola. */
+export type OrigemPagamento = 'ONLINE' | 'MANUAL'
+
+/** Pagamento de uma cobrança paga no histórico: online (com comprovante) ou baixa manual. */
+export type PagamentoDaCobranca = {
+  origem: OrigemPagamento
+  /** Na baixa manual, o valor da cobrança. */
+  valorPago: number
+  /** ISO (yyyy-MM-dd). */
+  dataPagamento: string
+  /** Nula na baixa manual. */
+  forma: FormaPagamento | null
+  /**
+   * Caminho da API do comprovante, já na rota do perfil de quem pediu
+   * (portal do aluno ou escola). Nulo na baixa manual, que não tem comprovante.
+   */
+  comprovanteUrl: string | null
+}
+
 export type CobrancaDoHistorico = {
   id: string
   descricao: string
@@ -44,8 +63,8 @@ export type CobrancaDoHistorico = {
   turmaNome: string | null
   /** Instante (ISO) da baixa; nulo enquanto não paga. */
   pagaEm: string | null
-  /** Pagamento registrado (online); nulo na baixa manual e enquanto não paga. */
-  pagamento: PagamentoResumo | null
+  /** Pagamento online ou baixa manual; nulo enquanto não paga. */
+  pagamento: PagamentoDaCobranca | null
 }
 
 export type HistoricoFinanceiro = {

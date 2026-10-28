@@ -117,6 +117,8 @@ O ambiente de produção usa um único ponto de entrada (Nginx na porta 80), que
 
 1. Configure as variáveis de ambiente em `.env` (as mesmas do ambiente de desenvolvimento: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DB_APP_USER`, `DB_APP_PASSWORD`, `DB_SSLMODE`, `JWT_SECRET`, `PII_ENCRYPTION_KEY`). **Troque todos os valores `changeme`** — em produção nenhuma credencial tem default, então uma variável faltando derruba o backend na subida com `Could not resolve placeholder` em vez de subir com senha conhecida. Defina também `SUPER_ADMIN_LOGIN` e `SUPER_ADMIN_SENHA`: o banco de produção nasce vazio, e esse é o primeiro usuário (criado na subida só se o login ainda não existe).
 
+   Para o pagamento (Asaas Sandbox), configure também `ASAAS_API_KEY` (chave da conta-pai, entre aspas simples) e o webhook das contas filhas: `ASAAS_WEBHOOK_URL=https://<domínio>/api/webhooks/asaas` (atrás do Nginx a API fica em `/api`), `ASAAS_WEBHOOK_TOKEN` (32 a 255 caracteres) e `ASAAS_WEBHOOK_EMAIL`. Sem a chave o backend sobe, mas pagar e ativar recebimentos respondem 503; sem o webhook a conta filha é criada sem ele e o pagamento nunca é confirmado no Edúka. O webhook é gravado na conta filha quando o MASTER ativa recebimentos, então defina a URL definitiva antes disso. A fatura da plataforma é cobrada na conta-pai, que precisa de um webhook próprio para a mesma URL e o mesmo token, cadastrado uma vez no painel do Asaas ou por `POST /v3/webhooks` (ver `Artefatos/modulo-financeiro/asaas-sandbox-notas.md`).
+
 2. Suba os serviços com o compose de produção:
 
    ```bash
@@ -155,7 +157,7 @@ A tela `/login/demo` pede o login e a senha de `DEMO_ACESSO_LOGIN` / `DEMO_ACESS
 | `DEMO_ACESSO_LOGIN`, `DEMO_ACESSO_SENHA`, `MOCK_SENHA` | acesso da tela `/login/demo` e senha das contas da escola |
 | `LOGIN_VERIFICACAO_HABILITADA` | `false` (as contas `@mock.eduka.com.br` não recebem e-mail) |
 | `CORS_ALLOWED_ORIGINS`, `FRONTEND_URL` | URL do front na Vercel |
-| `ASAAS_API_KEY`, `ASAAS_WEBHOOK_URL`, `ASAAS_WEBHOOK_TOKEN`, `ASAAS_WEBHOOK_EMAIL` | conta Sandbox; o webhook é `https://<backend>.onrender.com/webhooks/asaas` |
+| `ASAAS_API_KEY`, `ASAAS_WEBHOOK_URL`, `ASAAS_WEBHOOK_TOKEN`, `ASAAS_WEBHOOK_EMAIL` | conta Sandbox; o webhook é `https://<backend>.onrender.com/webhooks/asaas` (sem `/api`: no Render não há Nginx na frente). Cadastre a mesma URL e o mesmo token também no webhook da conta-pai (ver "Executando em produção") |
 | `JAVA_TOOL_OPTIONS` | `-XX:MaxRAMPercentage=75 -XX:+UseSerialGC` (o plano free tem 512 MB) |
 
 **Frontend na Vercel** (*Root Directory* `Codigo/frontend`, preset Vite). Variáveis de build: `VITE_API_URL=https://<backend>.onrender.com` e `VITE_DEMO=true`. O `vercel.json` manda toda rota para o `index.html` (React Router).

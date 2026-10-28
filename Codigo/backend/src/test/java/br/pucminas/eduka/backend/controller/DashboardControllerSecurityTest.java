@@ -7,6 +7,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -22,11 +25,13 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 import br.pucminas.eduka.backend.domain.StatusMatricula;
 import br.pucminas.eduka.backend.dto.DashboardEscolaResponse;
+import br.pucminas.eduka.backend.dto.DashboardFinanceiroResponse;
 import br.pucminas.eduka.backend.dto.DashboardSecretariaResponse;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
+import br.pucminas.eduka.backend.service.DashboardFinanceiroService;
 import br.pucminas.eduka.backend.service.DashboardService;
 
 /**
@@ -47,6 +52,9 @@ class DashboardControllerSecurityTest {
 
     @MockitoBean
     private DashboardService dashboardService;
+
+    @MockitoBean
+    private DashboardFinanceiroService dashboardFinanceiroService;
 
     private MockHttpServletRequestBuilder como(String url, String perfil) {
         String token = jwtService.generateAccessToken(UUID.randomUUID(), perfil,
@@ -95,6 +103,31 @@ class DashboardControllerSecurityTest {
         // FINANCEIRO entra no modulo /dashboard (RotasPorPerfil), mas nao neste resumo.
         for (String perfil : List.of("FINANCEIRO", "PROFESSOR", "ALUNO", "SUPER_ADMIN")) {
             mockMvc.perform(como("/dashboard/secretaria", perfil)).andExpect(status().isForbidden());
+        }
+    }
+
+    @Test
+    void masterEFinanceiroVeemOPainelFinanceiro() throws Exception {
+        when(dashboardFinanceiroService.painel()).thenReturn(new DashboardFinanceiroResponse(
+                new DashboardFinanceiroResponse.Total(new BigDecimal("850.50"), 2),
+                new DashboardFinanceiroResponse.Total(new BigDecimal("1200.00"), 3),
+                new DashboardFinanceiroResponse.Atraso(1, 1, new BigDecimal("300.00"), 25),
+                new DashboardFinanceiroResponse.DespesasAPagar(new BigDecimal("90.00"), 1, LocalDate.of(2026, 10, 30)),
+                List.of(new DashboardFinanceiroResponse.Mes(YearMonth.of(2026, 10), new BigDecimal("850.50"),
+                        new BigDecimal("40.00"))),
+                List.of(), List.of(), List.of()));
+
+        for (String perfil : List.of("MASTER", "FINANCEIRO")) {
+            mockMvc.perform(como("/dashboard/financeiro", perfil))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.recebidoNoMes.valor").value(850.50))
+                    .andExpect(jsonPath("$.recebidoNoMes.quantidade").value(2))
+                    .andExpect(jsonPath("$.emAtraso.inadimplencia").value(25))
+                    .andExpect(jsonPath("$.despesasAPagar.proximoVencimento").value("2026-10-30"))
+                    .andExpect(jsonPath("$.ultimosMeses[0].mes").value("2026-10"));
+        }
+        for (String perfil : List.of("SECRETARIA", "PROFESSOR", "ALUNO", "SUPER_ADMIN")) {
+            mockMvc.perform(como("/dashboard/financeiro", perfil)).andExpect(status().isForbidden());
         }
     }
 

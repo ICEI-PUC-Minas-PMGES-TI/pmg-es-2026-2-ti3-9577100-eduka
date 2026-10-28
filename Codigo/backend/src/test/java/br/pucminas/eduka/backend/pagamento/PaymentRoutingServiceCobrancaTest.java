@@ -23,7 +23,7 @@ class PaymentRoutingServiceCobrancaTest {
         roteadorPagamento = mock(RoteadorPagamento.class);
         roteador = new PaymentRoutingService(new ChamadorProvedor(mock(PaymentProvider.class)),
                 mock(RoteadorConta.class), roteadorPagamento, mock(RoteadorEventos.class), mock(RoteadorFatura.class),
-                mock(RoteadorSandbox.class));
+                mock(RoteadorSandbox.class), mock(RoteadorReconciliacao.class));
     }
 
     @ParameterizedTest

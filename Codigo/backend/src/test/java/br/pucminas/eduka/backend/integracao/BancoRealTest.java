@@ -53,6 +53,8 @@ public abstract class BancoRealTest {
     private static final String USUARIO_APP = "eduka_app";
     private static final String SENHA_APP = "changeme-app";
 
+    // Fica de pe a execucao inteira e o Testcontainers o derruba no fim: nao ha o que fechar aqui.
+    @SuppressWarnings("resource")
     private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine")
             .withEnv("DB_APP_USER", USUARIO_APP)
             .withEnv("DB_APP_PASSWORD", SENHA_APP)
@@ -99,7 +101,15 @@ public abstract class BancoRealTest {
      * webhook e as rotinas, sem ninguem autenticado.
      */
     protected static UsuarioAutenticado autenticarComo(String perfil, UUID escolaId) {
-        UsuarioAutenticado usuario = new UsuarioAutenticado(UUID.randomUUID(), perfil, escolaId);
+        return autenticarComo(UUID.randomUUID(), perfil, escolaId);
+    }
+
+    /**
+     * Com o id de um USUARIO gravado: precisa quando o service audita (o log
+     * aponta para o usuario) ou procura o aluno pelo login.
+     */
+    protected static UsuarioAutenticado autenticarComo(UUID usuarioId, String perfil, UUID escolaId) {
+        UsuarioAutenticado usuario = new UsuarioAutenticado(usuarioId, perfil, escolaId);
         SecurityContextHolder.getContext()
                 .setAuthentication(new UsernamePasswordAuthenticationToken(usuario, null, List.of()));
         return usuario;

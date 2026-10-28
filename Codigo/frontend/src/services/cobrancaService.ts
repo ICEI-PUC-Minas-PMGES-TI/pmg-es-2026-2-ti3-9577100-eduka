@@ -1,4 +1,9 @@
-import { COBRANCAS_MOCK_INICIAIS, type Cobranca, type NovaCobrancaRequest } from '../types/cobranca'
+import {
+  COBRANCAS_MOCK_INICIAIS,
+  type Cobranca,
+  type DadosRegistroPagamento,
+  type NovaCobrancaRequest,
+} from '../types/cobranca'
 import { apiRequest } from './api'
 
 // Armazenamento em memória local para testes imediatos e reatividade
@@ -14,10 +19,14 @@ export async function listarCobrancas(signal?: AbortSignal): Promise<Cobranca[]>
   }
 }
 
-export async function registrarPagamento(id: string): Promise<Cobranca> {
+export async function registrarPagamento(
+  id: string,
+  dados?: DadosRegistroPagamento,
+): Promise<Cobranca> {
   try {
     const atualizada = await apiRequest<Cobranca>(`/cobrancas/${id}/pagar`, {
-      method: 'POST',
+      method: 'PATCH',
+      body: dados ? JSON.stringify(dados) : undefined,
     })
     cobrancasMemoria = cobrancasMemoria.map((c) => (c.id === id ? atualizada : c))
     return atualizada
@@ -28,7 +37,7 @@ export async function registrarPagamento(id: string): Promise<Cobranca> {
     const atualizada: Cobranca = {
       ...cobrancasMemoria[index],
       status: 'PAGA',
-      dataPagamento: new Date().toISOString().split('T')[0],
+      dataPagamento: dados?.dataPagamento || new Date().toISOString().split('T')[0],
     }
     cobrancasMemoria[index] = atualizada
     return atualizada
@@ -66,4 +75,3 @@ function formatarDataBr(isoDate: string): string {
   if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`
   return isoDate
 }
-

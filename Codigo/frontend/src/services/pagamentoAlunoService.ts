@@ -1,3 +1,4 @@
+import type { Comprovante } from '../types/faturaPlataforma'
 import type { CobrancaAluno, DadosPagamento, FormaPagamento, HistoricoFinanceiro } from '../types/pagamentoAluno'
 import { apiBaixarArquivo, apiRequest } from './api'
 
@@ -26,6 +27,15 @@ export function pagarCobranca(id: string, forma: FormaPagamento): Promise<DadosP
     method: 'POST',
     body: JSON.stringify({ forma }),
   })
+}
+
+/**
+ * Comprovante de um pagamento online, pelo `comprovanteUrl` que o histórico
+ * devolve (já na rota do portal). 404 COMPROVANTE_INDISPONIVEL sem pagamento
+ * online confirmado.
+ */
+export function buscarComprovante(comprovanteUrl: string): Promise<Comprovante> {
+  return apiRequest<Comprovante>(comprovanteUrl)
 }
 
 /** PDF oficial do boleto, depois de gerado com a forma BOLETO. 409 BOLETO_NAO_GERADO antes disso. */
