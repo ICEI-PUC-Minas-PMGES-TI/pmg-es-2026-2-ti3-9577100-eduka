@@ -22,8 +22,7 @@ export function ModalBoleto({ cobranca, onFechar }: ModalBoletoProps) {
 
   if (!cobranca) return null
 
-  const linhaDigitavel =
-    cobranca.linhaDigitavel || '34191.79001 01043.510047 91020.150008 8 10250000089000'
+  const linhaDigitavel = '34191.79001 01043.510047 91020.150008 8 10250000089000'
 
   function copiarLinha() {
     navigator.clipboard?.writeText(linhaDigitavel.replace(/\s+/g, ''))
@@ -77,7 +76,8 @@ export function ModalBoleto({ cobranca, onFechar }: ModalBoletoProps) {
           <div className={styles.campo}>
             <span className={styles.rotulo}>Pagador / Aluno</span>
             <span className={styles.dado}>
-              {cobranca.alunoNome} (Resp: {cobranca.responsavelNome})
+              {cobranca.alunoNome ?? 'Aluno sem nome'}
+              {cobranca.responsavelNome && ` (Resp: ${cobranca.responsavelNome})`}
             </span>
           </div>
 

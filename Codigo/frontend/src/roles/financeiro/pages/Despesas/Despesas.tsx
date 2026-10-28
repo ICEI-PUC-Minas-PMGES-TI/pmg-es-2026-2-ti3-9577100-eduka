@@ -1,58 +1,89 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Button } from '../../../../components/Button/Button'
+import { ApiError } from '../../../../services/api'
 import {
   criarDespesa,
+  listarCategoriasDespesa,
   listarDespesas,
+  mudarSituacaoDespesa,
 } from '../../../../services/despesaService'
-import {
-  CATEGORIAS_DESPESA,
-  DESPESAS_MOCK_INICIAIS,
-  type CategoriaDespesa,
-  type Despesa,
-  type FiltroSituacaoDespesa,
-  type SituacaoDespesa,
+import type {
+  CategoriaDespesa,
+  Despesa,
+  FiltroSituacaoDespesa,
+  SituacaoDespesa,
 } from '../../../../types/despesa'
-import { formatarMoeda } from '../../../../utils/formatters'
+import { formatarMoeda, hojeIso } from '../../../../utils/formatters'
 import { FinanceiroLayout } from '../../layouts/FinanceiroLayout'
 import styles from './Despesas.module.css'
 
+/** "2026-10" -> "Outubro de 2026". */
+function rotuloDoMes(anoMes: string): string {
+  const [ano, mes] = anoMes.split('-').map(Number)
+  const rotulo = new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  return rotulo.charAt(0).toUpperCase() + rotulo.slice(1)
+}
+
+function mensagemDeErro(e: unknown, padrao: string): string {
+  return e instanceof ApiError ? (e.detalhe ?? e.message) : padrao
+}
+
 export function Despesas() {
-  const [despesas, setDespesas] = useState<Despesa[]>(DESPESAS_MOCK_INICIAIS)
+  const [despesas, setDespesas] = useState<Despesa[]>([])
+  const [categorias, setCategorias] = useState<CategoriaDespesa[]>([])
+  const [carregando, setCarregando] = useState(true)
+  const [erroLista, setErroLista] = useState<string | null>(null)
   const [filtro, setFiltro] = useState<FiltroSituacaoDespesa>('TODAS')
+  const [atualizandoId, setAtualizandoId] = useState<string | null>(null)
+  const [erroAcao, setErroAcao] = useState<string | null>(null)
 
   // Estado do formulário "Lançar uma despesa"
   const [descricao, setDescricao] = useState('')
-  const [categoria, setCategoria] = useState<CategoriaDespesa>('Contas')
+  const [categoriaId, setCategoriaId] = useState<string | null>(null)
   const [valor, setValor] = useState('')
-  const [data, setData] = useState('2026-09-30')
+  const [dataVencimento, setDataVencimento] = useState(hojeIso)
   const [situacao, setSituacao] = useState<SituacaoDespesa>('A_PAGAR')
   const [salvando, setSalvando] = useState(false)
   const [erroForm, setErroForm] = useState<string | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
-    listarDespesas(controller.signal)
-      .then((dados) => {
-        setDespesas(dados)
+    Promise.all([listarDespesas(controller.signal), listarCategoriasDespesa(controller.signal)])
+      .then(([dadosDespesas, dadosCategorias]) => {
+        setDespesas(dadosDespesas)
+        setCategorias(dadosCategorias)
+        setCategoriaId(dadosCategorias[0]?.id ?? null)
       })
-      .catch(() => {
-        // Fallback local garantido
+      .catch((e: unknown) => {
+        if (!controller.signal.aborted) setErroLista(mensagemDeErro(e, 'Não foi possível carregar as despesas.'))
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCarregando(false)
       })
 
     return () => controller.abort()
   }, [])
 
-  // Totais calculados dinamicamente
+  // Mês atual (AAAA-MM), no fuso da escola
+  const mesAtual = hojeIso().slice(0, 7)
+
+  // A tela é a lista do mês: só o que vence no mês atual; cancelada não entra
+  const despesasDoMes = useMemo(
+    () => despesas.filter((d) => d.situacao !== 'CANCELADA' && d.dataVencimento.startsWith(mesAtual)),
+    [despesas, mesAtual],
+  )
+
   const totais = useMemo(() => {
     let pago = 0
     let qtdPagas = 0
     let faltaPagar = 0
     let qtdAPagar = 0
 
-    for (const d of despesas) {
+    for (const d of despesasDoMes) {
       if (d.situacao === 'PAGA') {
         pago += d.valor
         qtdPagas += 1
-      } else {
+      } else if (d.situacao === 'A_PAGAR') {
         faltaPagar += d.valor
         qtdAPagar += 1
       }
@@ -65,11 +96,11 @@ export function Despesas() {
       qtdAPagar,
       total: pago + faltaPagar,
     }
-  }, [despesas])
+  }, [despesasDoMes])
 
-  // Despesas filtradas pela pílula selecionada e ordenadas por data
+  // Despesas do mês filtradas pela pílula selecionada e ordenadas por data
   const despesasFiltradas = useMemo(() => {
-    let lista = [...despesas]
+    let lista = despesasDoMes
 
     if (filtro === 'A_PAGAR') {
       lista = lista.filter((d) => d.situacao === 'A_PAGAR')
@@ -77,8 +108,26 @@ export function Despesas() {
       lista = lista.filter((d) => d.situacao === 'PAGA')
     }
 
-    return lista.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
-  }, [despesas, filtro])
+    // Datas ISO (AAAA-MM-DD) ordenam como texto
+    return [...lista].sort((a, b) => a.dataVencimento.localeCompare(b.dataVencimento))
+  }, [despesasDoMes, filtro])
+
+  /** Marca como paga a despesa a pagar, ou desfaz o pagamento da paga. */
+  async function handleAlternarSituacao(despesa: Despesa) {
+    setErroAcao(null)
+    setAtualizandoId(despesa.id)
+    try {
+      const atualizada = await mudarSituacaoDespesa(
+        despesa.id,
+        despesa.situacao === 'PAGA' ? 'A_PAGAR' : 'PAGA',
+      )
+      setDespesas((prev) => prev.map((d) => (d.id === atualizada.id ? atualizada : d)))
+    } catch (e) {
+      setErroAcao(mensagemDeErro(e, 'Não foi possível mudar a situação da despesa.'))
+    } finally {
+      setAtualizandoId(null)
+    }
+  }
 
   async function handleSalvarDespesa(e: FormEvent) {
     e.preventDefault()
@@ -101,8 +150,13 @@ export function Despesas() {
       return
     }
 
-    if (!data) {
+    if (!dataVencimento) {
       setErroForm('Informe a data da despesa.')
+      return
+    }
+
+    if (!categoriaId) {
+      setErroForm('Escolha a categoria da despesa.')
       return
     }
 
@@ -110,17 +164,17 @@ export function Despesas() {
     try {
       const nova = await criarDespesa({
         descricao: descricao.trim(),
-        categoria,
+        categoriaId,
         valor: valorNumerico,
-        data,
-        situacao,
+        dataVencimento,
+        paga: situacao === 'PAGA',
       })
 
       setDespesas((prev) => [...prev, nova])
       setDescricao('')
       setValor('')
-    } catch {
-      setErroForm('Erro ao salvar despesa. Tente novamente.')
+    } catch (e) {
+      setErroForm(mensagemDeErro(e, 'Erro ao salvar despesa. Tente novamente.'))
     } finally {
       setSalvando(false)
     }
@@ -164,7 +218,7 @@ export function Despesas() {
             <div className={styles.statCard}>
               <span className={styles.statLabel}>Total do mês</span>
               <strong className={styles.statValor}>{formatarMoeda(totais.total)}</strong>
-              <span className={styles.statSubtitulo}>Setembro de 2026</span>
+              <span className={styles.statSubtitulo}>{rotuloDoMes(mesAtual)}</span>
             </div>
           </section>
 
@@ -203,9 +257,21 @@ export function Despesas() {
               </div>
             </header>
 
+            {erroAcao && (
+              <p className={styles.erroForm} role="alert">
+                {erroAcao}
+              </p>
+            )}
+
             <div className={styles.tabelaWrapper}>
-              {despesasFiltradas.length === 0 ? (
-                <div className={styles.vazio}>Nenhuma despesa encontrada para esta situação.</div>
+              {carregando ? (
+                <div className={styles.vazio}>Carregando despesas…</div>
+              ) : erroLista ? (
+                <div className={styles.vazio} role="alert">
+                  {erroLista}
+                </div>
+              ) : despesasFiltradas.length === 0 ? (
+                <div className={styles.vazio}>Nenhuma despesa de {rotuloDoMes(mesAtual).toLowerCase()} nesta situação.</div>
               ) : (
                 <table className={styles.tabela}>
                   <thead>
@@ -221,6 +287,9 @@ export function Despesas() {
                       </th>
                       <th scope="col" className={styles.thValor}>
                         VALOR
+                      </th>
+                      <th scope="col" className={styles.thAcao}>
+                        <span className={styles.somenteLeitor}>Ação</span>
                       </th>
                     </tr>
                   </thead>
@@ -239,9 +308,23 @@ export function Despesas() {
                             </span>
                           </div>
                         </td>
-                        <td className={styles.tdCategoria}>{d.categoria}</td>
-                        <td className={styles.tdData}>{formatarDataBr(d.data)}</td>
+                        <td className={styles.tdCategoria}>{d.categoriaNome}</td>
+                        <td className={styles.tdData}>{formatarDataBr(d.dataVencimento)}</td>
                         <td className={styles.tdValor}>{formatarMoeda(d.valor)}</td>
+                        <td className={styles.tdAcao}>
+                          <Button
+                            size="sm"
+                            variant={d.situacao === 'PAGA' ? 'outline' : 'primary'}
+                            disabled={atualizandoId !== null}
+                            onClick={() => handleAlternarSituacao(d)}
+                          >
+                            {atualizandoId === d.id
+                              ? 'Salvando…'
+                              : d.situacao === 'PAGA'
+                                ? 'Desfazer'
+                                : 'Marcar como paga'}
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -276,14 +359,14 @@ export function Despesas() {
               <div className={styles.campo}>
                 <span className={styles.label}>Categoria</span>
                 <div className={styles.categoriasGrid}>
-                  {CATEGORIAS_DESPESA.map((cat) => (
+                  {categorias.map((cat) => (
                     <button
-                      key={cat}
+                      key={cat.id}
                       type="button"
-                      className={`${styles.catBtn} ${categoria === cat ? styles.catBtnAtivo : ''}`}
-                      onClick={() => setCategoria(cat)}
+                      className={`${styles.catBtn} ${categoriaId === cat.id ? styles.catBtnAtivo : ''}`}
+                      onClick={() => setCategoriaId(cat.id)}
                     >
-                      {cat}
+                      {cat.nome}
                     </button>
                   ))}
                 </div>
@@ -314,8 +397,8 @@ export function Despesas() {
                     id="data"
                     type="date"
                     className={styles.input}
-                    value={data}
-                    onChange={(e) => setData(e.target.value)}
+                    value={dataVencimento}
+                    onChange={(e) => setDataVencimento(e.target.value)}
                     required
                   />
                 </div>
