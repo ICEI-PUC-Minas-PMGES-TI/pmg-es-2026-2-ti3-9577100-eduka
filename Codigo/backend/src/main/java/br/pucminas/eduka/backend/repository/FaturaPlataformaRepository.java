@@ -46,4 +46,14 @@ public interface FaturaPlataformaRepository extends JpaRepository<FaturaPlatafor
             + "WHERE f.situacaoProvedor = br.pucminas.eduka.backend.domain.SituacaoProvedor.EMITINDO "
             + "AND f.emissaoIniciadaEm < :iniciadaAntes ORDER BY f.emissaoIniciadaEm")
     List<UUID> buscarEmissoesSemResposta(@Param("iniciadaAntes") Instant iniciadaAntes, Pageable pagina);
+
+    /**
+     * Faturas EMITIDAS ainda em aberto, para a reconciliacao conferir o
+     * pagamento no provedor: a conta-pai pode nao ter webhook.
+     */
+    @Query("SELECT f FROM FaturaPlataforma f "
+            + "WHERE f.situacaoProvedor = br.pucminas.eduka.backend.domain.SituacaoProvedor.EMITIDA "
+            + "AND f.status IN (br.pucminas.eduka.backend.domain.StatusCobranca.PENDENTE, "
+            + "br.pucminas.eduka.backend.domain.StatusCobranca.EM_ATRASO) ORDER BY f.emitidaEm")
+    List<FaturaPlataforma> buscarEmitidasEmAberto(Pageable pagina);
 }

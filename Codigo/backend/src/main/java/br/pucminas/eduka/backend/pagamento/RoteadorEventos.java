@@ -327,6 +327,23 @@ class RoteadorEventos {
         return true;
     }
 
+    /**
+     * Pagamento da fatura EMITIDA achado pela reconciliacao, sem o aviso
+     * (conta-pai sem webhook). Grava como o aviso de pagamento; se o aviso ja
+     * o gravou, nada muda.
+     *
+     * @return false se a fatura ja nao estava em aberto ou faltou o valor pago
+     */
+    @Transactional
+    boolean registrarPagamentoDaFaturaEncontrado(UUID faturaId, CobrancaProvedor pago) {
+        Optional<FaturaPlataforma> encontrada = faturaRepository.travar(faturaId);
+        if (encontrada.isEmpty() || pago.valorPago() == null || !encontrada.get().getStatus().emAberto()) {
+            return false;
+        }
+        pagarFatura(encontrada.get(), pago, LocalDate.now(clock), clock.instant());
+        return true;
+    }
+
     private static boolean existeNoProvedor(CobrancaProvedor cobranca) {
         return cobranca.idCobrancaExterna() != null && cobranca.status() != StatusCobrancaProvedor.REMOVIDA;
     }
