@@ -72,6 +72,17 @@ class DemoAcessoServiceTest {
     }
 
     @Test
+    void ignoraEspacoEQuebraDeLinhaNasPontasDaConfiguracao() {
+        service = new DemoAcessoService(new DemoAcessoProperties(" " + LOGIN + "\n", SENHA + " \r\n"),
+                usuarioRepository, jwtService, "");
+        usuario(MASTER, PerfilUsuario.MASTER, true);
+
+        assertThat(service.contas(LOGIN, SENHA)).hasSize(1);
+        assertThatThrownBy(() -> service.contas(LOGIN, SENHA.toUpperCase()))
+                .isInstanceOf(CredenciaisInvalidasException.class);
+    }
+
+    @Test
     void acessoErradoNaoListaNada() {
         assertThatThrownBy(() -> service.contas(LOGIN, "errada")).isInstanceOf(CredenciaisInvalidasException.class);
         assertThatThrownBy(() -> service.contas("outro@gmail.com", SENHA))

@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Profile;
@@ -55,17 +57,24 @@ public class DemoAcessoService {
                     new Conta(PerfilUsuario.ALUNO, "Aluna · Laura Fernandes (6º ano)",
                             "laura.fernandes@mock.eduka.com.br")));
 
-    private final DemoAcessoProperties acesso;
+    private static final Logger log = LoggerFactory.getLogger(DemoAcessoService.class);
+
+    private final String loginAcesso;
+    private final String senhaAcesso;
     private final UsuarioRepository usuarioRepository;
     private final JwtService jwtService;
     private final String loginSuperAdmin;
 
     public DemoAcessoService(DemoAcessoProperties acesso, UsuarioRepository usuarioRepository,
             JwtService jwtService, @Value("${app.super-admin.login:}") String loginSuperAdmin) {
-        this.acesso = acesso;
+        // Espaco ou quebra de linha nas pontas e comum ao colar no painel da hospedagem.
+        this.loginAcesso = normalizarAcesso(acesso.login());
+        this.senhaAcesso = acesso.senha().strip();
         this.usuarioRepository = usuarioRepository;
         this.jwtService = jwtService;
         this.loginSuperAdmin = loginSuperAdmin.isBlank() ? "" : UsuarioService.normalizarLogin(loginSuperAdmin);
+        // So o tamanho da senha: confere a configuracao sem expor o valor no log.
+        log.info("Acesso de demonstracao: login {}, senha de {} caracteres", loginAcesso, senhaAcesso.length());
     }
 
     /** Contas disponiveis, so as que existem e estao ativas no banco. */
@@ -110,12 +119,15 @@ public class DemoAcessoService {
 
     /** Comparacao em tempo constante, para o tempo de resposta nao entregar a senha aos poucos. */
     private void exigirAcesso(String login, String senha) {
-        boolean loginConfere = iguais(login == null ? "" : login.trim().toLowerCase(Locale.ROOT),
-                acesso.login().trim().toLowerCase(Locale.ROOT));
-        boolean senhaConfere = iguais(senha == null ? "" : senha, acesso.senha());
+        boolean loginConfere = iguais(normalizarAcesso(login), loginAcesso);
+        boolean senhaConfere = iguais(senha == null ? "" : senha.strip(), senhaAcesso);
         if (!loginConfere || !senhaConfere) {
             throw new CredenciaisInvalidasException();
         }
+    }
+
+    private static String normalizarAcesso(String login) {
+        return login == null ? "" : login.strip().toLowerCase(Locale.ROOT);
     }
 
     private static boolean iguais(String a, String b) {
