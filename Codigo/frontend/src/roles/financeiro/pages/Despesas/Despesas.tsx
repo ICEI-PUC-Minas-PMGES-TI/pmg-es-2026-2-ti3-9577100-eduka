@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Button } from '../../../../components/Button/Button'
 import { ApiError } from '../../../../services/api'
 import {
   criarDespesa,
   listarCategoriasDespesa,
   listarDespesas,
+  mudarSituacaoDespesa,
 } from '../../../../services/despesaService'
 import type {
   CategoriaDespesa,
@@ -32,6 +34,8 @@ export function Despesas() {
   const [carregando, setCarregando] = useState(true)
   const [erroLista, setErroLista] = useState<string | null>(null)
   const [filtro, setFiltro] = useState<FiltroSituacaoDespesa>('TODAS')
+  const [atualizandoId, setAtualizandoId] = useState<string | null>(null)
+  const [erroAcao, setErroAcao] = useState<string | null>(null)
 
   // Estado do formulário "Lançar uma despesa"
   const [descricao, setDescricao] = useState('')
@@ -60,21 +64,22 @@ export function Despesas() {
     return () => controller.abort()
   }, [])
 
-  // Totais calculados dinamicamente; despesa cancelada não entra
+  // Mês atual (AAAA-MM), no fuso da escola
+  const mesAtual = hojeIso().slice(0, 7)
+
+  // A tela é a lista do mês: só o que vence no mês atual; cancelada não entra
+  const despesasDoMes = useMemo(
+    () => despesas.filter((d) => d.situacao !== 'CANCELADA' && d.dataVencimento.startsWith(mesAtual)),
+    [despesas, mesAtual],
+  )
+
   const totais = useMemo(() => {
     let pago = 0
     let qtdPagas = 0
     let faltaPagar = 0
     let qtdAPagar = 0
-    // Só as despesas que vencem no mês atual (AAAA-MM), no fuso da escola
-    const mesAtual = hojeIso().slice(0, 7)
-    let totalMes = 0
 
-    for (const d of despesas) {
-      if (d.situacao !== 'CANCELADA' && d.dataVencimento.startsWith(mesAtual)) {
-        totalMes += d.valor
-      }
-
+    for (const d of despesasDoMes) {
       if (d.situacao === 'PAGA') {
         pago += d.valor
         qtdPagas += 1
@@ -89,14 +94,13 @@ export function Despesas() {
       qtdPagas,
       faltaPagar,
       qtdAPagar,
-      totalMes,
-      rotuloMes: rotuloDoMes(mesAtual),
+      total: pago + faltaPagar,
     }
-  }, [despesas])
+  }, [despesasDoMes])
 
-  // Despesas filtradas pela pílula selecionada e ordenadas por data
+  // Despesas do mês filtradas pela pílula selecionada e ordenadas por data
   const despesasFiltradas = useMemo(() => {
-    let lista = despesas.filter((d) => d.situacao !== 'CANCELADA')
+    let lista = despesasDoMes
 
     if (filtro === 'A_PAGAR') {
       lista = lista.filter((d) => d.situacao === 'A_PAGAR')
@@ -105,8 +109,25 @@ export function Despesas() {
     }
 
     // Datas ISO (AAAA-MM-DD) ordenam como texto
-    return lista.sort((a, b) => a.dataVencimento.localeCompare(b.dataVencimento))
-  }, [despesas, filtro])
+    return [...lista].sort((a, b) => a.dataVencimento.localeCompare(b.dataVencimento))
+  }, [despesasDoMes, filtro])
+
+  /** Marca como paga a despesa a pagar, ou desfaz o pagamento da paga. */
+  async function handleAlternarSituacao(despesa: Despesa) {
+    setErroAcao(null)
+    setAtualizandoId(despesa.id)
+    try {
+      const atualizada = await mudarSituacaoDespesa(
+        despesa.id,
+        despesa.situacao === 'PAGA' ? 'A_PAGAR' : 'PAGA',
+      )
+      setDespesas((prev) => prev.map((d) => (d.id === atualizada.id ? atualizada : d)))
+    } catch (e) {
+      setErroAcao(mensagemDeErro(e, 'Não foi possível mudar a situação da despesa.'))
+    } finally {
+      setAtualizandoId(null)
+    }
+  }
 
   async function handleSalvarDespesa(e: FormEvent) {
     e.preventDefault()
@@ -196,8 +217,8 @@ export function Despesas() {
 
             <div className={styles.statCard}>
               <span className={styles.statLabel}>Total do mês</span>
-              <strong className={styles.statValor}>{formatarMoeda(totais.totalMes)}</strong>
-              <span className={styles.statSubtitulo}>{totais.rotuloMes}</span>
+              <strong className={styles.statValor}>{formatarMoeda(totais.total)}</strong>
+              <span className={styles.statSubtitulo}>{rotuloDoMes(mesAtual)}</span>
             </div>
           </section>
 
@@ -236,6 +257,12 @@ export function Despesas() {
               </div>
             </header>
 
+            {erroAcao && (
+              <p className={styles.erroForm} role="alert">
+                {erroAcao}
+              </p>
+            )}
+
             <div className={styles.tabelaWrapper}>
               {carregando ? (
                 <div className={styles.vazio}>Carregando despesas…</div>
@@ -244,7 +271,7 @@ export function Despesas() {
                   {erroLista}
                 </div>
               ) : despesasFiltradas.length === 0 ? (
-                <div className={styles.vazio}>Nenhuma despesa encontrada para esta situação.</div>
+                <div className={styles.vazio}>Nenhuma despesa de {rotuloDoMes(mesAtual).toLowerCase()} nesta situação.</div>
               ) : (
                 <table className={styles.tabela}>
                   <thead>
@@ -260,6 +287,9 @@ export function Despesas() {
                       </th>
                       <th scope="col" className={styles.thValor}>
                         VALOR
+                      </th>
+                      <th scope="col" className={styles.thAcao}>
+                        <span className={styles.somenteLeitor}>Ação</span>
                       </th>
                     </tr>
                   </thead>
@@ -281,6 +311,20 @@ export function Despesas() {
                         <td className={styles.tdCategoria}>{d.categoriaNome}</td>
                         <td className={styles.tdData}>{formatarDataBr(d.dataVencimento)}</td>
                         <td className={styles.tdValor}>{formatarMoeda(d.valor)}</td>
+                        <td className={styles.tdAcao}>
+                          <Button
+                            size="sm"
+                            variant={d.situacao === 'PAGA' ? 'outline' : 'primary'}
+                            disabled={atualizandoId !== null}
+                            onClick={() => handleAlternarSituacao(d)}
+                          >
+                            {atualizandoId === d.id
+                              ? 'Salvando…'
+                              : d.situacao === 'PAGA'
+                                ? 'Desfazer'
+                                : 'Marcar como paga'}
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
