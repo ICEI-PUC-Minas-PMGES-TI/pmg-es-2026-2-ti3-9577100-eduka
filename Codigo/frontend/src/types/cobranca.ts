@@ -23,6 +23,12 @@ export type NovaCobrancaRequest = {
   responsavelNome: string
 }
 
+export type DadosRegistroPagamento = {
+  dataPagamento: string
+  formaPagamento: string
+  observacoes?: string
+}
+
 export const ROTULOS_STATUS_COBRANCA: Record<StatusCobranca, string> = {
   A_PAGAR: 'A pagar',
   EM_ATRASO: 'Em atraso',
@@ -99,4 +105,3 @@ export const COBRANCAS_MOCK_INICIAIS: Cobranca[] = [
     codigoBarras: '34198102500001150001790001043510049102015000',
   },
 ]
-

@@ -10,6 +10,7 @@ import {
 import {
   COBRANCAS_MOCK_INICIAIS,
   type Cobranca,
+  type DadosRegistroPagamento,
   type FiltroCobranca,
 } from '../../../../types/cobranca'
 import { CobrancaCard } from '../../components/CobrancaCard/CobrancaCard'
@@ -81,8 +82,8 @@ export function Cobrancas() {
     )
   }, [cobrancasFiltradas, cobrancas, idSelecionado])
 
-  async function handleRegistrarPagamento(id: string) {
-    const atualizada = await registrarPagamento(id)
+  async function handleRegistrarPagamento(id: string, dados?: DadosRegistroPagamento) {
+    const atualizada = await registrarPagamento(id, dados)
     setCobrancas((prev) => prev.map((c) => (c.id === id ? atualizada : c)))
   }
 
