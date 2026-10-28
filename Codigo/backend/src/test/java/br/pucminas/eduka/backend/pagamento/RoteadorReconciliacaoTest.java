@@ -23,6 +23,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 
+import br.pucminas.eduka.backend.domain.FaturaPlataforma;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.CredencialProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
@@ -133,6 +134,41 @@ class RoteadorReconciliacaoTest {
         assertThat(roteador.reconciliar(50)).isZero();
 
         verifyNoInteractions(eventos);
+    }
+
+    @Test
+    void faturaEmitidaPagaNaContaPaiERegistradaSemOAviso() {
+        FaturaPlataforma fatura = faturaEmitida();
+        CobrancaProvedor paga = cobrancaNaContaPai(StatusCobrancaProvedor.RECEBIDA);
+        when(faturaRepository.buscarEmitidasEmAberto(PageRequest.of(0, 50))).thenReturn(List.of(fatura));
+        when(provider.credencialDaContaPai()).thenReturn(DA_CONTA_PAI);
+        when(provider.consultarCobranca(DA_CONTA_PAI, "pay_fatura")).thenReturn(paga);
+        when(eventos.registrarPagamentoDaFaturaEncontrado(fatura.getId(), paga)).thenReturn(true);
+
+        assertThat(roteador.reconciliar(50)).isEqualTo(1);
+    }
+
+    @Test
+    void faturaEmitidaAindaSemPagamentoContinuaEmAberto() {
+        FaturaPlataforma fatura = faturaEmitida();
+        when(faturaRepository.buscarEmitidasEmAberto(PageRequest.of(0, 50))).thenReturn(List.of(fatura));
+        when(provider.credencialDaContaPai()).thenReturn(DA_CONTA_PAI);
+        when(provider.consultarCobranca(DA_CONTA_PAI, "pay_fatura"))
+                .thenReturn(cobrancaNaContaPai(StatusCobrancaProvedor.AGUARDANDO_PAGAMENTO));
+
+        assertThat(roteador.reconciliar(50)).isZero();
+
+        verifyNoInteractions(eventos);
+    }
+
+    private static FaturaPlataforma faturaEmitida() {
+        return FaturaPlataforma.builder().id(UUID.randomUUID()).idCobrancaExterna("pay_fatura").build();
+    }
+
+    private static CobrancaProvedor cobrancaNaContaPai(StatusCobrancaProvedor status) {
+        boolean paga = status == StatusCobrancaProvedor.RECEBIDA;
+        return new CobrancaProvedor("pay_fatura", "EDK-A-x", status, FormaPagamento.BOLETO,
+                new BigDecimal("199.90"), paga ? new BigDecimal("199.90") : null, null, null, null, null, null);
     }
 
     private static EmissaoSemResposta emissao(UUID id) {
