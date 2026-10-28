@@ -1,6 +1,6 @@
 import { Badge } from '../../../../components/Badge/Badge'
 import { ROTULOS_STATUS_COBRANCA, type Cobranca, type StatusCobranca } from '../../../../types/cobranca'
-import { formatarMoeda } from '../../../../utils/formatters'
+import { formatarDiaMes, formatarMoeda } from '../../../../utils/formatters'
 import styles from './CobrancaCard.module.css'
 
 type CobrancaCardProps = {
@@ -11,7 +11,7 @@ type CobrancaCardProps = {
 
 function obterTomBadge(status: StatusCobranca): 'primary' | 'danger' | 'success' | 'neutral' {
   switch (status) {
-    case 'A_PAGAR':
+    case 'PENDENTE':
       return 'primary'
     case 'EM_ATRASO':
       return 'danger'
@@ -31,8 +31,10 @@ export function CobrancaCard({ cobranca, selecionada, onClick }: CobrancaCardPro
       aria-pressed={selecionada}
     >
       <div className={styles.infoEsquerda}>
-        <span className={styles.nomeAluno}>{cobranca.alunoNome}</span>
-        <span className={styles.descricao}>{cobranca.descricao}</span>
+        <span className={styles.nomeAluno}>{cobranca.alunoNome ?? 'Aluno sem nome'}</span>
+        <span className={styles.descricao}>
+          {cobranca.descricao} · vence {formatarDiaMes(cobranca.dataVencimento)}
+        </span>
       </div>
 
       <div className={styles.infoDireita}>

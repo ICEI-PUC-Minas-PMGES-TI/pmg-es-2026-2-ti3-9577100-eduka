@@ -1,47 +1,59 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { ApiError } from '../../../../services/api'
 import {
   criarDespesa,
+  listarCategoriasDespesa,
   listarDespesas,
 } from '../../../../services/despesaService'
-import {
-  CATEGORIAS_DESPESA,
-  DESPESAS_MOCK_INICIAIS,
-  type CategoriaDespesa,
-  type Despesa,
-  type FiltroSituacaoDespesa,
-  type SituacaoDespesa,
+import type {
+  CategoriaDespesa,
+  Despesa,
+  FiltroSituacaoDespesa,
+  SituacaoDespesa,
 } from '../../../../types/despesa'
-import { formatarMoeda } from '../../../../utils/formatters'
+import { formatarMoeda, hojeIso } from '../../../../utils/formatters'
 import { FinanceiroLayout } from '../../layouts/FinanceiroLayout'
 import styles from './Despesas.module.css'
 
+function mensagemDeErro(e: unknown, padrao: string): string {
+  return e instanceof ApiError ? (e.detalhe ?? e.message) : padrao
+}
+
 export function Despesas() {
-  const [despesas, setDespesas] = useState<Despesa[]>(DESPESAS_MOCK_INICIAIS)
+  const [despesas, setDespesas] = useState<Despesa[]>([])
+  const [categorias, setCategorias] = useState<CategoriaDespesa[]>([])
+  const [carregando, setCarregando] = useState(true)
+  const [erroLista, setErroLista] = useState<string | null>(null)
   const [filtro, setFiltro] = useState<FiltroSituacaoDespesa>('TODAS')
 
   // Estado do formulário "Lançar uma despesa"
   const [descricao, setDescricao] = useState('')
-  const [categoria, setCategoria] = useState<CategoriaDespesa>('Contas')
+  const [categoriaId, setCategoriaId] = useState<string | null>(null)
   const [valor, setValor] = useState('')
-  const [data, setData] = useState('2026-09-30')
+  const [dataVencimento, setDataVencimento] = useState(hojeIso)
   const [situacao, setSituacao] = useState<SituacaoDespesa>('A_PAGAR')
   const [salvando, setSalvando] = useState(false)
   const [erroForm, setErroForm] = useState<string | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
-    listarDespesas(controller.signal)
-      .then((dados) => {
-        setDespesas(dados)
+    Promise.all([listarDespesas(controller.signal), listarCategoriasDespesa(controller.signal)])
+      .then(([dadosDespesas, dadosCategorias]) => {
+        setDespesas(dadosDespesas)
+        setCategorias(dadosCategorias)
+        setCategoriaId(dadosCategorias[0]?.id ?? null)
       })
-      .catch(() => {
-        // Fallback local garantido
+      .catch((e: unknown) => {
+        if (!controller.signal.aborted) setErroLista(mensagemDeErro(e, 'Não foi possível carregar as despesas.'))
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCarregando(false)
       })
 
     return () => controller.abort()
   }, [])
 
-  // Totais calculados dinamicamente
+  // Totais calculados dinamicamente; despesa cancelada não entra
   const totais = useMemo(() => {
     let pago = 0
     let qtdPagas = 0
@@ -52,7 +64,7 @@ export function Despesas() {
       if (d.situacao === 'PAGA') {
         pago += d.valor
         qtdPagas += 1
-      } else {
+      } else if (d.situacao === 'A_PAGAR') {
         faltaPagar += d.valor
         qtdAPagar += 1
       }
@@ -69,7 +81,7 @@ export function Despesas() {
 
   // Despesas filtradas pela pílula selecionada e ordenadas por data
   const despesasFiltradas = useMemo(() => {
-    let lista = [...despesas]
+    let lista = despesas.filter((d) => d.situacao !== 'CANCELADA')
 
     if (filtro === 'A_PAGAR') {
       lista = lista.filter((d) => d.situacao === 'A_PAGAR')
@@ -77,7 +89,8 @@ export function Despesas() {
       lista = lista.filter((d) => d.situacao === 'PAGA')
     }
 
-    return lista.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+    // Datas ISO (AAAA-MM-DD) ordenam como texto
+    return lista.sort((a, b) => a.dataVencimento.localeCompare(b.dataVencimento))
   }, [despesas, filtro])
 
   async function handleSalvarDespesa(e: FormEvent) {
@@ -101,8 +114,13 @@ export function Despesas() {
       return
     }
 
-    if (!data) {
+    if (!dataVencimento) {
       setErroForm('Informe a data da despesa.')
+      return
+    }
+
+    if (!categoriaId) {
+      setErroForm('Escolha a categoria da despesa.')
       return
     }
 
@@ -110,17 +128,17 @@ export function Despesas() {
     try {
       const nova = await criarDespesa({
         descricao: descricao.trim(),
-        categoria,
+        categoriaId,
         valor: valorNumerico,
-        data,
-        situacao,
+        dataVencimento,
+        paga: situacao === 'PAGA',
       })
 
       setDespesas((prev) => [...prev, nova])
       setDescricao('')
       setValor('')
-    } catch {
-      setErroForm('Erro ao salvar despesa. Tente novamente.')
+    } catch (e) {
+      setErroForm(mensagemDeErro(e, 'Erro ao salvar despesa. Tente novamente.'))
     } finally {
       setSalvando(false)
     }
@@ -204,7 +222,13 @@ export function Despesas() {
             </header>
 
             <div className={styles.tabelaWrapper}>
-              {despesasFiltradas.length === 0 ? (
+              {carregando ? (
+                <div className={styles.vazio}>Carregando despesas…</div>
+              ) : erroLista ? (
+                <div className={styles.vazio} role="alert">
+                  {erroLista}
+                </div>
+              ) : despesasFiltradas.length === 0 ? (
                 <div className={styles.vazio}>Nenhuma despesa encontrada para esta situação.</div>
               ) : (
                 <table className={styles.tabela}>
@@ -239,8 +263,8 @@ export function Despesas() {
                             </span>
                           </div>
                         </td>
-                        <td className={styles.tdCategoria}>{d.categoria}</td>
-                        <td className={styles.tdData}>{formatarDataBr(d.data)}</td>
+                        <td className={styles.tdCategoria}>{d.categoriaNome}</td>
+                        <td className={styles.tdData}>{formatarDataBr(d.dataVencimento)}</td>
                         <td className={styles.tdValor}>{formatarMoeda(d.valor)}</td>
                       </tr>
                     ))}
@@ -276,14 +300,14 @@ export function Despesas() {
               <div className={styles.campo}>
                 <span className={styles.label}>Categoria</span>
                 <div className={styles.categoriasGrid}>
-                  {CATEGORIAS_DESPESA.map((cat) => (
+                  {categorias.map((cat) => (
                     <button
-                      key={cat}
+                      key={cat.id}
                       type="button"
-                      className={`${styles.catBtn} ${categoria === cat ? styles.catBtnAtivo : ''}`}
-                      onClick={() => setCategoria(cat)}
+                      className={`${styles.catBtn} ${categoriaId === cat.id ? styles.catBtnAtivo : ''}`}
+                      onClick={() => setCategoriaId(cat.id)}
                     >
-                      {cat}
+                      {cat.nome}
                     </button>
                   ))}
                 </div>
@@ -314,8 +338,8 @@ export function Despesas() {
                     id="data"
                     type="date"
                     className={styles.input}
-                    value={data}
-                    onChange={(e) => setData(e.target.value)}
+                    value={dataVencimento}
+                    onChange={(e) => setDataVencimento(e.target.value)}
                     required
                   />
                 </div>
