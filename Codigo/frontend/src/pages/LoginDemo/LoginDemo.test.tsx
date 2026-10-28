@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { problema, simularApi } from '../../test/api'
 import type { GrupoDemo } from '../../services/demoService'
 import { LoginDemo } from './LoginDemo'
@@ -60,6 +60,25 @@ describe('LoginDemo', () => {
       senha: 'senha-do-acesso',
       conta: 'helena.duarte@mock.eduka.com.br',
     })
+  })
+
+  it('não manda o token salvo de uma sessão anterior', async () => {
+    localStorage.setItem('eduka.accessToken', 'token-vencido')
+    const headers: (string | null)[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init: RequestInit = {}) => {
+        headers.push(new Headers(init.headers).get('Authorization'))
+        return new Response(JSON.stringify(GRUPOS), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }),
+    )
+    abrir()
+
+    await preencherAcesso()
+
+    expect(await screen.findByRole('button', { name: /helena duarte/i })).toBeInTheDocument()
+    expect(headers).toEqual([null])
+    localStorage.removeItem('eduka.accessToken')
   })
 
   it('acesso errado mostra o erro e não lista contas', async () => {

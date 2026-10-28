@@ -7,7 +7,17 @@ const API_URL =
 export const ACCESS_TOKEN_KEY = 'eduka.accessToken'
 
 // Rotas abertas do backend (ver SecurityConfig/JwtConfig): login e primeiro acesso.
-const ROTAS_PUBLICAS = new Set(['/health', '/login', '/login/codigo', '/login/codigo/reenvio', '/primeiro-acesso'])
+const ROTAS_PUBLICAS = new Set([
+  '/health',
+  '/login',
+  '/login/codigo',
+  '/login/codigo/reenvio',
+  '/primeiro-acesso',
+  // Acesso de demonstração (perfil demo): voltar ao /login/demo com o token
+  // da sessão anterior já vencido não pode virar 401.
+  '/demo/contas',
+  '/demo/entrar',
+])
 
 export class ApiError extends Error {
   readonly status: number
