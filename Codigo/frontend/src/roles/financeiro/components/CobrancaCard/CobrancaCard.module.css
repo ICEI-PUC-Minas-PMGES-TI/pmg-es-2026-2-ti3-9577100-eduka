@@ -1,0 +1,92 @@
+.card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  border: var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition:
+    transform 0.1s ease,
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.card:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--color-mauve);
+  transform: translateY(-1px);
+}
+
+.selecionada {
+  border: 2px solid var(--color-lavender);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(246, 239, 255, 0.92));
+  box-shadow: 0 8px 24px rgba(150, 103, 224, 0.18), inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+.selecionada:hover {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(246, 239, 255, 0.92));
+  border-color: var(--color-lavender);
+}
+
+.infoEsquerda {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.nomeAluno {
+  font-family: var(--font-display);
+  font-size: 16.5px;
+  font-weight: 800;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.descricao {
+  font-size: 13.5px;
+  color: var(--color-text-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.infoDireita {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.valor {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .infoDireita {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+

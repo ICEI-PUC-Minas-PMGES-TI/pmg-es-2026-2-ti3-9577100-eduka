@@ -25,6 +25,11 @@ export function formatarPontos(valor: number): string {
   return valor.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
 }
 
+/** Formata valor monetário em reais: 890 -> "R$ 890,00". */
+export function formatarMoeda(valor: number): string {
+  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
 // O mesmo fuso que o backend usa para "hoje" (FUSO_ESCOLA).
 const DATA_DA_ESCOLA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' })
 
@@ -32,6 +37,12 @@ const DATA_DA_ESCOLA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao
 export function hojeIso(): string {
   // en-CA formata como "AAAA-MM-DD".
   return DATA_DA_ESCOLA.format(new Date())
+}
+
+/** Dia e mês de uma data ISO: "2026-10-27" -> "27/10". */
+export function formatarDiaMes(data: string): string {
+  const [, mes, dia] = data.split('-')
+  return `${dia}/${mes}`
 }
 
 /** Iniciais do primeiro e do último nome: "Lucas Silva" -> "LS". */

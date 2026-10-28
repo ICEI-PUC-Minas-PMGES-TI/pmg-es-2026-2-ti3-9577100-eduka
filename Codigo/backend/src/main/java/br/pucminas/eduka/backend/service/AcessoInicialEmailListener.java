@@ -5,29 +5,24 @@ import static org.springframework.web.util.HtmlUtils.htmlEscape;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import br.pucminas.eduka.backend.domain.TipoNotificacao;
 import br.pucminas.eduka.backend.email.Email;
-import br.pucminas.eduka.backend.email.EmailSender;
+import br.pucminas.eduka.backend.email.NotificacaoService;
 
 /**
- * Manda o e-mail de primeiro acesso so depois do commit: se o cadastro der
- * rollback, ninguem recebe credencial de um usuario que nao existe.
- *
- * <p>
- * Falha no envio nao desfaz nada (o commit ja aconteceu) e nao chega ao
- * cliente: fica no log, e a escola pode pedir o reenvio.
- * </p>
+ * Monta o e-mail de primeiro acesso e o poe na fila de notificacoes, na
+ * transacao do cadastro: se o cadastro der rollback, ninguem recebe credencial
+ * de um usuario que nao existe. Envio e novas tentativas ficam com
+ * {@link NotificacaoService}; depois que a senha provisoria expira, o e-mail
+ * nao sai mais.
  */
 @Component
 public class AcessoInicialEmailListener {
-
-    private static final Logger log = LoggerFactory.getLogger(AcessoInicialEmailListener.class);
 
     private static final DateTimeFormatter DATA = DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm")
             .withZone(ZoneId.of("America/Sao_Paulo"));
@@ -41,24 +36,22 @@ public class AcessoInicialEmailListener {
      */
     static final String CAMINHO_LOGO = "/email/eduka-logo-branca.png";
 
-    private final EmailSender emailSender;
+    private final NotificacaoService notificacaoService;
     private final String urlLogin;
     private final String urlLogo;
 
-    public AcessoInicialEmailListener(EmailSender emailSender, @Value("${app.frontend-url}") String frontendUrl) {
-        this.emailSender = emailSender;
+    public AcessoInicialEmailListener(NotificacaoService notificacaoService,
+            @Value("${app.frontend-url}") String frontendUrl) {
+        this.notificacaoService = notificacaoService;
         String base = frontendUrl.replaceAll("/+$", "");
         this.urlLogin = base + "/login";
         this.urlLogo = base + CAMINHO_LOGO;
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT, fallbackExecution = true)
     public void enviar(AcessoInicialCriado acesso) {
-        try {
-            emailSender.enviar(montarEmail(acesso));
-        } catch (RuntimeException ex) {
-            log.error("Falha ao enviar e-mail de primeiro acesso do usuario {}", acesso.usuarioId(), ex);
-        }
+        notificacaoService.enfileirar(TipoNotificacao.ACESSO_INICIAL, acesso.usuarioId(), montarEmail(acesso),
+                acesso.expiraEm());
     }
 
     /**

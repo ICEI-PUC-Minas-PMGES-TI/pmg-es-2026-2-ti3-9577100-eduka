@@ -17,9 +17,15 @@ export const paths = {
     escolas: '/super-admin/escolas',
     /** Use com generatePath(paths.superAdmin.editarEscola, { id }). */
     editarEscola: '/super-admin/escolas/:id/editar',
+    /** Faturas que a escola paga ao Eduka. Use com generatePath(paths.superAdmin.faturasEscola, { id }). */
+    faturasEscola: '/super-admin/escolas/:id/faturas',
   },
   master: {
     raiz: '/master',
+    /** Dashboard da escola. */
+    inicio: '/master/inicio',
+    /** Faturas do Eduka (pagar e comprovante); a ativação da conta entra na PO.5. */
+    recebimentos: '/master/recebimentos',
   },
   secretaria: {
     raiz: '/secretaria',
@@ -36,6 +42,12 @@ export const paths = {
   },
   financeiro: {
     raiz: '/financeiro',
+    /** Dashboard: recebido, em aberto, atraso, despesas e movimentações recentes. */
+    inicio: '/financeiro/inicio',
+    /** Aceita ?status=EM_ATRASO (ou A_PAGAR, PAGA) para abrir já filtrada. */
+    cobrancas: '/financeiro/cobrancas',
+    novaCobranca: '/financeiro/cobrancas/nova',
+    despesas: '/financeiro/despesas',
   },
   professor: {
     raiz: '/professor',
@@ -53,6 +65,8 @@ export const paths = {
     /** Endereço antigo: redireciona para a aba "Tarefas e provas" do boletim. */
     avaliacoes: '/aluno/avaliacoes',
     meusDados: '/aluno/meus-dados',
+    /** Cobranças do aluno, com o Pagar por PIX. */
+    pagamentos: '/aluno/pagamentos',
   },
 } as const
 

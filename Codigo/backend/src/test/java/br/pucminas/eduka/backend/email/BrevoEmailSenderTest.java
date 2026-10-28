@@ -58,6 +58,24 @@ class BrevoEmailSenderTest {
     }
 
     @Test
+    void recusaDefinitivaViraEmailRecusado() {
+        servidor.expect(requestTo("https://api.brevo.com/v3/smtp/email"))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST));
+
+        assertThatThrownBy(() -> sender.enviar(EMAIL)).isInstanceOf(EmailRecusadoException.class)
+                .hasMessageContaining("400");
+    }
+
+    @Test
+    void limiteDeEnvioContinuaComoFalhaTemporaria() {
+        servidor.expect(requestTo("https://api.brevo.com/v3/smtp/email"))
+                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS));
+
+        assertThatThrownBy(() -> sender.enviar(EMAIL)).isInstanceOf(RestClientResponseException.class)
+                .isNotInstanceOf(EmailRecusadoException.class);
+    }
+
+    @Test
     void erroDoBrevoViraExcecao() {
         servidor.expect(requestTo("https://api.brevo.com/v3/smtp/email"))
                 .andRespond(withStatus(HttpStatus.UNAUTHORIZED));

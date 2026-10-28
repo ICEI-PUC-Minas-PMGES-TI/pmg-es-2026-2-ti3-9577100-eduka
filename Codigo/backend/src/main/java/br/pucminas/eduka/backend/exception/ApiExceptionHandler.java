@@ -3,6 +3,7 @@ package br.pucminas.eduka.backend.exception;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -14,6 +15,11 @@ import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
+import br.pucminas.eduka.backend.pagamento.ProvedorIndisponivelException;
+import br.pucminas.eduka.backend.pagamento.ProvedorNaoConfiguradoException;
+import br.pucminas.eduka.backend.pagamento.ProvedorRecusouException;
+import br.pucminas.eduka.backend.pagamento.WebhookNaoAutorizadoException;
 
 /**
  * Traduz excecoes em respostas HTTP no formato ProblemDetail (RFC 9457).
@@ -101,7 +107,7 @@ public class ApiExceptionHandler {
             ProfessorComHistoricoException.class, AlocacaoJaExisteException.class,
             MatriculaJaExisteException.class, TurmaSemVagasException.class,
             NumeroMatriculaJaCadastradoException.class, AvaliacaoComNotasException.class,
-            RegistroEmUsoException.class })
+            RegistroEmUsoException.class, CategoriaDespesaJaExisteException.class })
     public ResponseEntity<ProblemDetail> recursoDuplicado(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(problema(HttpStatus.CONFLICT, ex.getMessage()));
@@ -133,6 +139,121 @@ public class ApiExceptionHandler {
                 .body(problema(HttpStatus.BAD_REQUEST, "parâmetro inválido: " + ex.getName()));
     }
 
+    /**
+     * Erros do provedor de pagamento. Levam a propriedade {@code codigo}, que o
+     * front usa para escolher a mensagem. A recusa repassa a mensagem do
+     * provedor, ja saneada pelo adaptador.
+     */
+    @ExceptionHandler(ProvedorRecusouException.class)
+    public ResponseEntity<ProblemDetail> provedorRecusou(ProvedorRecusouException ex) {
+        return ResponseEntity.badRequest()
+                .body(problema(HttpStatus.BAD_REQUEST, ex.getMessage(), "PROVEDOR_RECUSOU"));
+    }
+
+    @ExceptionHandler(ProvedorIndisponivelException.class)
+    public ResponseEntity<ProblemDetail> provedorIndisponivel(ProvedorIndisponivelException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(problema(HttpStatus.SERVICE_UNAVAILABLE,
+                        "O servico de pagamento nao respondeu. Tente novamente em instantes",
+                        "PROVEDOR_INDISPONIVEL"));
+    }
+
+    @ExceptionHandler(ProvedorNaoConfiguradoException.class)
+    public ResponseEntity<ProblemDetail> provedorNaoConfigurado(ProvedorNaoConfiguradoException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(problema(HttpStatus.SERVICE_UNAVAILABLE,
+                        "Pagamentos indisponiveis no momento. Fale com o suporte do Eduka",
+                        "PROVEDOR_NAO_CONFIGURADO"));
+    }
+
+    @ExceptionHandler(WebhookNaoAutorizadoException.class)
+    public ResponseEntity<ProblemDetail> webhookNaoAutorizado(WebhookNaoAutorizadoException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(problema(HttpStatus.UNAUTHORIZED, "Autenticacao necessaria"));
+    }
+
+    /** Pagar (spec §10.3): cada recusa leva o {@code codigo} que a tela trata. */
+    @ExceptionHandler(FormaPagamentoInvalidaException.class)
+    public ResponseEntity<ProblemDetail> formaPagamentoInvalida(FormaPagamentoInvalidaException ex) {
+        return ResponseEntity.badRequest()
+                .body(problema(HttpStatus.BAD_REQUEST, ex.getMessage(), "FORMA_INVALIDA"));
+    }
+
+    @ExceptionHandler(PagadorSemCpfException.class)
+    public ResponseEntity<ProblemDetail> pagadorSemCpf(PagadorSemCpfException ex) {
+        return ResponseEntity.badRequest()
+                .body(problema(HttpStatus.BAD_REQUEST, ex.getMessage(), "PAGADOR_SEM_CPF"));
+    }
+
+    @ExceptionHandler(BoletoNaoGeradoException.class)
+    public ResponseEntity<ProblemDetail> boletoNaoGerado(BoletoNaoGeradoException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "BOLETO_NAO_GERADO"));
+    }
+
+    @ExceptionHandler(CobrancaNaoPagavelException.class)
+    public ResponseEntity<ProblemDetail> cobrancaNaoPagavel(CobrancaNaoPagavelException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "COBRANCA_NAO_PAGAVEL"));
+    }
+
+    @ExceptionHandler(RecebimentosIndisponiveisException.class)
+    public ResponseEntity<ProblemDetail> recebimentosIndisponiveis(RecebimentosIndisponiveisException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "RECEBIMENTOS_INDISPONIVEIS"));
+    }
+
+    @ExceptionHandler(PagamentoEmProcessamentoException.class)
+    public ResponseEntity<ProblemDetail> pagamentoEmProcessamento(PagamentoEmProcessamentoException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "PAGAMENTO_EM_PROCESSAMENTO"));
+    }
+
+    @ExceptionHandler(ContaRecebimentoNaoAtivavelException.class)
+    public ResponseEntity<ProblemDetail> contaNaoAtivavel(ContaRecebimentoNaoAtivavelException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), ex.getCodigo()));
+    }
+
+    @ExceptionHandler(CobrancaJaPagaException.class)
+    public ResponseEntity<ProblemDetail> cobrancaJaPaga(CobrancaJaPagaException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "COBRANCA_JA_PAGA"));
+    }
+
+    @ExceptionHandler(CobrancaNaoEditavelException.class)
+    public ResponseEntity<ProblemDetail> cobrancaNaoEditavel(CobrancaNaoEditavelException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "COBRANCA_NAO_EDITAVEL"));
+    }
+
+    /** Duas operacoes gravaram o mesmo registro ao mesmo tempo (trava otimista); a segunda perde. */
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ProblemDetail> alteradoAoMesmoTempo(OptimisticLockingFailureException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT,
+                        "O registro foi alterado por outra operacao. Recarregue e tente de novo",
+                        "ALTERADO_AO_MESMO_TEMPO"));
+    }
+
+    @ExceptionHandler(FaturaDuplicadaException.class)
+    public ResponseEntity<ProblemDetail> faturaDuplicada(FaturaDuplicadaException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "FATURA_DUPLICADA"));
+    }
+
+    @ExceptionHandler(SandboxIndisponivelException.class)
+    public ResponseEntity<ProblemDetail> sandboxIndisponivel(SandboxIndisponivelException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "SANDBOX_INDISPONIVEL"));
+    }
+
+    @ExceptionHandler(ComprovanteIndisponivelException.class)
+    public ResponseEntity<ProblemDetail> comprovanteIndisponivel(ComprovanteIndisponivelException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(problema(HttpStatus.NOT_FOUND, ex.getMessage(), "COMPROVANTE_INDISPONIVEL"));
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ProblemDetail> violacaoDeIntegridade(DataIntegrityViolationException ex) {
         return ResponseEntity.badRequest()
@@ -160,6 +281,12 @@ public class ApiExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatus(status);
         problem.setTitle(status.getReasonPhrase());
         problem.setDetail(detalhe);
+        return problem;
+    }
+
+    private static ProblemDetail problema(HttpStatus status, String detalhe, String codigo) {
+        ProblemDetail problem = problema(status, detalhe);
+        problem.setProperty("codigo", codigo);
         return problem;
     }
 }

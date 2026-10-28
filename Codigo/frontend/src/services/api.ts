@@ -13,12 +13,15 @@ export class ApiError extends Error {
   readonly status: number
   /** Campo `detail` do ProblemDetail do backend, quando veio (ex.: qual dado já existe no 409). */
   readonly detalhe: string | null
+  /** Propriedade `codigo` do ProblemDetail, quando veio (ex.: PAGADOR_SEM_CPF no pagamento). */
+  readonly codigo: string | null
 
-  constructor(status: number, message: string, detalhe: string | null = null) {
+  constructor(status: number, message: string, detalhe: string | null = null, codigo: string | null = null) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.detalhe = detalhe
+    this.codigo = codigo
   }
 }
 
@@ -37,19 +40,26 @@ function mensagemPadrao(status: number): string {
   return 'Não foi possível completar a requisição.'
 }
 
-async function lerDetalhe(resposta: Response): Promise<string | null> {
+async function lerProblema(resposta: Response): Promise<{ detalhe: string | null; codigo: string | null }> {
   try {
-    const corpo: unknown = await resposta.json()
-    const detalhe = (corpo as { detail?: unknown } | null)?.detail
-    return typeof detalhe === 'string' ? detalhe : null
+    const corpo = (await resposta.json()) as { detail?: unknown; codigo?: unknown } | null
+    return {
+      detalhe: typeof corpo?.detail === 'string' ? corpo.detail : null,
+      codigo: typeof corpo?.codigo === 'string' ? corpo.codigo : null,
+    }
   } catch {
-    return null
+    return { detalhe: null, codigo: null }
   }
 }
 
-export async function apiRequest<T>(caminho: string, init: RequestInit = {}): Promise<T> {
+/**
+ * Envia a requisição com o token (exceto rotas públicas) e transforma resposta
+ * de erro em ApiError. `accept` diz o que se espera de volta no sucesso; o
+ * ProblemDetail de erro é aceito sempre.
+ */
+async function enviar(caminho: string, init: RequestInit, accept: string): Promise<Response> {
   const headers = new Headers(init.headers)
-  headers.set('Accept', 'application/json')
+  headers.set('Accept', `${accept}, application/problem+json`)
   if (init.body !== undefined && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
@@ -66,9 +76,20 @@ export async function apiRequest<T>(caminho: string, init: RequestInit = {}): Pr
   }
 
   if (!resposta.ok) {
-    throw new ApiError(resposta.status, mensagemPadrao(resposta.status), await lerDetalhe(resposta))
+    const { detalhe, codigo } = await lerProblema(resposta)
+    throw new ApiError(resposta.status, mensagemPadrao(resposta.status), detalhe, codigo)
   }
+  return resposta
+}
 
+export async function apiRequest<T>(caminho: string, init: RequestInit = {}): Promise<T> {
+  const resposta = await enviar(caminho, init, 'application/json')
   if (resposta.status === 204) return undefined as T
   return (await resposta.json()) as T
+}
+
+/** Baixa um arquivo (ex.: PDF do boleto). Erros chegam como ApiError, igual ao apiRequest. */
+export async function apiBaixarArquivo(caminho: string, accept: string, signal?: AbortSignal): Promise<Blob> {
+  const resposta = await enviar(caminho, { signal }, accept)
+  return resposta.blob()
 }

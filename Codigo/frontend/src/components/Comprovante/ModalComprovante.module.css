@@ -1,0 +1,37 @@
+.dados {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 10px 20px;
+  margin: 0;
+  font-size: 14px;
+}
+
+.dados dt {
+  color: var(--color-text-muted);
+}
+
+.dados dd {
+  margin: 0;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.valor {
+  font-weight: 700;
+}
+
+.codigo {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
+
+@media (max-width: 480px) {
+  .dados {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .dados dd {
+    margin-bottom: 8px;
+  }
+}

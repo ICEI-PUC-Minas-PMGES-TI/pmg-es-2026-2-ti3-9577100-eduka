@@ -36,6 +36,8 @@ import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
+import br.pucminas.eduka.backend.repository.CobrancaRepository;
+import br.pucminas.eduka.backend.repository.ResponsavelRepository;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.repository.UsuarioRepository;
@@ -45,6 +47,7 @@ import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.security.PasswordEncoderConfig;
 import br.pucminas.eduka.backend.service.AcessoService;
 import br.pucminas.eduka.backend.service.AlunoService;
+import br.pucminas.eduka.backend.service.ResponsavelService;
 
 /**
  * Contrato de seguranca do primeiro recurso de negocio, ponta a ponta: filter
@@ -54,7 +57,7 @@ import br.pucminas.eduka.backend.service.AlunoService;
  */
 @WebMvcTest(AlunoController.class)
 @Import({ JwtConfig.class, JwtService.class, IsolamentoEscola.class, ApiExceptionHandler.class,
-        AlunoService.class, AcessoService.class, PasswordEncoderConfig.class })
+        AlunoService.class, ResponsavelService.class, AcessoService.class, PasswordEncoderConfig.class })
 class AlunoControllerSecurityTest {
 
     private static final UUID ESCOLA_A = UUID.randomUUID();
@@ -76,6 +79,10 @@ class AlunoControllerSecurityTest {
     private PessoaPapelRepository pessoaPapelRepository;
     @MockitoBean
     private AlunoResponsavelRepository alunoResponsavelRepository;
+    @MockitoBean
+    private ResponsavelRepository responsavelRepository;
+    @MockitoBean
+    private CobrancaRepository cobrancaRepository;
     @MockitoBean
     private UsuarioRepository usuarioRepository;
 

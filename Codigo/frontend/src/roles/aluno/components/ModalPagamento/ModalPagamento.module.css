@@ -1,0 +1,218 @@
+.corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.passos {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding-left: 20px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* QR Code sempre em fundo branco: alguns apps de banco nao leem sobre fundo colorido. */
+.qrCode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.qrCode img {
+  display: block;
+  width: min(220px, 100%);
+  height: auto;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: #ffffff;
+}
+
+.validade {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+/* Botão do PDF em destaque, com o vencimento logo abaixo. */
+.boletoAcao {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.copiaECola {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rotulo {
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.copiaLinha {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.codigo {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg-tint);
+  color: var(--color-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  text-overflow: ellipsis;
+}
+
+.dica {
+  color: var(--color-danger);
+  font-size: 13px;
+}
+
+.aguardando {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+/* Bolinha pulsando enquanto espera a confirmacao. */
+.pulso {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  animation: pulso 1.4s ease-in-out infinite;
+}
+
+@keyframes pulso {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulso {
+    animation: none;
+  }
+}
+
+.pago {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 8px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.pago strong {
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.pagoIcone {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+@media (max-width: 480px) {
+  .copiaLinha {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* Escolha da forma de pagamento: um cartao por opcao, o escolhido em destaque. */
+.formas {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.formas legend {
+  margin-bottom: 8px;
+}
+
+.forma {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg-tint);
+  cursor: pointer;
+}
+
+.forma:hover {
+  border-color: var(--color-primary);
+}
+
+.formaEscolhida {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+/* O radio fica para o teclado e o leitor de tela; o cartao mostra a escolha. */
+.formaRadio {
+  accent-color: var(--color-primary);
+}
+
+.forma:focus-within {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.formaIcone {
+  display: inline-flex;
+  color: var(--color-primary);
+}
+
+.formaTexto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 14px;
+}
+
+.formaTexto span {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}

@@ -45,6 +45,20 @@ O MVP cobre cadastro de escolas, usuários, alunos, professores, cursos, turmas 
 
    Os dados mockados (`Codigo/postgres/mock/mock.sql`) são carregados automaticamente pelo serviço `mock`, que espera o backend aplicar as migrations, roda o script e encerra. O super admin, por sua vez, é criado pelo `DevDataSeeder`, um `ApplicationRunner` do backend que roda automaticamente quando o perfil `dev` está ativo (padrão deste `docker-compose.yml`). Login do super admin: `admin@eduka.com.br` / `Eduka-admin123`. O seeder também cria a "Escola Dev" com um usuário de cada perfil de escola (`master`, `secretaria`, `financeiro`, `professor` e `aluno`, todos `@dev.eduka.com.br`, senha `Eduka-dev123`), e o `DevAcademicoSeeder` monta nela uma estrutura acadêmica de exemplo (período letivo, cursos, disciplinas e turmas com grade) quando a escola ainda não tem turma. Para entrar com qualquer um deles em um clique, abra http://localhost:5173/login/dev. Acompanhe com `docker compose -f Codigo/docker-compose.yml logs backend`. Só existe no ambiente de dev.
 
+   **Escola de demonstração.** Com `MOCK_DATA=true` (padrão do compose de dev), o `MockDataSeeder` cria o "Colégio Ipê Amarelo", para o sistema ter cara de escola funcionando. As pessoas são fictícias, mas com dados realistas: nome, CPF válido, nascimento, telefone e endereço em Belo Horizonte.
+
+   | Quem | Login (senha `Eduka-mock123`) |
+   |---|---|
+   | Diretora (master) | `helena.duarte@mock.eduka.com.br` |
+   | Secretaria | `patricia.andrade@mock.eduka.com.br`, `rodrigo.ferreira@mock.eduka.com.br` |
+   | Financeiro | `marcos.teixeira@mock.eduka.com.br` |
+   | Professores (8) | `ana.ribeiro@` (Matemática), `carlos.moreira@` (Português), `juliana.pereira@` (Ciências e Biologia), `fernando.rocha@` (Física e Química), `luciana.santos@` (História), `ricardo.cardoso@` (Geografia), `beatriz.lima@` (Inglês), `thiago.mendes@` (Educação Física) |
+   | Alunos (50) | `nome.sobrenome@mock.eduka.com.br`; a lista fica em `/alunos` |
+
+   A escola tem 5 turmas do semestre atual (6º, 8º e 9º ano do Fundamental II e 1º e 3º ano do Médio), com 10 alunos cada. Os alunos têm mãe e/ou pai como responsáveis, e alguns são irmãos. Há três avaliações por disciplina, e as que já passaram têm nota. Há também mensalidades, material didático, um passeio do 6º ano e as despesas do semestre. As datas são relativas ao dia em que o banco é semeado: o que já venceu está pago, menos alguns atrasos e quatro famílias inadimplentes; o resto está em aberto.
+
+   Em http://localhost:5173/login/dev, a escola aparece em primeiro lugar, com um clique para entrar como a diretora, uma secretária, o financeiro, uma professora ou uma aluna. A Escola Dev e o super admin aparecem logo abaixo. A escola é semeada uma vez só, enquanto ainda não existe. `MOCK_DATA=false` no `.env` desliga a escola de demonstração e as escolas do `mock.sql`. Desligar não apaga o que já foi semeado; para começar do zero, use `docker compose -f Codigo/docker-compose.yml --env-file .env down -v`. Em produção nada disso roda: o `docker-compose.prod.yml` não tem o serviço `mock`, o perfil `prod` exclui o seeder e o `application-prod.properties` fixa `app.mock.habilitado=false`. O banco de produção nasce vazio. Use o mock com `BREVO_API_KEY` vazia: os e-mails `@mock.eduka.com.br` não existem.
+
 Os containers do backend e do frontend copiam o código na hora do build. Depois de alterar o código, reconstrua o serviço correspondente, por exemplo: `docker compose -f Codigo/docker-compose.yml --env-file .env up -d --build frontend`.
 
 Para parar os serviços, use `docker compose -f Codigo/docker-compose.yml down` (adicione `-v` para também apagar os volumes do banco e do pgAdmin).
@@ -83,19 +97,27 @@ O backend é uma API stateless autenticada por JWT (HS256). Pontos que afetam qu
 
 ### Executando os testes
 
-A partir de `Codigo/backend/`:
+Backend, a partir de `Codigo/backend/`:
 
 ```bash
 ./mvnw test
 ```
 
-Os testes unitários e de segurança (encoder, serviços de cadastro/login, filter chain) não precisam de banco. Apenas `BackendApplicationTests.contextLoads` sobe o contexto completo e exige um Postgres acessível em `localhost:5432` — sem ele, esse teste falha com `Connection refused` e os demais continuam passando. Para rodá-lo, suba só o banco com `docker compose -f Codigo/docker-compose.yml --env-file .env up postgres`.
+Os testes unitários e de segurança (encoder, serviços, filter chain) trocam os repositórios por mock e não precisam de banco. Os testes de integração (`BackendApplicationTests` e os do pacote `integracao`) rodam contra um **Postgres de verdade**, que o Testcontainers sobe num container descartável: precisam só do **Docker ligado**, não do banco do `docker-compose`. Sem Docker, esses testes são pulados e os demais continuam rodando.
+
+Frontend (testes de tela com Vitest e Testing Library, sem navegador nem backend), a partir de `Codigo/frontend/`:
+
+```bash
+npm test
+```
 
 ### Executando em produção
 
 O ambiente de produção usa um único ponto de entrada (Nginx na porta 80), que serve o frontend compilado como estático e faz proxy das chamadas de API para o backend.
 
 1. Configure as variáveis de ambiente em `.env` (as mesmas do ambiente de desenvolvimento: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DB_APP_USER`, `DB_APP_PASSWORD`, `DB_SSLMODE`, `JWT_SECRET`, `PII_ENCRYPTION_KEY`). **Troque todos os valores `changeme`** — em produção nenhuma credencial tem default, então uma variável faltando derruba o backend na subida com `Could not resolve placeholder` em vez de subir com senha conhecida.
+
+   Para o pagamento (Asaas Sandbox), configure também `ASAAS_API_KEY` (chave da conta-pai, entre aspas simples) e o webhook das contas filhas: `ASAAS_WEBHOOK_URL=https://<domínio>/api/webhooks/asaas` (atrás do Nginx a API fica em `/api`), `ASAAS_WEBHOOK_TOKEN` (32 a 255 caracteres) e `ASAAS_WEBHOOK_EMAIL`. Sem a chave o backend sobe, mas pagar e ativar recebimentos respondem 503; sem o webhook a conta filha é criada sem ele e o pagamento nunca é confirmado no Edúka. O webhook é gravado na conta filha quando o MASTER ativa recebimentos, então defina a URL definitiva antes disso. A fatura da plataforma é cobrada na conta-pai, que precisa de um webhook próprio para a mesma URL e o mesmo token, cadastrado uma vez no painel do Asaas ou por `POST /v3/webhooks` (ver `Artefatos/modulo-financeiro/asaas-sandbox-notas.md`).
 
 2. Suba os serviços com o compose de produção:
 

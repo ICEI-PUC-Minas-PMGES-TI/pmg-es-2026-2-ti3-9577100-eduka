@@ -2,63 +2,57 @@
 !include _estilo.puml
 title Eduka — Diagrama de Casos de Uso (visão geral)
 
-left to right direction
+' Visão resumida: só atores e casos de uso principais. Includes, extends,
+' pré-condições e casos de uso secundários estão nos diagramas 01 a 07.
 
-actor "Usuário" as USUARIO
+left to right direction
+skinparam packageStyle rectangle
+skinparam nodesep 12
+skinparam ranksep 90
+
+actor "Usuário\n(qualquer perfil)" as USUARIO
 actor "SUPER_ADMIN" as SUPERADMIN
 actor "MASTER" as MASTER
 actor "SECRETARIA" as SECRETARIA
-actor "FINANCEIRO" as FINANCEIRO
 actor "PROFESSOR" as PROFESSOR
 actor "ALUNO" as ALUNO
+actor "FINANCEIRO" as FINANCEIRO
 
-USUARIO <|-- SUPERADMIN
-USUARIO <|-- MASTER
-USUARIO <|-- SECRETARIA
-USUARIO <|-- FINANCEIRO
-USUARIO <|-- PROFESSOR
-USUARIO <|-- ALUNO
+actor "Gateway de Pagamento\n(Asaas)" as ASAAS <<sistema externo>>
+actor "Serviço de E-mail\n(Brevo)" as BREVO <<sistema externo>>
+actor "Tempo" as TEMPO <<rotina agendada>>
 
 rectangle "Eduka" {
+
+  package "Comum a todos os perfis" {
+    usecase "UC03\nAutenticar Usuário" as UC03
+    usecase "UC16\nVisualizar Dashboard" as UC16
+  }
 
   package "Administração da plataforma" {
     usecase "UC01\nCadastrar Escola" as UC01
     usecase "UC02\nGerenciar Escolas Cadastradas" as UC02
+    usecase "UC27\nGerenciar Faturas da Plataforma" as UC27
+    usecase "UC28\nPagar Fatura da Plataforma" as UC28
   }
 
-  package "Autenticação e Dashboards" {
-    usecase "UC03\nAutenticar Usuário" as UC03
-    usecase "Redirecionar para o\nPainel do Perfil" as UC03C
-    usecase "Recuperar Senha" as UC03A
-    usecase "UC16\nVisualizar Dashboard" as UC16
-  }
-
-  package "Gestão de Usuários" {
+  package "Gestão de usuários" {
     usecase "UC04\nGerenciar Usuários da Escola" as UC04
-    usecase "Criar Acesso do Aluno" as UC05C
-    usecase "Criar Acesso do Professor" as UC06C
   }
 
   package "Gestão acadêmica" {
     usecase "UC05\nGerenciar Alunos" as UC05
+    usecase "UC29\nGerenciar Responsáveis" as UC29
     usecase "UC06\nGerenciar Professores" as UC06
     usecase "UC07\nGerenciar Estrutura Acadêmica" as UC07
     usecase "UC18\nAlocar Professor em\nTurmas e Disciplinas" as UC18
     usecase "UC08\nRealizar Matrícula de Aluno" as UC08
+  }
+
+  package "Portal do professor" {
     usecase "UC19\nConsultar Turmas e\nDisciplinas Alocadas" as UC19
     usecase "UC20\nCadastrar Avaliações" as UC20
     usecase "UC21\nLançar Notas dos Alunos" as UC21
-  }
-
-  package "Gestão financeira" {
-    usecase "UC09\nGerenciar Cobranças" as UC09
-    usecase "UC10\nAnexar Boleto à Cobrança" as UC10
-    usecase "UC11\nConsultar e Filtrar Cobranças" as UC11
-    usecase "UC12\nRegistrar Pagamento" as UC12
-    usecase "UC13\nConsultar Histórico\nFinanceiro do Aluno" as UC13
-    usecase "UC26\nPagar Cobrança Online" as UC26
-    usecase "UC14\nGerenciar Despesas" as UC14
-    usecase "UC15\nConsultar Relatórios Financeiros" as UC15
   }
 
   package "Portal do aluno" {
@@ -67,6 +61,23 @@ rectangle "Eduka" {
     usecase "UC23\nConsultar Boletim Acadêmico" as UC23
     usecase "UC24\nConsultar Disciplinas e Turmas" as UC24
     usecase "UC25\nConsultar Agenda de\nProvas e Tarefas" as UC25
+    usecase "UC26\nPagar Cobrança Online" as UC26
+  }
+
+  package "Gestão financeira" {
+    usecase "UC13\nConsultar Histórico\nFinanceiro do Aluno" as UC13
+    usecase "UC09\nGerenciar Cobranças" as UC09
+    usecase "UC11\nConsultar e Filtrar Cobranças" as UC11
+    usecase "UC12\nRegistrar Pagamento Manual" as UC12
+    usecase "UC14\nGerenciar Despesas" as UC14
+    usecase "UC15\nConsultar Relatórios Financeiros" as UC15
+    usecase "UC33\nAtivar Recebimento Online" as UC33
+  }
+
+  package "Rotinas e integrações" {
+    usecase "UC30\nConfirmar Pagamento\npelo Gateway" as UC30
+    usecase "UC31\nMarcar Cobranças e\nFaturas em Atraso" as UC31
+    usecase "UC32\nEnviar Notificações\npor E-mail" as UC32
   }
 }
 
@@ -75,51 +86,57 @@ USUARIO --> UC16
 
 SUPERADMIN --> UC01
 SUPERADMIN --> UC02
+SUPERADMIN --> UC27
 
+MASTER --> UC28
 MASTER --> UC04
 MASTER --> UC06
 MASTER --> UC07
+MASTER --> UC29
 MASTER --> UC15
+MASTER --> UC33
 
 SECRETARIA --> UC05
+SECRETARIA --> UC29
 SECRETARIA --> UC06
 SECRETARIA --> UC07
 SECRETARIA --> UC18
 SECRETARIA --> UC08
 
-FINANCEIRO --> UC09
-FINANCEIRO --> UC10
-FINANCEIRO --> UC11
-FINANCEIRO --> UC12
-FINANCEIRO --> UC14
-FINANCEIRO --> UC15
-FINANCEIRO --> UC13
-
 PROFESSOR --> UC19
 PROFESSOR --> UC20
 PROFESSOR --> UC21
 
-ALUNO --> UC13
 ALUNO --> UC17
 ALUNO --> UC22
 ALUNO --> UC23
 ALUNO --> UC24
 ALUNO --> UC25
 ALUNO --> UC26
+ALUNO --> UC13
 
-UC03 ..> UC03C : <<include>>
-UC03A ..> UC03 : <<extend>>
-UC05 ..> UC05C : <<include>>
-UC06 ..> UC06C : <<include>>
-UC10 ..> UC09 : <<extend>>
-UC17 ..> UC13 : <<include>>
-UC26 ..> UC13 : <<extend>>
+FINANCEIRO --> UC13
+FINANCEIRO --> UC09
+FINANCEIRO --> UC11
+FINANCEIRO --> UC12
+FINANCEIRO --> UC14
+FINANCEIRO --> UC15
+FINANCEIRO --> UC29
 
-note bottom of UC03
-  Isolamento por escola: o JWT carrega a Role
-  e o escola_id do usuário, e toda consulta e
-  gravação fica limitada à escola dele
-  (schema único com escola_id).
+ASAAS --> UC30
+TEMPO --> UC31
+TEMPO --> UC32
+UC26 --> ASAAS
+UC28 --> ASAAS
+UC33 --> ASAAS
+UC32 --> BREVO
+
+note right of USUARIO
+  Generalização de todos os perfis
+  (detalhada no diagrama 02).
+  Isolamento por escola: o JWT carrega a
+  Role e o escola_id, e toda consulta e
+  gravação fica limitada à escola do usuário.
 end note
 
 @enduml

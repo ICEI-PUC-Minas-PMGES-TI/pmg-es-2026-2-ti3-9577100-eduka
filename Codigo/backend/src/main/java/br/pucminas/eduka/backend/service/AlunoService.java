@@ -2,7 +2,6 @@
 package br.pucminas.eduka.backend.service;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -13,8 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.pucminas.eduka.backend.domain.Aluno;
-import br.pucminas.eduka.backend.domain.AlunoResponsavel;
-import br.pucminas.eduka.backend.domain.AlunoResponsavelId;
 import br.pucminas.eduka.backend.domain.PapelPessoa;
 import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Pessoa;
@@ -23,12 +20,10 @@ import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.AlunoRequest;
 import br.pucminas.eduka.backend.dto.AlunoResponse;
 import br.pucminas.eduka.backend.dto.EnderecoRequest;
-import br.pucminas.eduka.backend.dto.ResponsavelRequest;
 import br.pucminas.eduka.backend.dto.ResponsavelResponse;
 import br.pucminas.eduka.backend.exception.NumeroMatriculaJaCadastradoException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
-import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
@@ -61,17 +56,17 @@ public class AlunoService {
     private final AlunoRepository alunoRepository;
     private final PessoaRepository pessoaRepository;
     private final PessoaPapelRepository pessoaPapelRepository;
-    private final AlunoResponsavelRepository alunoResponsavelRepository;
+    private final ResponsavelService responsavelService;
     private final IsolamentoEscola isolamentoEscola;
     private final AcessoService acessoService;
 
     public AlunoService(AlunoRepository alunoRepository, PessoaRepository pessoaRepository,
-            PessoaPapelRepository pessoaPapelRepository, AlunoResponsavelRepository alunoResponsavelRepository,
+            PessoaPapelRepository pessoaPapelRepository, ResponsavelService responsavelService,
             IsolamentoEscola isolamentoEscola, AcessoService acessoService) {
         this.alunoRepository = alunoRepository;
         this.pessoaRepository = pessoaRepository;
         this.pessoaPapelRepository = pessoaPapelRepository;
-        this.alunoResponsavelRepository = alunoResponsavelRepository;
+        this.responsavelService = responsavelService;
         this.isolamentoEscola = isolamentoEscola;
         this.acessoService = acessoService;
     }
@@ -96,7 +91,7 @@ public class AlunoService {
         Aluno aluno = alunoRepository.findByIdAndEscolaId(id, escolaId).orElseThrow(AlunoService::naoEncontrado);
         Pessoa pessoa = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
                 .orElseThrow(AlunoService::naoEncontrado);
-        return AlunoResponse.de(aluno, pessoa, responsaveisDe(aluno.getId(), escolaId));
+        return AlunoResponse.de(aluno, pessoa, responsavelService.responsaveisDoAluno(aluno.getId(), escolaId));
     }
 
     /**
@@ -114,14 +109,15 @@ public class AlunoService {
                 .orElseThrow(AlunoService::naoEncontrado);
         Pessoa pessoa = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
                 .orElseThrow(AlunoService::naoEncontrado);
-        return AlunoResponse.de(aluno, pessoa, responsaveisDe(aluno.getId(), escolaId));
+        return AlunoResponse.de(aluno, pessoa, responsavelService.responsaveisDoAluno(aluno.getId(), escolaId));
     }
 
     /**
      * Cadastra o aluno (e, se informados, seus responsaveis) na escola do
      * usuario autenticado e cria o login dele. O request nao carrega escola:
      * mesmo que carregasse, seria ignorado. E-mail ja usado como login barra
-     * o cadastro inteiro (409).
+     * o cadastro inteiro (409). Responsavel com CPF ja cadastrado na escola e
+     * reaproveitado (ver {@link ResponsavelService}).
      */
     @Transactional
     public AlunoResponse cadastrar(AlunoRequest request) {
@@ -145,29 +141,15 @@ public class AlunoService {
                 .genero(request.genero())
                 .build());
 
-        List<ResponsavelResponse> responsaveis = new ArrayList<>();
-        if (request.responsaveis() != null) {
-            for (ResponsavelRequest responsavelRequest : request.responsaveis()) {
-                Pessoa pessoaResponsavel = criarPessoa(escolaId, responsavelRequest.nome(), responsavelRequest.cpf(),
-                        null, responsavelRequest.email(), responsavelRequest.telefone(), null);
-                pessoaPapelRepository.save(PessoaPapel.builder().pessoaId(pessoaResponsavel.getId())
-                        .papel(PapelPessoa.RESPONSAVEL).build());
-                alunoResponsavelRepository.save(AlunoResponsavel.builder()
-                        .id(new AlunoResponsavelId(aluno.getId(), pessoaResponsavel.getId()))
-                        .parentesco(responsavelRequest.parentesco())
-                        .build());
-                responsaveis.add(new ResponsavelResponse(pessoaResponsavel.getId(), pessoaResponsavel.getNome(),
-                        pessoaResponsavel.getEmail(), pessoaResponsavel.getTelefone(),
-                        responsavelRequest.parentesco()));
-            }
-        }
+        List<ResponsavelResponse> responsaveis = responsavelService.vincularAoNovoAluno(aluno, request.responsaveis());
         return AlunoResponse.de(aluno, pessoaAluno, responsaveis);
     }
 
     /**
      * Edita os dados do aluno: substitui o registro inteiro (campo opcional
      * nulo apaga o valor anterior). Os responsaveis nao mudam por aqui: o que
-     * vier em {@code responsaveis} e ignorado. Trocar o e-mail troca o login.
+     * vier em {@code responsaveis} e ignorado (use
+     * {@code /alunos/{id}/responsaveis}). Trocar o e-mail troca o login.
      */
     @Transactional
     public AlunoResponse atualizar(UUID id, AlunoRequest request) {
@@ -198,7 +180,7 @@ public class AlunoService {
 
         acessoService.sincronizarLogin(pessoa);
         Pessoa pessoaSalva = pessoaRepository.save(pessoa);
-        return AlunoResponse.de(alunoRepository.save(aluno), pessoaSalva, responsaveisDe(aluno.getId(), escolaId));
+        return AlunoResponse.de(alunoRepository.save(aluno), pessoaSalva, responsavelService.responsaveisDoAluno(aluno.getId(), escolaId));
     }
 
     /**
@@ -237,24 +219,6 @@ public class AlunoService {
                 .cep(endereco == null ? null : endereco.cep())
                 .ativo(true)
                 .build());
-    }
-
-    private List<ResponsavelResponse> responsaveisDe(UUID alunoId, UUID escolaId) {
-        List<AlunoResponsavel> vinculos = alunoResponsavelRepository.findAllById_AlunoId(alunoId);
-        if (vinculos.isEmpty()) {
-            return List.of();
-        }
-        Map<UUID, Pessoa> pessoasPorId = pessoaRepository
-                .findAllByIdInAndEscolaId(vinculos.stream().map(vinculo -> vinculo.getId().pessoaId()).toList(),
-                        escolaId)
-                .stream().collect(Collectors.toMap(Pessoa::getId, pessoa -> pessoa));
-        return vinculos.stream()
-                .map(vinculo -> {
-                    Pessoa pessoa = pessoasPorId.get(vinculo.getId().pessoaId());
-                    return new ResponsavelResponse(pessoa.getId(), pessoa.getNome(), pessoa.getEmail(),
-                            pessoa.getTelefone(), vinculo.getParentesco());
-                })
-                .toList();
     }
 
     private static void validar(AlunoRequest request) {

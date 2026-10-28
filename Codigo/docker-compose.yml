@@ -49,11 +49,12 @@ services:
 
   # Carrega postgres/mock/mock.sql depois que o backend aplica as migrations,
   # e encerra. So em dev (nao existe no compose de prod). O mock.sql nao duplica
-  # nada, entao rodar a cada "up" e seguro.
+  # nada, entao rodar a cada "up" e seguro. Com MOCK_DATA=false nao carrega nada.
   mock:
     image: postgres:16-alpine
 
     environment:
+      MOCK_DATA: ${MOCK_DATA:-true}
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -90,11 +91,19 @@ services:
       BREVO_API_KEY: ${BREVO_API_KEY:-}
       BREVO_REMETENTE_EMAIL: ${BREVO_REMETENTE_EMAIL:-nao-responda@eduka.com.br}
       BREVO_REMETENTE_NOME: ${BREVO_REMETENTE_NOME:-Eduka}
+      ASAAS_API_URL: ${ASAAS_API_URL:-https://api-sandbox.asaas.com}
+      ASAAS_API_KEY: ${ASAAS_API_KEY:-}
+      ASAAS_WEBHOOK_URL: ${ASAAS_WEBHOOK_URL:-}
+      ASAAS_WEBHOOK_TOKEN: ${ASAAS_WEBHOOK_TOKEN:-}
+      ASAAS_WEBHOOK_EMAIL: ${ASAAS_WEBHOOK_EMAIL:-}
       LOGIN_VERIFICACAO_HABILITADA: ${LOGIN_VERIFICACAO_HABILITADA:-true}
       LOGIN_CODIGO_VALIDADE_MINUTOS: ${LOGIN_CODIGO_VALIDADE_MINUTOS:-5}
       # Em dev o codigo de verificacao tambem sai no log do backend, porque sem
       # BREVO_API_KEY o e-mail nao e enviado. Nao existe no compose de prod.
       LOGIN_CODIGO_NO_LOG: ${LOGIN_CODIGO_NO_LOG:-true}
+      # Escola de demonstracao com 50 alunos (MockDataSeeder). Nao existe no
+      # compose de prod, e o perfil prod ignora mesmo se existisse.
+      MOCK_DATA: ${MOCK_DATA:-true}
       SPRING_PROFILES_ACTIVE: dev
 
     ports:

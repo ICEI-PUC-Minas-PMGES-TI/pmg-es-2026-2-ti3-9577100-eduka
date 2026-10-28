@@ -58,6 +58,10 @@ export function PainelEscolas() {
     navigate(generatePath(paths.superAdmin.editarEscola, { id: escola.id }))
   }
 
+  function verFaturas(escola: Escola) {
+    navigate(generatePath(paths.superAdmin.faturasEscola, { id: escola.id }))
+  }
+
   function abrirCadastro() {
     setSucesso(null)
     setCadastroAberto(true)
@@ -101,6 +105,7 @@ export function PainelEscolas() {
         onTentarNovamente={recarregar}
         onVer={setVendo}
         onEditar={editar}
+        onFaturas={verFaturas}
         onAlternarSituacao={handleAlternarSituacao}
       />
 

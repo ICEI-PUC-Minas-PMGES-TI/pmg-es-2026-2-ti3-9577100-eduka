@@ -1,0 +1,53 @@
+{
+  "object": "payment",
+  "id": "pay_1170f83b80iun8gy",
+  "dateCreated": "2026-10-19",
+  "customer": "cus_000009569905",
+  "checkoutSession": null,
+  "paymentLink": null,
+  "value": 150.0,
+  "netValue": 149.01,
+  "originalValue": null,
+  "interestValue": null,
+  "description": "Mensalidade teste",
+  "billingType": "PIX",
+  "confirmedDate": "2026-10-19",
+  "pixTransaction": "ea75221a-ff3b-4460-9ec0-f4a5c7e3056f",
+  "pixQrCodeId": "3d408a4f-8670-4502-af00-bde58ee1ccba",
+  "status": "RECEIVED",
+  "dueDate": "2026-10-26",
+  "originalDueDate": "2026-10-24",
+  "paymentDate": "2026-10-19",
+  "clientPaymentDate": "2026-10-19",
+  "installmentNumber": null,
+  "invoiceUrl": "https://sandbox.asaas.com/i/1170f83b80iun8gy",
+  "invoiceNumber": "19095855",
+  "externalReference": "eduka-spike-cob-1",
+  "deleted": false,
+  "anticipated": false,
+  "anticipable": false,
+  "creditDate": "2026-10-19",
+  "estimatedCreditDate": "2026-10-19",
+  "transactionReceiptUrl": "https://sandbox.asaas.com/000/comprovantes/h/UEFZTUVOVF9SRUNFSVZFRDpwYXlfMTE3MGY4M2I4MGl1bjhneQ%3D%3D",
+  "nossoNumero": "13638725",
+  "bankSlipUrl": null,
+  "lastInvoiceViewedDate": null,
+  "lastBankSlipViewedDate": null,
+  "discount": {
+    "value": 0.0,
+    "limitDate": null,
+    "dueDateLimitDays": 0,
+    "type": "FIXED"
+  },
+  "fine": {
+    "value": 0.0,
+    "type": "FIXED"
+  },
+  "interest": {
+    "value": 0.0,
+    "type": "PERCENTAGE"
+  },
+  "postalService": false,
+  "escrow": null,
+  "refunds": null
+}

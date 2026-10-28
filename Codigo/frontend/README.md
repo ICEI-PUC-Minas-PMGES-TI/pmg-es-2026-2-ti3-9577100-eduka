@@ -12,8 +12,16 @@ npm install
 npm run dev      # servidor de desenvolvimento em http://localhost:5173
 npm run build    # checagem de tipos (tsc -b) + build de produção em dist/
 npm run lint     # oxlint
+npm test         # testes de tela (Vitest); npm run test:watch reexecuta ao salvar
 npm run preview  # serve o build localmente
 ```
+
+Os testes de tela ficam ao lado do componente (`Componente.test.tsx`) e rodam no jsdom, sem
+navegador nem backend. `simularApi` (em `src/test/api.ts`) troca só o `fetch`: a tela passa pelo
+`apiRequest` de verdade, inclusive o `ProblemDetail` com `codigo` que vira `ApiError`. Para as
+telas que consultam o backend em intervalos (a espera do PIX), use os timers falsos do Vitest
+(`vi.useFakeTimers({ shouldAdvanceTime: true })`) e avance o relógio, como em
+`ModalPagamentoFatura.test.tsx`.
 
 No Docker de desenvolvimento, o código é copiado para a imagem no build. Depois de alterar o
 frontend, reconstrua o container: `docker compose -f Codigo/docker-compose.yml up -d --build frontend`.
@@ -27,12 +35,12 @@ src/
 ├── roles/                Um módulo por perfil de usuário, cada um com routes.tsx, layouts/,
 │   │                     pages/ e, quando precisa, components/ e hooks/ próprios
 │   ├── super_admin/      LoginAdmin, painel de escolas (PainelEscolas) e EditarEscola
-│   ├── master/           Início (resumo da escola)
+│   ├── master/           Início (resumo da escola e do financeiro) e Recebimentos
 │   ├── secretaria/       Início, Alunos, Professores, Acadêmico (períodos, cursos,
 │   │                     disciplinas e turmas), Alocação de professores e Matrículas
 │   ├── professor/        Início, Minhas turmas, Avaliações e Notas
 │   ├── aluno/            Boletim, Provas e tarefas e Meus dados
-│   └── financeiro/       Só routes.tsx, apontando para a tela "Área em construção"
+│   └── financeiro/       Início (resumo financeiro), Cobranças, Nova cobrança e Despesas
 ├── pages/                Telas fora dos perfis: Home (página inicial), Login (escola, com
 │                         código por e-mail e primeiro acesso), LoginDev, AreaEmConstrucao,
 │                         PaginaNaoEncontrada
@@ -74,7 +82,8 @@ resolve:
 |---|---|
 | `PainelLayout` | Casca de toda tela logada: marca, título, subtítulo, "Ajuda", "Sair" e o menu flutuante. Cada perfil tem um `*Layout` em `roles/<perfil>/layouts/` que só define o contexto e os itens do menu. |
 | `StatCards` + `StatCard` | Faixa de números no topo de listagens e dashboards (até 4 por linha; `destaque` para o principal, `alerta` em vermelho, `atencao` em âmbar). |
-| `Dashboard` | Peças das telas de Início: `Painel`, `Colunas`, `Medidor`, `Linhas`, `PainelVazio` e `EstadoDashboard`. |
+| `Dashboard` | Peças das telas de Início: `Painel`, `Colunas`, `Medidor`, `Linhas`, `Atalhos`, `GraficoBarras`, `GraficoComparativo` (duas séries lado a lado, com legenda), `PainelVazio` e `EstadoDashboard`. |
+| `PainelFinanceiro` | Blocos do resumo financeiro (`GET /dashboard/financeiro`), comuns ao Início do financeiro e ao do `MASTER`: `EntrouESaiu`, `VencemNaSemana`, `UltimosPagamentos` e `UltimasAcoes`. |
 | `Modal` | Casca de todo diálogo: título, botão de fechar, corpo com rolagem e rodapé (`tamanho` pequeno, médio ou grande; `ocupado` impede fechar enquanto salva). Com `onEnviar`, vira formulário. |
 | `ModalCadastro` | Formulário curto em duas colunas, com Cancelar/Salvar e tratamento do erro de envio. |
 | `ModalDetalhes` | Detalhe somente leitura, em seções de rótulo/valor. |

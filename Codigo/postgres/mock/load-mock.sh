@@ -7,6 +7,11 @@
 # aplicada em flyway_schema_history, e so entao executa o script.
 set -eu
 
+if [ "${MOCK_DATA:-true}" != "true" ]; then
+    echo "mock: MOCK_DATA=${MOCK_DATA}, nada a carregar."
+    exit 0
+fi
+
 export PGHOST=postgres PGUSER="$POSTGRES_USER" PGDATABASE="$POSTGRES_DB" PGPASSWORD="$POSTGRES_PASSWORD"
 
 # V6__adiciona_plano_escola.sql -> 6 ; V1_2__x.sql -> 1.2 (formato gravado pelo Flyway)

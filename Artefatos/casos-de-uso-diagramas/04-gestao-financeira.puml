@@ -1,66 +1,58 @@
 @startuml 04-gestao-financeira
 !include _estilo.puml
-title Eduka — Casos de Uso: Gestão Financeira (UC09 a UC15, UC26)
+title Eduka — Casos de Uso: Gestão Financeira — Cobranças e Pagamento Manual (UC09, UC11, UC12)
 
 left to right direction
 
 actor "FINANCEIRO" as FINANCEIRO
 actor "MASTER" as MASTER
-actor "ALUNO" as ALUNO
 
-rectangle "Eduka — Gestão financeira" {
+rectangle "Eduka — Cobranças e pagamento manual" {
   usecase "UC09\nGerenciar Cobranças" as UC09
   usecase "Cancelar Cobrança" as UC09A
-  usecase "UC10\nAnexar Boleto à Cobrança" as UC10
-  usecase "Substituir Boleto Existente" as UC10A
+  usecase "Registrar Operação\nna Auditoria" as AUD
+  usecase "UC32\nEnviar Notificações\npor E-mail" as UC32
   usecase "UC11\nConsultar e Filtrar Cobranças" as UC11
-  usecase "UC12\nRegistrar Pagamento" as UC12
-  usecase "UC13\nConsultar Histórico\nFinanceiro do Aluno" as UC13
-  usecase "UC26\nPagar Cobrança Online" as UC26
-  usecase "UC14\nGerenciar Despesas" as UC14
-  usecase "UC15\nConsultar Relatórios Financeiros" as UC15
+  usecase "UC12\nRegistrar Pagamento Manual" as UC12
+  usecase "Estornar Pagamento" as UC12A
 }
 
 FINANCEIRO --> UC09
-FINANCEIRO --> UC10
 FINANCEIRO --> UC11
 FINANCEIRO --> UC12
-FINANCEIRO --> UC14
-FINANCEIRO --> UC15
-
-MASTER --> UC15
-ALUNO --> UC13
-ALUNO --> UC26
-FINANCEIRO --> UC13
+MASTER --> UC09
+MASTER --> UC11
+MASTER --> UC12
 
 UC09A ..> UC09 : <<extend>>
-UC10 ..> UC09 : <<extend>>
-UC10A ..> UC10 : <<extend>>
+UC09 ..> AUD : <<include>>
+UC09 ..> UC32 : <<include>>
 UC12 ..> UC09 : pré-condição
-UC26 ..> UC13 : <<extend>>
-UC26 ..> UC09 : pré-condição
+UC12 ..> AUD : <<include>>
+UC12 ..> UC32 : <<include>>
+UC12A ..> UC12 : <<extend>>
+
+note bottom of UC09
+  Criar, editar e cancelar gravam no LOG_AUDITORIA
+  (RF22) usuário, escola, operação, entidade,
+  registro e data/hora, na mesma transação.
+  Ao criar, o responsável financeiro (ou o aluno)
+  é avisado por e-mail (RF21). A cobrança só vai
+  ao gateway quando o aluno clica em Pagar; a partir
+  daí a edição fica bloqueada, e cancelar a remove
+  do gateway (recusado se já foi paga).
+  Não há boleto anexado (decisão de 15/10).
+end note
 
 note bottom of UC12
-  Pré-condição: cobrança com status Pendente ou Em atraso.
-  Ao confirmar, o status passa para Paga.
+  Baixa manual (RF16) de um pagamento feito fora
+  do Eduka (dinheiro, transferência direta etc.).
+  Pré-condição: cobrança Pendente ou Em atraso.
+  A cobrança passa para Paga, a operação é auditada
+  e o aviso de pagamento confirmado é enviado.
+  O estorno desfaz um lançamento feito por engano.
 end note
 
-note bottom of UC13
-  Ator primário ALUNO, ator secundário FINANCEIRO.
-  O acesso é bloqueado quando o aluno consultado
-  não pertence à escola ou à permissão do usuário.
-end note
-
-note bottom of UC26
-  Pagamento online (RNF08.2) pelo próprio aluno,
-  a partir de uma cobrança Pendente ou Em atraso.
-  Confirmado o pagamento, o status passa para Paga.
-end note
-
-note bottom of UC15
-  Disponível aos perfis FINANCEIRO e MASTER:
-  receitas, despesas, pendências, inadimplência
-  e fluxo de caixa por período.
-end note
+note "Pagamento online, histórico financeiro, despesas\ne relatórios: ver diagrama 08." as N1
 
 @enduml

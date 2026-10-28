@@ -5,6 +5,7 @@ title Eduka — Casos de Uso: Portal do Aluno (UC17, UC22 a UC26)
 left to right direction
 
 actor "ALUNO" as ALUNO
+actor "Gateway de Pagamento\n(Asaas)" as ASAAS <<sistema externo>>
 
 rectangle "Eduka — Portal do aluno" {
   usecase "UC17\nConsultar Informações Acadêmicas\ne Financeiras Próprias" as UC17
@@ -14,6 +15,11 @@ rectangle "Eduka — Portal do aluno" {
   usecase "UC25\nConsultar Agenda de\nProvas e Tarefas" as UC25
   usecase "UC13\nConsultar Histórico\nFinanceiro do Aluno" as UC13
   usecase "UC26\nPagar Cobrança Online" as UC26
+  usecase "Pagar com PIX" as UC26A
+  usecase "Pagar com Boleto" as UC26B
+  usecase "Copiar Código PIX ou\nLinha Digitável" as UC26C
+  usecase "Baixar Boleto" as UC26D
+  usecase "Ver Comprovante\nde Pagamento" as UC13A
   usecase "UC16\nVisualizar Dashboard" as UC16
   usecase "UC03\nAutenticar Usuário" as UC03
 }
@@ -29,6 +35,12 @@ ALUNO --> UC03
 
 UC17 ..> UC13 : <<include>>
 UC26 ..> UC13 : <<extend>>
+UC26 <|-- UC26A
+UC26 <|-- UC26B
+UC26C ..> UC26 : <<extend>>
+UC26D ..> UC26B : <<extend>>
+UC13A ..> UC13 : <<extend>>
+UC26 --> ASAAS
 
 note bottom of UC17
   Abrange matrículas, turmas, cobranças,
@@ -49,6 +61,9 @@ end note
 note bottom of UC26
   Pagamento online (RNF08.2) de uma cobrança
   pendente ou em atraso do próprio aluno.
+  Trocar a forma altera a mesma cobrança no gateway.
+  A tela mostra a próxima mensalidade e a situação
+  do pagamento até a confirmação (UC30).
 end note
 
 @enduml

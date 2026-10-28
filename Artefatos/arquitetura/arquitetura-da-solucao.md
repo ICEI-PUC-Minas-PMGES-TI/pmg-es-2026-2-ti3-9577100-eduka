@@ -165,6 +165,7 @@ flowchart TB
         AUTHC["AuthController<br/><code>/login</code> · <code>/login/codigo</code> · <code>/primeiro-acesso</code>"]
         CADC["Cadastros<br/><code>/escolas</code> · <code>/usuarios/secretarias</code><br/><code>/alunos</code> · <code>/professores</code>"]
         ACADC["Acadêmico<br/><code>/academico/secretaria</code> · alocações<br/><code>/matriculas</code>"]
+        FINC["Financeiro<br/><code>/cobrancas</code> · <code>/despesas</code>"]
         PORTC["Portais<br/><code>/portal/professor</code> (turmas, avaliações, notas)<br/><code>/portal/aluno</code>"]
         DASHC["DashboardController<br/><code>/dashboard</code>"]
         HLTC["HealthController<br/><code>GET /health</code>"]
@@ -202,8 +203,11 @@ flowchart TB
 
 ### Superfície da API hoje
 
-A documentação interativa fica no Swagger UI (`/swagger-ui.html`, desligado em produção). As
-tabelas abaixo resumem as rotas por módulo.
+A documentação interativa fica no Swagger UI (`/swagger-ui.html`, desligado em produção). Cada
+rota lista as respostas possíveis: 401 sem token, 403 de perfil e 400 de corpo inválido entram em
+todas as que se aplicam, e as rotas do financeiro listam também os erros próprios com o `codigo`
+que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o esquema `Erro`
+(ProblemDetail). As tabelas abaixo resumem as rotas por módulo.
 
 **Acesso e plataforma**
 
@@ -218,6 +222,17 @@ tabelas abaixo resumem as rotas por módulo.
 | `POST` | `/escolas` | `SUPER_ADMIN` |
 | `PUT` | `/escolas/{id}` | `SUPER_ADMIN` |
 | `PATCH` | `/escolas/{id}/ativar` · `/suspender` | `SUPER_ADMIN` |
+| `GET` · `POST` | `/escolas/{id}/faturas` (faturas da plataforma da escola; competência única por escola) | `SUPER_ADMIN` |
+| `PATCH` | `/escolas/{id}/faturas/{faturaId}/cancelar` | `SUPER_ADMIN` |
+| `GET` | `/escolas/{id}/faturas/{faturaId}/comprovante` | `SUPER_ADMIN` |
+| `GET` | `/config-pagamento/faturas` (só as da escola do token) | `MASTER` |
+| `POST` | `/config-pagamento/faturas/{id}/pagar` (PIX ou boleto na conta-pai do Edúka; 202 enquanto gera) | `MASTER` |
+| `GET` | `/config-pagamento/faturas/{id}/comprovante` | `MASTER` |
+| `GET` | `/config-pagamento/conta` (conta de recebimento da escola do token; `NAO_INICIADA` antes da ativação; nunca traz a chave nem os dados bancários) | `MASTER` |
+| `POST` | `/config-pagamento/conta/ativar` (cria a conta filha no Asaas com o CNPJ da escola; em `NAO_INICIADA`, `ERRO_CRIACAO` ou `VERIFICACAO_PENDENTE`; sem resposta do Asaas fica `VERIFICACAO_PENDENTE` e a próxima ativação procura pelo CNPJ antes de criar; 409 `ATIVACAO_EM_ANDAMENTO` ou `CONTA_JA_CRIADA`) | `MASTER` |
+| `POST` | `/config-pagamento/conta/sincronizar` (lê a situação da conta no Asaas; uma rotina faz o mesmo a cada 15 min para as que aguardam aprovação) | `MASTER` |
+| `POST` | `/config-pagamento/conta/sandbox/aprovar` (só no perfil `dev`: aprova a conta filha no Sandbox do Asaas; 202; 409 `SANDBOX_INDISPONIVEL` fora do Sandbox) | `MASTER` |
+| `POST` | `/cobrancas/{id}/sandbox/confirmar-pagamento` (só no perfil `dev`: simula no Sandbox o pagamento da cobrança emitida, que chega pelo webhook; 202; 409 `SANDBOX_INDISPONIVEL`) | `MASTER`, `FINANCEIRO` |
 | `GET` | `/usuarios/secretarias` · `/usuarios/secretarias/{id}` | `MASTER` |
 | `POST` | `/usuarios/secretarias` | `MASTER` |
 | `PUT` | `/usuarios/secretarias/{id}` | `MASTER` |
@@ -255,6 +270,106 @@ tabelas abaixo resumem as rotas por módulo.
 | `POST` | `/matriculas` (409 se a turma está sem vagas ou o aluno já está nela) | `MASTER`, `SECRETARIA` |
 | `PATCH` | `/matriculas/{id}` (trancar, reativar, transferir, concluir, cancelar ou editar a observação) | `MASTER`, `SECRETARIA` |
 
+**Financeiro**
+
+| Método | Rota | Perfis autorizados |
+|---|---|---|
+| `GET` | `/cobrancas?alunoId&status&vencimentoDe&vencimentoAte` · `/cobrancas/{id}` | `MASTER`, `FINANCEIRO` |
+| `GET` | `/cobrancas/pagina?alunoId&periodoLetivoId&status&vencimentoDe&vencimentoAte&pagina&tamanho` (paginada pelo vencimento, `tamanho` até 100; `totaisPorStatus` traz quantidade e valor de cada situação com os mesmos filtros, menos o de situação) | `MASTER`, `FINANCEIRO` |
+| `POST` | `/cobrancas` (aluno, descrição, valor e vencimento; matrícula e responsável opcionais, mas têm de ser do aluno) | `MASTER`, `FINANCEIRO` |
+| `PUT` | `/cobrancas/{id}` (400 se a cobrança já foi paga ou cancelada; 409 `COBRANCA_NAO_EDITAVEL` depois que alguém clicou em Pagar, porque a cobrança já está no Asaas: aí só cancelando e lançando outra; a situação acompanha o novo vencimento) | `MASTER`, `FINANCEIRO` |
+| `PATCH` | `/cobrancas/{id}/cancelar` (a cobrança fica no histórico como `CANCELADA`; se já foi emitida, é removida antes no Asaas, fora de transação; 409 `COBRANCA_JA_PAGA` se já foi paga, aqui ou no Asaas, e nesse caso o pagamento achado fica registrado; 409 `PAGAMENTO_EM_PROCESSAMENTO` enquanto o pagamento está sendo gerado) | `MASTER`, `FINANCEIRO` |
+| `GET` | `/cobrancas/{id}/comprovante` (comprovante do pagamento online montado pelo Edúka: a escola como beneficiária, o pagador com CPF mascarado, valor, data, forma e código da transação; 404 `COMPROVANTE_INDISPONIVEL` enquanto não há pagamento online registrado, inclusive na baixa manual) | `MASTER`, `FINANCEIRO` |
+| `GET` | `/despesas?situacao&categoriaId&vencimentoDe&vencimentoAte` · `/despesas/{id}` (ordenado pelo vencimento) | `MASTER`, `FINANCEIRO` |
+| `POST` | `/despesas` (descrição, categoria, valor e vencimento; `paga: true` lança já como `PAGA`; 404 se a categoria não for da escola) | `MASTER`, `FINANCEIRO` |
+| `PUT` | `/despesas/{id}` (substitui descrição, categoria, valor e vencimento; a paga também é editada; 400 se foi cancelada) | `MASTER`, `FINANCEIRO` |
+| `PATCH` | `/despesas/{id}` (`situacao`: `A_PAGAR` → `PAGA` ou `CANCELADA`, `PAGA` → `A_PAGAR`; `CANCELADA` é final; 400 se a mudança não é permitida) | `MASTER`, `FINANCEIRO` |
+| `GET` | `/categorias-despesa` (pelo nome; a escola sem nenhuma recebe as padrão na primeira consulta) | `MASTER`, `FINANCEIRO` |
+| `POST` | `/categorias-despesa` (409 se o nome já existe na escola, sem diferenciar maiúsculas) | `MASTER`, `FINANCEIRO` |
+| `POST` | `/webhooks/asaas` (avisos do Asaas; sem JWT, exige o token do webhook no header `Asaas-Access-Token`) | público (token do webhook) |
+
+Webhook do gateway: o aviso é gravado em `EVENTO_PROVEDOR` antes de ser aplicado, e o id do aviso
+é único, então o mesmo aviso chegando de novo responde 200 sem efeito. O pagamento confirmado
+(`PAYMENT_RECEIVED`/`PAYMENT_CONFIRMED`) grava `PAGAMENTO_COBRANCA` com origem `ONLINE` e marca a
+cobrança como `PAGA` na mesma transação, desde que a conta que mandou o aviso seja a conta de
+recebimento da escola da cobrança. Um segundo aviso do mesmo pagamento não cria outro registro: só
+completa a data de crédito e o valor líquido. Pagamento de cobrança `CANCELADA` a marca como `PAGA`
+(o dinheiro entrou) e fica sinalizado na auditoria. A criação confirmada (`PAYMENT_CREATED`) tira de `EMITINDO` a cobrança cuja
+resposta de criação se perdeu; a remoção no provedor (`PAYMENT_DELETED`) leva a cobrança em
+`EMITINDO` para `FALHA_EMISSAO` e cancela a emitida em aberto. Aviso sem id ou sem tipo responde 400.
+Se a aplicação falhar, o aviso fica em `ERRO` para nova tentativa e o webhook continua respondendo 200.
+Estorno e contestação feitos no Asaas ficam registrados na auditoria, sem mudar a cobrança (ver
+Auditoria, abaixo).
+
+Duas rotinas cobrem o que o webhook não resolveu. Rodam sem usuário e chamam o Asaas fora de
+transação, pelo `PaymentRoutingService`. Uma falha num item não para os outros.
+
+| Rotina | Intervalo | O que faz |
+|---|---|---|
+| `EventoProvedorRotina` (`app.pagamento.eventos.*`) | 5 min | Reaplica os avisos de `EVENTO_PROVEDOR` em `RECEBIDO`, `PROCESSANDO` ou `ERRO` recebidos há mais de 1 min (para não disputar com o webhook), os mais antigos primeiro, até 50 por vez. O aviso é aplicado pelo mesmo caminho do webhook, com a trava do registro, então nunca vale duas vezes. Cada tentativa soma em `TENTATIVAS`; com 10, o aviso fica em `ERRO` para análise manual. |
+| `ReconciliacaoRotina` (`app.pagamento.reconciliacao.*`) | 10 min | Procura no Asaas, pela referência, as cobranças (`EDK-B-<id>`, na conta da escola) e faturas (`EDK-A-<id>`, na conta-pai) que estão em `EMITINDO` há mais de 5 min, porque a resposta da criação e o aviso `PAYMENT_CREATED` se perderam. Até 50 de cada por vez. |
+
+A reconciliação grava o mesmo resultado que o aviso gravaria:
+
+| Achado no Asaas | Resultado no Edúka |
+|---|---|
+| A cobrança, em aberto | `EMITIDA` com o id do Asaas, como no `PAYMENT_CREATED` |
+| A cobrança, já paga | `EMITIDA` e `PAGA`, com `PAGAMENTO_COBRANCA` `ONLINE` sem evento, auditoria `CONFIRMAR_PAGAMENTO` e e-mail de confirmação, como no `PAYMENT_RECEIVED` |
+| Nada (o Asaas omite as removidas) | `FALHA_EMISSAO`, como no `PAYMENT_DELETED`; o próximo Pagar emite de novo |
+
+Se o aviso chegou antes, a cobrança já saiu de `EMITINDO` e a reconciliação não muda nada. O
+pagamento também não duplica, porque `PAGAMENTO_COBRANCA` tem uma linha por cobrança. Se o Asaas
+não responder, ou se a conta-pai não estiver configurada, a cobrança continua em `EMITINDO` para a
+execução seguinte.
+
+Fatura da plataforma (Fluxo A, `FATURA_PLATAFORMA`): o Super Admin lança a fatura da escola e o MASTER paga com
+PIX ou boleto numa cobrança da **conta-pai** do Edúka (referência `EDK-A-<id>`, a escola como pagadora). O aviso
+de pagamento com essa referência marca a própria fatura como `PAGA`; aviso de fatura vindo da conta de uma escola
+é ignorado. Faturas nunca entram nos painéis da escola.
+
+Situação da cobrança (`StatusCobranca`): `PENDENTE` pode passar para `EM_ATRASO`, `PAGA` ou
+`CANCELADA`; `EM_ATRASO` pode voltar para `PENDENTE` (vencimento adiado) ou passar para `PAGA` ou
+`CANCELADA`; `PAGA` e `CANCELADA` são finais. Uma rotina diária (`CobrancaAtrasoRotina`, 00:05 de
+`America/Sao_Paulo`, cron em `app.cobranca.atraso.cron`) grava `EM_ATRASO` nas pendentes vencidas
+de todas as escolas. Até ela rodar, a leitura já mostra a pendente vencida como em atraso.
+
+Auditoria: criar, editar e cancelar uma cobrança gravam uma linha em `LOG_AUDITORIA` com o
+usuário e a escola do token, a operação, a entidade (`COBRANCA`), o id do registro e a data/hora
+(`AuditoriaService`). O log é gravado na mesma transação da operação: se ela falha, o log não
+fica; operação recusada (400, 404) ou só de leitura não gera log. A rotina de atraso não tem autor
+e não é auditada.
+
+Despesas (`DESPESA`, `CATEGORIA_DESPESA`, V31): registro interno da escola, sem passar pelo Asaas.
+Cada escola tem as próprias categorias; a que ainda não tem nenhuma recebe as padrão (Salários,
+Contas, Materiais, Consertos, Limpeza e Outros) na primeira consulta. Situação (`SituacaoDespesa`):
+`A_PAGAR` pode passar para `PAGA` ou `CANCELADA`; `PAGA` volta para `A_PAGAR` (pagamento marcado
+por engano); `CANCELADA` é final e a despesa continua no histórico. Criar, editar e mudar a situação
+gravam em `LOG_AUDITORIA` com a entidade `DESPESA`: pagar é `PAGAR`, voltar para a pagar é
+`ESTORNAR` e cancelar é `CANCELAR`.
+
+O que vem do Asaas chega sem usuário e é auditado com `ORIGEM = PROVEDOR`, sem autor e com a escola
+do próprio registro (`AuditoriaService.registrarDoProvedor`). Linha de usuário continua exigindo
+autor (restrição no banco, V32). O que entra no log (V32, V33 e V34):
+
+| Origem | Entidade | Operação | Quando |
+|---|---|---|---|
+| Usuário (`MASTER`) | `CONTA_RECEBIMENTO` | `ATIVAR` | pedido de ativação aceito (pedido recusado antes de reservar não gera log) |
+| Asaas | `CONTA_RECEBIMENTO` | `ALTERAR_SITUACAO` | a situação da conta mudou, pelo aviso ou pelo Sincronizar (botão ou rotina); a mesma situação de novo não gera log |
+| Asaas | `COBRANCA`, `FATURA_PLATAFORMA` | `CONFIRMAR_PAGAMENTO` | pagamento confirmado, pelo aviso ou pelo pagamento achado ao cancelar |
+| Asaas | `COBRANCA`, `FATURA_PLATAFORMA` | `PAGO_APOS_CANCELAR` | pagamento de cobrança ou fatura já cancelada, que volta a `PAGA`, para a escola resolver com o pagador |
+| Asaas | `COBRANCA`, `FATURA_PLATAFORMA` | `CANCELAR` | removida no Asaas e cancelada pelo aviso |
+| Asaas | `COBRANCA`, `FATURA_PLATAFORMA` | `ESTORNAR` | estorno total ou parcial (`PAYMENT_REFUNDED`, `PAYMENT_PARTIALLY_REFUNDED`) |
+| Asaas | `COBRANCA`, `FATURA_PLATAFORMA` | `CONTESTAR` | contestação em qualquer etapa (`PAYMENT_CHARGEBACK_REQUESTED`, `PAYMENT_CHARGEBACK_DISPUTE`, `PAYMENT_AWAITING_CHARGEBACK_REVERSAL`) |
+
+Estorno e contestação **só são auditados**: a situação da cobrança ou da fatura não muda (o que o
+estorno faz com uma cobrança `PAGA` ainda não foi decidido). Estorno em andamento ou negado não é
+estorno e chega como aviso sem efeito.
+
+O webhook da conta filha assina esses eventos ao ser criado junto com a conta
+(`AsaasAdapter.EVENTOS_WEBHOOK`). Conta filha criada antes da inclusão de estorno e contestação, e o
+webhook da conta-pai (faturas, configurado à parte), precisam ter os eventos acrescentados no Asaas;
+sem isso, esses avisos não chegam.
+
 **Portais e dashboards**
 
 | Método | Rota | Perfis autorizados |
@@ -271,8 +386,12 @@ tabelas abaixo resumem as rotas por módulo.
 | `GET` | `/portal/aluno/turmas` (turmas do aluno, com a grade e os professores) | `ALUNO` |
 | `GET` | `/portal/aluno/boletim` (notas por turma e disciplina, com os totais de pontos) | `ALUNO` |
 | `GET` | `/portal/aluno/avaliacoes` (agenda de provas, trabalhos e tarefas das turmas ativas) | `ALUNO` |
+| `GET` | `/portal/aluno/cobrancas/{id}` (uma cobrança do próprio aluno com `situacaoPagamento`, forma, `pagamento` (valor, data e forma, quando já pago online) e `acoes`: `PAGAR` em aberto, `VER_COMPROVANTE` quando paga com pagamento registrado; 404 se for de outro aluno) | `ALUNO` |
+| `GET` | `/portal/aluno/cobrancas/{id}/comprovante` (o mesmo comprovante da gestão, sem nenhuma URL do Asaas; 404 `COMPROVANTE_INDISPONIVEL` antes da confirmação; 404 se for de outro aluno) | `ALUNO` |
+| `POST` | `/portal/aluno/cobrancas/{id}/pagar` (`forma` `PIX` ou `BOLETO`; cria ou reaproveita a cobrança na conta filha da escola e devolve QR Code e copia e cola ou linha digitável; trocar a forma altera a mesma cobrança; 202 `PROCESSANDO` se o provedor não respondeu; erros com `codigo`) | `ALUNO` |
 | `GET` | `/dashboard/escola` (pessoas, estrutura, ocupação de vagas e aproveitamento) | `MASTER` |
 | `GET` | `/dashboard/secretaria` (matrículas por situação, vagas e ocupação por turma) | `MASTER`, `SECRETARIA` |
+| `GET` | `/dashboard/financeiro` (recebido no mês, falta receber, alunos em atraso e inadimplência, despesas a pagar, entradas e saídas dos 6 últimos meses, cobranças que vencem na semana, últimos pagamentos e últimas ações do `LOG_AUDITORIA`; serve o Início do financeiro e o do `MASTER`) | `MASTER`, `FINANCEIRO` |
 
 Qualquer rota não listada como pública exige `Authorization: Bearer <access token>` e responde
 `401` sem ele. Perfil sem permissão recebe `403`.
@@ -364,11 +483,11 @@ flowchart TB
 
     subgraph roles["roles/ — um módulo por perfil"]
         SAD["<b>super_admin/</b><br/>escolas"]
-        MAS["<b>master/</b><br/>início"]
+        MAS["<b>master/</b><br/>início · recebimentos"]
         SEC["<b>secretaria/</b><br/>início · alunos · professores<br/>acadêmico · alocação · matrículas"]
         PROF["<b>professor/</b><br/>início · turmas · avaliações · notas"]
         ALU["<b>aluno/</b><br/>boletim · provas e tarefas · meus dados"]
-        FIN["<i>financeiro/ — Área em construção</i>"]
+        FIN["<b>financeiro/</b><br/>início · cobranças · despesas"]
     end
 
     subgraph shared["Compartilhado"]
@@ -444,6 +563,9 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | `V17__criar_verificacao_login.sql` | `VERIFICACAO_LOGIN`: código da verificação em duas etapas (só o hash) |
 | `V18__criar_matricula_turma.sql` | `MATRICULA_TURMA`: aluno na turma, com situação (ativa, trancada, cancelada, concluída) |
 | `V19__criar_avaliacao_e_nota.sql` | `AVALIACAO` (prova, trabalho, tarefa) e `NOTA` de cada aluno |
+| `V20__criar_cobranca.sql` | `COBRANCA`: cobrança de um aluno, com matrícula e responsável opcionais, valor, vencimento e situação (pendente, paga, cancelada) |
+| `V21__cobranca_em_atraso.sql` | `COBRANCA.STATUS` passa a aceitar `EM_ATRASO`; marca as pendentes já vencidas e cria o índice da rotina diária |
+| `V22__criar_log_auditoria.sql` | `LOG_AUDITORIA`: quem criou, editou, cancelou ou estornou cobrança, pagamento ou despesa, com escola, registro afetado e data/hora |
 
 ---
 
@@ -476,6 +598,7 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | Isolamento entre escolas | `IsolamentoEscola` nos services e `@TenantId` no Hibernate; escola vem do token |
 | Confidencialidade de senha | BCrypt custo 12; a coluna `senha_hash` nunca recebe texto puro |
 | Confidencialidade de dados pessoais | `PESSOA` cifrada com AES-256-GCM pela aplicação; o banco nunca vê a chave |
+| Auditoria (RNF05) | Operações financeiras gravam autor, operação, entidade, registro e data/hora em `LOG_AUDITORIA`, na mesma transação; o que vem do Asaas entra sem autor, com origem `PROVEDOR` |
 | Não vazamento de informação | Login inexistente, senha errada e usuário inativo devolvem a mesma mensagem |
 | Portabilidade de ambiente | Todo o stack sobe por Docker Compose, em dev e em prod |
 
@@ -489,9 +612,14 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
   o alvo em produção é `verify-full`.
 * **Refresh token.** O backend emite e sabe validar refresh tokens, mas ainda não há endpoint
   HTTP de renovação. Quando o access token expira, o usuário precisa fazer login de novo.
-* **Módulo financeiro.** Cobranças, boletos, pagamentos, despesas e relatórios ainda não existem.
-  Os prefixos de rota já estão em `RotasPorPerfil` (só `MASTER` e `FINANCEIRO`), e o perfil
-  `FINANCEIRO` ainda vê "Área em construção" no frontend.
+* **Módulo financeiro.** Cobranças (`/cobrancas`) e despesas (`/despesas`) têm API; boletos,
+  pagamentos e relatórios ainda não existem, e nada marca uma cobrança como paga (a regra de mudança para
+  `PAGA` já está em `StatusCobranca`). Pagamentos e despesas, quando existirem, devem chamar
+  `AuditoriaService.registrar` em criar, editar, cancelar e estornar. Ainda não há tela nem
+  endpoint para consultar o `LOG_AUDITORIA` (a rota `/auditoria` já está reservada para
+  `MASTER` em `RotasPorPerfil`). Os prefixos de rota já estão
+  em `RotasPorPerfil` (só `MASTER` e `FINANCEIRO`), e o perfil `FINANCEIRO` ainda vê
+  "Área em construção" no frontend.
 * **Gestão de usuários pelo master.** A API de `/usuarios/secretarias` está pronta, mas o
   `MASTER` ainda não tem tela para cadastrar e inativar a secretaria.
 * **`@TenantId` nas demais entidades.** Hoje têm o filtro automático do Hibernate `Aluno`,
