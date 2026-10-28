@@ -15,6 +15,13 @@ import { formatarMoeda, hojeIso } from '../../../../utils/formatters'
 import { FinanceiroLayout } from '../../layouts/FinanceiroLayout'
 import styles from './Despesas.module.css'
 
+/** "2026-10" -> "Outubro de 2026". */
+function rotuloDoMes(anoMes: string): string {
+  const [ano, mes] = anoMes.split('-').map(Number)
+  const rotulo = new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  return rotulo.charAt(0).toUpperCase() + rotulo.slice(1)
+}
+
 function mensagemDeErro(e: unknown, padrao: string): string {
   return e instanceof ApiError ? (e.detalhe ?? e.message) : padrao
 }
@@ -59,8 +66,15 @@ export function Despesas() {
     let qtdPagas = 0
     let faltaPagar = 0
     let qtdAPagar = 0
+    // Só as despesas que vencem no mês atual (AAAA-MM), no fuso da escola
+    const mesAtual = hojeIso().slice(0, 7)
+    let totalMes = 0
 
     for (const d of despesas) {
+      if (d.situacao !== 'CANCELADA' && d.dataVencimento.startsWith(mesAtual)) {
+        totalMes += d.valor
+      }
+
       if (d.situacao === 'PAGA') {
         pago += d.valor
         qtdPagas += 1
@@ -75,7 +89,8 @@ export function Despesas() {
       qtdPagas,
       faltaPagar,
       qtdAPagar,
-      total: pago + faltaPagar,
+      totalMes,
+      rotuloMes: rotuloDoMes(mesAtual),
     }
   }, [despesas])
 
@@ -181,8 +196,8 @@ export function Despesas() {
 
             <div className={styles.statCard}>
               <span className={styles.statLabel}>Total do mês</span>
-              <strong className={styles.statValor}>{formatarMoeda(totais.total)}</strong>
-              <span className={styles.statSubtitulo}>Setembro de 2026</span>
+              <strong className={styles.statValor}>{formatarMoeda(totais.totalMes)}</strong>
+              <span className={styles.statSubtitulo}>{totais.rotuloMes}</span>
             </div>
           </section>
 
