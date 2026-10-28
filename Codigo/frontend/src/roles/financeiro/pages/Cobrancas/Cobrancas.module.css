@@ -97,25 +97,36 @@
   border-color: transparent;
 }
 
-/* Master-Detail Grid */
-.layoutGrid {
-  display: grid;
-  grid-template-columns: 1fr 380px;
-  gap: 24px;
-  align-items: start;
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: var(--radius-pill);
+  background: rgba(150, 103, 224, 0.12);
+  font-size: 12px;
+  font-weight: 800;
 }
 
-.listaCards {
+.pillAtivo .badge {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.lista {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  scroll-margin-top: 24px;
 }
 
-.mensagemVazia {
+.vazio {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 12px;
   padding: 48px 24px;
   border: var(--glass-border);
   border-radius: var(--radius-xl);
@@ -125,11 +136,34 @@
   font-size: 15px;
 }
 
-@media (max-width: 960px) {
-  .layoutGrid {
-    grid-template-columns: 1fr;
-  }
+.paginacao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+}
 
+.paginacaoResumo {
+  font-size: 14px;
+  color: var(--color-text-subtle);
+}
+
+.paginacaoBotoes {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.paginacaoAtual {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 960px) {
   .busca {
     max-width: 100%;
   }
@@ -137,6 +171,10 @@
   .toolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .paginacao {
+    justify-content: center;
   }
 }
 
