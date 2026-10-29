@@ -6,10 +6,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -25,12 +28,17 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.Cobranca;
 import br.pucminas.eduka.backend.domain.ContaRecebimentoEscola;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.exception.SandboxIndisponivelException;
+import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.CredencialProvedor;
+import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
+import br.pucminas.eduka.backend.pagamento.tipos.StatusCobrancaProvedor;
+import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
 import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
@@ -43,10 +51,13 @@ class RoteadorSandboxTest {
 
     private static final UUID ESCOLA = UUID.randomUUID();
     private static final UUID COBRANCA = UUID.randomUUID();
+    private static final UUID USUARIO_ALUNO = UUID.randomUUID();
     private static final String CHAVE_SUBCONTA = "$aact_hmlg_CHAVE_FICTICIA_DA_SUBCONTA";
 
     private ContaRecebimentoEscolaRepository contaRepository;
     private CobrancaRepository cobrancaRepository;
+    private AlunoRepository alunoRepository;
+    private RoteadorEventos eventos;
     private PaymentProvider provider;
     private PiiCryptoService cripto;
     private RoteadorSandbox roteador;
@@ -55,13 +66,15 @@ class RoteadorSandboxTest {
     void setUp() {
         contaRepository = mock(ContaRecebimentoEscolaRepository.class);
         cobrancaRepository = mock(CobrancaRepository.class);
+        alunoRepository = mock(AlunoRepository.class);
+        eventos = mock(RoteadorEventos.class);
         provider = mock(PaymentProvider.class);
         cripto = new PiiCryptoService(new PiiEncryptionProperties("u28qCTox5pjdroT6PVuzUItNOUfd1K0ySdEX/Rk7gXU=", 1));
         SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
                 new UsuarioAutenticado(UUID.randomUUID(), "MASTER", ESCOLA), null, "ROLE_MASTER"));
 
-        roteador = new RoteadorSandbox(contaRepository, cobrancaRepository, new IsolamentoEscola(), cripto,
-                new ChamadorProvedor(provider), new TransacaoQueMarcaAtiva());
+        roteador = new RoteadorSandbox(contaRepository, cobrancaRepository, alunoRepository, eventos,
+                new IsolamentoEscola(), cripto, new ChamadorProvedor(provider), new TransacaoQueMarcaAtiva());
     }
 
     @AfterEach
@@ -153,6 +166,88 @@ class RoteadorSandboxTest {
 
         assertThatThrownBy(() -> roteador.confirmarPagamento(COBRANCA))
                 .isInstanceOf(SandboxIndisponivelException.class);
+    }
+
+    // ---- O aluno paga a propria cobranca ----
+
+    @Test
+    void alunoPagaEOPagamentoEGravadoSemEsperarOAviso() {
+        Aluno aluno = alunoLogado();
+        contaComChave();
+        cobranca(SituacaoProvedor.EMITIDA, aluno);
+        CobrancaProvedor recebida = noProvedor(StatusCobrancaProvedor.RECEBIDA);
+        when(provider.consultarCobranca(new CredencialProvedor(CHAVE_SUBCONTA), "pay_123")).thenReturn(recebida);
+
+        roteador.pagarComoAluno(COBRANCA);
+
+        verify(provider).sandboxConfirmarPagamento(new CredencialProvedor(CHAVE_SUBCONTA), "pay_123");
+        verify(eventos).registrarPagamentoEncontrado(COBRANCA, recebida);
+    }
+
+    @Test
+    void aindaNaoPagaNoProvedorFicaParaOAviso() {
+        Aluno aluno = alunoLogado();
+        contaComChave();
+        cobranca(SituacaoProvedor.EMITIDA, aluno);
+        when(provider.consultarCobranca(any(), any()))
+                .thenReturn(noProvedor(StatusCobrancaProvedor.AGUARDANDO_PAGAMENTO));
+
+        roteador.pagarComoAluno(COBRANCA);
+
+        verify(eventos, never()).registrarPagamentoEncontrado(any(), any());
+    }
+
+    @Test
+    void consultaQueFalhaNaoDesfazAConfirmacao() {
+        Aluno aluno = alunoLogado();
+        contaComChave();
+        cobranca(SituacaoProvedor.EMITIDA, aluno);
+        when(provider.consultarCobranca(any(), any())).thenThrow(new ProvedorIndisponivelException("timeout"));
+
+        roteador.pagarComoAluno(COBRANCA);
+
+        verify(provider).sandboxConfirmarPagamento(new CredencialProvedor(CHAVE_SUBCONTA), "pay_123");
+        verify(eventos, never()).registrarPagamentoEncontrado(any(), any());
+    }
+
+    @Test
+    void cobrancaDeOutroAlunoE404() {
+        alunoLogado();
+        cobranca(SituacaoProvedor.EMITIDA, Aluno.builder().id(UUID.randomUUID()).build());
+
+        assertThatThrownBy(() -> roteador.pagarComoAluno(COBRANCA))
+                .isInstanceOf(RecursoNaoEncontradoException.class);
+        verifyNoInteractions(provider);
+    }
+
+    @Test
+    void cobrancaDoAlunoAindaNaoEmitidaE400() {
+        Aluno aluno = alunoLogado();
+        cobranca(SituacaoProvedor.NAO_EMITIDA, aluno);
+
+        assertThatThrownBy(() -> roteador.pagarComoAluno(COBRANCA))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(provider);
+    }
+
+    private Aluno alunoLogado() {
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
+                new UsuarioAutenticado(USUARIO_ALUNO, "ALUNO", ESCOLA), null, "ROLE_ALUNO"));
+        Aluno aluno = Aluno.builder().id(UUID.randomUUID()).build();
+        when(alunoRepository.findByUsuarioIdAndEscolaId(USUARIO_ALUNO, ESCOLA)).thenReturn(Optional.of(aluno));
+        return aluno;
+    }
+
+    private static CobrancaProvedor noProvedor(StatusCobrancaProvedor status) {
+        return new CobrancaProvedor("pay_123", "EDK-B-" + COBRANCA, status, FormaPagamento.PIX,
+                new BigDecimal("500.00"), new BigDecimal("500.00"), new BigDecimal("499.01"), LocalDate.now(),
+                LocalDate.now(), null, null);
+    }
+
+    private void cobranca(SituacaoProvedor situacao, Aluno dono) {
+        cobranca(situacao);
+        Cobranca cobranca = cobrancaRepository.findByIdAndEscolaId(COBRANCA, ESCOLA).orElseThrow();
+        when(cobranca.getAluno()).thenReturn(dono);
     }
 
     private void contaComChave() {

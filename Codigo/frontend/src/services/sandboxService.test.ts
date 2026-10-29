@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import { problema, simularApi } from '../test/api'
-import { aprovarContaNoSandbox, mensagemErroSandbox, simularPagamentoNoSandbox } from './sandboxService'
+import {
+  aprovarContaNoSandbox,
+  mensagemErroSandbox,
+  pagarNoSandboxComoAluno,
+  simularPagamentoNoSandbox,
+} from './sandboxService'
 
 describe('sandboxService', () => {
   it('aceita o 202 sem corpo dos atalhos', async () => {
@@ -15,9 +20,11 @@ describe('sandboxService', () => {
 
     await expect(aprovarContaNoSandbox()).resolves.toBeUndefined()
     await expect(simularPagamentoNoSandbox('cob-1')).resolves.toBeUndefined()
+    await expect(pagarNoSandboxComoAluno('cob-2')).resolves.toBeUndefined()
     expect(chamadas).toEqual([
       '/config-pagamento/conta/sandbox/aprovar',
       '/cobrancas/cob-1/sandbox/confirmar-pagamento',
+      '/portal/aluno/cobrancas/cob-2/sandbox/pagar',
     ])
   })
 

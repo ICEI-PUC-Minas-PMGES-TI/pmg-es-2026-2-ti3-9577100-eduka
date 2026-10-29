@@ -301,4 +301,9 @@ public class PaymentRoutingService {
     public void sandboxConfirmarPagamento(UUID cobrancaId) {
         roteadorSandbox.confirmarPagamento(cobrancaId);
     }
+
+    /** ALUNO dono da cobranca: paga no Sandbox e grava o pagamento sem esperar o aviso. */
+    public void sandboxPagarComoAluno(UUID cobrancaId) {
+        roteadorSandbox.pagarComoAluno(cobrancaId);
+    }
 }

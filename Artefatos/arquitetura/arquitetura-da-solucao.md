@@ -233,6 +233,7 @@ que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o e
 | `POST` | `/config-pagamento/conta/sincronizar` (lê a situação da conta no Asaas; uma rotina faz o mesmo a cada 15 min para as que aguardam aprovação) | `MASTER` |
 | `POST` | `/config-pagamento/conta/sandbox/aprovar` (só no perfil `dev`: aprova a conta filha no Sandbox do Asaas; 202; 409 `SANDBOX_INDISPONIVEL` fora do Sandbox) | `MASTER` |
 | `POST` | `/cobrancas/{id}/sandbox/confirmar-pagamento` (só no perfil `dev`: simula no Sandbox o pagamento da cobrança emitida, que chega pelo webhook; 202; 409 `SANDBOX_INDISPONIVEL`) | `MASTER`, `FINANCEIRO` |
+| `POST` | `/portal/aluno/cobrancas/{id}/sandbox/pagar` (perfis `dev` e `demo`: o aluno paga no Sandbox a própria cobrança depois de gerar o PIX ou o boleto; o backend consulta o Asaas e grava o pagamento sem esperar o webhook; 202; 404 cobrança de outro aluno; 409 `SANDBOX_INDISPONIVEL`) | `ALUNO` |
 | `GET` | `/usuarios/secretarias` · `/usuarios/secretarias/{id}` | `MASTER` |
 | `POST` | `/usuarios/secretarias` | `MASTER` |
 | `PUT` | `/usuarios/secretarias/{id}` | `MASTER` |
