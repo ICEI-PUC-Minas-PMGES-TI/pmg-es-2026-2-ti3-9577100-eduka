@@ -95,7 +95,11 @@ export function Modal({
 
 /** Texto discreto no corpo do diálogo (ex.: "Carregando…"). */
 export function ModalAviso({ children }: { children: ReactNode }) {
-  return <p className={styles.aviso}>{children}</p>
+  return (
+    <p className={styles.aviso} role="status">
+      {children}
+    </p>
+  )
 }
 
 /** Erro de carga ou de envio, em vermelho no corpo do diálogo. */

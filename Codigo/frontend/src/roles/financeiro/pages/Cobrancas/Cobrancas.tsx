@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router'
+import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
 import { Paginacao } from '../../../../components/Paginacao/Paginacao'
 import { usePaginacao } from '../../../../hooks/usePaginacao'
-import { paths } from '../../../../routes/paths'
+import { paths, type EstadoCobrancaCriada } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
 import { listarCobrancas } from '../../../../services/cobrancaService'
 import {
@@ -35,7 +35,10 @@ function filtroDaUrl(status: string | null): FiltroCobranca {
 
 export function Cobrancas() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams] = useSearchParams()
+  // Volta da Nova cobrança com a confirmação do que foi criado.
+  const [sucesso] = useState(() => (location.state as EstadoCobrancaCriada | null)?.cobrancaCriada ?? null)
   const [cobrancas, setCobrancas] = useState<Cobranca[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
@@ -64,6 +67,11 @@ export function Cobrancas() {
 
     return () => controller.abort()
   }, [recarga])
+
+  // Descarta o estado já lido, para a confirmação não voltar ao recarregar a página.
+  useEffect(() => {
+    if (location.state) navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null })
+  }, [location.state, location.pathname, location.search, navigate])
 
   /**
    * Atalho de teste: paga a cobrança no Sandbox. Ela só vira PAGA quando o
@@ -155,13 +163,12 @@ export function Cobrancas() {
           />
         </div>
 
-        <div className={styles.filtrosPills} role="tablist" aria-label="Filtrar por status">
+        <div className={styles.filtrosPills} role="group" aria-label="Filtrar por status">
           {FILTROS.map((filtro) => (
             <button
               key={filtro}
               type="button"
-              role="tab"
-              aria-selected={filtroStatus === filtro}
+              aria-pressed={filtroStatus === filtro}
               className={`${styles.pillBtn} ${filtroStatus === filtro ? styles.pillAtivo : ''}`}
               onClick={() => setFiltroStatus(filtro)}
             >
@@ -172,10 +179,16 @@ export function Cobrancas() {
         </div>
       </div>
 
+      {sucesso && (
+        <p className={styles.sucesso} role="status">
+          {sucesso}
+        </p>
+      )}
+
       <div ref={topo} className={styles.lista}>
         {carregando ? (
           <div className={styles.vazio}>
-            <p>Carregando cobranças…</p>
+            <p role="status">Carregando cobranças…</p>
           </div>
         ) : erro ? (
           <div className={styles.vazio} role="alert">

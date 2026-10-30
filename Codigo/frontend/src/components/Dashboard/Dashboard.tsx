@@ -219,7 +219,7 @@ type EstadoDashboardProps = {
 
 /** Carregando ou erro do dashboard inteiro; nada quando os dados chegaram. */
 export function EstadoDashboard({ carregando, erro, onTentarDeNovo }: EstadoDashboardProps) {
-  if (carregando) return <div className={styles.mensagem}>Carregando o resumo…</div>
+  if (carregando) return <div className={styles.mensagem} role="status">Carregando o resumo…</div>
   if (!erro) return null
   return (
     <div className={styles.mensagem} role="alert">

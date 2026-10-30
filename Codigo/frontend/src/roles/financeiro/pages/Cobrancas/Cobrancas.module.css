@@ -149,3 +149,17 @@
   }
 }
 
+
+/* Confirmação depois de criar uma cobrança, igual às da Secretaria. */
+.sucesso {
+  margin-bottom: 24px;
+  padding: 14px 20px;
+  border: var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(145deg, rgba(220, 242, 228, 0.95), rgba(220, 242, 228, 0.7));
+  box-shadow: var(--glass-shadow-sm);
+  color: var(--color-success);
+  font-size: 14.5px;
+  font-weight: 500;
+  animation: var(--animacao-surgir);
+}

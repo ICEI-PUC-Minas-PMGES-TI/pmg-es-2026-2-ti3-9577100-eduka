@@ -130,6 +130,8 @@
   padding-bottom: 14px;
   border-bottom: 1px solid #f1f5f9;
   letter-spacing: 0.5px;
+  /* Maiúsculas só no visual: o leitor de tela lê a palavra, sem soletrar. */
+  text-transform: uppercase;
 }
 
 .thValor {
@@ -363,11 +365,21 @@
   box-shadow: 0 2px 8px rgba(147, 102, 234, 0.3);
 }
 
-.erroForm {
+.erroForm,
+.sucessoForm {
   color: #dc2626;
   font-size: 13.5px;
   font-weight: 600;
   margin: 0;
+}
+
+.sucessoForm {
+  color: var(--color-success);
+}
+
+/* Campo recusado na validação: mesma cor da mensagem de erro. */
+.input[aria-invalid='true'] {
+  border-color: #dc2626;
 }
 
 .botaoSalvar {

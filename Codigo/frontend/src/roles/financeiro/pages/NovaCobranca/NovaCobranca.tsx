@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
-import { paths } from '../../../../routes/paths'
+import { paths, type EstadoCobrancaCriada } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
 import { criarCobranca } from '../../../../services/cobrancaService'
 import { listarAlunos } from '../../../../services/matriculaService'
 import type { AlunoResumo } from '../../../../types/aluno'
+import { hojeIso } from '../../../../utils/formatters'
 import { FinanceiroLayout } from '../../layouts/FinanceiroLayout'
 import styles from './NovaCobranca.module.css'
 
@@ -13,35 +15,72 @@ type TipoCobranca = 'Mensalidade' | 'Matrícula' | 'Material' | 'Outro'
 
 const TIPOS_COBRANCA: TipoCobranca[] = ['Mensalidade', 'Matrícula', 'Material', 'Outro']
 
+/** Cartões de aluno exibidos de uma vez; os demais aparecem pela busca. */
+const LIMITE_ALUNOS = 12
+
+/** Campo que a validação recusou, com o id do controle que recebe o foco. */
+type CampoCobranca = 'aluno' | 'valor' | 'vencimento' | 'descricao'
+
+const IDS: Record<CampoCobranca, string> = {
+  aluno: 'buscaAlunoInput',
+  valor: 'valorInput',
+  vencimento: 'vencimentoInput',
+  descricao: 'descricaoInput',
+}
+
+const ERRO_ID = 'erroNovaCobranca'
+
+/** Descrição sugerida para o tipo, com o mês e o ano de hoje. */
+function descricaoSugerida(tipo: TipoCobranca): string {
+  const [ano, mes] = hojeIso().split('-').map(Number)
+  switch (tipo) {
+    case 'Mensalidade': {
+      const nomeMes = new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long' })
+      return `Mensalidade de ${nomeMes} de ${ano}`
+    }
+    case 'Matrícula':
+      return `Taxa de matrícula ${ano}`
+    case 'Material':
+      return `Material didático ${ano}`
+    case 'Outro':
+      return 'Outras taxas e serviços escolares'
+  }
+}
+
 export function NovaCobranca() {
   const navigate = useNavigate()
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [alunos, setAlunos] = useState<AlunoResumo[]>([])
   const [carregandoAlunos, setCarregandoAlunos] = useState(true)
+  const [erroAlunos, setErroAlunos] = useState<string | null>(null)
+  // Cada incremento busca a lista de alunos de novo ("Tentar novamente").
+  const [tentativaAlunos, setTentativaAlunos] = useState(0)
   const [buscaAluno, setBuscaAluno] = useState('')
   const [alunoSelecionadoId, setAlunoSelecionadoId] = useState<string | null>(null)
   const [tipoCobranca, setTipoCobranca] = useState<TipoCobranca>('Mensalidade')
-  const [valor, setValor] = useState('890,00')
-  const [dataVencimento, setDataVencimento] = useState('2026-10-10')
-  const [descricao, setDescricao] = useState('Mensalidade de outubro de 2026')
-  const [arquivoBoleto, setArquivoBoleto] = useState<File | null>(null)
-  const [arrastandoArquivo, setArrastandoArquivo] = useState(false)
+  const [valor, setValor] = useState('')
+  const [dataVencimento, setDataVencimento] = useState('')
+  const [descricao, setDescricao] = useState(() => descricaoSugerida('Mensalidade'))
+  // Depois que o usuário escreve a própria descrição, trocar o tipo não a apaga.
+  const [descricaoPersonalizada, setDescricaoPersonalizada] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [campoInvalido, setCampoInvalido] = useState<CampoCobranca | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
+    setCarregandoAlunos(true)
+    setErroAlunos(null)
     listarAlunos(controller.signal)
       .then(setAlunos)
       .catch(() => {
-        if (!controller.signal.aborted) setErro('Não foi possível carregar os alunos da escola.')
+        if (!controller.signal.aborted) setErroAlunos('Não foi possível carregar os alunos da escola.')
       })
       .finally(() => {
         if (!controller.signal.aborted) setCarregandoAlunos(false)
       })
     return () => controller.abort()
-  }, [])
+  }, [tentativaAlunos])
 
   const alunosFiltrados = useMemo(() => {
     const termo = buscaAluno.trim().toLowerCase()
@@ -50,61 +89,50 @@ export function NovaCobranca() {
       (a) => a.nome.toLowerCase().includes(termo) || a.matricula.toLowerCase().includes(termo),
     )
   }, [alunos, buscaAluno])
+  const alunosVisiveis = alunosFiltrados.slice(0, LIMITE_ALUNOS)
 
   const alunoSelecionado = useMemo(
     () => alunos.find((a) => a.id === alunoSelecionadoId) ?? null,
     [alunos, alunoSelecionadoId],
   )
 
+  /** Mostra o erro, marca o campo e leva o foco até ele. */
+  function recusar(campo: CampoCobranca, mensagem: string) {
+    setErro(mensagem)
+    setCampoInvalido(campo)
+    document.getElementById(IDS[campo])?.focus()
+  }
+
+  /** Ao corrigir o campo recusado, a mensagem sai. */
+  function corrigiu(campo: CampoCobranca) {
+    if (campoInvalido !== campo) return
+    setErro(null)
+    setCampoInvalido(null)
+  }
+
+  /** Atributos de acessibilidade do controle, conforme a validação. */
+  function invalidez(campo: CampoCobranca) {
+    const invalido = campoInvalido === campo
+    return { 'aria-invalid': invalido, 'aria-describedby': invalido ? ERRO_ID : undefined }
+  }
+
+  function handleSelecionarAluno(id: string) {
+    setAlunoSelecionadoId(id)
+    corrigiu('aluno')
+  }
+
   function handleSelecionarTipo(tipo: TipoCobranca) {
     setTipoCobranca(tipo)
-    // Atualiza automaticamente a descrição sugerida caso o usuário não tenha personalizado
-    if (tipo === 'Mensalidade') {
-      setDescricao('Mensalidade de outubro de 2026')
-      setValor('890,00')
-    } else if (tipo === 'Matrícula') {
-      setDescricao('Taxa de matrícula 2026')
-      setValor('350,00')
-    } else if (tipo === 'Material') {
-      setDescricao('Material didático 2026')
-      setValor('450,00')
-    } else {
-      setDescricao('Outras taxas e serviços escolares')
-    }
-  }
-
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (file) {
-      setArquivoBoleto(file)
-    }
-  }
-
-  function handleDragOver(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    setArrastandoArquivo(true)
-  }
-
-  function handleDragLeave(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    setArrastandoArquivo(false)
-  }
-
-  function handleDrop(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    setArrastandoArquivo(false)
-    const file = e.dataTransfer.files?.[0]
-    if (file && (file.type === 'application/pdf' || file.name.endsWith('.pdf'))) {
-      setArquivoBoleto(file)
-    }
+    if (!descricaoPersonalizada) setDescricao(descricaoSugerida(tipo))
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setErro(null)
+    setCampoInvalido(null)
 
     if (!alunoSelecionado) {
-      setErro('Por favor, selecione um aluno.')
+      recusar('aluno', 'Selecione o aluno que vai receber a cobrança.')
       return
     }
 
@@ -112,17 +140,17 @@ export function NovaCobranca() {
     const valorNumerico = parseFloat(valorLimpo)
 
     if (isNaN(valorNumerico) || valorNumerico <= 0) {
-      setErro('Informe um valor monetário válido.')
+      recusar('valor', 'Informe um valor maior que zero (ex.: 890,00).')
       return
     }
 
     if (!dataVencimento) {
-      setErro('Informe a data de vencimento.')
+      recusar('vencimento', 'Informe a data de vencimento.')
       return
     }
 
     if (!descricao.trim()) {
-      setErro('Informe a descrição da cobrança.')
+      recusar('descricao', 'Informe a descrição da cobrança.')
       return
     }
 
@@ -135,14 +163,16 @@ export function NovaCobranca() {
         descricao: descricao.trim(),
       })
 
-      navigate(paths.financeiro.cobrancas)
+      const estado: EstadoCobrancaCriada = {
+        cobrancaCriada: `Cobrança "${descricao.trim()}" criada para ${alunoSelecionado.nome}.`,
+      }
+      navigate(paths.financeiro.cobrancas, { state: estado })
     } catch (e) {
       setErro(
         e instanceof ApiError
           ? (e.detalhe ?? e.message)
           : 'Ocorreu um erro ao gerar a cobrança. Tente novamente.',
       )
-    } finally {
       setIsSubmitting(false)
     }
   }
@@ -158,53 +188,93 @@ export function NovaCobranca() {
         </Link>
       }
     >
-      <form onSubmit={handleSubmit} className={styles.container}>
+      <form onSubmit={handleSubmit} className={styles.container} noValidate>
         {/* Seção 1: Aluno */}
         <section className={styles.secao}>
-          <h2 className={styles.secaoTitulo}>Aluno</h2>
+          <h2 id="tituloAluno" className={styles.secaoTitulo}>
+            Aluno
+          </h2>
           <div className={styles.buscaWrapper}>
             <Icon name="search" size={18} className={styles.buscaIcone} />
             <input
+              id={IDS.aluno}
               type="text"
               className={styles.buscaInput}
               placeholder="Procurar pelo nome ou pela matrícula"
+              aria-label="Procurar aluno pelo nome ou pela matrícula"
               value={buscaAluno}
               onChange={(e) => setBuscaAluno(e.target.value)}
+              {...invalidez('aluno')}
             />
           </div>
 
-          <div className={styles.alunosGrid}>
-            {carregandoAlunos && <p className={styles.helperBoleto}>Carregando alunos…</p>}
-            {!carregandoAlunos && alunosFiltrados.length === 0 && (
-              <p className={styles.helperBoleto}>Nenhum aluno encontrado.</p>
-            )}
-            {alunosFiltrados.map((aluno) => {
-              const ativo = alunoSelecionado?.id === aluno.id
-              return (
-                <button
-                  key={aluno.id}
-                  type="button"
-                  className={`${styles.alunoCard} ${ativo ? styles.alunoCardAtivo : ''}`}
-                  onClick={() => setAlunoSelecionadoId(aluno.id)}
-                >
-                  <span className={styles.alunoNome}>{aluno.nome}</span>
-                  <span className={styles.alunoDetalhe}>Matrícula {aluno.matricula}</span>
-                </button>
-              )
-            })}
-          </div>
+          {alunoSelecionado && (
+            <p className={styles.helperBoleto} aria-live="polite">
+              Aluno selecionado: <strong>{alunoSelecionado.nome}</strong> · Matrícula {alunoSelecionado.matricula}
+            </p>
+          )}
+
+          {carregandoAlunos && (
+            <p className={styles.helperBoleto} role="status">
+              Carregando alunos…
+            </p>
+          )}
+
+          {!carregandoAlunos && erroAlunos && (
+            <div className={styles.avisoAlunos} role="alert">
+              <span className={styles.mensagemErro}>{erroAlunos}</span>
+              <Button size="sm" onClick={() => setTentativaAlunos((n) => n + 1)}>
+                Tentar novamente
+              </Button>
+            </div>
+          )}
+
+          {!carregandoAlunos && !erroAlunos && (
+            <>
+              <div className={styles.alunosGrid} role="group" aria-labelledby="tituloAluno">
+                {alunosVisiveis.map((aluno) => {
+                  const ativo = alunoSelecionado?.id === aluno.id
+                  return (
+                    <button
+                      key={aluno.id}
+                      type="button"
+                      aria-pressed={ativo}
+                      className={`${styles.alunoCard} ${ativo ? styles.alunoCardAtivo : ''}`}
+                      onClick={() => handleSelecionarAluno(aluno.id)}
+                    >
+                      <span className={styles.alunoNome}>{aluno.nome}</span>
+                      <span className={styles.alunoDetalhe}>Matrícula {aluno.matricula}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              {alunos.length === 0 && <p className={styles.helperBoleto}>Nenhum aluno cadastrado na escola.</p>}
+              {alunos.length > 0 && alunosFiltrados.length === 0 && (
+                <p className={styles.helperBoleto}>Nenhum aluno encontrado para a busca.</p>
+              )}
+              {alunosFiltrados.length > LIMITE_ALUNOS && (
+                <p className={styles.helperBoleto}>
+                  Mostrando {LIMITE_ALUNOS} de {alunosFiltrados.length} alunos. Procure pelo nome ou pela
+                  matrícula para encontrar os demais.
+                </p>
+              )}
+            </>
+          )}
         </section>
 
         {/* Seção 2: Tipo de cobrança */}
         <section className={styles.secao}>
-          <h2 className={styles.secaoTitulo}>Tipo de cobrança</h2>
-          <div className={styles.tiposGrid}>
+          <h2 id="tituloTipo" className={styles.secaoTitulo}>
+            Tipo de cobrança
+          </h2>
+          <div className={styles.tiposGrid} role="group" aria-labelledby="tituloTipo">
             {TIPOS_COBRANCA.map((tipo) => {
               const ativo = tipoCobranca === tipo
               return (
                 <button
                   key={tipo}
                   type="button"
+                  aria-pressed={ativo}
                   className={`${styles.tipoBotao} ${ativo ? styles.tipoBotaoAtivo : ''}`}
                   onClick={() => handleSelecionarTipo(tipo)}
                 >
@@ -218,108 +288,87 @@ export function NovaCobranca() {
         {/* Seção 3: Valor e Vencimento */}
         <div className={styles.linhaDupla}>
           <section className={styles.secao}>
-            <label htmlFor="valorInput" className={styles.secaoTitulo}>
+            <label htmlFor={IDS.valor} className={styles.secaoTitulo}>
               Valor
             </label>
             <div className={styles.inputMoedaWrapper}>
               <span className={styles.cifrao}>R$</span>
               <input
-                id="valorInput"
+                id={IDS.valor}
                 type="text"
+                inputMode="decimal"
                 className={styles.inputMoeda}
                 value={valor}
-                onChange={(e) => setValor(e.target.value.replace(/^R\$\s*/, ''))}
+                onChange={(e) => {
+                  setValor(e.target.value.replace(/^R\$\s*/, ''))
+                  corrigiu('valor')
+                }}
                 placeholder="0,00"
                 required
+                {...invalidez('valor')}
               />
             </div>
           </section>
 
           <section className={styles.secao}>
-            <label htmlFor="vencimentoInput" className={styles.secaoTitulo}>
+            <label htmlFor={IDS.vencimento} className={styles.secaoTitulo}>
               Vencimento
             </label>
             <input
-              id="vencimentoInput"
+              id={IDS.vencimento}
               type="date"
               className={styles.inputPadrao}
               value={dataVencimento}
-              onChange={(e) => setDataVencimento(e.target.value)}
+              onChange={(e) => {
+                setDataVencimento(e.target.value)
+                corrigiu('vencimento')
+              }}
               required
+              {...invalidez('vencimento')}
             />
           </section>
         </div>
 
         {/* Seção 4: Descrição */}
         <section className={styles.secao}>
-          <label htmlFor="descricaoInput" className={styles.secaoTitulo}>
+          <label htmlFor={IDS.descricao} className={styles.secaoTitulo}>
             Descrição
           </label>
           <input
-            id="descricaoInput"
+            id={IDS.descricao}
             type="text"
             className={styles.inputPadrao}
             value={descricao}
-            onChange={(e) => setDescricao(e.target.value)}
+            onChange={(e) => {
+              setDescricao(e.target.value)
+              setDescricaoPersonalizada(e.target.value.trim() !== '')
+              corrigiu('descricao')
+            }}
             placeholder="Ex: Mensalidade de outubro de 2026"
             required
+            {...invalidez('descricao')}
           />
         </section>
 
-        {/* Seção 5: Boleto (pode anexar depois) */}
+        {/* Seção 5: Boleto. O envio do PDF ainda não existe no backend. */}
         <section className={styles.secao}>
-          <span className={styles.secaoTitulo}>Boleto (pode anexar depois)</span>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/pdf"
-            style={{ display: 'none' }}
-            onChange={handleFileChange}
-          />
-          <div
-            className={`${styles.dropzone} ${arrastandoArquivo ? styles.dropzoneArrastando : ''}`}
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                fileInputRef.current?.click()
-              }
-            }}
-          >
-            {arquivoBoleto ? (
-              <div className={styles.dropzoneArquivo}>
-                <Icon name="fileText" size={20} />
-                <span className={styles.nomeArquivo}>{arquivoBoleto.name}</span>
-                <button
-                  type="button"
-                  className={styles.botaoRemoverArquivo}
-                  title="Remover anexo"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setArquivoBoleto(null)
-                    if (fileInputRef.current) fileInputRef.current.value = ''
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-            ) : (
-              <div className={styles.dropzoneConteudo}>
-                <Icon name="download" size={20} />
-                <span>Escolher o arquivo do boleto (PDF)</span>
-              </div>
-            )}
+          <span className={styles.secaoTitulo}>Boleto</span>
+          <div className={`${styles.dropzone} ${styles.dropzoneEmBreve}`}>
+            <div className={styles.dropzoneConteudo}>
+              <Icon name="download" size={20} />
+              <span>Anexar o PDF do boleto: em breve</span>
+            </div>
           </div>
           <p className={styles.helperBoleto}>
-            O aluno baixa esse arquivo na tela Pagamentos.
+            Por enquanto a cobrança é criada sem arquivo. O aluno paga com PIX ou boleto gerado na tela Pagamentos.
           </p>
         </section>
 
-        {erro && <p className={styles.mensagemErro}>{erro}</p>}
+        {erro && (
+          <p id={ERRO_ID} className={styles.mensagemErro} role="alert">
+            {erro}
+          </p>
+        )}
 
         {/* Rodapé: Ações */}
         <div className={styles.acoesFormulario}>
@@ -331,11 +380,7 @@ export function NovaCobranca() {
           >
             Cancelar
           </button>
-          <button
-            type="submit"
-            className={styles.botaoCriar}
-            disabled={isSubmitting || !alunoSelecionado}
-          >
+          <button type="submit" className={styles.botaoCriar} disabled={isSubmitting}>
             {isSubmitting ? 'Criando…' : 'Criar cobrança'}
           </button>
         </div>
@@ -343,4 +388,3 @@ export function NovaCobranca() {
     </FinanceiroLayout>
   )
 }
-

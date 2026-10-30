@@ -255,6 +255,12 @@
 }
 
 @media (max-width: 640px) {
+  /* Sem hover no toque, o "Em breve" não aparece: no celular o item sem
+     página só ocuparia espaço. */
+  .item:disabled {
+    display: none;
+  }
+
   .item {
     padding: 11px 14px;
   }
@@ -265,5 +271,17 @@
 
   .active span {
     display: inline;
+  }
+}
+
+/* Celulares de 360-400px: cinco itens com o ativo rotulado (ex.: "Professores")
+   não cabem com o respiro padrão e a pílula passaria da tela. */
+@media (max-width: 400px) {
+  .nav {
+    gap: 2px;
+  }
+
+  .item {
+    padding: 11px 10px;
   }
 }

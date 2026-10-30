@@ -94,7 +94,7 @@ export function Pagamentos() {
 
   return (
     <AlunoLayout titulo="Pagamentos" subtitulo="Suas mensalidades e taxas. Pague com PIX ou boleto sem sair do Eduka.">
-      {carregando && <div className={styles.mensagem}>Carregando seus pagamentos…</div>}
+      {carregando && <div className={styles.mensagem} role="status">Carregando seus pagamentos…</div>}
 
       {!carregando && erro && (
         <div className={styles.mensagem} role="alert">

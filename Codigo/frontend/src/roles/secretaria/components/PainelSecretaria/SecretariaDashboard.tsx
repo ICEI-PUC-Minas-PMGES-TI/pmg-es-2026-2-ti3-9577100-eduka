@@ -67,7 +67,7 @@ export function SecretariaDashboard() {
       </div>
 
       <section id="painel-academico" role="tabpanel" aria-labelledby={`aba-${aba}`} className={styles.painel}>
-        {estrutura.carregando && <p className={styles.estado}>Carregando a estrutura acadêmica…</p>}
+        {estrutura.carregando && <p className={styles.estado} role="status">Carregando a estrutura acadêmica…</p>}
 
         {!estrutura.carregando && estrutura.erro && (
           <div className={styles.estado}>

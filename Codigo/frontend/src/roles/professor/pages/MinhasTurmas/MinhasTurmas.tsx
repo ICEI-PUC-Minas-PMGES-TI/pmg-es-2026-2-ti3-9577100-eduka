@@ -96,7 +96,7 @@ export function MinhasTurmas() {
         </>
       )}
 
-      {carregando && <div className={styles.mensagem}>Carregando suas turmas…</div>}
+      {carregando && <div className={styles.mensagem} role="status">Carregando suas turmas…</div>}
 
       {!carregando && erro && (
         <div className={styles.mensagem} role="alert">

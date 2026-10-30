@@ -73,7 +73,7 @@ describe('Cobrancas', () => {
     await userEvent.click(await screen.findByRole('button', { name: /próxima/i }))
     expect(screen.getByText('Página 2 de 2')).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('tab', { name: /pagas/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^pagas/i }))
     expect(screen.getByText('Aluno 13')).toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: /páginas/i })).not.toBeInTheDocument()
   })

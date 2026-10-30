@@ -41,14 +41,14 @@ export function ModalBoleto({ cobranca, onFechar }: ModalBoletoProps) {
       tamanho="medio"
       onFechar={onFechar}
       rodape={
-        <div className={styles.rodapeBotoes}>
+        <>
           <Button variant="outline" onClick={handleImprimir}>
             Imprimir / Salvar PDF
           </Button>
           <Button variant="primary" onClick={onFechar}>
             Fechar
           </Button>
-        </div>
+        </>
       }
     >
       <div className={styles.container}>

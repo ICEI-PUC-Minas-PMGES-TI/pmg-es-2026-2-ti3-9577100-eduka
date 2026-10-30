@@ -39,9 +39,14 @@ export function usePopoverFlutuante<A extends HTMLElement, P extends HTMLElement
       const acima = r.top - ESPACO
       const paraCima = abaixo < alturaMinimaAbaixo && acima > abaixo
       const disponivel = Math.max(paraCima ? acima : abaixo, 120) - MARGEM_TELA
+      // Popover mais largo que o campo (ex.: o calendário) perto da borda
+      // direita: desliza para a esquerda até caber, em vez de ficar cortado.
+      const largura = Math.max(popoverRef.current?.offsetWidth ?? 0, r.width)
+      const limiteDireita = window.innerWidth - largura - MARGEM_TELA
       setEstilo({
-        left: r.left,
+        left: Math.max(MARGEM_TELA, Math.min(r.left, limiteDireita)),
         minWidth: r.width,
+        maxWidth: window.innerWidth - 2 * MARGEM_TELA,
         ...(alturaMaxima !== undefined && { maxHeight: Math.min(alturaMaxima, disponivel) }),
         ...(paraCima ? { bottom: window.innerHeight - r.top + ESPACO } : { top: r.bottom + ESPACO }),
       })

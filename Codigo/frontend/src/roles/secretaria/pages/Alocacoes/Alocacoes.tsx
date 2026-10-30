@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useBlocker } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { Medidor } from '../../../../components/Dashboard/Dashboard'
+import { Modal } from '../../../../components/Modal/Modal'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
+import { obterToken } from '../../../../services/authService'
 import type { Turma } from '../../../../types/alocacao'
 import { GradeAlocacao } from '../../components/GradeAlocacao/GradeAlocacao'
 import type { OpcaoProfessor } from '../../components/SeletorProfessor/SeletorProfessor'
@@ -81,6 +84,21 @@ export function Alocacoes() {
   )
   const mudancas = disciplinas.filter((d) => escolhas[d.id] !== (gravadas.get(d.id)?.id ?? '')).length
 
+  // Escolhas não salvas em qualquer turma: pede confirmação antes de sair da
+  // tela, como o diário de notas do professor. O "Sair" da conta já apagou a
+  // sessão antes de navegar: esse não é bloqueado, ou a tela ficaria sem sessão.
+  const pendente = turmasComRascunho.size > 0
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      pendente && obterToken() !== null && currentLocation.pathname !== nextLocation.pathname,
+  )
+  useEffect(() => {
+    if (!pendente) return
+    const avisar = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', avisar)
+    return () => window.removeEventListener('beforeunload', avisar)
+  }, [pendente])
+
   function limparAvisos() {
     setSucesso(null)
     setErroAcao(null)
@@ -140,7 +158,7 @@ export function Alocacoes() {
       titulo="Alocação de professores"
       subtitulo="Escolha a turma e defina quem dá cada disciplina."
     >
-      {carregando && <p className={styles.estado}>Carregando turmas e professores…</p>}
+      {carregando && <p className={styles.estado} role="status">Carregando turmas e professores…</p>}
 
       {!carregando && erro && (
         <div className={styles.estado}>
@@ -215,6 +233,26 @@ export function Alocacoes() {
           </div>
         </div>
         </>
+      )}
+
+      {blocker.state === 'blocked' && (
+        <Modal
+          titulo="Sair sem salvar?"
+          tamanho="pequeno"
+          onFechar={() => blocker.reset()}
+          rodape={
+            <>
+              <Button onClick={() => blocker.reset()}>Continuar editando</Button>
+              <Button variant="danger" onClick={() => blocker.proceed()}>
+                Sair sem salvar
+              </Button>
+            </>
+          }
+        >
+          <p className={styles.avisoSaida}>
+            Há professores escolhidos que ainda não foram salvos e essas escolhas serão perdidas.
+          </p>
+        </Modal>
       )}
     </SecretariaLayout>
   )

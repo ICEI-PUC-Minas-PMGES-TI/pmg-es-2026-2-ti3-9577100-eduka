@@ -96,7 +96,7 @@ export function Matriculas() {
 
   return (
     <SecretariaLayout titulo="Matrículas" subtitulo="Coloque os alunos nas turmas do período letivo.">
-      {carregando && <p className={styles.estado}>Carregando turmas, alunos e matrículas…</p>}
+      {carregando && <p className={styles.estado} role="status">Carregando turmas, alunos e matrículas…</p>}
 
       {!carregando && erro && (
         <div className={styles.estado}>

@@ -78,6 +78,9 @@ export const paths = {
  */
 export type EstadoAbrirCadastro = { abrirCadastro: true }
 
+/** Volta de Nova cobrança para Cobranças com a confirmação do que foi criado. */
+export type EstadoCobrancaCriada = { cobrancaCriada: string }
+
 // Para onde cada perfil vai depois do login, ou quando tenta abrir a área de
 // outro perfil.
 export const rotaInicialPorPerfil: Record<PerfilUsuario, string> = {

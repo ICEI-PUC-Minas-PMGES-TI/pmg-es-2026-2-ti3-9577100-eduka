@@ -80,7 +80,7 @@ function Notas() {
 
   return (
     <>
-      {carregando && <div className={styles.mensagem}>Carregando seu boletim…</div>}
+      {carregando && <div className={styles.mensagem} role="status">Carregando seu boletim…</div>}
 
       {!carregando && erro && (
         <div className={styles.mensagem} role="alert">

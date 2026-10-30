@@ -5,6 +5,7 @@ import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/Conf
 import { Modal } from '../../../../components/Modal/Modal'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
 import type { EstadoAbrirCadastro } from '../../../../routes/paths'
+import { obterToken } from '../../../../services/authService'
 import {
   atualizarAvaliacao,
   cadastrarAvaliacao,
@@ -94,8 +95,11 @@ export function Notas() {
 
   // Alterações não salvas no diário: pede confirmação antes de perdê-las.
   const [pendente, setPendente] = useState(false)
+  // O "Sair" da conta já apagou a sessão antes de navegar: esse não é
+  // bloqueado, ou "Continuar editando" deixaria a tela sem sessão.
   const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) => pendente && currentLocation.pathname !== nextLocation.pathname,
+    ({ currentLocation, nextLocation }) =>
+      pendente && obterToken() !== null && currentLocation.pathname !== nextLocation.pathname,
   )
   // Troca de turma ou de avaliação esperando o "Sair sem salvar".
   const [aoDescartar, setAoDescartar] = useState<(() => void) | null>(null)
@@ -171,7 +175,7 @@ export function Notas() {
         </p>
       )}
 
-      {avaliacoes.carregando && <div className={styles.mensagem}>Carregando as avaliações…</div>}
+      {avaliacoes.carregando && <div className={styles.mensagem} role="status">Carregando as avaliações…</div>}
 
       {!avaliacoes.carregando && avaliacoes.erro && (
         <div className={styles.mensagem} role="alert">
@@ -215,7 +219,7 @@ export function Notas() {
           </section>
 
           <div className={styles.diario}>
-            {notas.carregando && <div className={styles.mensagem}>Carregando os alunos…</div>}
+            {notas.carregando && <div className={styles.mensagem} role="status">Carregando os alunos…</div>}
 
             {!notas.carregando && notas.erro && (
               <div className={styles.mensagem} role="alert">
