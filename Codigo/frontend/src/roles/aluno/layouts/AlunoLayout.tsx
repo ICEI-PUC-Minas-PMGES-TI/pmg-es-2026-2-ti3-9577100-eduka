@@ -2,8 +2,8 @@ import type { ReactNode } from 'react'
 import { PainelLayout, type ItemMenu } from '../../../components/PainelLayout/PainelLayout'
 import { paths } from '../../../routes/paths'
 
-// O Início chega numa sprint futura.
 const MENU: ItemMenu[] = [
+  // Em breve: o Início chega numa sprint futura.
   { label: 'Início', icon: 'home' },
   { label: 'Boletim', icon: 'book', to: paths.aluno.boletim },
   { label: 'Pagamentos', icon: 'card', to: paths.aluno.pagamentos },

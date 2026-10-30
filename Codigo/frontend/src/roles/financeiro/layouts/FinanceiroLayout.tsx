@@ -6,6 +6,7 @@ const MENU: ItemMenu[] = [
   { label: 'Início', icon: 'home', to: paths.financeiro.inicio },
   { label: 'Cobranças', icon: 'card', to: paths.financeiro.cobrancas },
   { label: 'Despesas', icon: 'dollarSign', to: paths.financeiro.despesas },
+  // Em breve: ainda sem página.
   { label: 'Relatórios', icon: 'barChart' },
   { label: 'Alunos', icon: 'users' },
 ]

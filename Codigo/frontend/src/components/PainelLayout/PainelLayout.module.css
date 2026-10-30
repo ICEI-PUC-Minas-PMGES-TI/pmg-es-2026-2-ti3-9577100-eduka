@@ -257,7 +257,7 @@
 @media (max-width: 640px) {
   /* Sem hover no toque, o "Em breve" não aparece: no celular o item sem
      página só ocuparia espaço. */
-  .item:disabled {
+  .nav > :has(> .item:disabled) {
     display: none;
   }
 

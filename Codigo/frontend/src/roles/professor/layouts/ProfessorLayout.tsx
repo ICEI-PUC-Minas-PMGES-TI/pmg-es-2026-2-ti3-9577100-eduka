@@ -6,7 +6,7 @@ const MENU: ItemMenu[] = [
   { label: 'Início', icon: 'home', to: paths.professor.inicio },
   { label: 'Minhas turmas', icon: 'users', to: paths.professor.turmas },
   { label: 'Notas', icon: 'list', to: paths.professor.notas },
-  // Precisa de um endpoint de dados do próprio professor, que ainda não existe.
+  // Em breve: precisa de um endpoint de dados do próprio professor, que ainda não existe.
   { label: 'Meu perfil', icon: 'user' },
 ]
 

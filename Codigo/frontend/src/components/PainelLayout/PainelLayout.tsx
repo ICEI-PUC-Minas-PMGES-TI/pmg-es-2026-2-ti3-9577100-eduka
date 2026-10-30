@@ -14,6 +14,10 @@ import styles from './PainelLayout.module.css'
 export type ItemMenu = {
   label: string
   icon: IconName
+  /**
+   * Página do item. Sem ela, o item aparece apagado com a dica "Em breve",
+   * marcando o que ainda falta implementar (no celular, some por inteiro).
+   */
   to?: string
 }
 
