@@ -247,6 +247,7 @@ export function Alunos() {
 
       <AlunosTable
         alunos={visiveis}
+        reiniciarCom={`${busca}|${filtro}`}
         situacoes={matriculas.carregando || matriculas.erro ? new Map() : situacoes}
         carregando={carregando}
         erro={erro}

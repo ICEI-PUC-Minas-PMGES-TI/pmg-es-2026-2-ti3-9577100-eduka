@@ -12,6 +12,11 @@ if (typeof HTMLDialogElement !== 'undefined' && !HTMLDialogElement.prototype.sho
   }
 }
 
+// O jsdom não tem scrollIntoView; trocar de página (Paginacao) rola até o topo da lista.
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function scrollIntoView() {}
+}
+
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()

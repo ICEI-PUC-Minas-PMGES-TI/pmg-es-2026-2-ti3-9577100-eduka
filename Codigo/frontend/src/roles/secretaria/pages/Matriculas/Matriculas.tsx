@@ -208,6 +208,7 @@ export function Matriculas() {
 
             <MatriculasTable
               matriculas={visiveis}
+              reiniciarCom={`${turma.id}|${filtro}`}
               mensagemVazia={
                 daTurma.length === 0
                   ? 'Nenhum aluno matriculado nesta turma ainda.'

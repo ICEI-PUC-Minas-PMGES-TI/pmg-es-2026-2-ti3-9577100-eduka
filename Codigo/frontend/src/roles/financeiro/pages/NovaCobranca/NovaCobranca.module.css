@@ -66,6 +66,8 @@
 
 .buscaIcone {
   position: absolute;
+  /* O backdrop-filter do campo cria um contexto de empilhamento: sem z-index, o campo cobre a lupa. */
+  z-index: 1;
   left: 14px;
   color: #94a3b8;
   pointer-events: none;

@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
+import { Paginacao } from '../../../../components/Paginacao/Paginacao'
+import { usePaginacao } from '../../../../hooks/usePaginacao'
 import { paths } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
 import { listarCobrancas } from '../../../../services/cobrancaService'
@@ -26,9 +28,6 @@ const ROTULOS_FILTRO: Record<FiltroCobranca, string> = {
   PAGA: 'Pagas',
 }
 
-/** Cobranças por página da lista. */
-const POR_PAGINA = 10
-
 /** O ?status= da URL (atalho do Início), ou Todas. */
 function filtroDaUrl(status: string | null): FiltroCobranca {
   return FILTROS.find((filtro) => filtro === status) ?? 'TODAS'
@@ -43,8 +42,6 @@ export function Cobrancas() {
   const [idAberto, setIdAberto] = useState<string | null>(null)
   const [termoBusca, setTermoBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<FiltroCobranca>(() => filtroDaUrl(searchParams.get('status')))
-  const [pagina, setPagina] = useState(1)
-  const topoDaLista = useRef<HTMLDivElement>(null)
   const [boletoModalCobranca, setBoletoModalCobranca] = useState<Cobranca | null>(null)
   const [simulando, setSimulando] = useState(false)
   const [mensagemSandbox, setMensagemSandbox] = useState<MensagemSandbox | null>(null)
@@ -103,22 +100,6 @@ export function Cobrancas() {
     setMensagemSandbox(null)
   }
 
-  // Busca ou filtro novo: volta à primeira página.
-  function buscar(termo: string) {
-    setTermoBusca(termo)
-    setPagina(1)
-  }
-
-  function filtrar(filtro: FiltroCobranca) {
-    setFiltroStatus(filtro)
-    setPagina(1)
-  }
-
-  function irParaPagina(nova: number) {
-    setPagina(nova)
-    topoDaLista.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-
   // Contadores dinâmicos para as pílulas de filtro
   const contadores = useMemo<Record<FiltroCobranca, number>>(() => {
     return {
@@ -141,11 +122,8 @@ export function Cobrancas() {
     })
   }, [cobrancas, termoBusca, filtroStatus])
 
-  // A recarga pode encolher a lista: a página nunca passa da última.
-  const totalPaginas = Math.max(1, Math.ceil(cobrancasFiltradas.length / POR_PAGINA))
-  const paginaAtual = Math.min(pagina, totalPaginas)
-  const inicio = (paginaAtual - 1) * POR_PAGINA
-  const cobrancasDaPagina = cobrancasFiltradas.slice(inicio, inicio + POR_PAGINA)
+  // Busca ou filtro novo: volta à primeira página.
+  const { paginacao, topo } = usePaginacao(cobrancasFiltradas, { reiniciarCom: `${termoBusca}|${filtroStatus}` })
 
   return (
     <FinanceiroLayout
@@ -173,7 +151,7 @@ export function Cobrancas() {
             placeholder="Procurar pelo nome do aluno"
             aria-label="Procurar pelo nome do aluno"
             value={termoBusca}
-            onChange={(e) => buscar(e.target.value)}
+            onChange={(e) => setTermoBusca(e.target.value)}
           />
         </div>
 
@@ -185,7 +163,7 @@ export function Cobrancas() {
               role="tab"
               aria-selected={filtroStatus === filtro}
               className={`${styles.pillBtn} ${filtroStatus === filtro ? styles.pillAtivo : ''}`}
-              onClick={() => filtrar(filtro)}
+              onClick={() => setFiltroStatus(filtro)}
             >
               {ROTULOS_FILTRO[filtro]}
               <span className={styles.badge}>{contadores[filtro]}</span>
@@ -194,7 +172,7 @@ export function Cobrancas() {
         </div>
       </div>
 
-      <div ref={topoDaLista} className={styles.lista}>
+      <div ref={topo} className={styles.lista}>
         {carregando ? (
           <div className={styles.vazio}>
             <p>Carregando cobranças…</p>
@@ -210,7 +188,7 @@ export function Cobrancas() {
             <p>Nenhuma cobrança encontrada para este filtro.</p>
           </div>
         ) : (
-          cobrancasDaPagina.map((c) => (
+          paginacao.itensDaPagina.map((c) => (
             <CobrancaCard key={c.id} cobranca={c} aberta={idAberto === c.id} onAlternar={() => alternar(c.id)}>
               <CobrancaDetalhe
                 cobranca={c}
@@ -224,36 +202,7 @@ export function Cobrancas() {
         )}
       </div>
 
-      {!carregando && !erro && cobrancasFiltradas.length > POR_PAGINA && (
-        <nav className={styles.paginacao} aria-label="Páginas das cobranças">
-          <span className={styles.paginacaoResumo}>
-            {inicio + 1}–{inicio + cobrancasDaPagina.length} de {cobrancasFiltradas.length}
-          </span>
-          <div className={styles.paginacaoBotoes}>
-            <Button
-              variant="outline"
-              size="sm"
-              icon="chevronLeft"
-              onClick={() => irParaPagina(paginaAtual - 1)}
-              disabled={paginaAtual === 1}
-            >
-              Anterior
-            </Button>
-            <span className={styles.paginacaoAtual} aria-current="page">
-              Página {paginaAtual} de {totalPaginas}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => irParaPagina(paginaAtual + 1)}
-              disabled={paginaAtual === totalPaginas}
-            >
-              Próxima
-              <Icon name="chevronRight" size={16} />
-            </Button>
-          </div>
-        </nav>
-      )}
+      {!carregando && !erro && <Paginacao paginacao={paginacao} rotulo="Páginas das cobranças" />}
 
       {/* Modais */}
       <ModalBoleto

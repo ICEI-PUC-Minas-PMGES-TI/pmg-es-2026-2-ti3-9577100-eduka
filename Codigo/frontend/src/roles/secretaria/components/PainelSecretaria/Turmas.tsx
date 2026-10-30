@@ -59,6 +59,7 @@ export function Turmas({ turmas, periodos, cursos, disciplinas, onCadastrar, onA
       <Tabela
         colunas={['Turma', 'Curso', 'Período letivo', 'Turno', 'Vagas', 'Disciplinas', '']}
         vazio="Nenhuma turma cadastrada ainda."
+        rotuloPaginacao="Páginas das turmas"
         linhas={turmas.map((t) => (
           <tr key={t.id}>
             <td>

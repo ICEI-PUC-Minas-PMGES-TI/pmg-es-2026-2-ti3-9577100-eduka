@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
+import { Paginacao } from '../../../../components/Paginacao/Paginacao'
 import { Select, type OpcaoSelect } from '../../../../components/Select/Select'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
+import { usePaginacao } from '../../../../hooks/usePaginacao'
 import type { TurmaDoProfessor } from '../../../../types/turmaProfessor'
 import { TurmaCard } from '../../components/TurmaCard/TurmaCard'
 import { useMinhasTurmas } from '../../hooks/useMinhasTurmas'
@@ -44,6 +46,7 @@ export function MinhasTurmas() {
       (periodo === TODOS_PERIODOS || String(t.periodoLetivoId) === periodo) && correspondeBusca(t, busca),
   )
   const temTurmas = !carregando && !erro && turmas.length > 0
+  const { paginacao, topo } = usePaginacao<TurmaDoProfessor, HTMLElement>(visiveis, { reiniciarCom: `${busca}|${periodo}` })
 
   // A mesma disciplina pode ser dada em várias turmas: conta uma vez só.
   const disciplinas = new Set(turmas.flatMap((t) => t.disciplinas.map((d) => d.id))).size
@@ -116,11 +119,14 @@ export function MinhasTurmas() {
       )}
 
       {temTurmas && visiveis.length > 0 && (
-        <section className={styles.grid} aria-label="Turmas">
-          {visiveis.map((turma) => (
-            <TurmaCard key={turma.id} turma={turma} />
-          ))}
-        </section>
+        <>
+          <section ref={topo} className={styles.grid} aria-label="Turmas">
+            {paginacao.itensDaPagina.map((turma) => (
+              <TurmaCard key={turma.id} turma={turma} />
+            ))}
+          </section>
+          <Paginacao paginacao={paginacao} rotulo="Páginas das turmas" />
+        </>
       )}
     </ProfessorLayout>
   )

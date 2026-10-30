@@ -1,4 +1,4 @@
-import { Children, type ReactNode } from 'react'
+import { Children, type CSSProperties, type ReactNode } from 'react'
 import styles from './StatCard.module.css'
 
 type StatCardProps = {
@@ -18,7 +18,13 @@ export function StatCard({ label, value, descricao, destaque = false, alerta = f
   return (
     <div className={`${styles.card} ${destaque ? styles.destaque : ''}`}>
       <span className={styles.label}>{label}</span>
-      <strong className={`${styles.value} ${alerta ? styles.alerta : atencao ? styles.atencao : ''}`}>{value}</strong>
+      <strong
+        className={`${styles.value} ${alerta ? styles.alerta : atencao ? styles.atencao : ''}`}
+        // O CSS usa a quantidade de caracteres para o valor longo caber no card.
+        style={{ '--caracteres': String(value).length } as CSSProperties}
+      >
+        {value}
+      </strong>
       {descricao && <div className={styles.descricao}>{descricao}</div>}
     </div>
   )

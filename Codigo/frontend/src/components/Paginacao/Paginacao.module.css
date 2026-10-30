@@ -1,0 +1,32 @@
+.paginacao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.resumo {
+  font-size: 14px;
+  color: var(--color-text-subtle);
+}
+
+.botoes {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.atual {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 960px) {
+  .paginacao {
+    justify-content: center;
+  }
+}
