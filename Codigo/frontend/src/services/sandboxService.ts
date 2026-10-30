@@ -37,6 +37,8 @@ export function pagarNoSandboxComoAluno(cobrancaId: string): Promise<void> {
 /** Mensagem dos erros comuns dos atalhos, com o caso específico de cada um em `seInvalido`. */
 export function mensagemErroSandbox(e: unknown, seInvalido: string): string {
   if (!(e instanceof ApiError)) return 'Erro inesperado no Sandbox.'
+  // O Asaas recusou: o motivo dele diz mais do que a mensagem genérica.
+  if (e.codigo === 'PROVEDOR_RECUSOU') return `O Asaas recusou: ${e.detalhe ?? 'motivo não informado'}`
   if (e.status === 400) return seInvalido
   if (e.status === 404) return 'Os atalhos de Sandbox estão desligados neste ambiente.'
   if (e.codigo === 'SANDBOX_INDISPONIVEL') {

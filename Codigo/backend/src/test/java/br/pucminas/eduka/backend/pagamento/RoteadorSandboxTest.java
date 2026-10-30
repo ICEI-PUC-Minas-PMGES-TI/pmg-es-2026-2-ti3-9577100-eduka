@@ -32,6 +32,7 @@ import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.Cobranca;
 import br.pucminas.eduka.backend.domain.ContaRecebimentoEscola;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
+import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.exception.SandboxIndisponivelException;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
@@ -208,6 +209,49 @@ class RoteadorSandboxTest {
 
         verify(provider).sandboxConfirmarPagamento(new CredencialProvedor(CHAVE_SUBCONTA), "pay_123");
         verify(eventos, never()).registrarPagamentoEncontrado(any(), any());
+    }
+
+    @Test
+    void recusaDaCobrancaJaPagaNoProvedorGravaOPagamento() {
+        Aluno aluno = alunoLogado();
+        contaComChave();
+        cobranca(SituacaoProvedor.EMITIDA, aluno);
+        doThrow(new ProvedorRecusouException("Esta cobranca ja foi recebida")).when(provider)
+                .sandboxConfirmarPagamento(any(), any());
+        CobrancaProvedor recebida = noProvedor(StatusCobrancaProvedor.RECEBIDA);
+        when(provider.consultarCobranca(new CredencialProvedor(CHAVE_SUBCONTA), "pay_123")).thenReturn(recebida);
+
+        roteador.pagarComoAluno(COBRANCA);
+
+        verify(eventos).registrarPagamentoEncontrado(COBRANCA, recebida);
+    }
+
+    @Test
+    void recusaDaCobrancaAindaEmAbertoChegaAoAluno() {
+        Aluno aluno = alunoLogado();
+        contaComChave();
+        cobranca(SituacaoProvedor.EMITIDA, aluno);
+        doThrow(new ProvedorRecusouException("Motivo do Asaas")).when(provider)
+                .sandboxConfirmarPagamento(any(), any());
+        when(provider.consultarCobranca(any(), any()))
+                .thenReturn(noProvedor(StatusCobrancaProvedor.AGUARDANDO_PAGAMENTO));
+
+        assertThatThrownBy(() -> roteador.pagarComoAluno(COBRANCA))
+                .isInstanceOf(ProvedorRecusouException.class)
+                .hasMessage("Motivo do Asaas");
+        verify(eventos, never()).registrarPagamentoEncontrado(any(), any());
+    }
+
+    @Test
+    void cobrancaJaPagaNoEdukaNaoChamaOProvedor() {
+        Aluno aluno = alunoLogado();
+        cobranca(SituacaoProvedor.EMITIDA, aluno);
+        Cobranca cobranca = cobrancaRepository.findByIdAndEscolaId(COBRANCA, ESCOLA).orElseThrow();
+        when(cobranca.getStatus()).thenReturn(StatusCobranca.PAGA);
+
+        roteador.pagarComoAluno(COBRANCA);
+
+        verifyNoInteractions(provider, eventos);
     }
 
     @Test

@@ -12,6 +12,7 @@ import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.Cobranca;
 import br.pucminas.eduka.backend.domain.ContaRecebimentoEscola;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
+import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.exception.SandboxIndisponivelException;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
@@ -91,14 +92,17 @@ class RoteadorSandbox {
     void confirmarPagamento(UUID cobrancaId) {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         Emitida emitida = transacao.execute(status -> emitida(cobrancaId, escolaId, null));
-        confirmarNoSandbox(emitida);
+        if (emitida != null) {
+            confirmarNoSandbox(emitida);
+        }
     }
 
     /**
      * O ALUNO paga a propria cobranca no Sandbox, como se tivesse pago o PIX
      * ou o boleto no banco. Depois de confirmar, consulta o provedor e grava o
      * pagamento na hora, sem esperar o aviso: em dev sem tunel o webhook nao
-     * chega. Se o aviso chegar depois, nada muda.
+     * chega. Se o aviso chegar depois, nada muda. Ja paga no Eduka, nao faz
+     * nada; ja paga so no provedor, grava sem confirmar de novo.
      *
      * @throws RecursoNaoEncontradoException cobranca de outro aluno ou de outra escola (R2)
      * @throws IllegalArgumentException      cobranca ainda nao emitida no provedor
@@ -112,29 +116,51 @@ class RoteadorSandbox {
                     .orElseThrow(RoteadorSandbox::cobrancaNaoEncontrada);
             return emitida(cobrancaId, escolaId, alunoId);
         });
-        CredencialProvedor credencial = confirmarNoSandbox(emitida);
+        if (emitida == null) {
+            return;
+        }
+        CredencialProvedor credencial;
         try {
-            CobrancaProvedor noProvedor = provedor
-                    .chamar(p -> p.consultarCobranca(credencial, emitida.idCobrancaExterna()));
+            credencial = confirmarNoSandbox(emitida);
+        } catch (ProvedorRecusouException e) {
+            // O Asaas recusa confirmar a cobranca que ja recebeu (clique repetido, ou o pagamento confirmado
+            // antes nao chegou ao Eduka porque a consulta falhou e o aviso nao veio). Se ja esta paga, grava.
+            CobrancaProvedor noProvedor = consultar(credencialDe(emitida), emitida);
+            if (!RoteadorFatura.pago(noProvedor)) {
+                throw e;
+            }
+            eventos.registrarPagamentoEncontrado(cobrancaId, noProvedor);
+            return;
+        }
+        try {
+            CobrancaProvedor noProvedor = consultar(credencial, emitida);
             if (RoteadorFatura.pago(noProvedor)) {
                 eventos.registrarPagamentoEncontrado(cobrancaId, noProvedor);
             }
         } catch (RuntimeException e) {
-            // Confirmado no provedor: o aviso ainda grava o pagamento.
-            log.warn("Pagamento da cobranca {} confirmado no Sandbox, mas a consulta falhou: {}", cobrancaId,
-                    e.getClass().getSimpleName());
+            // Confirmado no provedor: o aviso ou o proximo clique ainda grava o pagamento.
+            log.warn("Pagamento da cobranca {} confirmado no Sandbox, mas a gravacao falhou: {}", cobrancaId,
+                    e.toString());
         }
+    }
+
+    private CobrancaProvedor consultar(CredencialProvedor credencial, Emitida emitida) {
+        return provedor.chamar(p -> p.consultarCobranca(credencial, emitida.idCobrancaExterna()));
     }
 
     /**
      * A cobranca da escola emitida no provedor, com a chave da conta filha.
      *
      * @param alunoId so o dono da cobranca, ou null para qualquer aluno da escola
+     * @return null se a cobranca ja esta paga no Eduka: nada a confirmar
      */
     private Emitida emitida(UUID cobrancaId, UUID escolaId, UUID alunoId) {
         Cobranca cobranca = cobrancaRepository.findByIdAndEscolaId(cobrancaId, escolaId)
                 .filter(c -> alunoId == null || c.getAluno().getId().equals(alunoId))
                 .orElseThrow(RoteadorSandbox::cobrancaNaoEncontrada);
+        if (cobranca.getStatus() == StatusCobranca.PAGA) {
+            return null;
+        }
         if (cobranca.getSituacaoProvedor() != SituacaoProvedor.EMITIDA) {
             throw new IllegalArgumentException("A cobranca ainda nao foi emitida no provedor");
         }
@@ -145,9 +171,13 @@ class RoteadorSandbox {
 
     /** Fora da transacao: a chave so e decifrada aqui, na hora da chamada (R8). */
     private CredencialProvedor confirmarNoSandbox(Emitida emitida) {
-        CredencialProvedor credencial = new CredencialProvedor(piiCryptoService.decifrar(emitida.credencialCifrada()));
+        CredencialProvedor credencial = credencialDe(emitida);
         noSandbox(() -> provedor.executar(p -> p.sandboxConfirmarPagamento(credencial, emitida.idCobrancaExterna())));
         return credencial;
+    }
+
+    private CredencialProvedor credencialDe(Emitida emitida) {
+        return new CredencialProvedor(piiCryptoService.decifrar(emitida.credencialCifrada()));
     }
 
     private static RecursoNaoEncontradoException cobrancaNaoEncontrada() {

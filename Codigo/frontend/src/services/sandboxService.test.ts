@@ -31,6 +31,7 @@ describe('sandboxService', () => {
   it('traduz os erros comuns e usa a mensagem do caso para o 400', async () => {
     simularApi(({ caminho }) => {
       if (caminho.includes('cob-400')) return problema(400, 'X')
+      if (caminho.includes('cob-recusada')) return problema(400, 'PROVEDOR_RECUSOU', 'Cobrança já recebida')
       if (caminho.includes('cob-404')) return { status: 404 }
       return problema(409, 'SANDBOX_INDISPONIVEL')
     })
@@ -38,6 +39,9 @@ describe('sandboxService', () => {
     const erroDe = (id: string) => simularPagamentoNoSandbox(id).catch((e: unknown) => e)
 
     expect(mensagemErroSandbox(await erroDe('cob-400'), 'não emitida')).toBe('não emitida')
+    expect(mensagemErroSandbox(await erroDe('cob-recusada'), 'não emitida')).toBe(
+      'O Asaas recusou: Cobrança já recebida',
+    )
     expect(mensagemErroSandbox(await erroDe('cob-404'), '')).toMatch(/desligados/)
     expect(mensagemErroSandbox(await erroDe('cob-409'), '')).toMatch(/Sandbox/)
     expect(mensagemErroSandbox(new Error('x'), '')).toMatch(/inesperado/)
