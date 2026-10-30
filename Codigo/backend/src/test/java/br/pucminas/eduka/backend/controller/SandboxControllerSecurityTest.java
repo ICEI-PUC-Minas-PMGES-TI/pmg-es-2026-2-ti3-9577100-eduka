@@ -40,6 +40,7 @@ class SandboxControllerSecurityTest {
     private static final String APROVAR = "/config-pagamento/conta/sandbox/aprovar";
     private static final String CONFIRMAR = "/cobrancas/" + UUID.randomUUID() + "/sandbox/confirmar-pagamento";
     private static final String PAGAR_ALUNO = "/portal/aluno/cobrancas/" + UUID.randomUUID() + "/sandbox/pagar";
+    private static final String PAGAR_FATURA = "/config-pagamento/faturas/" + UUID.randomUUID() + "/sandbox/pagar";
 
     private static MockHttpServletRequestBuilder comToken(MockHttpServletRequestBuilder pedido, String token) {
         return pedido.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
@@ -107,6 +108,22 @@ class SandboxControllerSecurityTest {
         }
 
         @Test
+        void masterPagaAFaturaDoEduka() throws Exception {
+            mockMvc.perform(comToken(post(PAGAR_FATURA), token(jwtService, "MASTER")))
+                    .andExpect(status().isAccepted());
+            verify(paymentRoutingService).sandboxPagarFatura(any());
+        }
+
+        @Test
+        void soOMasterPagaAFatura() throws Exception {
+            for (String perfil : List.of("SECRETARIA", "FINANCEIRO", "PROFESSOR", "ALUNO")) {
+                mockMvc.perform(comToken(post(PAGAR_FATURA), token(jwtService, perfil)))
+                        .andExpect(status().isForbidden());
+            }
+            verify(paymentRoutingService, never()).sandboxPagarFatura(any());
+        }
+
+        @Test
         void foraDoSandboxE409ComCodigo() throws Exception {
             doThrow(new SandboxIndisponivelException()).when(paymentRoutingService).sandboxAprovarConta();
 
@@ -160,8 +177,11 @@ class SandboxControllerSecurityTest {
                     .andExpect(status().isNotFound());
             mockMvc.perform(comToken(post(PAGAR_ALUNO), token(jwtService, "ALUNO")))
                     .andExpect(status().isNotFound());
+            mockMvc.perform(comToken(post(PAGAR_FATURA), token(jwtService, "MASTER")))
+                    .andExpect(status().isNotFound());
             verify(paymentRoutingService, never()).sandboxAprovarConta();
             verify(paymentRoutingService, never()).sandboxPagarComoAluno(any());
+            verify(paymentRoutingService, never()).sandboxPagarFatura(any());
         }
     }
 }
