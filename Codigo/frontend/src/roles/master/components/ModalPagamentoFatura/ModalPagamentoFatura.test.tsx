@@ -147,4 +147,39 @@ describe('ModalPagamentoFatura', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Esta fatura foi cancelada pelo Eduka.')
     expect(onPago).not.toHaveBeenCalled()
   })
+
+  describe('no ambiente de teste', () => {
+    const PAGAR_NO_SANDBOX = 'POST /config-pagamento/faturas/fatura-1/sandbox/pagar'
+
+    it.each([
+      ['PIX', pix],
+      ['BOLETO', boleto],
+    ] as const)('Pagar com %s no Sandbox confirma o pagamento na hora', async (forma, dados) => {
+      const chamadas = backend({ [PAGAR]: [dados()], [PAGAR_NO_SANDBOX]: [{ status: 202 }], [LISTAR]: [listaCom('PAGA')] })
+      const onPago = vi.fn()
+      const usuario = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      render(<ModalPagamentoFatura fatura={FATURA} forma={forma} onPago={onPago} onFechar={vi.fn()} />)
+
+      expect(await screen.findByText('Ambiente de teste')).toBeInTheDocument()
+      await usuario.click(screen.getByRole('button', { name: 'Pagar' }))
+
+      expect(await screen.findByText('Pagamento confirmado!')).toBeInTheDocument()
+      expect(onPago).toHaveBeenCalled()
+      expect(chamadas.map((c) => `${c.metodo} ${c.caminho}`)).toContain(PAGAR_NO_SANDBOX)
+    })
+
+    it('mostra o motivo quando o Asaas recusa e deixa tentar de novo', async () => {
+      backend({
+        [PAGAR]: [boleto()],
+        [PAGAR_NO_SANDBOX]: [problema(400, 'PROVEDOR_RECUSOU', 'Cobrança removida')],
+      })
+      const usuario = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      render(<ModalPagamentoFatura fatura={FATURA} forma="BOLETO" onPago={vi.fn()} onFechar={vi.fn()} />)
+
+      await usuario.click(await screen.findByRole('button', { name: 'Pagar' }))
+
+      expect(await screen.findByText('O Asaas recusou: Cobrança removida')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Pagar' })).toBeEnabled()
+    })
+  })
 })

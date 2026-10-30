@@ -1,6 +1,7 @@
 package br.pucminas.eduka.backend.pagamento;
 
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,8 +12,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.Cobranca;
 import br.pucminas.eduka.backend.domain.ContaRecebimentoEscola;
+import br.pucminas.eduka.backend.domain.FaturaPlataforma;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
+import br.pucminas.eduka.backend.exception.CobrancaNaoPagavelException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.exception.SandboxIndisponivelException;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
@@ -20,6 +23,7 @@ import br.pucminas.eduka.backend.pagamento.tipos.CredencialProvedor;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
 import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
+import br.pucminas.eduka.backend.repository.FaturaPlataformaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.PiiCryptoService;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
@@ -27,7 +31,7 @@ import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 /**
  * Atalhos de teste do Sandbox (NOVA-6), por tras do
  * {@link PaymentRoutingService}: aprovar a conta filha da escola e confirmar
- * o pagamento de uma cobranca ja emitida.
+ * o pagamento de uma cobranca ou de uma fatura da plataforma ja emitida.
  *
  * <p>
  * O provedor manda o aviso (webhook) como faria de verdade, e o Sincronizar
@@ -43,6 +47,7 @@ class RoteadorSandbox {
     private final ContaRecebimentoEscolaRepository contaRepository;
     private final CobrancaRepository cobrancaRepository;
     private final AlunoRepository alunoRepository;
+    private final FaturaPlataformaRepository faturaRepository;
     private final RoteadorEventos eventos;
     private final IsolamentoEscola isolamentoEscola;
     private final PiiCryptoService piiCryptoService;
@@ -50,12 +55,13 @@ class RoteadorSandbox {
     private final TransactionTemplate transacao;
 
     RoteadorSandbox(ContaRecebimentoEscolaRepository contaRepository, CobrancaRepository cobrancaRepository,
-            AlunoRepository alunoRepository, RoteadorEventos eventos, IsolamentoEscola isolamentoEscola,
-            PiiCryptoService piiCryptoService, ChamadorProvedor provedor,
+            AlunoRepository alunoRepository, FaturaPlataformaRepository faturaRepository, RoteadorEventos eventos,
+            IsolamentoEscola isolamentoEscola, PiiCryptoService piiCryptoService, ChamadorProvedor provedor,
             PlatformTransactionManager transactionManager) {
         this.contaRepository = contaRepository;
         this.cobrancaRepository = cobrancaRepository;
         this.alunoRepository = alunoRepository;
+        this.faturaRepository = faturaRepository;
         this.eventos = eventos;
         this.isolamentoEscola = isolamentoEscola;
         this.piiCryptoService = piiCryptoService;
@@ -93,7 +99,10 @@ class RoteadorSandbox {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         Emitida emitida = transacao.execute(status -> emitida(cobrancaId, escolaId, null));
         if (emitida != null) {
-            confirmarNoSandbox(emitida);
+            // R8: a chave so e decifrada aqui, fora da transacao, na hora da chamada.
+            CredencialProvedor credencial = credencialDe(emitida);
+            noSandbox(() -> provedor.executar(p -> p.sandboxConfirmarPagamento(credencial,
+                    emitida.idCobrancaExterna())));
         }
     }
 
@@ -119,33 +128,78 @@ class RoteadorSandbox {
         if (emitida == null) {
             return;
         }
-        CredencialProvedor credencial;
+        // R8: a chave so e decifrada aqui, fora da transacao, na hora da chamada.
+        pagarEGravar(credencialDe(emitida), emitida.idCobrancaExterna(), "cobranca " + cobrancaId,
+                pago -> eventos.registrarPagamentoEncontrado(cobrancaId, pago));
+    }
+
+    /**
+     * O MASTER paga no Sandbox a fatura do Eduka da propria escola, como se
+     * tivesse pago o PIX ou o boleto no banco. A fatura fica na conta-pai, entao
+     * o valor cai no saldo do Eduka. Grava o pagamento na hora, como no
+     * {@link #pagarComoAluno}.
+     *
+     * @throws RecursoNaoEncontradoException fatura de outra escola (R2)
+     * @throws CobrancaNaoPagavelException   fatura cancelada
+     * @throws IllegalArgumentException      fatura ainda nao emitida no provedor
+     */
+    void pagarFatura(UUID faturaId) {
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        String idCobrancaExterna = transacao.execute(status -> {
+            FaturaPlataforma fatura = faturaRepository.findByIdAndEscolaId(faturaId, escolaId)
+                    .orElseThrow(() -> new RecursoNaoEncontradoException("Fatura nao encontrada"));
+            if (fatura.getStatus() == StatusCobranca.PAGA) {
+                return null;
+            }
+            if (!fatura.getStatus().emAberto()) {
+                throw new CobrancaNaoPagavelException();
+            }
+            if (fatura.getSituacaoProvedor() != SituacaoProvedor.EMITIDA) {
+                throw new IllegalArgumentException("A fatura ainda nao foi emitida no provedor");
+            }
+            return fatura.getIdCobrancaExterna();
+        });
+        if (idCobrancaExterna == null) {
+            return;
+        }
+        CredencialProvedor credencial = provedor.chamar(PaymentProvider::credencialDaContaPai);
+        pagarEGravar(credencial, idCobrancaExterna, "fatura " + faturaId,
+                pago -> eventos.registrarPagamentoDaFaturaEncontrado(faturaId, pago));
+    }
+
+    /**
+     * Confirma no Sandbox e grava o pagamento que o provedor devolver, sem
+     * esperar o aviso.
+     *
+     * @param gravar grava o pagamento no Eduka; nada muda se o aviso ja gravou
+     */
+    private void pagarEGravar(CredencialProvedor credencial, String idCobrancaExterna, String descricao,
+            Consumer<CobrancaProvedor> gravar) {
         try {
-            credencial = confirmarNoSandbox(emitida);
+            noSandbox(() -> provedor.executar(p -> p.sandboxConfirmarPagamento(credencial, idCobrancaExterna)));
         } catch (ProvedorRecusouException e) {
             // O Asaas recusa confirmar a cobranca que ja recebeu (clique repetido, ou o pagamento confirmado
             // antes nao chegou ao Eduka porque a consulta falhou e o aviso nao veio). Se ja esta paga, grava.
-            CobrancaProvedor noProvedor = consultar(credencialDe(emitida), emitida);
+            CobrancaProvedor noProvedor = consultar(credencial, idCobrancaExterna);
             if (!RoteadorFatura.pago(noProvedor)) {
                 throw e;
             }
-            eventos.registrarPagamentoEncontrado(cobrancaId, noProvedor);
+            gravar.accept(noProvedor);
             return;
         }
         try {
-            CobrancaProvedor noProvedor = consultar(credencial, emitida);
+            CobrancaProvedor noProvedor = consultar(credencial, idCobrancaExterna);
             if (RoteadorFatura.pago(noProvedor)) {
-                eventos.registrarPagamentoEncontrado(cobrancaId, noProvedor);
+                gravar.accept(noProvedor);
             }
         } catch (RuntimeException e) {
             // Confirmado no provedor: o aviso ou o proximo clique ainda grava o pagamento.
-            log.warn("Pagamento da cobranca {} confirmado no Sandbox, mas a gravacao falhou: {}", cobrancaId,
-                    e.toString());
+            log.warn("Pagamento da {} confirmado no Sandbox, mas a gravacao falhou: {}", descricao, e.toString());
         }
     }
 
-    private CobrancaProvedor consultar(CredencialProvedor credencial, Emitida emitida) {
-        return provedor.chamar(p -> p.consultarCobranca(credencial, emitida.idCobrancaExterna()));
+    private CobrancaProvedor consultar(CredencialProvedor credencial, String idCobrancaExterna) {
+        return provedor.chamar(p -> p.consultarCobranca(credencial, idCobrancaExterna));
     }
 
     /**
@@ -167,13 +221,6 @@ class RoteadorSandbox {
         ContaRecebimentoEscola conta = contaRepository.findByEscolaId(escolaId)
                 .orElseThrow(() -> new IllegalStateException("Cobranca emitida sem conta de recebimento"));
         return new Emitida(cobranca.getIdCobrancaExterna(), conta.getCredencialCifrada());
-    }
-
-    /** Fora da transacao: a chave so e decifrada aqui, na hora da chamada (R8). */
-    private CredencialProvedor confirmarNoSandbox(Emitida emitida) {
-        CredencialProvedor credencial = credencialDe(emitida);
-        noSandbox(() -> provedor.executar(p -> p.sandboxConfirmarPagamento(credencial, emitida.idCobrancaExterna())));
-        return credencial;
     }
 
     private CredencialProvedor credencialDe(Emitida emitida) {

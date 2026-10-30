@@ -306,4 +306,9 @@ public class PaymentRoutingService {
     public void sandboxPagarComoAluno(UUID cobrancaId) {
         roteadorSandbox.pagarComoAluno(cobrancaId);
     }
+
+    /** MASTER da escola do token: paga no Sandbox a fatura do Eduka e grava o pagamento sem esperar o aviso. */
+    public void sandboxPagarFatura(UUID faturaId) {
+        roteadorSandbox.pagarFatura(faturaId);
+    }
 }

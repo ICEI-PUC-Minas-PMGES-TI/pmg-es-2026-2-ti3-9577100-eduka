@@ -31,8 +31,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.Cobranca;
 import br.pucminas.eduka.backend.domain.ContaRecebimentoEscola;
+import br.pucminas.eduka.backend.domain.FaturaPlataforma;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
+import br.pucminas.eduka.backend.exception.CobrancaNaoPagavelException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.exception.SandboxIndisponivelException;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
@@ -42,6 +44,7 @@ import br.pucminas.eduka.backend.pagamento.tipos.StatusCobrancaProvedor;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
 import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
+import br.pucminas.eduka.backend.repository.FaturaPlataformaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.PiiCryptoService;
 import br.pucminas.eduka.backend.security.PiiEncryptionProperties;
@@ -53,11 +56,14 @@ class RoteadorSandboxTest {
     private static final UUID ESCOLA = UUID.randomUUID();
     private static final UUID COBRANCA = UUID.randomUUID();
     private static final UUID USUARIO_ALUNO = UUID.randomUUID();
+    private static final UUID FATURA = UUID.randomUUID();
+    private static final String CHAVE_PAI = "$aact_hmlg_CHAVE_FICTICIA_DA_CONTA_PAI";
     private static final String CHAVE_SUBCONTA = "$aact_hmlg_CHAVE_FICTICIA_DA_SUBCONTA";
 
     private ContaRecebimentoEscolaRepository contaRepository;
     private CobrancaRepository cobrancaRepository;
     private AlunoRepository alunoRepository;
+    private FaturaPlataformaRepository faturaRepository;
     private RoteadorEventos eventos;
     private PaymentProvider provider;
     private PiiCryptoService cripto;
@@ -74,8 +80,10 @@ class RoteadorSandboxTest {
         SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
                 new UsuarioAutenticado(UUID.randomUUID(), "MASTER", ESCOLA), null, "ROLE_MASTER"));
 
-        roteador = new RoteadorSandbox(contaRepository, cobrancaRepository, alunoRepository, eventos,
-                new IsolamentoEscola(), cripto, new ChamadorProvedor(provider), new TransacaoQueMarcaAtiva());
+        faturaRepository = mock(FaturaPlataformaRepository.class);
+        roteador = new RoteadorSandbox(contaRepository, cobrancaRepository, alunoRepository, faturaRepository,
+                eventos, new IsolamentoEscola(), cripto, new ChamadorProvedor(provider),
+                new TransacaoQueMarcaAtiva());
     }
 
     @AfterEach
@@ -272,6 +280,76 @@ class RoteadorSandboxTest {
         assertThatThrownBy(() -> roteador.pagarComoAluno(COBRANCA))
                 .isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(provider);
+    }
+
+    // ---- O MASTER paga a fatura do Eduka ----
+
+    @Test
+    void masterPagaAFaturaNaContaPaiEOPagamentoEGravado() {
+        fatura(StatusCobranca.PENDENTE, SituacaoProvedor.EMITIDA);
+        when(provider.credencialDaContaPai()).thenReturn(new CredencialProvedor(CHAVE_PAI));
+        CobrancaProvedor recebida = noProvedor(StatusCobrancaProvedor.RECEBIDA);
+        when(provider.consultarCobranca(new CredencialProvedor(CHAVE_PAI), "pay_fatura")).thenReturn(recebida);
+
+        roteador.pagarFatura(FATURA);
+
+        verify(provider).sandboxConfirmarPagamento(new CredencialProvedor(CHAVE_PAI), "pay_fatura");
+        verify(eventos).registrarPagamentoDaFaturaEncontrado(FATURA, recebida);
+    }
+
+    @Test
+    void recusaDaFaturaJaPagaNoProvedorGravaOPagamento() {
+        fatura(StatusCobranca.PENDENTE, SituacaoProvedor.EMITIDA);
+        when(provider.credencialDaContaPai()).thenReturn(new CredencialProvedor(CHAVE_PAI));
+        doThrow(new ProvedorRecusouException("Esta cobranca ja foi recebida")).when(provider)
+                .sandboxConfirmarPagamento(any(), any());
+        CobrancaProvedor recebida = noProvedor(StatusCobrancaProvedor.RECEBIDA);
+        when(provider.consultarCobranca(any(), any())).thenReturn(recebida);
+
+        roteador.pagarFatura(FATURA);
+
+        verify(eventos).registrarPagamentoDaFaturaEncontrado(FATURA, recebida);
+    }
+
+    @Test
+    void faturaJaPagaNaoChamaOProvedor() {
+        fatura(StatusCobranca.PAGA, SituacaoProvedor.EMITIDA);
+
+        roteador.pagarFatura(FATURA);
+
+        verifyNoInteractions(provider, eventos);
+    }
+
+    @Test
+    void faturaCanceladaE409() {
+        fatura(StatusCobranca.CANCELADA, SituacaoProvedor.EMITIDA);
+
+        assertThatThrownBy(() -> roteador.pagarFatura(FATURA)).isInstanceOf(CobrancaNaoPagavelException.class);
+        verifyNoInteractions(provider);
+    }
+
+    @Test
+    void faturaAindaNaoEmitidaE400() {
+        fatura(StatusCobranca.PENDENTE, SituacaoProvedor.NAO_EMITIDA);
+
+        assertThatThrownBy(() -> roteador.pagarFatura(FATURA)).isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(provider);
+    }
+
+    @Test
+    void faturaDeOutraEscolaE404() {
+        when(faturaRepository.findByIdAndEscolaId(FATURA, ESCOLA)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> roteador.pagarFatura(FATURA)).isInstanceOf(RecursoNaoEncontradoException.class);
+        verifyNoInteractions(provider);
+    }
+
+    private void fatura(StatusCobranca status, SituacaoProvedor situacao) {
+        FaturaPlataforma fatura = mock(FaturaPlataforma.class);
+        when(fatura.getStatus()).thenReturn(status);
+        when(fatura.getSituacaoProvedor()).thenReturn(situacao);
+        when(fatura.getIdCobrancaExterna()).thenReturn("pay_fatura");
+        when(faturaRepository.findByIdAndEscolaId(FATURA, ESCOLA)).thenReturn(Optional.of(fatura));
     }
 
     private Aluno alunoLogado() {
