@@ -13,6 +13,7 @@ import {
   type StatusMatricula,
 } from '../../../../types/matricula'
 import { iniciais, plural } from '../../../../utils/formatters'
+import { Dica } from '../../../../components/Dica/Dica'
 import styles from './MatricularAlunos.module.css'
 
 /** Resultado de uma matrícula em lote: quem entrou e quem foi recusado, com o motivo. */
@@ -144,17 +145,20 @@ export function MatricularAlunos({
                     {status === 'ATIVA' ? 'Matriculado' : ROTULOS_STATUS_MATRICULA[status]}
                   </Badge>
                 ) : (
-                  <Button
-                    size="sm"
-                    variant={marcado ? 'accent' : 'primary'}
-                    icon={marcado ? 'check' : undefined}
-                    aria-pressed={marcado}
-                    disabled={enviando || !podeMatricular || (!marcado && limiteAtingido)}
-                    title={!marcado && limiteAtingido && podeMatricular ? 'Todas as vagas livres já foram escolhidas' : undefined}
-                    onClick={() => alternar(aluno.id)}
+                  <Dica
+                    texto={!marcado && limiteAtingido && podeMatricular ? 'Todas as vagas livres já foram escolhidas' : null}
                   >
-                    {marcado ? 'Selecionado' : 'Matricular'}
-                  </Button>
+                    <Button
+                      size="sm"
+                      variant={marcado ? 'accent' : 'primary'}
+                      icon={marcado ? 'check' : undefined}
+                      aria-pressed={marcado}
+                      disabled={enviando || !podeMatricular || (!marcado && limiteAtingido)}
+                      onClick={() => alternar(aluno.id)}
+                    >
+                      {marcado ? 'Selecionado' : 'Matricular'}
+                    </Button>
+                  </Dica>
                 )}
               </li>
             )

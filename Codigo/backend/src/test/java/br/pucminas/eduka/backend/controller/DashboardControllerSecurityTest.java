@@ -132,6 +132,37 @@ class DashboardControllerSecurityTest {
     }
 
     @Test
+    void movimentoDoPeriodoSoParaMasterEFinanceiroEComDatasValidas() throws Exception {
+        LocalDate de = LocalDate.of(2026, 8, 15);
+        LocalDate ate = LocalDate.of(2026, 10, 20);
+        when(dashboardFinanceiroService.movimento(de, ate)).thenReturn(List.of(
+                new DashboardFinanceiroResponse.Mes(YearMonth.of(2026, 8), new BigDecimal("100.00"), BigDecimal.ZERO),
+                new DashboardFinanceiroResponse.Mes(YearMonth.of(2026, 9), BigDecimal.ZERO, new BigDecimal("40.00")),
+                new DashboardFinanceiroResponse.Mes(YearMonth.of(2026, 10), BigDecimal.ZERO, BigDecimal.ZERO)));
+        String url = "/dashboard/financeiro/movimento?de=2026-08-15&ate=2026-10-20";
+
+        for (String perfil : List.of("MASTER", "FINANCEIRO")) {
+            mockMvc.perform(como(url, perfil))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(3))
+                    .andExpect(jsonPath("$[0].mes").value("2026-08"))
+                    .andExpect(jsonPath("$[1].saiu").value(40.00));
+        }
+        for (String perfil : List.of("SECRETARIA", "PROFESSOR", "ALUNO", "SUPER_ADMIN")) {
+            mockMvc.perform(como(url, perfil)).andExpect(status().isForbidden());
+        }
+
+        when(dashboardFinanceiroService.movimento(ate, de))
+                .thenThrow(new IllegalArgumentException("de nao pode ser depois de ate"));
+        mockMvc.perform(como("/dashboard/financeiro/movimento?de=2026-10-20&ate=2026-08-15", "FINANCEIRO"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(como("/dashboard/financeiro/movimento?de=15/08/2026&ate=2026-10-20", "FINANCEIRO"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(como("/dashboard/financeiro/movimento?de=2026-08-15", "FINANCEIRO"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void perfilSemPermissaoNaoChegaAoServico() throws Exception {
         mockMvc.perform(como("/dashboard/escola", "PROFESSOR")).andExpect(status().isForbidden());
         verify(dashboardService, never()).escola();

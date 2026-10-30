@@ -1,3 +1,22 @@
+/* Rótulo ao lado da pílula; no celular, em cima dela. */
+.grupo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  min-width: 0;
+}
+
+/* Mesmo estilo dos rótulos de coluna das tabelas. */
+.rotulo {
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
 /* Mesmo dropdown em pílula do filtro de período em Minhas turmas. */
 .seletor {
   min-width: 280px;
@@ -18,6 +37,10 @@
 }
 
 @media (max-width: 640px) {
+  .grupo {
+    width: 100%;
+  }
+
   .seletor {
     width: 100%;
     min-width: 0;

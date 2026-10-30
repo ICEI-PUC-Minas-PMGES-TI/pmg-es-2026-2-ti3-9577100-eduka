@@ -30,6 +30,19 @@ export function formatarMoeda(valor: number): string {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+const MOEDA_COMPACTA = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+  notation: 'compact',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 1,
+})
+
+/** Reais em pouco espaço, para eixo de gráfico: 1500 -> "R$ 1,5 mil", 850 -> "R$ 850". */
+export function formatarMoedaCompacta(valor: number): string {
+  return MOEDA_COMPACTA.format(valor)
+}
+
 // O mesmo fuso que o backend usa para "hoje" (FUSO_ESCOLA).
 const DATA_DA_ESCOLA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' })
 

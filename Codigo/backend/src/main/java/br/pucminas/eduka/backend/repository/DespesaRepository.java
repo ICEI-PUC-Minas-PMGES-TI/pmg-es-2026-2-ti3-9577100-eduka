@@ -44,9 +44,12 @@ public interface DespesaRepository extends JpaRepository<Despesa, UUID>, JpaSpec
             + "AND d.dataVencimento >= :desde")
     Optional<LocalDate> proximoVencimentoAPagar(@Param("escolaId") UUID escolaId, @Param("desde") LocalDate desde);
 
+    /** Pagas de {@code desde} (inclusive) ate {@code antes} (exclusive). */
     @Query("SELECT d.pagaEm AS pagaEm, d.valor AS valor FROM Despesa d WHERE d.escolaId = :escolaId "
-            + "AND d.situacao = br.pucminas.eduka.backend.domain.SituacaoDespesa.PAGA AND d.pagaEm >= :desde")
-    List<Movimento> pagasDesde(@Param("escolaId") UUID escolaId, @Param("desde") Instant desde);
+            + "AND d.situacao = br.pucminas.eduka.backend.domain.SituacaoDespesa.PAGA "
+            + "AND d.pagaEm >= :desde AND d.pagaEm < :antes")
+    List<Movimento> pagasEntre(@Param("escolaId") UUID escolaId, @Param("desde") Instant desde,
+            @Param("antes") Instant antes);
 
     interface Soma {
         BigDecimal getValor();

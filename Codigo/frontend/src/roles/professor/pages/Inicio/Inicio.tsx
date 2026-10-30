@@ -10,6 +10,7 @@ import type { AvaliacaoResumo, DashboardProfessor } from '../../../../types/dash
 import { ROTULOS_TIPO_AVALIACAO } from '../../../../types/portalAluno'
 import { formatarPontos, hojeIso, plural } from '../../../../utils/formatters'
 import { ProfessorLayout } from '../../layouts/ProfessorLayout'
+import { Dica } from '../../../../components/Dica/Dica'
 import styles from './Inicio.module.css'
 
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
@@ -124,13 +125,14 @@ function Resumo({ dados }: { dados: DashboardProfessor }) {
                       avaliacao.data === hoje ? 'Hoje' : `${formatarPontos(avaliacao.valor)} pts`
                     }
                     acao={
-                      <Button
-                        size="sm"
-                        icon="arrowRight"
-                        aria-label={`Abrir as avaliações de ${avaliacao.turmaNome} · ${avaliacao.disciplinaNome}`}
-                        title="Abrir avaliações"
-                        onClick={() => abrirAvaliacoes(avaliacao)}
-                      />
+                      <Dica texto="Abrir avaliações" descrever={false}>
+                        <Button
+                          size="sm"
+                          icon="arrowRight"
+                          aria-label={`Abrir as avaliações de ${avaliacao.turmaNome} · ${avaliacao.disciplinaNome}`}
+                          onClick={() => abrirAvaliacoes(avaliacao)}
+                        />
+                      </Dica>
                     }
                   />
                 ))}

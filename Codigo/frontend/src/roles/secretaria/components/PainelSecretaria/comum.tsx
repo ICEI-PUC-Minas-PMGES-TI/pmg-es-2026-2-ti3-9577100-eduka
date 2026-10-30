@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Button } from '../../../../components/Button/Button'
 import { Paginacao } from '../../../../components/Paginacao/Paginacao'
 import { usePaginacao } from '../../../../hooks/usePaginacao'
+import { Dica } from '../../../../components/Dica/Dica'
 import styles from './PainelSecretaria.module.css'
 
 type CabecalhoAbaProps = {
@@ -95,14 +96,9 @@ export function AcoesLinha({ nome, onVer, onEditar, onExcluir }: AcoesLinhaProps
       <Button size="sm" icon="edit" onClick={onEditar}>
         Editar
       </Button>
-      <Button
-        size="sm"
-        icon="trash"
-        variant="dangerOutline"
-        aria-label={`Excluir ${nome}`}
-        title="Excluir"
-        onClick={onExcluir}
-      />
+      <Dica texto="Excluir" descrever={false}>
+        <Button size="sm" icon="trash" variant="dangerOutline" aria-label={`Excluir ${nome}`} onClick={onExcluir} />
+      </Dica>
     </span>
   )
 }

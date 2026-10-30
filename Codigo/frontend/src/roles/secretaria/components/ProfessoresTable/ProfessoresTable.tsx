@@ -5,6 +5,7 @@ import { Paginacao } from '../../../../components/Paginacao/Paginacao'
 import { usePaginacao } from '../../../../hooks/usePaginacao'
 import { ROTULOS_VINCULO, type Professor } from '../../../../types/professor'
 import { iniciais } from '../../../../utils/formatters'
+import { Dica } from '../../../../components/Dica/Dica'
 import styles from './ProfessoresTable.module.css'
 
 // Disciplinas e turmas ainda não vêm no ProfessorResponse (dependem da alocação);
@@ -94,24 +95,26 @@ export function ProfessoresTable({
                         <Button size="sm" icon="edit" onClick={() => onEditar(professor)}>
                           Editar
                         </Button>
-                        <Button
-                          size="sm"
-                          className={styles.alternar}
-                          icon={professor.ativo ? 'pause' : 'check'}
-                          disabled={alternandoId === professor.id}
-                          title={professor.ativo ? 'Afastamento temporário, como licença' : undefined}
-                          onClick={() => onAlternarSituacao(professor)}
-                        >
-                          {professor.ativo ? 'Inativar' : 'Reativar'}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="dangerOutline"
-                          icon="trash"
-                          aria-label={`Excluir ${professor.nome}`}
-                          title="Excluir (saiu da escola)"
-                          onClick={() => onExcluir(professor)}
-                        />
+                        <Dica texto={professor.ativo ? 'Afastamento temporário, como licença' : null}>
+                          <Button
+                            size="sm"
+                            className={styles.alternar}
+                            icon={professor.ativo ? 'pause' : 'check'}
+                            disabled={alternandoId === professor.id}
+                            onClick={() => onAlternarSituacao(professor)}
+                          >
+                            {professor.ativo ? 'Inativar' : 'Reativar'}
+                          </Button>
+                        </Dica>
+                        <Dica texto="Excluir (saiu da escola)">
+                          <Button
+                            size="sm"
+                            variant="dangerOutline"
+                            icon="trash"
+                            aria-label={`Excluir ${professor.nome}`}
+                            onClick={() => onExcluir(professor)}
+                          />
+                        </Dica>
                       </div>
                     </td>
                   </tr>

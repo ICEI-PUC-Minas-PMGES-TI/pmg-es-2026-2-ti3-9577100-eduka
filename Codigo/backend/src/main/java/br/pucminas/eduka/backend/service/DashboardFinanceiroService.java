@@ -78,8 +78,14 @@ public class DashboardFinanceiroService {
     /** Itens de cada lista do painel. */
     static final int LIMITE_LISTA = 10;
 
-    /** Meses do grafico "Dinheiro que entrou e saiu", contando o atual. */
-    static final int MESES_NO_GRAFICO = 6;
+    /**
+     * Meses do grafico "Dinheiro que entrou e saiu", contando o atual. A tela
+     * filtra 3, 6 ou 12 deles sem pedir de novo.
+     */
+    static final int MESES_NO_GRAFICO = 12;
+
+    /** Maior periodo do filtro com calendario: mais que isso, as barras nao cabem na tela. */
+    static final int MAXIMO_DE_MESES = 24;
 
     /** "Vencem esta semana": de hoje ate hoje + 6 dias. */
     private static final int DIAS_DA_SEMANA = 6;
@@ -124,9 +130,10 @@ public class DashboardFinanceiroService {
         YearMonth mesAtual = YearMonth.from(hoje);
 
         // So o dinheiro dos meses do grafico: o mes atual sai dele tambem.
-        Instant inicioDoGrafico = mesAtual.minusMonths(MESES_NO_GRAFICO - 1L).atDay(1).atStartOfDay(FUSO_ESCOLA)
-                .toInstant();
-        List<Movimento> recebidos = cobrancaRepository.recebidosDesde(escolaId, inicioDoGrafico);
+        YearMonth primeiroDoGrafico = mesAtual.minusMonths(MESES_NO_GRAFICO - 1L);
+        Instant inicioDoGrafico = inicioDe(primeiroDoGrafico.atDay(1));
+        Instant fimDoGrafico = inicioDe(mesAtual.plusMonths(1).atDay(1));
+        List<Movimento> recebidos = cobrancaRepository.recebidosEntre(escolaId, inicioDoGrafico, fimDoGrafico);
         List<Movimento> recebidosNoMes = recebidos.stream()
                 .filter(r -> mesDe(r.getPagaEm()).equals(mesAtual))
                 .toList();
@@ -179,7 +186,8 @@ public class DashboardFinanceiroService {
                 new Atraso(alunosEmAtraso, emAtraso.quantidade(), emAtraso.valor(),
                         percentual(emAtraso.valor(), emAtraso.valor().add(pagoJaVencido))),
                 despesasAPagar(escolaId, hoje),
-                ultimosMeses(recebidos, despesaRepository.pagasDesde(escolaId, inicioDoGrafico), mesAtual),
+                porMes(recebidos, despesaRepository.pagasEntre(escolaId, inicioDoGrafico, fimDoGrafico),
+                        primeiroDoGrafico, mesAtual),
                 daSemana.stream()
                         .map(c -> new CobrancaDaSemana(c.getId(), c.getAluno().getId(), nomeDoAluno.apply(c),
                                 c.getDescricao(), c.getValor(), c.getDataVencimento(),
@@ -234,15 +242,43 @@ public class DashboardFinanceiroService {
         return new DespesasAPagar(valor, ateOFimDoMes.getQuantidade(), proximo);
     }
 
-    /** {@code recebidos} e {@code despesasPagas} a partir do primeiro mes do grafico. */
-    private static List<Mes> ultimosMeses(List<Movimento> recebidos, List<Movimento> despesasPagas,
-            YearMonth mesAtual) {
+    /**
+     * Entrou e saiu de cada mes de {@code de} a {@code ate} (inclusive), pelo
+     * dia em que foi pago, no fuso da escola: o filtro com calendario do
+     * grafico. Os meses das pontas contam so os dias do periodo.
+     *
+     * @throws IllegalArgumentException se o periodo esta invertido ou passa de
+     *                                  {@link #MAXIMO_DE_MESES} meses
+     */
+    public List<Mes> movimento(LocalDate de, LocalDate ate) {
+        if (de.isAfter(ate)) {
+            throw new IllegalArgumentException("de nao pode ser depois de ate");
+        }
+        YearMonth primeiro = YearMonth.from(de);
+        YearMonth ultimo = YearMonth.from(ate);
+        if (primeiro.plusMonths(MAXIMO_DE_MESES).isBefore(ultimo.plusMonths(1))) {
+            throw new IllegalArgumentException("O periodo pode ter no maximo " + MAXIMO_DE_MESES + " meses");
+        }
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        Instant desde = inicioDe(de);
+        Instant antes = inicioDe(ate.plusDays(1));
+        return porMes(cobrancaRepository.recebidosEntre(escolaId, desde, antes),
+                despesaRepository.pagasEntre(escolaId, desde, antes), primeiro, ultimo);
+    }
+
+    /** Um {@link Mes} para cada mes de {@code primeiro} a {@code ultimo}, mesmo os sem movimento. */
+    private static List<Mes> porMes(List<Movimento> recebidos, List<Movimento> despesasPagas, YearMonth primeiro,
+            YearMonth ultimo) {
         Map<YearMonth, BigDecimal> entrou = somarPorMes(recebidos);
         Map<YearMonth, BigDecimal> saiu = somarPorMes(despesasPagas);
-        return Stream.iterate(mesAtual.minusMonths(MESES_NO_GRAFICO - 1L), m -> m.plusMonths(1))
-                .limit(MESES_NO_GRAFICO)
+        return Stream.iterate(primeiro, m -> !m.isAfter(ultimo), m -> m.plusMonths(1))
                 .map(m -> new Mes(m, entrou.getOrDefault(m, BigDecimal.ZERO), saiu.getOrDefault(m, BigDecimal.ZERO)))
                 .toList();
+    }
+
+    /** Meia-noite do dia no fuso da escola. */
+    private static Instant inicioDe(LocalDate dia) {
+        return dia.atStartOfDay(FUSO_ESCOLA).toInstant();
     }
 
     /** Pelo mes de {@code PAGA_EM} no fuso da escola. */

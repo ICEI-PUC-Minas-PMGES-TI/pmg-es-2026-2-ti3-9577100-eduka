@@ -1,5 +1,6 @@
 import { Icon } from '../../../../components/Icon/Icon'
 import { ROTULOS_TURNO, type Turma } from '../../../../types/alocacao'
+import { Dica } from '../../../../components/Dica/Dica'
 import styles from './TurmasAlocacao.module.css'
 
 type TurmasAlocacaoProps = {
@@ -57,7 +58,9 @@ export function TurmasAlocacao({
                     <strong className={styles.nome}>
                       {turma.nome}
                       {turmasComRascunho.has(turma.id) && (
-                        <span className={styles.rascunho} title="Tem alterações não salvas" />
+                        <Dica texto="Tem alterações não salvas">
+                          <span className={styles.rascunho} role="img" aria-label="Tem alterações não salvas" />
+                        </Dica>
                       )}
                     </strong>
                     <span className={styles.detalhes}>
