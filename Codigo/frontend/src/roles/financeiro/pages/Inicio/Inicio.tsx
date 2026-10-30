@@ -75,15 +75,6 @@ function Resumo({ dados }: { dados: DashboardFinanceiro }) {
       </StatCards>
 
       <Colunas>
-        <VencemNaSemana
-          cobrancas={dados.vencemNaSemana}
-          acao={
-            <Button size="sm" icon="arrowRight" onClick={() => navigate(paths.financeiro.cobrancas)}>
-              Ver cobranças
-            </Button>
-          }
-        />
-
         <Atalhos
           titulo="Atalhos do dia"
           itens={[
@@ -92,11 +83,19 @@ function Resumo({ dados }: { dados: DashboardFinanceiro }) {
             { rotulo: 'Lançar uma despesa', icon: 'dollarSign', onClick: () => navigate(paths.financeiro.despesas) },
           ]}
         />
+        <EntrouESaiu meses={dados.ultimosMeses} />
       </Colunas>
 
       <Colunas>
+        <VencemNaSemana
+          cobrancas={dados.vencemNaSemana}
+          acao={
+            <Button size="sm" icon="arrowRight" onClick={() => navigate(paths.financeiro.cobrancas)}>
+              Ver cobranças
+            </Button>
+          }
+        />
         <UltimosPagamentos pagamentos={dados.ultimosPagamentos} />
-        <EntrouESaiu meses={dados.ultimosMeses} />
       </Colunas>
     </>
   )
