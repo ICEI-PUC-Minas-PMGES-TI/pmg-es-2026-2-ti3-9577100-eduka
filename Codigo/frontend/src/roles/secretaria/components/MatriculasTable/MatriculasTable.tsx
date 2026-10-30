@@ -8,16 +8,20 @@ import styles from './MatriculasTable.module.css'
 type MatriculasTableProps = {
   matriculas: Matricula[]
   mensagemVazia: string
+  /** Quando muda (turma ou filtro), a tabela volta para a primeira página. */
+  reiniciarCom?: string
   onVer: (matricula: Matricula) => void
   onAlterar: (matricula: Matricula) => void
 }
 
 /** Alunos de uma turma, com a situação da matrícula e a ação de alterar. */
-export function MatriculasTable({ matriculas, mensagemVazia, onVer, onAlterar }: MatriculasTableProps) {
+export function MatriculasTable({ matriculas, mensagemVazia, reiniciarCom, onVer, onAlterar }: MatriculasTableProps) {
   return (
     <Tabela
       colunas={['Aluno', 'Matriculado em', 'Situação', 'Observação', '']}
       vazio={mensagemVazia}
+      rotuloPaginacao="Páginas das matrículas"
+      reiniciarCom={reiniciarCom}
       linhas={matriculas.map((m) => (
         <tr key={m.id}>
           <td>

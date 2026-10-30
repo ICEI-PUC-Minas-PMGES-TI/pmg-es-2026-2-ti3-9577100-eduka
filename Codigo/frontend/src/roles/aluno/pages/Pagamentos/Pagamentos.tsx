@@ -2,7 +2,9 @@ import { useCallback, useState } from 'react'
 import { Badge } from '../../../../components/Badge/Badge'
 import { Button } from '../../../../components/Button/Button'
 import { ModalComprovante } from '../../../../components/Comprovante/ModalComprovante'
+import { Paginacao } from '../../../../components/Paginacao/Paginacao'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
+import { usePaginacao } from '../../../../hooks/usePaginacao'
 import { buscarComprovante, buscarHistoricoFinanceiro } from '../../../../services/pagamentoAlunoService'
 import {
   podePagar,
@@ -71,6 +73,9 @@ export function Pagamentos() {
   // O histórico já vem do vencimento mais recente para o mais antigo.
   const pagas = cobrancas.filter((c) => c.status === 'PAGA')
   const canceladas = cobrancas.filter((c) => c.status === 'CANCELADA')
+  const { paginacao: paginasOutras, topo: topoOutras } = usePaginacao<CobrancaDoHistorico, HTMLElement>(outrasEmAberto)
+  const { paginacao: paginasPagas, topo: topoPagas } = usePaginacao<CobrancaDoHistorico, HTMLElement>(pagas)
+  const { paginacao: paginasCanceladas, topo: topoCanceladas } = usePaginacao<CobrancaDoHistorico, HTMLElement>(canceladas)
 
   const buscarComprovanteAberto = useCallback(() => buscarComprovante(comprovanteDe ?? ''), [comprovanteDe])
 
@@ -146,7 +151,7 @@ export function Pagamentos() {
           )}
 
           {outrasEmAberto.length > 0 && (
-            <section className={styles.cartao} aria-labelledby="titulo-outras">
+            <section ref={topoOutras} className={styles.cartao} aria-labelledby="titulo-outras">
               <h2 id="titulo-outras" className={styles.tituloSecao}>
                 Outras cobranças em aberto
               </h2>
@@ -166,7 +171,7 @@ export function Pagamentos() {
                     </tr>
                   </thead>
                   <tbody>
-                    {outrasEmAberto.map((c) => (
+                    {paginasOutras.itensDaPagina.map((c) => (
                       <tr key={c.id}>
                         <td>
                           <span className={styles.descricao}>{c.descricao}</span>
@@ -185,11 +190,12 @@ export function Pagamentos() {
                   </tbody>
                 </table>
               </div>
+              <Paginacao paginacao={paginasOutras} rotulo="Páginas das outras cobranças em aberto" />
             </section>
           )}
 
           {pagas.length > 0 && (
-            <section className={styles.cartao} aria-labelledby="titulo-pagas">
+            <section ref={topoPagas} className={styles.cartao} aria-labelledby="titulo-pagas">
               <h2 id="titulo-pagas" className={styles.tituloSecao}>
                 Pagas
               </h2>
@@ -209,7 +215,7 @@ export function Pagamentos() {
                     </tr>
                   </thead>
                   <tbody>
-                    {pagas.map((c) => (
+                    {paginasPagas.itensDaPagina.map((c) => (
                       <tr key={c.id}>
                         <td>
                           <span className={styles.descricao}>{c.descricao}</span>
@@ -239,11 +245,12 @@ export function Pagamentos() {
                   </tbody>
                 </table>
               </div>
+              <Paginacao paginacao={paginasPagas} rotulo="Páginas das cobranças pagas" />
             </section>
           )}
 
           {canceladas.length > 0 && (
-            <section className={styles.cartao} aria-labelledby="titulo-canceladas">
+            <section ref={topoCanceladas} className={styles.cartao} aria-labelledby="titulo-canceladas">
               <h2 id="titulo-canceladas" className={styles.tituloSecao}>
                 Canceladas
               </h2>
@@ -260,7 +267,7 @@ export function Pagamentos() {
                     </tr>
                   </thead>
                   <tbody>
-                    {canceladas.map((c) => (
+                    {paginasCanceladas.itensDaPagina.map((c) => (
                       <tr key={c.id}>
                         <td>
                           <span className={styles.descricao}>{c.descricao}</span>
@@ -276,6 +283,7 @@ export function Pagamentos() {
                   </tbody>
                 </table>
               </div>
+              <Paginacao paginacao={paginasCanceladas} rotulo="Páginas das cobranças canceladas" />
             </section>
           )}
         </>

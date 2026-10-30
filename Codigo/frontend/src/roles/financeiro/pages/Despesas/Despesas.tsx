@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Button } from '../../../../components/Button/Button'
+import { Paginacao } from '../../../../components/Paginacao/Paginacao'
+import { usePaginacao } from '../../../../hooks/usePaginacao'
 import { ApiError } from '../../../../services/api'
 import {
   criarDespesa,
@@ -111,6 +113,7 @@ export function Despesas() {
     // Datas ISO (AAAA-MM-DD) ordenam como texto
     return [...lista].sort((a, b) => a.dataVencimento.localeCompare(b.dataVencimento))
   }, [despesasDoMes, filtro])
+  const { paginacao, topo } = usePaginacao(despesasFiltradas, { reiniciarCom: filtro })
 
   /** Marca como paga a despesa a pagar, ou desfaz o pagamento da paga. */
   async function handleAlternarSituacao(despesa: Despesa) {
@@ -263,7 +266,7 @@ export function Despesas() {
               </p>
             )}
 
-            <div className={styles.tabelaWrapper}>
+            <div ref={topo} className={styles.tabelaWrapper}>
               {carregando ? (
                 <div className={styles.vazio}>Carregando despesas…</div>
               ) : erroLista ? (
@@ -294,7 +297,7 @@ export function Despesas() {
                     </tr>
                   </thead>
                   <tbody>
-                    {despesasFiltradas.map((d) => (
+                    {paginacao.itensDaPagina.map((d) => (
                       <tr key={d.id} className={styles.tr}>
                         <td className={styles.tdDescricao}>
                           <div className={styles.descricaoEBadge}>
@@ -331,6 +334,7 @@ export function Despesas() {
                 </table>
               )}
             </div>
+            {!carregando && !erroLista && <Paginacao paginacao={paginacao} rotulo="Páginas das despesas" />}
           </section>
         </div>
 

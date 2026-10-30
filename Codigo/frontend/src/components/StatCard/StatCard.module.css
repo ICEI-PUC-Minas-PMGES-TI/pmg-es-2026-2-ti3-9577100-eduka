@@ -1,7 +1,10 @@
 .card {
+  /* Container: o valor encolhe pela largura do card (cqi), não pela da tela. */
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
   padding: 24px 26px;
   border: var(--glass-border);
   border-radius: var(--radius-lg);
@@ -26,8 +29,12 @@
 }
 
 .value {
+  --tamanho-maximo: 40px;
   font-family: var(--font-display);
-  font-size: 40px;
+  /* Valor longo (ex.: R$ 123.456,78) encolhe até caber na linha; curto fica no tamanho máximo.
+     0.62em é a largura média de um caractere da fonte em peso 900. */
+  font-size: min(var(--tamanho-maximo), calc(100cqi / (var(--caracteres, 1) * 0.62)));
+  white-space: nowrap;
   font-weight: 900;
   line-height: 1.15;
   letter-spacing: -0.8px;
@@ -84,7 +91,7 @@
   }
 
   .value {
-    font-size: 34px;
+    --tamanho-maximo: 34px;
   }
 }
 

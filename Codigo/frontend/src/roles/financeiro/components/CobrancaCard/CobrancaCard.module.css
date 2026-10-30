@@ -119,6 +119,11 @@
     gap: 12px;
   }
 
+  /* Em coluna, sem isto o bloco fica da largura do nome inteiro e as reticências não aparecem. */
+  .infoEsquerda {
+    align-self: stretch;
+  }
+
   .infoDireita {
     width: 100%;
     justify-content: space-between;

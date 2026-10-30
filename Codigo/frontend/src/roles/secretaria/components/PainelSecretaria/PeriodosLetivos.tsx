@@ -62,6 +62,7 @@ export function PeriodosLetivos({ periodos, onCadastrar, onAtualizar, onExcluir 
       <Tabela
         colunas={['Nome', 'Início', 'Término', 'Situação', '']}
         vazio="Nenhum período letivo cadastrado ainda."
+        rotuloPaginacao="Páginas dos períodos letivos"
         linhas={periodos.map((p) => {
           const { rotulo, tom } = situacao(p, hoje)
           return (

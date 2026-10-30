@@ -154,6 +154,7 @@ export function Professores() {
 
       <ProfessoresTable
         professores={visiveis}
+        reiniciarCom={busca}
         carregando={carregando}
         erro={erro}
         mensagemVazia={mensagemVazia}

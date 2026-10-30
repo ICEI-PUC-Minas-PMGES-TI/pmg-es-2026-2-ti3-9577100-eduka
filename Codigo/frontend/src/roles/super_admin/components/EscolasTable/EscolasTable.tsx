@@ -2,7 +2,9 @@ import { useState, type ReactNode } from 'react'
 import { Badge } from '../../../../components/Badge/Badge'
 import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
+import { Paginacao } from '../../../../components/Paginacao/Paginacao'
 import type { OpcaoSelect } from '../../../../components/Select/Select'
+import { usePaginacao } from '../../../../hooks/usePaginacao'
 import { OPCOES_PLANO, ROTULOS_PLANO, type Escola, type PlanoEscola } from '../../../../types/escola'
 import { formatarCnpjCpf, iniciais, somenteDigitos } from '../../../../utils/formatters'
 import { FiltroDropdown } from '../FiltroDropdown/FiltroDropdown'
@@ -71,6 +73,9 @@ export function EscolasTable({
   const ativas = filtradas.filter((e) => e.ativo)
   const suspensas = filtradas.filter((e) => !e.ativo)
   const visiveis = filtroSituacao === 'ativas' ? ativas : filtroSituacao === 'suspensas' ? suspensas : filtradas
+  const { paginacao, topo } = usePaginacao<Escola, HTMLUListElement>(visiveis, {
+    reiniciarCom: `${busca}|${filtroPlano}|${filtroSituacao}`,
+  })
 
   const opcoesSituacao: { valor: FiltroSituacao; rotulo: string }[] = [
     { valor: 'todas', rotulo: `Todas (${filtradas.length})` },
@@ -133,8 +138,8 @@ export function EscolasTable({
       {!carregando && !erro && visiveis.length === 0 && <Mensagem>{mensagemVazia}</Mensagem>}
 
       {!carregando && !erro && visiveis.length > 0 && (
-        <ul className={styles.lista}>
-          {visiveis.map((escola) => (
+        <ul ref={topo} className={styles.lista}>
+          {paginacao.itensDaPagina.map((escola) => (
             <li key={escola.id} className={`${styles.linha} ${escola.ativo ? '' : styles.suspensa}`}>
               <span className={styles.avatar} aria-hidden="true">
                 {iniciais(escola.nome)}
@@ -181,6 +186,7 @@ export function EscolasTable({
           ))}
         </ul>
       )}
+      {!carregando && !erro && <Paginacao paginacao={paginacao} rotulo="Páginas das escolas" />}
     </section>
   )
 }

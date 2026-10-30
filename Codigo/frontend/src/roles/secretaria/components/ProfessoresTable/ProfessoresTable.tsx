@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { Badge } from '../../../../components/Badge/Badge'
 import { Button } from '../../../../components/Button/Button'
+import { Paginacao } from '../../../../components/Paginacao/Paginacao'
+import { usePaginacao } from '../../../../hooks/usePaginacao'
 import { ROTULOS_VINCULO, type Professor } from '../../../../types/professor'
 import { iniciais } from '../../../../utils/formatters'
 import styles from './ProfessoresTable.module.css'
@@ -10,6 +12,8 @@ import styles from './ProfessoresTable.module.css'
 const SEM_DADO = '—'
 
 type ProfessoresTableProps = {
+  /** Quando muda (busca, filtro), a tabela volta para a primeira página. */
+  reiniciarCom?: string
   professores: Professor[]
   carregando: boolean
   erro: string | null
@@ -27,6 +31,7 @@ type ProfessoresTableProps = {
 /** Tabela de professores num card de vidro, com os estados de carregando, erro e vazio. */
 export function ProfessoresTable({
   professores,
+  reiniciarCom,
   carregando,
   erro,
   mensagemVazia,
@@ -37,93 +42,97 @@ export function ProfessoresTable({
   onAlternarSituacao,
   onExcluir,
 }: ProfessoresTableProps) {
+  const { paginacao, topo } = usePaginacao<Professor, HTMLElement>(professores, { reiniciarCom })
   return (
-    <section className={styles.card} aria-label="Professores cadastrados">
-      <div className={styles.rolagem}>
-        <table className={styles.tabela}>
-          <thead>
-            <tr>
-              <th scope="col">Professor</th>
-              <th scope="col">Disciplinas</th>
-              <th scope="col">Vínculo</th>
-              <th scope="col">Turmas</th>
-              <th scope="col">Situação</th>
-              <th scope="col" className={styles.colAcoes}>
-                Ações
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {!carregando &&
-              !erro &&
-              professores.map((professor) => (
-                <tr key={professor.id} className={professor.ativo ? '' : styles.inativo}>
-                  <td>
-                    <div className={styles.professor}>
-                      <span className={styles.avatar} aria-hidden="true">
-                        {iniciais(professor.nome)}
-                      </span>
-                      <div className={styles.info}>
-                        <strong className={styles.nome}>{professor.nome}</strong>
-                        {professor.email && <span className={styles.email}>{professor.email}</span>}
+    <>
+      <section ref={topo} className={styles.card} aria-label="Professores cadastrados">
+        <div className={styles.rolagem}>
+          <table className={styles.tabela}>
+            <thead>
+              <tr>
+                <th scope="col">Professor</th>
+                <th scope="col">Disciplinas</th>
+                <th scope="col">Vínculo</th>
+                <th scope="col">Turmas</th>
+                <th scope="col">Situação</th>
+                <th scope="col" className={styles.colAcoes}>
+                  Ações
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {!carregando &&
+                !erro &&
+                paginacao.itensDaPagina.map((professor) => (
+                  <tr key={professor.id} className={professor.ativo ? '' : styles.inativo}>
+                    <td>
+                      <div className={styles.professor}>
+                        <span className={styles.avatar} aria-hidden="true">
+                          {iniciais(professor.nome)}
+                        </span>
+                        <div className={styles.info}>
+                          <strong className={styles.nome}>{professor.nome}</strong>
+                          {professor.email && <span className={styles.email}>{professor.email}</span>}
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className={styles.secundario}>{SEM_DADO}</td>
-                  <td>{professor.vinculo ? ROTULOS_VINCULO[professor.vinculo] : SEM_DADO}</td>
-                  <td>{SEM_DADO}</td>
-                  <td>
-                    {professor.ativo ? (
-                      <Badge tone="success">Ativo</Badge>
-                    ) : (
-                      <Badge tone="neutral">Inativo</Badge>
-                    )}
-                  </td>
-                  <td className={styles.colAcoes}>
-                    <div className={styles.acoes}>
-                      <Button size="sm" icon="eye" onClick={() => onVer(professor)}>
-                        Ver
-                      </Button>
-                      <Button size="sm" icon="edit" onClick={() => onEditar(professor)}>
-                        Editar
-                      </Button>
-                      <Button
-                        size="sm"
-                        className={styles.alternar}
-                        icon={professor.ativo ? 'pause' : 'check'}
-                        disabled={alternandoId === professor.id}
-                        title={professor.ativo ? 'Afastamento temporário, como licença' : undefined}
-                        onClick={() => onAlternarSituacao(professor)}
-                      >
-                        {professor.ativo ? 'Inativar' : 'Reativar'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="dangerOutline"
-                        icon="trash"
-                        aria-label={`Excluir ${professor.nome}`}
-                        title="Excluir (saiu da escola)"
-                        onClick={() => onExcluir(professor)}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      </div>
+                    </td>
+                    <td className={styles.secundario}>{SEM_DADO}</td>
+                    <td>{professor.vinculo ? ROTULOS_VINCULO[professor.vinculo] : SEM_DADO}</td>
+                    <td>{SEM_DADO}</td>
+                    <td>
+                      {professor.ativo ? (
+                        <Badge tone="success">Ativo</Badge>
+                      ) : (
+                        <Badge tone="neutral">Inativo</Badge>
+                      )}
+                    </td>
+                    <td className={styles.colAcoes}>
+                      <div className={styles.acoes}>
+                        <Button size="sm" icon="eye" onClick={() => onVer(professor)}>
+                          Ver
+                        </Button>
+                        <Button size="sm" icon="edit" onClick={() => onEditar(professor)}>
+                          Editar
+                        </Button>
+                        <Button
+                          size="sm"
+                          className={styles.alternar}
+                          icon={professor.ativo ? 'pause' : 'check'}
+                          disabled={alternandoId === professor.id}
+                          title={professor.ativo ? 'Afastamento temporário, como licença' : undefined}
+                          onClick={() => onAlternarSituacao(professor)}
+                        >
+                          {professor.ativo ? 'Inativar' : 'Reativar'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="dangerOutline"
+                          icon="trash"
+                          aria-label={`Excluir ${professor.nome}`}
+                          title="Excluir (saiu da escola)"
+                          onClick={() => onExcluir(professor)}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
 
-      {carregando && <Mensagem>Carregando professores…</Mensagem>}
-      {!carregando && erro && (
-        <Mensagem>
-          <span>{erro}</span>
-          <Button size="sm" onClick={onTentarNovamente}>
-            Tentar novamente
-          </Button>
-        </Mensagem>
-      )}
-      {!carregando && !erro && professores.length === 0 && <Mensagem>{mensagemVazia}</Mensagem>}
-    </section>
+        {carregando && <Mensagem>Carregando professores…</Mensagem>}
+        {!carregando && erro && (
+          <Mensagem>
+            <span>{erro}</span>
+            <Button size="sm" onClick={onTentarNovamente}>
+              Tentar novamente
+            </Button>
+          </Mensagem>
+        )}
+        {!carregando && !erro && professores.length === 0 && <Mensagem>{mensagemVazia}</Mensagem>}
+      </section>
+      {!carregando && !erro && <Paginacao paginacao={paginacao} rotulo="Páginas dos professores" />}
+    </>
   )
 }
 

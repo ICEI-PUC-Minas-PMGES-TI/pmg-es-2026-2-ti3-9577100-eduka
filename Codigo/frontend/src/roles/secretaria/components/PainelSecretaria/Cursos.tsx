@@ -45,6 +45,7 @@ export function Cursos({ cursos, onCadastrar, onAtualizar, onExcluir }: CursosPr
       <Tabela
         colunas={['Código', 'Nome do curso', 'Descrição', 'Situação', '']}
         vazio="Nenhum curso cadastrado ainda."
+        rotuloPaginacao="Páginas dos cursos"
         linhas={cursos.map((c) => (
           <tr key={c.id}>
             <td className={styles.secundario}>{c.codigo ?? '—'}</td>

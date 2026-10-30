@@ -48,6 +48,7 @@ export function Disciplinas({ disciplinas, cursos, onCadastrar, onAtualizar, onE
       <Tabela
         colunas={['Código', 'Nome', 'Carga horária', 'Curso vinculado', '']}
         vazio="Nenhuma disciplina cadastrada ainda."
+        rotuloPaginacao="Páginas das disciplinas"
         linhas={disciplinas.map((d) => (
           <tr key={d.id}>
             <td className={styles.secundario}>{d.codigo ?? '—'}</td>

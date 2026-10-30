@@ -18,6 +18,8 @@
 
 .buscaIcone {
   position: absolute;
+  /* O backdrop-filter do campo cria um contexto de empilhamento: sem z-index, o campo cobre a lupa. */
+  z-index: 1;
   left: 18px;
   color: var(--color-text-subtle);
   pointer-events: none;
@@ -136,33 +138,6 @@
   font-size: 15px;
 }
 
-.paginacao {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.paginacaoResumo {
-  font-size: 14px;
-  color: var(--color-text-subtle);
-}
-
-.paginacaoBotoes {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.paginacaoAtual {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--color-text-muted);
-  white-space: nowrap;
-}
-
 @media (max-width: 960px) {
   .busca {
     max-width: 100%;
@@ -171,10 +146,6 @@
   .toolbar {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .paginacao {
-    justify-content: center;
   }
 }
 
