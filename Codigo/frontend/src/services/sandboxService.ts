@@ -25,9 +25,20 @@ export function simularPagamentoNoSandbox(cobrancaId: string): Promise<void> {
   return apiRequest<void>(`/cobrancas/${cobrancaId}/sandbox/confirmar-pagamento`, { method: 'POST' })
 }
 
+/**
+ * ALUNO: paga no Sandbox a própria cobrança depois de gerar o PIX ou o
+ * boleto, como se tivesse pago no banco. O backend já grava o pagamento, sem
+ * esperar o aviso do provedor. 400 se ainda não foi emitida.
+ */
+export function pagarNoSandboxComoAluno(cobrancaId: string): Promise<void> {
+  return apiRequest<void>(`/portal/aluno/cobrancas/${cobrancaId}/sandbox/pagar`, { method: 'POST' })
+}
+
 /** Mensagem dos erros comuns dos atalhos, com o caso específico de cada um em `seInvalido`. */
 export function mensagemErroSandbox(e: unknown, seInvalido: string): string {
   if (!(e instanceof ApiError)) return 'Erro inesperado no Sandbox.'
+  // O Asaas recusou: o motivo dele diz mais do que a mensagem genérica.
+  if (e.codigo === 'PROVEDOR_RECUSOU') return `O Asaas recusou: ${e.detalhe ?? 'motivo não informado'}`
   if (e.status === 400) return seInvalido
   if (e.status === 404) return 'Os atalhos de Sandbox estão desligados neste ambiente.'
   if (e.codigo === 'SANDBOX_INDISPONIVEL') {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
@@ -19,6 +19,16 @@ import styles from './Cobrancas.module.css'
 
 const FILTROS: FiltroCobranca[] = ['TODAS', 'PENDENTE', 'EM_ATRASO', 'PAGA']
 
+const ROTULOS_FILTRO: Record<FiltroCobranca, string> = {
+  TODAS: 'Todas',
+  PENDENTE: 'Pendentes',
+  EM_ATRASO: 'Atrasadas',
+  PAGA: 'Pagas',
+}
+
+/** Cobranças por página da lista. */
+const POR_PAGINA = 10
+
 /** O ?status= da URL (atalho do Início), ou Todas. */
 function filtroDaUrl(status: string | null): FiltroCobranca {
   return FILTROS.find((filtro) => filtro === status) ?? 'TODAS'
@@ -30,9 +40,11 @@ export function Cobrancas() {
   const [cobrancas, setCobrancas] = useState<Cobranca[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
-  const [idSelecionado, setIdSelecionado] = useState<string>('')
+  const [idAberto, setIdAberto] = useState<string | null>(null)
   const [termoBusca, setTermoBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<FiltroCobranca>(() => filtroDaUrl(searchParams.get('status')))
+  const [pagina, setPagina] = useState(1)
+  const topoDaLista = useRef<HTMLDivElement>(null)
   const [boletoModalCobranca, setBoletoModalCobranca] = useState<Cobranca | null>(null)
   const [simulando, setSimulando] = useState(false)
   const [mensagemSandbox, setMensagemSandbox] = useState<MensagemSandbox | null>(null)
@@ -85,18 +97,35 @@ export function Cobrancas() {
     }
   }
 
-  function selecionar(id: string) {
-    setIdSelecionado(id)
+  /** A seta do card abre os detalhes; clicar de novo fecha. Só um aberto por vez. */
+  function alternar(id: string) {
+    setIdAberto((atual) => (atual === id ? null : id))
     setMensagemSandbox(null)
   }
 
+  // Busca ou filtro novo: volta à primeira página.
+  function buscar(termo: string) {
+    setTermoBusca(termo)
+    setPagina(1)
+  }
+
+  function filtrar(filtro: FiltroCobranca) {
+    setFiltroStatus(filtro)
+    setPagina(1)
+  }
+
+  function irParaPagina(nova: number) {
+    setPagina(nova)
+    topoDaLista.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   // Contadores dinâmicos para as pílulas de filtro
-  const contadores = useMemo(() => {
+  const contadores = useMemo<Record<FiltroCobranca, number>>(() => {
     return {
-      todas: cobrancas.length,
-      pendentes: cobrancas.filter((c) => c.status === 'PENDENTE').length,
-      emAtraso: cobrancas.filter((c) => c.status === 'EM_ATRASO').length,
-      pagas: cobrancas.filter((c) => c.status === 'PAGA').length,
+      TODAS: cobrancas.length,
+      PENDENTE: cobrancas.filter((c) => c.status === 'PENDENTE').length,
+      EM_ATRASO: cobrancas.filter((c) => c.status === 'EM_ATRASO').length,
+      PAGA: cobrancas.filter((c) => c.status === 'PAGA').length,
     }
   }, [cobrancas])
 
@@ -112,20 +141,16 @@ export function Cobrancas() {
     })
   }, [cobrancas, termoBusca, filtroStatus])
 
-  // Item selecionado derivado diretamente da renderização
-  const cobrancaSelecionada = useMemo(() => {
-    return (
-      cobrancasFiltradas.find((c) => c.id === idSelecionado) ??
-      cobrancasFiltradas[0] ??
-      cobrancas.find((c) => c.id === idSelecionado) ??
-      null
-    )
-  }, [cobrancasFiltradas, cobrancas, idSelecionado])
+  // A recarga pode encolher a lista: a página nunca passa da última.
+  const totalPaginas = Math.max(1, Math.ceil(cobrancasFiltradas.length / POR_PAGINA))
+  const paginaAtual = Math.min(pagina, totalPaginas)
+  const inicio = (paginaAtual - 1) * POR_PAGINA
+  const cobrancasDaPagina = cobrancasFiltradas.slice(inicio, inicio + POR_PAGINA)
 
   return (
     <FinanceiroLayout
       titulo="Cobranças"
-      subtitulo="Clique em uma cobrança para ver os detalhes."
+      subtitulo="Clique na seta de uma cobrança para ver os detalhes."
       acao={
         <Button
           variant="primary"
@@ -148,93 +173,87 @@ export function Cobrancas() {
             placeholder="Procurar pelo nome do aluno"
             aria-label="Procurar pelo nome do aluno"
             value={termoBusca}
-            onChange={(e) => setTermoBusca(e.target.value)}
+            onChange={(e) => buscar(e.target.value)}
           />
         </div>
 
         <div className={styles.filtrosPills} role="tablist" aria-label="Filtrar por status">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={filtroStatus === 'TODAS'}
-            className={`${styles.pillBtn} ${filtroStatus === 'TODAS' ? styles.pillAtivo : ''}`}
-            onClick={() => setFiltroStatus('TODAS')}
-          >
-            Todas
-            <span className={styles.badge}>{contadores.todas}</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={filtroStatus === 'PENDENTE'}
-            className={`${styles.pillBtn} ${filtroStatus === 'PENDENTE' ? styles.pillAtivo : ''}`}
-            onClick={() => setFiltroStatus('PENDENTE')}
-          >
-            Pendentes
-            <span className={styles.badge}>{contadores.pendentes}</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={filtroStatus === 'EM_ATRASO'}
-            className={`${styles.pillBtn} ${filtroStatus === 'EM_ATRASO' ? styles.pillAtivo : ''}`}
-            onClick={() => setFiltroStatus('EM_ATRASO')}
-          >
-            Atrasadas
-            <span className={styles.badge}>{contadores.emAtraso}</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={filtroStatus === 'PAGA'}
-            className={`${styles.pillBtn} ${filtroStatus === 'PAGA' ? styles.pillAtivo : ''}`}
-            onClick={() => setFiltroStatus('PAGA')}
-          >
-            Pagas
-            <span className={styles.badge}>{contadores.pagas}</span>
-          </button>
+          {FILTROS.map((filtro) => (
+            <button
+              key={filtro}
+              type="button"
+              role="tab"
+              aria-selected={filtroStatus === filtro}
+              className={`${styles.pillBtn} ${filtroStatus === filtro ? styles.pillAtivo : ''}`}
+              onClick={() => filtrar(filtro)}
+            >
+              {ROTULOS_FILTRO[filtro]}
+              <span className={styles.badge}>{contadores[filtro]}</span>
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Conteúdo Master-Detail em Split Screen */}
-      <div className={styles.conteudoSplit}>
-        <div className={styles.listaCobrancas}>
-          {carregando ? (
-            <div className={styles.vazio}>
-              <p>Carregando cobranças…</p>
-            </div>
-          ) : erro ? (
-            <div className={styles.vazio} role="alert">
-              <Icon name="fileText" size={32} />
-              <p>{erro}</p>
-            </div>
-          ) : cobrancasFiltradas.length === 0 ? (
-            <div className={styles.vazio}>
-              <Icon name="fileText" size={32} />
-              <p>Nenhuma cobrança encontrada para este filtro.</p>
-            </div>
-          ) : (
-            cobrancasFiltradas.map((c) => (
-              <CobrancaCard
-                key={c.id}
+      <div ref={topoDaLista} className={styles.lista}>
+        {carregando ? (
+          <div className={styles.vazio}>
+            <p>Carregando cobranças…</p>
+          </div>
+        ) : erro ? (
+          <div className={styles.vazio} role="alert">
+            <Icon name="fileText" size={32} />
+            <p>{erro}</p>
+          </div>
+        ) : cobrancasFiltradas.length === 0 ? (
+          <div className={styles.vazio}>
+            <Icon name="fileText" size={32} />
+            <p>Nenhuma cobrança encontrada para este filtro.</p>
+          </div>
+        ) : (
+          cobrancasDaPagina.map((c) => (
+            <CobrancaCard key={c.id} cobranca={c} aberta={idAberto === c.id} onAlternar={() => alternar(c.id)}>
+              <CobrancaDetalhe
                 cobranca={c}
-                selecionada={cobrancaSelecionada?.id === c.id}
-                onClick={() => selecionar(c.id)}
+                onVerBoleto={(cobranca) => setBoletoModalCobranca(cobranca)}
+                onSimularPagamento={atalhosSandboxHabilitados ? simularPagamento : undefined}
+                simulandoPagamento={simulando}
+                mensagemSandbox={mensagemSandbox}
               />
-            ))
-          )}
-        </div>
-
-        {cobrancaSelecionada && (
-          <CobrancaDetalhe
-            cobranca={cobrancaSelecionada}
-            onVerBoleto={(c) => setBoletoModalCobranca(c)}
-            onSimularPagamento={atalhosSandboxHabilitados ? simularPagamento : undefined}
-            simulandoPagamento={simulando}
-            mensagemSandbox={mensagemSandbox}
-          />
+            </CobrancaCard>
+          ))
         )}
       </div>
+
+      {!carregando && !erro && cobrancasFiltradas.length > POR_PAGINA && (
+        <nav className={styles.paginacao} aria-label="Páginas das cobranças">
+          <span className={styles.paginacaoResumo}>
+            {inicio + 1}–{inicio + cobrancasDaPagina.length} de {cobrancasFiltradas.length}
+          </span>
+          <div className={styles.paginacaoBotoes}>
+            <Button
+              variant="outline"
+              size="sm"
+              icon="chevronLeft"
+              onClick={() => irParaPagina(paginaAtual - 1)}
+              disabled={paginaAtual === 1}
+            >
+              Anterior
+            </Button>
+            <span className={styles.paginacaoAtual} aria-current="page">
+              Página {paginaAtual} de {totalPaginas}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => irParaPagina(paginaAtual + 1)}
+              disabled={paginaAtual === totalPaginas}
+            >
+              Próxima
+              <Icon name="chevronRight" size={16} />
+            </Button>
+          </div>
+        </nav>
+      )}
 
       {/* Modais */}
       <ModalBoleto

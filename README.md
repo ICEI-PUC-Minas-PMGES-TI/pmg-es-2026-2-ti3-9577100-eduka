@@ -141,7 +141,7 @@ Para parar os serviços, use `docker compose -f Codigo/docker-compose.prod.yml d
 
 ### Ambiente de apresentação (Render + Vercel)
 
-Para mostrar o sistema ao cliente com dados de exemplo, o backend sobe com `SPRING_PROFILES_ACTIVE=prod,demo`. Tudo do `prod` continua valendo; o perfil `demo` (`application-demo.properties`) libera só três coisas: a escola de demonstração (Colégio Ipê Amarelo), os atalhos de Sandbox do Asaas (aprovar a conta e confirmar o pagamento) e a tela `/login/demo`. **Nunca use o perfil `demo` na produção de verdade.**
+Para mostrar o sistema ao cliente com dados de exemplo, o backend sobe com `SPRING_PROFILES_ACTIVE=prod,demo`. Tudo do `prod` continua valendo; o perfil `demo` (`application-demo.properties`) libera só três coisas: a escola de demonstração (Colégio Ipê Amarelo), os atalhos de Sandbox do Asaas (aprovar a conta e confirmar o pagamento, inclusive o botão Pagar do aluno depois de gerar o PIX ou o boleto) e a tela `/login/demo`. **Nunca use o perfil `demo` na produção de verdade.**
 
 A tela `/login/demo` pede o login e a senha de `DEMO_ACESSO_LOGIN` / `DEMO_ACESSO_SENHA` e, depois, entra com um clique na conta de teste de qualquer perfil (master, secretaria, financeiro, professora, aluna e super admin). O backend confere o acesso e emite o token da conta; nenhuma senha de conta passa pelo front. Ela só entra no build do front com `VITE_DEMO=true`.
 
