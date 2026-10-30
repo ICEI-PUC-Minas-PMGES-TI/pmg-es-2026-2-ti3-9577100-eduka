@@ -80,10 +80,12 @@ const PAINEL: DashboardFinanceiro = {
   ultimasAcoes: [],
 }
 
+const PAGINA_VAZIA = { conteudo: [], pagina: 0, tamanho: 10, totalElementos: 0, totalPaginas: 0, totaisPorStatus: [] }
+
 function abrir(painel: RespostaApi) {
-  simularApi(({ caminho }) => {
+  const chamadas = simularApi(({ caminho }) => {
     if (caminho === '/dashboard/financeiro') return painel
-    if (caminho === '/cobrancas') return { corpo: [] }
+    if (caminho.startsWith('/cobrancas/pagina?')) return { corpo: PAGINA_VAZIA }
     return undefined
   })
   const router = createMemoryRouter(
@@ -96,6 +98,7 @@ function abrir(painel: RespostaApi) {
     { initialEntries: [paths.financeiro.inicio] },
   )
   render(<RouterProvider router={router} />)
+  return chamadas
 }
 
 describe('Início do financeiro', () => {
@@ -134,11 +137,12 @@ describe('Início do financeiro', () => {
   })
 
   it('o atalho de atraso abre as cobranças já filtradas em Atrasadas', async () => {
-    abrir({ corpo: PAINEL })
+    const chamadas = abrir({ corpo: PAINEL })
 
     await userEvent.click(await screen.findByRole('button', { name: 'Ver cobranças em atraso' }))
 
-    expect(await screen.findByRole('tab', { name: /Atrasadas/ })).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByRole('button', { name: /Atrasadas/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(chamadas.map((c) => c.caminho)).toContain('/cobrancas/pagina?pagina=0&tamanho=10&status=EM_ATRASO')
   })
 
   it.each([

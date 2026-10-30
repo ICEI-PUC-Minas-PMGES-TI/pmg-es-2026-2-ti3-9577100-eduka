@@ -1,13 +1,17 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
+import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { paths } from '../../../../routes/paths'
+import { atualizarMatricula, listarMatriculas, matricularAluno } from '../../../../services/matriculaService'
 import type { TurmaAcademica } from '../../../../types/academico'
 import { ROTULOS_TURNO } from '../../../../types/alocacao'
 import {
   ROTULOS_STATUS_MATRICULA,
+  type AtualizarMatriculaRequest,
   type Matricula,
+  type MatriculaRequest,
   type StatusMatricula,
 } from '../../../../types/matricula'
 import { plural } from '../../../../utils/formatters'
@@ -28,13 +32,16 @@ const FILTROS: { valor: StatusMatricula | ''; rotulo: string }[] = [
   { valor: 'CONCLUIDA', rotulo: 'Concluídas' },
 ]
 
+// Estável: o useCarregamento pede o valor inicial sempre igual.
+const SEM_MATRICULAS: Matricula[] = []
+
 function porNomeDoAluno(a: Matricula, b: Matricula): number {
   return (a.alunoNome ?? '').localeCompare(b.alunoNome ?? '', 'pt-BR')
 }
 
 export function Matriculas() {
   const navigate = useNavigate()
-  const { turmas, alunos, matriculas, carregando, erro, recarregar, matricular, atualizar } = useMatriculas()
+  const { turmas, alunos, resumo, carregando, erro, recarregar, atualizarContagens } = useMatriculas()
   const [turmaId, setTurmaId] = useState<number | null>(null)
   const [filtro, setFiltro] = useState<StatusMatricula | ''>('')
   const [alterando, setAlterando] = useState<Matricula | null>(null)
@@ -45,24 +52,50 @@ export function Matriculas() {
   // Sem escolha feita (ou com a turma escolhida fora da lista), abre na primeira ativa.
   const turma = turmas.find((t) => t.id === turmaId) ?? turmas.find((t) => t.ativa) ?? turmas[0] ?? null
 
-  const ativasPorTurma = new Map<number, number>()
-  for (const m of matriculas) {
-    if (m.status === 'ATIVA') ativasPorTurma.set(m.turmaId, (ativasPorTurma.get(m.turmaId) ?? 0) + 1)
+  // Só as matrículas da turma escolhida, em qualquer situação: trocar de turma busca as da outra.
+  const idDaTurma = turma?.id ?? null
+  const buscarDaTurma = useMemo(
+    () => (idDaTurma === null ? null : (signal: AbortSignal) => listarMatriculas({ turmaId: idDaTurma }, signal)),
+    [idDaTurma],
+  )
+  const daTurmaCarregadas = useCarregamento(buscarDaTurma, SEM_MATRICULAS, 'A turma não existe mais.')
+  const daTurma = [...daTurmaCarregadas.dados].sort(porNomeDoAluno)
+  const visiveis = filtro ? daTurma.filter((m) => m.status === filtro) : daTurma
+
+  // A turma escolhida conta pelas matrículas já na tela, que mudam na hora; as outras, pelo backend.
+  const ativas = !turma
+    ? 0
+    : daTurmaCarregadas.carregando
+      ? turma.matriculasAtivas
+      : daTurma.filter((m) => m.status === 'ATIVA').length
+  const ativasPorTurma = new Map(turmas.map((t) => [t.id, t.id === turma?.id ? ativas : t.matriculasAtivas]))
+  const vagasLivres = turma ? Math.max(turma.vagas - ativas, 0) : 0
+
+  // Resumo da escola inteira, acima da turma escolhida, contado no backend.
+  const totalAtivas = resumo?.matriculasPorSituacao.ATIVA ?? 0
+  const trancadas = resumo?.matriculasPorSituacao.TRANCADA ?? 0
+  const alunosSemTurma = resumo?.alunosSemTurma ?? 0
+  const vagasLivresEscola = resumo?.vagas.livres ?? 0
+
+  /** Matricula um aluno na turma escolhida; lança ApiError se o backend recusar. */
+  async function matricular(dados: MatriculaRequest) {
+    const criada = await matricularAluno(dados)
+    daTurmaCarregadas.atualizar((atuais) => [...atuais, criada])
+    return criada
   }
 
-  // Resumo da escola inteira, acima da turma escolhida.
-  const totalAtivas = matriculas.filter((m) => m.status === 'ATIVA').length
-  const trancadas = matriculas.filter((m) => m.status === 'TRANCADA').length
-  const comTurma = new Set(matriculas.filter((m) => m.status === 'ATIVA').map((m) => m.alunoId))
-  const alunosSemTurma = alunos.filter((a) => !comTurma.has(a.id)).length
-  const vagasLivresEscola = turmas
-    .filter((t) => t.ativa)
-    .reduce((soma, t) => soma + Math.max(t.vagas - (ativasPorTurma.get(t.id) ?? 0), 0), 0)
-
-  const daTurma = turma ? matriculas.filter((m) => m.turmaId === turma.id).sort(porNomeDoAluno) : []
-  const visiveis = filtro ? daTurma.filter((m) => m.status === filtro) : daTurma
-  const ativas = turma ? (ativasPorTurma.get(turma.id) ?? 0) : 0
-  const vagasLivres = turma ? Math.max(turma.vagas - ativas, 0) : 0
+  /** Muda situação, turma e/ou observação; lança ApiError se o backend recusar. */
+  async function atualizar(id: string, dados: AtualizarMatriculaRequest) {
+    const atualizada = await atualizarMatricula(id, dados)
+    // Transferida para outra turma, sai da lista desta.
+    daTurmaCarregadas.atualizar((atuais) =>
+      atualizada.turmaId === idDaTurma
+        ? atuais.map((m) => (m.id === atualizada.id ? atualizada : m))
+        : atuais.filter((m) => m.id !== atualizada.id),
+    )
+    atualizarContagens()
+    return atualizada
+  }
 
   function limparAvisos() {
     setSucesso(null)
@@ -76,6 +109,7 @@ export function Matriculas() {
   }
 
   function handleMatriculados({ matriculados, falhas }: ResultadoMatriculas) {
+    if (matriculados.length > 0) atualizarContagens()
     setSucesso(
       matriculados.length > 0
         ? `${matriculados.length} ${plural(matriculados.length, 'aluno matriculado', 'alunos matriculados')} na turma ${turma?.nome}.`
@@ -180,7 +214,7 @@ export function Matriculas() {
               key={turma.id}
               turma={turma}
               alunos={alunos}
-              matriculas={matriculas}
+              matriculasDaTurma={daTurma}
               vagasLivres={vagasLivres}
               onMatricular={matricular}
               onConcluido={handleMatriculados}
@@ -206,20 +240,33 @@ export function Matriculas() {
               })}
             </div>
 
-            <MatriculasTable
-              matriculas={visiveis}
-              reiniciarCom={`${turma.id}|${filtro}`}
-              mensagemVazia={
-                daTurma.length === 0
-                  ? 'Nenhum aluno matriculado nesta turma ainda.'
-                  : `Nenhuma matrícula ${filtro ? ROTULOS_STATUS_MATRICULA[filtro].toLowerCase() : ''} nesta turma.`
-              }
-              onVer={setVendo}
-              onAlterar={(m) => {
-                limparAvisos()
-                setAlterando(m)
-              }}
-            />
+            {daTurmaCarregadas.carregando ? (
+              <p className={styles.estado} role="status">
+                Carregando as matrículas da turma…
+              </p>
+            ) : daTurmaCarregadas.erro ? (
+              <div className={styles.estado}>
+                <span>{daTurmaCarregadas.erro}</span>
+                <Button size="sm" onClick={daTurmaCarregadas.recarregar}>
+                  Tentar novamente
+                </Button>
+              </div>
+            ) : (
+              <MatriculasTable
+                matriculas={visiveis}
+                reiniciarCom={`${turma.id}|${filtro}`}
+                mensagemVazia={
+                  daTurma.length === 0
+                    ? 'Nenhum aluno matriculado nesta turma ainda.'
+                    : `Nenhuma matrícula ${filtro ? ROTULOS_STATUS_MATRICULA[filtro].toLowerCase() : ''} nesta turma.`
+                }
+                onVer={setVendo}
+                onAlterar={(m) => {
+                  limparAvisos()
+                  setAlterando(m)
+                }}
+              />
+            )}
           </div>
         </div>
       )}
@@ -230,7 +277,6 @@ export function Matriculas() {
         <AlterarMatriculaModal
           matricula={alterando}
           turmas={turmas}
-          matriculas={matriculas}
           onFechar={() => setAlterando(null)}
           onAtualizar={atualizar}
           onConcluido={handleAlterado}

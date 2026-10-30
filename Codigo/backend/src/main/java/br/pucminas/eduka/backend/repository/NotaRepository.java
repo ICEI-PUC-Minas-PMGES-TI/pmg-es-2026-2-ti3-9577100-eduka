@@ -35,14 +35,17 @@ public interface NotaRepository extends JpaRepository<Nota, UUID> {
     List<NotasPorAvaliacao> contarPorAvaliacao(@Param("escolaId") UUID escolaId,
             @Param("avaliacaoIds") Collection<UUID> avaliacaoIds);
 
-    /** Quantidade e soma das notas de cada avaliacao (aproveitamento nos dashboards). */
+    /**
+     * Aproveitamento da escola (dashboards), numa linha: quantas notas, quanto
+     * somam e quanto somariam se todas fossem o valor cheio da avaliacao. As
+     * somas sao nulas quando nao ha nota.
+     */
     @Query("""
-            select n.avaliacao.id as avaliacaoId, count(n) as total, sum(n.valor) as soma
-            from Nota n
+            select count(n) as total, sum(n.valor) as obtido, sum(a.valor) as possivel
+            from Nota n join n.avaliacao a
             where n.escolaId = :escolaId
-            group by n.avaliacao.id
             """)
-    List<SomaPorAvaliacao> somarPorAvaliacao(@Param("escolaId") UUID escolaId);
+    Aproveitamento somarAproveitamento(@Param("escolaId") UUID escolaId);
 
     /** Quem ja tem nota em cada avaliacao, sem carregar as entidades (notas pendentes). */
     @Query("""
@@ -53,12 +56,12 @@ public interface NotaRepository extends JpaRepository<Nota, UUID> {
     List<NotaLancada> listarLancadas(@Param("escolaId") UUID escolaId,
             @Param("avaliacaoIds") Collection<UUID> avaliacaoIds);
 
-    interface SomaPorAvaliacao {
-        UUID getAvaliacaoId();
-
+    interface Aproveitamento {
         long getTotal();
 
-        BigDecimal getSoma();
+        BigDecimal getObtido();
+
+        BigDecimal getPossivel();
     }
 
     interface NotaLancada {

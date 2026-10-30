@@ -14,6 +14,10 @@ public interface ProfessorRepository extends JpaRepository<Professor, UUID> {
 
     List<Professor> findAllByEscolaId(UUID escolaId);
 
+    long countByEscolaId(UUID escolaId);
+
+    long countByEscolaIdAndAtivoTrue(UUID escolaId);
+
     Optional<Professor> findByIdAndEscolaId(UUID id, UUID escolaId);
 
     /** O professor por tras de um login: e assim que o portal descobre quem e "eu". */

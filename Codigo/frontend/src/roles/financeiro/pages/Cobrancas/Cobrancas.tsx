@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
 import { Paginacao } from '../../../../components/Paginacao/Paginacao'
-import { usePaginacao } from '../../../../hooks/usePaginacao'
+import { paginacaoDoBackend, usePaginaDoBackend } from '../../../../hooks/usePaginacao'
 import { paths, type EstadoCobrancaCriada } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
 import { listarCobrancas } from '../../../../services/cobrancaService'
@@ -12,7 +12,7 @@ import {
   mensagemErroSandbox,
   simularPagamentoNoSandbox,
 } from '../../../../services/sandboxService'
-import type { Cobranca, FiltroCobranca } from '../../../../types/cobranca'
+import type { Cobranca, FiltroCobranca, PaginaCobrancas, StatusCobranca } from '../../../../types/cobranca'
 import { CobrancaCard } from '../../components/CobrancaCard/CobrancaCard'
 import { CobrancaDetalhe, type MensagemSandbox } from '../../components/CobrancaDetalhe/CobrancaDetalhe'
 import { ModalBoleto } from '../../components/ModalBoleto/ModalBoleto'
@@ -28,10 +28,21 @@ const ROTULOS_FILTRO: Record<FiltroCobranca, string> = {
   PAGA: 'Pagas',
 }
 
+/** Espera entre a última tecla da busca e a consulta ao backend. */
+const ESPERA_BUSCA_MS = 300
+
 /** O ?status= da URL (atalho do Início), ou Todas. */
 function filtroDaUrl(status: string | null): FiltroCobranca {
   return FILTROS.find((filtro) => filtro === status) ?? 'TODAS'
 }
+
+/** A consulta que produziu cada resposta: página (a partir de 0), tamanho, filtro e nome buscado. */
+function chaveDa(pagina: number, tamanho: number, filtro: FiltroCobranca, nome: string): string {
+  return `${pagina}|${tamanho}|${filtro}|${nome}`
+}
+
+/** Última resposta do backend e a consulta que a produziu. */
+type Carregado = { chave: string; dados: PaginaCobrancas | null; erro: string | null }
 
 export function Cobrancas() {
   const navigate = useNavigate()
@@ -39,34 +50,59 @@ export function Cobrancas() {
   const [searchParams] = useSearchParams()
   // Volta da Nova cobrança com a confirmação do que foi criado.
   const [sucesso] = useState(() => (location.state as EstadoCobrancaCriada | null)?.cobrancaCriada ?? null)
-  const [cobrancas, setCobrancas] = useState<Cobranca[]>([])
-  const [carregando, setCarregando] = useState(true)
-  const [erro, setErro] = useState<string | null>(null)
+  const [carregado, setCarregado] = useState<Carregado | null>(null)
   const [idAberto, setIdAberto] = useState<string | null>(null)
   const [termoBusca, setTermoBusca] = useState('')
+  // O termo vai ao backend só quando a digitação para.
+  const [nomeBuscado, setNomeBuscado] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<FiltroCobranca>(() => filtroDaUrl(searchParams.get('status')))
+  const { pagina, setPagina, porPagina, irPara, mudarPorPagina, topo } = usePaginaDoBackend()
   const [boletoModalCobranca, setBoletoModalCobranca] = useState<Cobranca | null>(null)
   const [simulando, setSimulando] = useState(false)
   const [mensagemSandbox, setMensagemSandbox] = useState<MensagemSandbox | null>(null)
-  // Cada incremento busca a lista de novo, sem voltar ao "Carregando".
+  // Cada incremento busca a página de novo, sem voltar ao "Carregando".
   const [recarga, setRecarga] = useState(0)
 
+  // Busca nova: espera a digitação parar e volta à primeira página.
   useEffect(() => {
+    const nome = termoBusca.trim()
+    if (nome === nomeBuscado) return
+    const espera = window.setTimeout(() => {
+      setNomeBuscado(nome)
+      setPagina(0)
+    }, ESPERA_BUSCA_MS)
+    return () => window.clearTimeout(espera)
+  }, [termoBusca, nomeBuscado, setPagina])
+
+  useEffect(() => {
+    // Consulta nova cancela a anterior: resposta atrasada não sobrescreve a atual.
     const controller = new AbortController()
-    listarCobrancas(controller.signal)
+    const chave = chaveDa(pagina, porPagina, filtroStatus, nomeBuscado)
+    listarCobrancas(
+      {
+        pagina,
+        tamanho: porPagina,
+        status: filtroStatus === 'TODAS' ? undefined : filtroStatus,
+        nome: nomeBuscado || undefined,
+      },
+      controller.signal,
+    )
       .then((dados) => {
-        setCobrancas(dados)
+        // A lista encolheu desde a última leitura (ex.: cobrança que mudou de situação): vai para a última página.
+        if (dados.conteudo.length === 0 && dados.pagina > 0) {
+          setPagina(Math.max(0, dados.totalPaginas - 1))
+          return
+        }
+        setCarregado({ chave, dados, erro: null })
       })
       .catch((e: unknown) => {
         if (controller.signal.aborted) return
-        setErro(e instanceof ApiError ? (e.detalhe ?? e.message) : 'Não foi possível carregar as cobranças.')
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setCarregando(false)
+        const erro = e instanceof ApiError ? (e.detalhe ?? e.message) : 'Não foi possível carregar as cobranças.'
+        setCarregado((anterior) => ({ chave, dados: anterior?.dados ?? null, erro }))
       })
 
     return () => controller.abort()
-  }, [recarga])
+  }, [pagina, porPagina, filtroStatus, nomeBuscado, recarga, setPagina])
 
   // Descarta o estado já lido, para a confirmação não voltar ao recarregar a página.
   useEffect(() => {
@@ -108,30 +144,27 @@ export function Cobrancas() {
     setMensagemSandbox(null)
   }
 
-  // Contadores dinâmicos para as pílulas de filtro
-  const contadores = useMemo<Record<FiltroCobranca, number>>(() => {
-    return {
-      TODAS: cobrancas.length,
-      PENDENTE: cobrancas.filter((c) => c.status === 'PENDENTE').length,
-      EM_ATRASO: cobrancas.filter((c) => c.status === 'EM_ATRASO').length,
-      PAGA: cobrancas.filter((c) => c.status === 'PAGA').length,
-    }
-  }, [cobrancas])
+  /** Filtro novo: volta à primeira página. */
+  function filtrar(filtro: FiltroCobranca) {
+    setFiltroStatus(filtro)
+    setPagina(0)
+  }
 
-  // Filtragem combinada de busca por texto e status
-  const cobrancasFiltradas = useMemo(() => {
-    const busca = termoBusca.trim().toLowerCase()
-    return cobrancas.filter((c) => {
-      const matchBusca = !busca || (c.alunoNome ?? '').toLowerCase().includes(busca)
-      if (!matchBusca) return false
+  const carregando = carregado === null
+  const erro = carregado?.erro ?? null
+  const dados = carregado?.dados ?? null
+  // Até a resposta chegar, a página anterior fica na tela e a navegação espera.
+  const atualizando = carregado !== null && carregado.chave !== chaveDa(pagina, porPagina, filtroStatus, nomeBuscado)
+  const cobrancas = dados?.conteudo ?? []
 
-      if (filtroStatus === 'TODAS') return true
-      return c.status === filtroStatus
-    })
-  }, [cobrancas, termoBusca, filtroStatus])
-
-  // Busca ou filtro novo: volta à primeira página.
-  const { paginacao, topo } = usePaginacao(cobrancasFiltradas, { reiniciarCom: `${termoBusca}|${filtroStatus}` })
+  // Pílulas: o backend conta cada situação na escola inteira, sem o filtro de situação nem a busca.
+  const quantidade = (status: StatusCobranca) => dados?.totaisPorStatus.find((t) => t.status === status)?.quantidade ?? 0
+  const contadores: Record<FiltroCobranca, number> = {
+    TODAS: dados?.totaisPorStatus.reduce((soma, t) => soma + t.quantidade, 0) ?? 0,
+    PENDENTE: quantidade('PENDENTE'),
+    EM_ATRASO: quantidade('EM_ATRASO'),
+    PAGA: quantidade('PAGA'),
+  }
 
   return (
     <FinanceiroLayout
@@ -170,7 +203,7 @@ export function Cobrancas() {
               type="button"
               aria-pressed={filtroStatus === filtro}
               className={`${styles.pillBtn} ${filtroStatus === filtro ? styles.pillAtivo : ''}`}
-              onClick={() => setFiltroStatus(filtro)}
+              onClick={() => filtrar(filtro)}
             >
               {ROTULOS_FILTRO[filtro]}
               <span className={styles.badge}>{contadores[filtro]}</span>
@@ -185,7 +218,7 @@ export function Cobrancas() {
         </p>
       )}
 
-      <div ref={topo} className={styles.lista}>
+      <div ref={topo} className={styles.lista} aria-busy={atualizando}>
         {carregando ? (
           <div className={styles.vazio}>
             <p role="status">Carregando cobranças…</p>
@@ -195,13 +228,13 @@ export function Cobrancas() {
             <Icon name="fileText" size={32} />
             <p>{erro}</p>
           </div>
-        ) : cobrancasFiltradas.length === 0 ? (
+        ) : cobrancas.length === 0 ? (
           <div className={styles.vazio}>
             <Icon name="fileText" size={32} />
             <p>Nenhuma cobrança encontrada para este filtro.</p>
           </div>
         ) : (
-          paginacao.itensDaPagina.map((c) => (
+          cobrancas.map((c) => (
             <CobrancaCard key={c.id} cobranca={c} aberta={idAberto === c.id} onAlternar={() => alternar(c.id)}>
               <CobrancaDetalhe
                 cobranca={c}
@@ -215,7 +248,13 @@ export function Cobrancas() {
         )}
       </div>
 
-      {!carregando && !erro && <Paginacao paginacao={paginacao} rotulo="Páginas das cobranças" />}
+      {dados && !erro && (
+        <Paginacao
+          paginacao={paginacaoDoBackend(dados, { irPara, mudarPorPagina })}
+          rotulo="Páginas das cobranças"
+          carregando={atualizando}
+        />
+      )}
 
       {/* Modais */}
       <ModalBoleto

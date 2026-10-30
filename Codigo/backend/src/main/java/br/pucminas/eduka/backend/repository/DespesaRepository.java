@@ -1,23 +1,56 @@
 package br.pucminas.eduka.backend.repository;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import br.pucminas.eduka.backend.domain.Despesa;
 
 @Repository
-public interface DespesaRepository extends JpaRepository<Despesa, UUID> {
+public interface DespesaRepository extends JpaRepository<Despesa, UUID>, JpaSpecificationExecutor<Despesa> {
 
     // Os EntityGraph trazem a categoria na mesma query, para montar a resposta sem N+1.
 
+    /** Listagem com os filtros da tela, feitos no banco. */
+    @Override
     @EntityGraph(attributePaths = "categoria")
-    List<Despesa> findAllByEscolaId(UUID escolaId);
+    List<Despesa> findAll(Specification<Despesa> filtro, Sort sort);
 
     @EntityGraph(attributePaths = "categoria")
     Optional<Despesa> findByIdAndEscolaId(UUID id, UUID escolaId);
+
+    // ---- Painel financeiro: contas no banco, sem carregar as despesas ----
+
+    /** Soma (nula se nenhuma) e quantidade das A_PAGAR que vencem ate {@code ate}. */
+    @Query("SELECT SUM(d.valor) AS valor, COUNT(d) AS quantidade FROM Despesa d WHERE d.escolaId = :escolaId "
+            + "AND d.situacao = br.pucminas.eduka.backend.domain.SituacaoDespesa.A_PAGAR AND d.dataVencimento <= :ate")
+    Soma somarAPagarAte(@Param("escolaId") UUID escolaId, @Param("ate") LocalDate ate);
+
+    /** Vencimento mais proximo, a partir de {@code desde}, entre as A_PAGAR. */
+    @Query("SELECT MIN(d.dataVencimento) FROM Despesa d WHERE d.escolaId = :escolaId "
+            + "AND d.situacao = br.pucminas.eduka.backend.domain.SituacaoDespesa.A_PAGAR "
+            + "AND d.dataVencimento >= :desde")
+    Optional<LocalDate> proximoVencimentoAPagar(@Param("escolaId") UUID escolaId, @Param("desde") LocalDate desde);
+
+    @Query("SELECT d.pagaEm AS pagaEm, d.valor AS valor FROM Despesa d WHERE d.escolaId = :escolaId "
+            + "AND d.situacao = br.pucminas.eduka.backend.domain.SituacaoDespesa.PAGA AND d.pagaEm >= :desde")
+    List<Movimento> pagasDesde(@Param("escolaId") UUID escolaId, @Param("desde") Instant desde);
+
+    interface Soma {
+        BigDecimal getValor();
+
+        long getQuantidade();
+    }
 }

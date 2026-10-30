@@ -15,6 +15,7 @@ import br.pucminas.eduka.backend.domain.SituacaoDespesa;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.domain.StatusEventoProvedor;
+import br.pucminas.eduka.backend.domain.StatusMatricula;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 import br.pucminas.eduka.backend.security.PiiCryptoService;
 
@@ -121,6 +122,42 @@ public class DadosDeTeste {
         jdbc.update("INSERT INTO PAGAMENTO_COBRANCA (ESCOLA_ID, COBRANCA_ID, VALOR_PAGO, DATA_PAGAMENTO, "
                 + "FORMA_PAGAMENTO, ID_TRANSACAO_EXTERNA, ORIGEM) VALUES (?, ?, ?, CURRENT_DATE, ?, ?, 'ONLINE')",
                 escolaId, cobrancaId, valorPago, forma.name(), "pay_" + unico());
+    }
+
+    /** Turma ativa da manha, com periodo letivo (em curso) e curso so dela. */
+    public long turma(UUID escolaId, String nome, int vagas) {
+        Long periodo = jdbc.queryForObject("INSERT INTO periodo_letivo (escola_id, nome, data_inicio, data_fim) "
+                + "VALUES (?, ?, CURRENT_DATE - 30, CURRENT_DATE + 150) RETURNING id", Long.class, escolaId,
+                "Periodo " + unico());
+        Long curso = jdbc.queryForObject("INSERT INTO curso (escola_id, nome) VALUES (?, ?) RETURNING id", Long.class,
+                escolaId, "Curso " + unico());
+        return jdbc.queryForObject("INSERT INTO turma (escola_id, periodo_letivo_id, curso_id, nome, vagas, turno) "
+                + "VALUES (?, ?, ?, ?, ?, 'MATUTINO') RETURNING id", Long.class, escolaId, periodo, curso, nome, vagas);
+    }
+
+    public void matricula(UUID escolaId, UUID alunoId, long turmaId, StatusMatricula status, LocalDate data) {
+        jdbc.update("INSERT INTO MATRICULA_TURMA (ESCOLA_ID, ALUNO_ID, TURMA_ID, STATUS, DATA_MATRICULA) "
+                + "VALUES (?, ?, ?, ?, ?)", escolaId, alunoId, turmaId, status.name(), data);
+    }
+
+    /**
+     * Prova que vale {@code valor} na turma, numa disciplina nova posta na
+     * grade dela, aplicada por um professor novo.
+     */
+    public UUID avaliacao(UUID escolaId, long turmaId, BigDecimal valor) {
+        Long disciplina = jdbc.queryForObject("INSERT INTO disciplina (escola_id, nome, carga_horaria) "
+                + "VALUES (?, ?, 60) RETURNING id", Long.class, escolaId, "Disciplina " + unico());
+        jdbc.update("INSERT INTO turma_disciplina (turma_id, disciplina_id) VALUES (?, ?)", turmaId, disciplina);
+        UUID professor = jdbc.queryForObject("INSERT INTO PROFESSOR (ESCOLA_ID, PESSOA_ID) VALUES (?, ?) "
+                + "RETURNING ID_PROFESSOR", UUID.class, escolaId, pessoa(escolaId, "Professor " + unico()));
+        return jdbc.queryForObject("INSERT INTO AVALIACAO (ESCOLA_ID, TURMA_ID, DISCIPLINA_ID, PROFESSOR_ID, TIPO, "
+                + "TITULO, DATA_AVALIACAO, VALOR) VALUES (?, ?, ?, ?, 'PROVA', 'Prova', CURRENT_DATE, ?) "
+                + "RETURNING ID_AVALIACAO", UUID.class, escolaId, turmaId, disciplina, professor, valor);
+    }
+
+    public void nota(UUID escolaId, UUID avaliacaoId, UUID alunoId, BigDecimal valor) {
+        jdbc.update("INSERT INTO NOTA (ESCOLA_ID, AVALIACAO_ID, ALUNO_ID, VALOR) VALUES (?, ?, ?, ?)", escolaId,
+                avaliacaoId, alunoId, valor);
     }
 
     public UUID categoriaDespesa(UUID escolaId) {

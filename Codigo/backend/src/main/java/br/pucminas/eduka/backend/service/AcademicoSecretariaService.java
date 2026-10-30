@@ -2,6 +2,7 @@ package br.pucminas.eduka.backend.service;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -129,7 +130,7 @@ public class AcademicoSecretariaService {
                 .turno(request.getTurno())
                 .disciplinas(disciplinasDaEscola(request.getDisciplinaIds(), escolaId))
                 .build();
-        return toResponse(turmaRepository.save(turma), escolaId);
+        return toResponse(turmaRepository.save(turma), escolaId, 0);
     }
 
     // ----- Edicao -----
@@ -199,7 +200,7 @@ public class AcademicoSecretariaService {
         turma.setTurno(request.getTurno());
         turma.getDisciplinas().clear();
         turma.getDisciplinas().addAll(grade);
-        return toResponse(turmaRepository.save(turma), escolaId);
+        return toResponse(turmaRepository.save(turma), escolaId, ativas);
     }
 
     // ----- Exclusao -----
@@ -316,8 +317,12 @@ public class AcademicoSecretariaService {
     }
 
     public List<TurmaResponse> listarTurmas(UUID escolaId) {
+        // Uma contagem agrupada para todas as turmas, em vez de uma por turma.
+        Map<Long, Long> ativasPorTurma = matriculaRepository.contarAtivasPorTurma(escolaId).stream()
+                .collect(Collectors.toMap(MatriculaTurmaRepository.AtivasNaTurma::getTurmaId,
+                        MatriculaTurmaRepository.AtivasNaTurma::getQuantidade));
         return turmaRepository.findAllByEscolaId(escolaId).stream()
-                .map(t -> toResponse(t, escolaId))
+                .map(t -> toResponse(t, escolaId, ativasPorTurma.getOrDefault(t.getId(), 0L)))
                 .toList();
     }
 
@@ -358,7 +363,7 @@ public class AcademicoSecretariaService {
                 .build();
     }
 
-    private TurmaResponse toResponse(Turma t, UUID escolaId) {
+    private TurmaResponse toResponse(Turma t, UUID escolaId, long matriculasAtivas) {
         return TurmaResponse.builder()
                 .id(t.getId())
                 .escolaId(escolaId)
@@ -374,6 +379,7 @@ public class AcademicoSecretariaService {
                 .disciplinas(t.getDisciplinas().stream()
                         .map(d -> toResponse(d, escolaId))
                         .collect(Collectors.toSet()))
+                .matriculasAtivas(matriculasAtivas)
                 .build();
     }
 }

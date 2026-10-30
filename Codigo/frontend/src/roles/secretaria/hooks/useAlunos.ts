@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { atualizarAluno, cadastrarAluno } from '../../../services/alunoService'
 import { ApiError } from '../../../services/api'
 import { listarAlunos } from '../../../services/matriculaService'
-import type { Aluno, AlunoRequest, AlunoResumo } from '../../../types/aluno'
+import type { Aluno, AlunoDaLista, AlunoRequest, AlunoResumo } from '../../../types/aluno'
+import type { Matricula } from '../../../types/matricula'
 
 function mensagemDeErro(erro: unknown): string {
   return erro instanceof ApiError ? erro.message : 'Erro inesperado ao carregar os alunos.'
@@ -13,7 +14,7 @@ function resumo(aluno: Aluno): AlunoResumo {
 }
 
 export function useAlunos() {
-  const [alunos, setAlunos] = useState<AlunoResumo[]>([])
+  const [alunos, setAlunos] = useState<AlunoDaLista[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
   const [versao, setVersao] = useState(0)
@@ -41,19 +42,30 @@ export function useAlunos() {
     setVersao((v) => v + 1)
   }, [])
 
-  /** Cadastra um aluno e o coloca no topo da lista; lança ApiError se falhar. */
+  /** Cadastra um aluno, ainda sem turma, e o coloca no topo da lista; lança ApiError se falhar. */
   const cadastrar = useCallback(async (dados: AlunoRequest) => {
     const criado = await cadastrarAluno(dados)
-    setAlunos((atuais) => [resumo(criado), ...atuais])
+    setAlunos((atuais) => [{ ...resumo(criado), situacao: 'SEM_TURMA', turmaId: null, turmaNome: null }, ...atuais])
     return criado
   }, [])
 
-  /** Salva a edição e atualiza a linha na lista; lança ApiError se falhar. */
+  /** Salva a edição e atualiza a linha na lista (a turma não muda); lança ApiError se falhar. */
   const atualizar = useCallback(async (id: string, dados: AlunoRequest) => {
     const atualizado = await atualizarAluno(id, dados)
-    setAlunos((atuais) => atuais.map((a) => (a.id === id ? resumo(atualizado) : a)))
+    setAlunos((atuais) => atuais.map((a) => (a.id === id ? { ...a, ...resumo(atualizado) } : a)))
     return atualizado
   }, [])
 
-  return { alunos, carregando, erro, recarregar, cadastrar, atualizar }
+  /** O aluno acabou de ser matriculado: passa a aparecer na turma da matrícula. */
+  const marcarMatriculado = useCallback((matricula: Matricula) => {
+    setAlunos((atuais) =>
+      atuais.map((a) =>
+        a.id === matricula.alunoId
+          ? { ...a, situacao: 'MATRICULADO', turmaId: matricula.turmaId, turmaNome: matricula.turmaNome }
+          : a,
+      ),
+    )
+  }, [])
+
+  return { alunos, carregando, erro, recarregar, cadastrar, atualizar, marcarMatriculado }
 }

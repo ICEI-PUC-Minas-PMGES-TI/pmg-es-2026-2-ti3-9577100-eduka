@@ -146,6 +146,24 @@ class DashboardFinanceiroBancoRealTest extends BancoRealTest {
     }
 
     @Test
+    void pagamentoAntigoFicaForaDoGraficoMasNaoDasOutrasContas() {
+        UUID escola = dados.escola();
+        UUID aluno = dados.aluno(escola, "Davi Alves");
+        Instant haUmAno = mesAtual.minusMonths(12).atDay(10).atStartOfDay(FUSO_ESCOLA).toInstant();
+        UUID antiga = dados.cobrancaPaga(escola, aluno, reais("80.00"), hoje.minusYears(1), haUmAno);
+
+        autenticarComo("FINANCEIRO", escola);
+        DashboardFinanceiroResponse painel = dashboardFinanceiroService.painel();
+
+        // O grafico so le os seus 6 meses...
+        assertThat(painel.ultimosMeses()).allSatisfy(m -> assertThat(m.entrou()).isZero());
+        assertThat(painel.recebidoNoMes().quantidade()).isZero();
+        // ...mas os ultimos pagamentos e a inadimplencia olham o historico inteiro.
+        assertThat(painel.ultimosPagamentos()).extracting(PagamentoRecente::cobrancaId).containsExactly(antiga);
+        assertThat(painel.emAtraso().inadimplencia()).isZero();
+    }
+
+    @Test
     void escolaSemMovimentoTemPainelZerado() {
         autenticarComo("MASTER", dados.escola());
 

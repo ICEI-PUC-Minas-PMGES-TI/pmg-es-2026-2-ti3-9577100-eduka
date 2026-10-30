@@ -8,6 +8,8 @@ import java.util.UUID;
 
 public interface DisciplinaRepository extends JpaRepository<Disciplina, Long> {
     List<Disciplina> findAllByEscolaId(UUID escolaId);
+
+    long countByEscolaId(UUID escolaId);
     Optional<Disciplina> findByIdAndEscolaId(Long id, UUID escolaId);
 
     boolean existsByEscolaIdAndCursoId(UUID escolaId, Long cursoId);

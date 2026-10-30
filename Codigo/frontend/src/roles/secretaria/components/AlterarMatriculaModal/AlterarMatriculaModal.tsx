@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Campo } from '../../../../components/Campo/Campo'
 import { Select } from '../../../../components/Select/Select'
-import { mensagemErroMatricula } from '../../../../services/matriculaService'
+import { useCarregamento } from '../../../../hooks/useCarregamento'
+import { listarMatriculas, mensagemErroMatricula } from '../../../../services/matriculaService'
 import type { TurmaAcademica } from '../../../../types/academico'
 import {
   ROTULOS_STATUS_MATRICULA,
@@ -40,14 +41,16 @@ const STATUS_DA_ACAO: Partial<Record<Acao, StatusMatricula>> = {
   CANCELAR: 'CANCELADA',
 }
 
+// Estável: o useCarregamento pede o valor inicial sempre igual.
+const SEM_MATRICULAS: Matricula[] = []
+
 /** Ações finais: depois delas a matrícula não muda mais de situação. */
 const ACOES_FINAIS: Acao[] = ['CONCLUIR', 'CANCELAR']
 
 type AlterarMatriculaModalProps = {
   matricula: Matricula
+  /** Com as vagas ocupadas de cada uma. */
   turmas: TurmaAcademica[]
-  /** Todas as matrículas da escola: definem vagas e turmas onde o aluno já está. */
-  matriculas: Matricula[]
   onFechar: () => void
   /** Envia a alteração; deve lançar ApiError em caso de falha. */
   onAtualizar: (id: string, dados: AtualizarMatriculaRequest) => Promise<Matricula>
@@ -61,7 +64,6 @@ type AlterarMatriculaModalProps = {
 export function AlterarMatriculaModal({
   matricula,
   turmas,
-  matriculas,
   onFechar,
   onAtualizar,
   onConcluido,
@@ -74,19 +76,28 @@ export function AlterarMatriculaModal({
 
   const nome = matricula.alunoNome ?? 'Aluno'
 
+  // As turmas onde o aluno já tem matrícula só importam para transferir: busca só então.
+  const alunoId = matricula.alunoId
+  const transferindo = acao === 'TRANSFERIR'
+  const buscarDoAluno = useMemo(
+    () => (transferindo ? (signal: AbortSignal) => listarMatriculas({ alunoId }, signal) : null),
+    [transferindo, alunoId],
+  )
+  const doAluno = useCarregamento(buscarDoAluno, SEM_MATRICULAS, 'O aluno não existe mais.')
+  const turmasDoAluno = new Set(doAluno.dados.map((m) => m.turmaId))
+
   // Destinos possíveis: turma ativa, com vaga, onde o aluno ainda não tem matrícula.
-  const ativasPorTurma = new Map<number, number>()
-  const turmasDoAluno = new Set<number>()
-  for (const m of matriculas) {
-    if (m.status === 'ATIVA') ativasPorTurma.set(m.turmaId, (ativasPorTurma.get(m.turmaId) ?? 0) + 1)
-    if (m.alunoId === matricula.alunoId) turmasDoAluno.add(m.turmaId)
-  }
-  const opcoesDestino = turmas
-    .filter((t) => t.ativa && !turmasDoAluno.has(t.id) && (ativasPorTurma.get(t.id) ?? 0) < t.vagas)
-    .map((t) => ({
-      valor: String(t.id),
-      rotulo: `${t.nome} · ${t.periodoLetivoNome} (${t.vagas - (ativasPorTurma.get(t.id) ?? 0)} vagas)`,
-    }))
+  const opcoesDestino = doAluno.carregando
+    ? []
+    : turmas
+        .filter((t) => t.ativa && !turmasDoAluno.has(t.id) && t.matriculasAtivas < t.vagas)
+        .map((t) => ({
+          valor: String(t.id),
+          rotulo: `${t.nome} · ${t.periodoLetivoNome} (${t.vagas - t.matriculasAtivas} vagas)`,
+        }))
+  const dicaDestino = doAluno.carregando
+    ? 'Carregando as turmas…'
+    : (doAluno.erro ?? (opcoesDestino.length === 0 ? 'Nenhuma turma ativa com vaga disponível.' : undefined))
 
   function validar(): boolean {
     const novos: typeof erros = {}
@@ -156,7 +167,7 @@ export function AlterarMatriculaModal({
           erro={erros.destino}
           obrigatorio
           largo
-          dica={opcoesDestino.length === 0 ? 'Nenhuma turma ativa com vaga disponível.' : undefined}
+          dica={dicaDestino}
         >
           {(props) => (
             <Select<string>

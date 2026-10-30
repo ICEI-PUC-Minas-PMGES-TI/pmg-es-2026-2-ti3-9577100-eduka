@@ -34,6 +34,18 @@ export type Cobranca = {
 
 export type FiltroCobranca = 'TODAS' | 'PENDENTE' | 'EM_ATRASO' | 'PAGA'
 
+// Espelha o PaginaCobrancasResponse do backend (GET /cobrancas/pagina).
+export type PaginaCobrancas = {
+  conteudo: Cobranca[]
+  /** Começa em 0. */
+  pagina: number
+  tamanho: number
+  totalElementos: number
+  totalPaginas: number
+  /** Todas as situações, na ordem do backend, sem os filtros de situação e de nome. */
+  totaisPorStatus: { status: StatusCobranca; quantidade: number; valor: number }[]
+}
+
 /** Corpo do POST /cobrancas. A escola vem do token. */
 export type NovaCobrancaRequest = {
   alunoId: string
