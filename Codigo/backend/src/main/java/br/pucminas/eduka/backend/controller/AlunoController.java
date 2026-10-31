@@ -5,6 +5,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,10 +19,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import br.pucminas.eduka.backend.dto.AlunoRequest;
 import br.pucminas.eduka.backend.dto.AlunoResponse;
+import br.pucminas.eduka.backend.dto.Ordenacao;
+import br.pucminas.eduka.backend.dto.PaginaResponse;
+import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.AlunoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
@@ -52,6 +57,24 @@ public class AlunoController {
     public List<AlunoResponse> listar(
             @Parameter(description = "Filtro parcial pelo nome") @RequestParam(required = false) String nome) {
         return alunoService.listar(nome);
+    }
+
+    @GetMapping("/pagina")
+    @PreAuthorize(Perfis.LEITURA_ACADEMICA)
+    @Operation(summary = "Lista os alunos em paginas", description = "Perfis: MASTER, SECRETARIA, FINANCEIRO, "
+            + "PROFESSOR. Filtros opcionais por parte do nome e por situacao (MATRICULADO, TRANCADO, SEM_TURMA). "
+            + "`pagina` comeca em 0; `tamanho` vai de 1 a 100. `ordenarPor`: NOME (padrao) ou MATRICULA; "
+            + "`direcao`: ASC (padrao) ou DESC.")
+    @ApiResponse(responseCode = "200", description = "A pagina de alunos.")
+    @ApiResponse(responseCode = "400", description = "Pagina, tamanho ou ordenacao invalidos.")
+    public PaginaResponse<AlunoResponse> listarPaginado(
+            @Parameter(description = "Filtro parcial pelo nome") @RequestParam(required = false) String nome,
+            @RequestParam(required = false) AlunoResponse.Situacao situacao,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = Paginacao.TAMANHO_PADRAO) int tamanho,
+            @RequestParam(defaultValue = "NOME") Ordenacao.Alunos ordenarPor,
+            @RequestParam(required = false) Direction direcao) {
+        return alunoService.listarPaginado(nome, situacao, new Paginacao(pagina, tamanho), ordenarPor, direcao);
     }
 
     @GetMapping("/{id}")

@@ -14,6 +14,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -32,6 +35,9 @@ import br.pucminas.eduka.backend.dto.ComprovanteResponse;
 import br.pucminas.eduka.backend.dto.DadosPagamentoResponse;
 import br.pucminas.eduka.backend.dto.FaturaPlataformaResponse;
 import br.pucminas.eduka.backend.dto.LancarFaturaRequest;
+import br.pucminas.eduka.backend.dto.Ordenacao;
+import br.pucminas.eduka.backend.dto.PaginaResponse;
+import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.dto.PixResponse;
 import br.pucminas.eduka.backend.exception.CobrancaJaPagaException;
 import br.pucminas.eduka.backend.exception.CobrancaNaoPagavelException;
@@ -151,6 +157,16 @@ class RoteadorFatura {
             return faturaRepository.findAllByEscolaIdOrderByCompetenciaDesc(escolaId).stream()
                     .map(f -> FaturaPlataformaResponse.paraSuperAdmin(f, escola.getNome(), hoje))
                     .toList();
+        });
+    }
+
+    PaginaResponse<FaturaPlataformaResponse> listarDaEscola(UUID escolaId, StatusCobranca situacao,
+            Paginacao paginacao, Ordenacao.Faturas ordenarPor, Direction direcao) {
+        return transacao.execute(status -> {
+            Escola escola = escola(escolaId);
+            LocalDate hoje = hoje();
+            return PaginaResponse.de(pagina(escolaId, situacao, paginacao, ordenarPor, direcao),
+                    f -> FaturaPlataformaResponse.paraSuperAdmin(f, escola.getNome(), hoje));
         });
     }
 
@@ -424,6 +440,26 @@ class RoteadorFatura {
                     .map(f -> FaturaPlataformaResponse.paraEscola(f, escola.getNome(), hoje))
                     .toList();
         });
+    }
+
+    PaginaResponse<FaturaPlataformaResponse> listarMinhas(StatusCobranca situacao, Paginacao paginacao,
+            Ordenacao.Faturas ordenarPor, Direction direcao) {
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        return transacao.execute(status -> {
+            Escola escola = escola(escolaId);
+            LocalDate hoje = hoje();
+            return PaginaResponse.de(pagina(escolaId, situacao, paginacao, ordenarPor, direcao),
+                    f -> FaturaPlataformaResponse.paraEscola(f, escola.getNome(), hoje));
+        });
+    }
+
+    /** Faturas da escola, opcionalmente so as de uma situacao. */
+    private Page<FaturaPlataforma> pagina(UUID escolaId, StatusCobranca situacao, Paginacao paginacao,
+            Ordenacao.Faturas ordenarPor, Direction direcao) {
+        Pageable pageable = paginacao.comOrdem(
+                Ordenacao.noBanco(Ordenacao.ou(direcao, ordenarPor.padrao), ordenarPor.propriedade));
+        return situacao == null ? faturaRepository.findAllByEscolaId(escolaId, pageable)
+                : faturaRepository.findAllByEscolaIdAndStatus(escolaId, situacao, pageable);
     }
 
     // ---- Apoio ----

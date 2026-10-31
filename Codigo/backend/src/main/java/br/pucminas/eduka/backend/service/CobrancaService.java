@@ -19,7 +19,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -41,6 +40,7 @@ import br.pucminas.eduka.backend.dto.CobrancaRequest;
 import br.pucminas.eduka.backend.dto.CobrancaResponse;
 import br.pucminas.eduka.backend.dto.HistoricoFinanceiroResponse;
 import br.pucminas.eduka.backend.dto.PaginaCobrancasResponse;
+import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.exception.CobrancaJaPagaException;
 import br.pucminas.eduka.backend.exception.CobrancaNaoEditavelException;
 import br.pucminas.eduka.backend.exception.PagamentoEmProcessamentoException;
@@ -95,8 +95,6 @@ public class CobrancaService {
 
     /** Com quantos dias de antecedencia sai o lembrete de vencimento. */
     static final int DIAS_LEMBRETE_VENCIMENTO = 3;
-
-    static final int TAMANHO_MAXIMO_PAGINA = 100;
 
     /** O id desempata vencimentos iguais, para a pagina seguinte nao repetir nem pular cobranca. */
     private static final Sort ORDEM_DA_LISTAGEM = Sort.by("dataVencimento", "id");
@@ -177,12 +175,7 @@ public class CobrancaService {
      */
     @Transactional(readOnly = true)
     public PaginaCobrancasResponse listarPaginado(CobrancaFiltro filtro, String nome, int pagina, int tamanho) {
-        if (pagina < 0) {
-            throw new IllegalArgumentException("Pagina deve ser zero ou maior");
-        }
-        if (tamanho < 1 || tamanho > TAMANHO_MAXIMO_PAGINA) {
-            throw new IllegalArgumentException("Tamanho deve ser de 1 a " + TAMANHO_MAXIMO_PAGINA);
-        }
+        Paginacao paginacao = new Paginacao(pagina, tamanho);
         if (filtro.vencimentoDe() != null && filtro.vencimentoAte() != null
                 && filtro.vencimentoDe().isAfter(filtro.vencimentoAte())) {
             throw new IllegalArgumentException("vencimentoDe nao pode ser depois de vencimentoAte");
@@ -194,8 +187,7 @@ public class CobrancaService {
         if (nome != null && !nome.isBlank()) {
             daPagina = daPagina.and(CobrancaFiltro.deAlgumDosAlunos(alunosComNome(nome, escolaId)));
         }
-        Page<Cobranca> resultado = cobrancaRepository.findAll(daPagina,
-                PageRequest.of(pagina, tamanho, ORDEM_DA_LISTAGEM));
+        Page<Cobranca> resultado = cobrancaRepository.findAll(daPagina, paginacao.comOrdem(ORDEM_DA_LISTAGEM));
         return new PaginaCobrancasResponse(paraRespostas(resultado.getContent(), escolaId, hoje), pagina, tamanho,
                 resultado.getTotalElements(), resultado.getTotalPages(),
                 totaisPorStatus(filtro.daEscolaEmQualquerStatus(escolaId), hoje));

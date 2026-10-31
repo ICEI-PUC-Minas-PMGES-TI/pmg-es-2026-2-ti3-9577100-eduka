@@ -2,6 +2,7 @@
 package br.pucminas.eduka.backend.service;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -9,6 +10,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,9 @@ import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.AlunoRequest;
 import br.pucminas.eduka.backend.dto.AlunoResponse;
 import br.pucminas.eduka.backend.dto.EnderecoRequest;
+import br.pucminas.eduka.backend.dto.Ordenacao;
+import br.pucminas.eduka.backend.dto.PaginaResponse;
+import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.dto.ResponsavelResponse;
 import br.pucminas.eduka.backend.exception.NumeroMatriculaJaCadastradoException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
@@ -75,6 +80,26 @@ public class AlunoService {
         this.isolamentoEscola = isolamentoEscola;
         this.acessoService = acessoService;
         this.matriculaRepository = matriculaRepository;
+    }
+
+    /**
+     * Pagina dos alunos da escola, opcionalmente filtrados por parte do nome e
+     * pela situacao. O nome e cifrado, entao filtro e ordem por nome sao feitos
+     * em memoria sobre os alunos da escola, e so a pagina vai na resposta.
+     */
+    public PaginaResponse<AlunoResponse> listarPaginado(String nome, AlunoResponse.Situacao situacao,
+            Paginacao paginacao, Ordenacao.Alunos ordenarPor, Direction direcao) {
+        Comparator<AlunoResponse> campo = switch (ordenarPor) {
+            case NOME -> Comparator.comparing(AlunoResponse::nome, Paginacao.ORDEM_DE_NOME);
+            case MATRICULA -> Comparator.comparing(AlunoResponse::matricula,
+                    Comparator.nullsLast(Comparator.naturalOrder()));
+        };
+        List<AlunoResponse> ordenados = listar(nome).stream()
+                .filter(aluno -> situacao == null || aluno.situacao() == situacao)
+                .sorted(Ordenacao.emMemoria(campo, Ordenacao.ou(direcao, Direction.ASC),
+                        Comparator.comparing(AlunoResponse::id)))
+                .toList();
+        return PaginaResponse.recortar(ordenados, paginacao);
     }
 
     public List<AlunoResponse> listar(String nome) {
