@@ -53,6 +53,10 @@
   --glass-shadow-sm:
     0 6px 16px rgba(150, 103, 224, 0.11), 0 1px 2px rgba(34, 26, 51, 0.04),
     inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  /* Use só `backdrop-filter: var(--glass-blur)`, sem o -webkit-: o build já
+     acrescenta o prefixo para o Safari. Com os dois escritos, o minificador
+     (lightningcss) fica só com o -webkit-, que o Chrome ignora, e o vidro some
+     em produção (no `npm run dev` não acontece). */
   --glass-blur: blur(22px) saturate(170%);
 
   /* Vidro opaco: modais, menus e calendários que abrem por cima de campos e

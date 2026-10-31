@@ -20,7 +20,6 @@
   background: var(--glass-bg);
   box-shadow: var(--glass-shadow-sm);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   color: var(--color-text-muted);
   transition:
     border-color 0.15s,

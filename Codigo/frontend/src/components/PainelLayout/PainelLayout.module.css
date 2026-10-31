@@ -93,7 +93,6 @@
   background: var(--glass-bg);
   box-shadow: var(--glass-shadow-sm);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   color: var(--color-text);
   font-family: var(--font-display);
   font-size: 15px;
@@ -132,7 +131,6 @@
   background: var(--glass-bg);
   box-shadow: var(--glass-shadow-sm);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .avatar {
@@ -191,7 +189,6 @@
   background: rgba(255, 255, 255, 0.72);
   box-shadow: var(--glass-shadow);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .item {

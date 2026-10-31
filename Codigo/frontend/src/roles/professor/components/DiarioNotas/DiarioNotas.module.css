@@ -18,7 +18,6 @@
   background: var(--glass-bg);
   box-shadow: var(--glass-shadow-sm);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .tipo {
@@ -55,7 +54,6 @@
   background: var(--glass-bg);
   box-shadow: var(--glass-shadow);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 /* Rede de segurança: com o ajuste abaixo, nada deve passar da largura. */
