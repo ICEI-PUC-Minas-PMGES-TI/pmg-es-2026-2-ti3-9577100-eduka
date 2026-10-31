@@ -29,6 +29,8 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpHeaders;
@@ -177,6 +179,41 @@ class DespesaControllerSecurityTest {
 
         mockMvc.perform(com(get("/despesas"), accessToken("MASTER", ESCOLA_A)))
                 .andExpect(status().isOk());
+    }
+
+    // ---------- Pagina ----------
+
+    @Test
+    void paginaRespeitaOsPerfisEPassaPaginaEOrdemAoBanco() throws Exception {
+        when(despesaRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenAnswer(inv -> new PageImpl<>(List.of(despesa(SituacaoDespesa.A_PAGAR)), inv.getArgument(1), 41));
+
+        mockMvc.perform(com(get("/despesas/pagina"), accessToken("SECRETARIA", ESCOLA_A)))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(com(get("/despesas/pagina").param("pagina", "2").param("tamanho", "20")
+                .param("ordenarPor", "VALOR").param("direcao", "DESC"), accessToken("FINANCEIRO", ESCOLA_A)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.conteudo[0].categoriaNome").value("Contas"))
+                .andExpect(jsonPath("$.pagina").value(2))
+                .andExpect(jsonPath("$.totalElementos").value(41))
+                .andExpect(jsonPath("$.totalPaginas").value(3));
+
+        ArgumentCaptor<Pageable> pedido = ArgumentCaptor.forClass(Pageable.class);
+        verify(despesaRepository).findAll(any(Specification.class), pedido.capture());
+        assertThat(pedido.getValue().getPageNumber()).isEqualTo(2);
+        assertThat(pedido.getValue().getSort())
+                .isEqualTo(Sort.by(Sort.Direction.DESC, "valor").and(Sort.by("id")));
+    }
+
+    @Test
+    void paginaComParametroInvalidoResponde400() throws Exception {
+        String token = accessToken("FINANCEIRO", ESCOLA_A);
+        mockMvc.perform(com(get("/despesas/pagina").param("tamanho", "500"), token))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(com(get("/despesas/pagina").param("ordenarPor", "ESCOLA_ID"), token))
+                .andExpect(status().isBadRequest());
+        verify(despesaRepository, never()).findAll(any(Specification.class), any(Pageable.class));
     }
 
     // ---------- Criar ----------

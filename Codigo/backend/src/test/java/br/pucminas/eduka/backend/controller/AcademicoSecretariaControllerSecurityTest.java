@@ -285,7 +285,7 @@ class AcademicoSecretariaControllerSecurityTest {
         mockMvc.perform(com(delete(BASE + "/turmas/3"), accessToken("SECRETARIA", ESCOLA_A)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail").value("A turma tem alunos matriculados e nao pode ser excluida"));
-        verify(turmaRepository, never()).delete(any());
+        verify(turmaRepository, never()).delete(any(Turma.class));
     }
 
     @Test

@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -27,6 +29,11 @@ public interface DespesaRepository extends JpaRepository<Despesa, UUID>, JpaSpec
     @Override
     @EntityGraph(attributePaths = "categoria")
     List<Despesa> findAll(Specification<Despesa> filtro, Sort sort);
+
+    /** Listagem paginada; a contagem da pagina vem em consulta propria, sem o join. */
+    @Override
+    @EntityGraph(attributePaths = "categoria")
+    Page<Despesa> findAll(Specification<Despesa> filtro, Pageable pagina);
 
     @EntityGraph(attributePaths = "categoria")
     Optional<Despesa> findByIdAndEscolaId(UUID id, UUID escolaId);

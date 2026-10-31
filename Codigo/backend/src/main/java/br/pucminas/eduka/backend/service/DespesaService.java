@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,9 @@ import br.pucminas.eduka.backend.dto.AtualizarDespesaRequest;
 import br.pucminas.eduka.backend.dto.DespesaRequest;
 import br.pucminas.eduka.backend.dto.DespesaResponse;
 import br.pucminas.eduka.backend.dto.MudarSituacaoDespesaRequest;
+import br.pucminas.eduka.backend.dto.Ordenacao;
+import br.pucminas.eduka.backend.dto.PaginaResponse;
+import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.DespesaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
@@ -76,12 +80,34 @@ public class DespesaService {
     @Transactional(readOnly = true)
     public List<DespesaResponse> listar(SituacaoDespesa situacao, UUID categoriaId, LocalDate vencimentoDe,
             LocalDate vencimentoAte) {
+        return despesaRepository.findAll(filtro(situacao, categoriaId, vencimentoDe, vencimentoAte),
+                ORDEM_DA_LISTAGEM).stream()
+                .map(DespesaResponse::de)
+                .toList();
+    }
+
+    /**
+     * Pagina das despesas da escola, com os mesmos filtros de {@link #listar}.
+     *
+     * @throws IllegalArgumentException se o intervalo de vencimento esta invertido
+     */
+    @Transactional(readOnly = true)
+    public PaginaResponse<DespesaResponse> listarPaginado(SituacaoDespesa situacao, UUID categoriaId,
+            LocalDate vencimentoDe, LocalDate vencimentoAte, Paginacao paginacao, Ordenacao.Despesas ordenarPor,
+            Direction direcao) {
+        Specification<Despesa> filtro = filtro(situacao, categoriaId, vencimentoDe, vencimentoAte);
+        Sort ordem = Ordenacao.noBanco(Ordenacao.ou(direcao, Direction.ASC), ordenarPor.propriedade);
+        return PaginaResponse.de(despesaRepository.findAll(filtro, paginacao.comOrdem(ordem)), DespesaResponse::de);
+    }
+
+    private Specification<Despesa> filtro(SituacaoDespesa situacao, UUID categoriaId, LocalDate vencimentoDe,
+            LocalDate vencimentoAte) {
         if (vencimentoDe != null && vencimentoAte != null && vencimentoDe.isAfter(vencimentoAte)) {
             throw new IllegalArgumentException("vencimentoDe nao pode ser depois de vencimentoAte");
         }
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         // Filtros no banco: o indice (ESCOLA_ID, DATA_VENCIMENTO) evita ler o historico inteiro da escola.
-        Specification<Despesa> filtro = (despesa, query, cb) -> {
+        return (despesa, query, cb) -> {
             List<Predicate> condicoes = new ArrayList<>();
             condicoes.add(cb.equal(despesa.get("escolaId"), escolaId));
             if (situacao != null) {
@@ -99,9 +125,6 @@ public class DespesaService {
             }
             return cb.and(condicoes.toArray(Predicate[]::new));
         };
-        return despesaRepository.findAll(filtro, ORDEM_DA_LISTAGEM).stream()
-                .map(DespesaResponse::de)
-                .toList();
     }
 
     @Transactional(readOnly = true)

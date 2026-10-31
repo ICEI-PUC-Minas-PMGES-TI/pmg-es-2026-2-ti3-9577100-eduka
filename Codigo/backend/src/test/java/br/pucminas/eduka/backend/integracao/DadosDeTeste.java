@@ -135,6 +135,27 @@ public class DadosDeTeste {
                 + "VALUES (?, ?, ?, ?, ?, 'MATUTINO') RETURNING id", Long.class, escolaId, periodo, curso, nome, vagas);
     }
 
+    public UUID professor(UUID escolaId, String nome, LocalDate admissao, boolean ativo) {
+        return jdbc.queryForObject("INSERT INTO PROFESSOR (ESCOLA_ID, PESSOA_ID, DATA_ADMISSAO, ATIVO) "
+                + "VALUES (?, ?, ?, ?) RETURNING ID_PROFESSOR", UUID.class, escolaId, pessoa(escolaId, nome), admissao,
+                ativo);
+    }
+
+    /**
+     * Fatura da plataforma da competencia {@code yyyy-MM}, lancada por
+     * {@code criadaPor}, vencendo no dia 10. A PAGA foi paga no vencimento,
+     * pelo valor cheio.
+     */
+    public UUID fatura(UUID escolaId, UUID criadaPor, String competencia, BigDecimal valor, StatusCobranca status) {
+        LocalDate vencimento = LocalDate.parse(competencia + "-10");
+        boolean paga = status == StatusCobranca.PAGA;
+        return jdbc.queryForObject("INSERT INTO FATURA_PLATAFORMA (ESCOLA_ID, COMPETENCIA, DESCRICAO, VALOR, "
+                + "DATA_VENCIMENTO, STATUS, CRIADA_POR, VALOR_PAGO, DATA_PAGAMENTO) "
+                + "VALUES (?, ?, 'Mensalidade Eduka', ?, ?, ?, ?, ?, ?) RETURNING ID_FATURA", UUID.class, escolaId,
+                LocalDate.parse(competencia + "-01"), valor, vencimento, status.name(), criadaPor,
+                paga ? valor : null, paga ? vencimento : null);
+    }
+
     public void matricula(UUID escolaId, UUID alunoId, long turmaId, StatusMatricula status, LocalDate data) {
         jdbc.update("INSERT INTO MATRICULA_TURMA (ESCOLA_ID, ALUNO_ID, TURMA_ID, STATUS, DATA_MATRICULA) "
                 + "VALUES (?, ?, ?, ?, ?)", escolaId, alunoId, turmaId, status.name(), data);
