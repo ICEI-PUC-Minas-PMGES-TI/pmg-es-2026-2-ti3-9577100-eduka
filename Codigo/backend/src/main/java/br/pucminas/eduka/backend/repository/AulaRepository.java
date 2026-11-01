@@ -21,4 +21,10 @@ public interface AulaRepository extends JpaRepository<Aula, UUID> {
 
     @EntityGraph(attributePaths = { "turma", "disciplina" })
     Optional<Aula> findByIdAndEscolaId(UUID id, UUID escolaId);
+
+    /** A turma tem aula registrada (a FK da V35 impede apagar a turma). */
+    boolean existsByEscolaIdAndTurmaId(UUID escolaId, Long turmaId);
+
+    /** A disciplina tem aula registrada na turma (a FK da V35 impede tira-la da grade). */
+    boolean existsByEscolaIdAndTurmaIdAndDisciplinaId(UUID escolaId, Long turmaId, Long disciplinaId);
 }

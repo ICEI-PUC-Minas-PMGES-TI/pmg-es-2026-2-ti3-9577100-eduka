@@ -35,6 +35,7 @@ import br.pucminas.eduka.backend.dto.TurmaResponse;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.exception.RegistroEmUsoException;
 import br.pucminas.eduka.backend.repository.AlocacaoProfessorRepository;
+import br.pucminas.eduka.backend.repository.AulaRepository;
 import br.pucminas.eduka.backend.repository.AvaliacaoRepository;
 import br.pucminas.eduka.backend.repository.CursoRepository;
 import br.pucminas.eduka.backend.repository.DisciplinaRepository;
@@ -69,6 +70,7 @@ public class AcademicoSecretariaService {
     private final MatriculaTurmaRepository matriculaRepository;
     private final AlocacaoProfessorRepository alocacaoRepository;
     private final AvaliacaoRepository avaliacaoRepository;
+    private final AulaRepository aulaRepository;
 
     public AcademicoSecretariaService(PeriodoLetivoRepository periodoLetivoRepository,
                                       CursoRepository cursoRepository,
@@ -77,7 +79,8 @@ public class AcademicoSecretariaService {
                                       EscolaRepository escolaRepository,
                                       MatriculaTurmaRepository matriculaRepository,
                                       AlocacaoProfessorRepository alocacaoRepository,
-                                      AvaliacaoRepository avaliacaoRepository) {
+                                      AvaliacaoRepository avaliacaoRepository,
+                                      AulaRepository aulaRepository) {
         this.periodoLetivoRepository = periodoLetivoRepository;
         this.cursoRepository = cursoRepository;
         this.disciplinaRepository = disciplinaRepository;
@@ -86,6 +89,7 @@ public class AcademicoSecretariaService {
         this.matriculaRepository = matriculaRepository;
         this.alocacaoRepository = alocacaoRepository;
         this.avaliacaoRepository = avaliacaoRepository;
+        this.aulaRepository = aulaRepository;
     }
 
     @Transactional
@@ -181,7 +185,7 @@ public class AcademicoSecretariaService {
      * @throws IllegalArgumentException se as vagas ficam abaixo das
      *                                  matriculas ativas
      * @throws RegistroEmUsoException   se sai da grade uma disciplina que ja
-     *                                  tem avaliacao nesta turma
+     *                                  tem avaliacao ou aula nesta turma
      */
     @Transactional
     public TurmaResponse atualizarTurma(UUID escolaId, Long id, TurmaRequest request) {
@@ -197,6 +201,11 @@ public class AcademicoSecretariaService {
             if (!idsDaGrade.contains(saindo.getId())
                     && avaliacaoRepository.existsByEscolaIdAndTurmaIdAndDisciplinaId(escolaId, id, saindo.getId())) {
                 throw new RegistroEmUsoException("A disciplina %s tem avaliacoes nesta turma e nao pode sair da grade"
+                        .formatted(saindo.getNome()));
+            }
+            if (!idsDaGrade.contains(saindo.getId())
+                    && aulaRepository.existsByEscolaIdAndTurmaIdAndDisciplinaId(escolaId, id, saindo.getId())) {
+                throw new RegistroEmUsoException("A disciplina %s tem aulas registradas nesta turma e nao pode sair da grade"
                         .formatted(saindo.getNome()));
             }
         }
@@ -252,6 +261,9 @@ public class AcademicoSecretariaService {
         }
         if (avaliacaoRepository.existsByEscolaIdAndTurmaId(escolaId, id)) {
             throw new RegistroEmUsoException("A turma tem avaliacoes cadastradas e nao pode ser excluida");
+        }
+        if (aulaRepository.existsByEscolaIdAndTurmaId(escolaId, id)) {
+            throw new RegistroEmUsoException("A turma tem aulas registradas e nao pode ser excluida");
         }
         if (alocacaoRepository.existsByEscolaIdAndTurmaId(escolaId, id)) {
             throw new RegistroEmUsoException("A turma tem professores alocados; desaloque-os antes");
