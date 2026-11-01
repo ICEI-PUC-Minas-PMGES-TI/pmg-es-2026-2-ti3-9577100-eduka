@@ -14,6 +14,7 @@ public class LogEmailSender implements EmailSender {
 
     @Override
     public void enviar(Email email) {
-        log.warn("BREVO_API_KEY nao configurada: e-mail \"{}\" nao foi enviado", email.assunto());
+        // Nem o assunto: ele leva a descricao da cobranca, que pode ter nome de aluno.
+        log.warn("BREVO_API_KEY nao configurada: um e-mail nao foi enviado");
     }
 }

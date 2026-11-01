@@ -297,8 +297,9 @@ public class MockDataSeeder implements ApplicationRunner {
                 .executeWithoutResult(status -> semear(master.getEscolaId(), hoje, gerador, senhaHash)));
 
         // A senha padrao de dev esta no README; uma senha propria (demo) nunca vai para o log.
-        log.info("Mock: {} semeado. Logins em @{} com a senha {} (diretora: {})", NOME_ESCOLA,
-                GeradorMock.DOMINIO, SENHA.equals(senha) ? SENHA : "de MOCK_SENHA", master.getLogin());
+        // Sem o login da diretora: login e dado pessoal, mesmo no mock. Os logins estao no README.
+        log.info("Mock: {} semeado. Logins em @{} com a senha {}", NOME_ESCOLA,
+                GeradorMock.DOMINIO, SENHA.equals(senha) ? SENHA : "de MOCK_SENHA");
     }
 
     private Usuario criarEscolaEEquipe(LocalDate hoje, GeradorMock gerador, String senhaHash) {

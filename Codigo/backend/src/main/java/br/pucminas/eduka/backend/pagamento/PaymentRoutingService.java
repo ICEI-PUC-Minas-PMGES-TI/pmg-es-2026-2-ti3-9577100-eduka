@@ -23,6 +23,7 @@ import br.pucminas.eduka.backend.dto.LancarFaturaRequest;
 import br.pucminas.eduka.backend.dto.Ordenacao;
 import br.pucminas.eduka.backend.dto.PaginaResponse;
 import br.pucminas.eduka.backend.dto.Paginacao;
+import br.pucminas.eduka.backend.logging.ContextoLog;
 import br.pucminas.eduka.backend.pagamento.tipos.EventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 
@@ -241,6 +242,9 @@ public class PaymentRoutingService {
             eventos.aplicar(eventoId, evento);
         } catch (RuntimeException e) {
             falhou(eventoId, e);
+        } finally {
+            // O escolaId entra no MDC quando o aviso e ligado a uma escola; nao pode vazar para o proximo aviso.
+            ContextoLog.limparEscola();
         }
     }
 

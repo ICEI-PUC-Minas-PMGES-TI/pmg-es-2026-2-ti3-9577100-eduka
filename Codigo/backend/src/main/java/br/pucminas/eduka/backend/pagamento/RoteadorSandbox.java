@@ -194,7 +194,8 @@ class RoteadorSandbox {
             }
         } catch (RuntimeException e) {
             // Confirmado no provedor: o aviso ou o proximo clique ainda grava o pagamento.
-            log.warn("Pagamento da {} confirmado no Sandbox, mas a gravacao falhou: {}", descricao, e.toString());
+            log.warn("Pagamento da {} confirmado no Sandbox, mas a gravacao falhou: {}", descricao,
+                    e.getClass().getSimpleName());
         }
     }
 
