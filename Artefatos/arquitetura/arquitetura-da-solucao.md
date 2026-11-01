@@ -174,7 +174,7 @@ flowchart TB
     subgraph svc["service — regra de negócio"]
         AUTHS["AuthService · VerificacaoLoginService<br/>UsuarioService · AcessoService"]
         CADS["EscolaService · SecretariaService<br/>AlunoService · ProfessorService"]
-        ACADS["AcademicoSecretariaService<br/>AlocacaoProfessorService<br/>MatriculaTurmaService · AvaliacaoService"]
+        ACADS["AcademicoSecretariaService<br/>AlocacaoProfessorService · HorarioTurmaService<br/>MatriculaTurmaService · AvaliacaoService"]
         PORTS["PortalProfessorService · PortalAlunoService<br/>DashboardService"]
     end
 
@@ -268,6 +268,10 @@ que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o e
 | `GET` | `/professores/{professorId}/alocacoes` · `/turmas/{turmaId}/alocacoes` | `MASTER`, `SECRETARIA` |
 | `POST` | `/professores/{professorId}/alocacoes` (disciplina da grade da turma; 409 se já tem professor) | `MASTER`, `SECRETARIA` |
 | `DELETE` | `/professores/{professorId}/alocacoes/{alocacaoId}` | `MASTER`, `SECRETARIA` |
+| `GET` | `/turmas/{turmaId}/horario` (grade semanal da turma, de segunda a sábado e por hora, com disciplina e professor) | `MASTER`, `SECRETARIA` |
+| `POST` | `/turmas/{turmaId}/horario` (alocação da própria turma, dia e horas; 400 se a alocação é de outra turma ou o início não vem antes do fim; 409 `HORARIO_TURMA_CONFLITANTE` ou `HORARIO_PROFESSOR_CONFLITANTE` se sobrepõe outra aula da turma ou do professor no dia, e aulas que só se encostam não conflitam) | `MASTER`, `SECRETARIA` |
+| `PUT` | `/turmas/{turmaId}/horario/{horarioId}` (muda dia e horas; mesmas regras e 409) | `MASTER`, `SECRETARIA` |
+| `DELETE` | `/turmas/{turmaId}/horario/{horarioId}` | `MASTER`, `SECRETARIA` |
 | `GET` | `/matriculas?turmaId` · `/matriculas/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO`, `PROFESSOR` |
 | `POST` | `/matriculas` (409 se a turma está sem vagas ou o aluno já está nela) | `MASTER`, `SECRETARIA` |
 | `PATCH` | `/matriculas/{id}` (trancar, reativar, transferir, concluir, cancelar ou editar a observação) | `MASTER`, `SECRETARIA` |
