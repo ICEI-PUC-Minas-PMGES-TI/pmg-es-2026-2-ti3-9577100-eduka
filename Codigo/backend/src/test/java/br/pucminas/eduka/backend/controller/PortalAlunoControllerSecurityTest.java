@@ -28,7 +28,15 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.Cobranca;
+import br.pucminas.eduka.backend.domain.Curso;
+import br.pucminas.eduka.backend.domain.Disciplina;
+import br.pucminas.eduka.backend.domain.MatriculaTurma;
 import br.pucminas.eduka.backend.domain.OrigemPagamento;
+import br.pucminas.eduka.backend.domain.PeriodoLetivo;
+import br.pucminas.eduka.backend.domain.StatusMatricula;
+import br.pucminas.eduka.backend.domain.Turma;
+import br.pucminas.eduka.backend.domain.Turno;
+import br.pucminas.eduka.backend.repository.FrequenciaRepository;
 import br.pucminas.eduka.backend.domain.PagamentoCobranca;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
@@ -108,6 +116,8 @@ class PortalAlunoControllerSecurityTest {
     private AvaliacaoRepository avaliacaoRepository;
     @MockitoBean
     private NotaRepository notaRepository;
+    @MockitoBean
+    private FrequenciaRepository frequenciaRepository;
 
     private String accessToken(UUID usuarioId, String perfil, UUID escolaId) {
         return jwtService.generateAccessToken(usuarioId, perfil, escolaId);
@@ -183,6 +193,49 @@ class PortalAlunoControllerSecurityTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.length()").value(0));
         }
+    }
+
+    @Test
+    void boletimTrazAFrequenciaComNuloParaDisciplinaSemAulas() throws Exception {
+        UUID usuarioId = UUID.randomUUID();
+        Aluno aluno = Aluno.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).pessoaId(UUID.randomUUID())
+                .usuarioId(usuarioId).matricula("2026-001").build();
+        Disciplina matematica = Disciplina.builder().id(10L).nome("Matematica").cargaHoraria(80).build();
+        Disciplina fisica = Disciplina.builder().id(11L).nome("Fisica").cargaHoraria(60).build();
+        Turma turma = Turma.builder().id(1L).nome("1A").turno(Turno.MATUTINO).vagas(30)
+                .periodoLetivo(PeriodoLetivo.builder().id(5L).nome("2026").build())
+                .curso(Curso.builder().id(7L).nome("Ensino Medio").build())
+                .disciplinas(new java.util.HashSet<>(List.of(matematica, fisica))).build();
+        when(alunoRepository.findByUsuarioIdAndEscolaId(usuarioId, ESCOLA_A)).thenReturn(Optional.of(aluno));
+        when(matriculaRepository.findAllByEscolaIdAndAlunoId(ESCOLA_A, aluno.getId())).thenReturn(List.of(
+                MatriculaTurma.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).aluno(aluno).turma(turma)
+                        .status(StatusMatricula.ATIVA).dataMatricula(LocalDate.of(2026, 2, 1)).build()));
+        when(frequenciaRepository.resumirPorDisciplina(ESCOLA_A, aluno.getId(), 1L)).thenReturn(List.of(
+                new FrequenciaRepository.FrequenciaDaDisciplina() {
+                    public Long getDisciplinaId() {
+                        return 10L;
+                    }
+
+                    public long getAulas() {
+                        return 20;
+                    }
+
+                    public long getFaltas() {
+                        return 6;
+                    }
+                }));
+
+        mockMvc.perform(com(get("/portal/aluno/boletim"), accessToken(usuarioId, "ALUNO", ESCOLA_A)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].limiteFaltasPercentual").value(25))
+                .andExpect(jsonPath("$[0].frequencia.totalAulas").value(20))
+                .andExpect(jsonPath("$[0].frequencia.faltas").value(6))
+                .andExpect(jsonPath("$[0].frequencia.percentualFrequencia").value(70.0))
+                .andExpect(jsonPath("$[0].frequencia.alertaFaltas").value(true))
+                .andExpect(jsonPath("$[0].disciplinas[0].disciplinaNome").value("Fisica"))
+                .andExpect(jsonPath("$[0].disciplinas[0].frequencia").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$[0].disciplinas[1].frequencia.totalAulas").value(20))
+                .andExpect(jsonPath("$[0].disciplinas[1].frequencia.alertaFaltas").value(true));
     }
 
     @Test
