@@ -43,7 +43,8 @@ public class WebhookContaPaiRotina {
         try {
             paymentRoutingService.garantirWebhookDaContaPai();
         } catch (RuntimeException e) {
-            log.warn("Webhook da conta-pai nao cadastrado; a reconciliacao cobre as faturas: {}", e.getMessage());
+            log.warn("Webhook da conta-pai nao cadastrado; a reconciliacao cobre as faturas: {}",
+                    e.getClass().getSimpleName());
         }
     }
 }

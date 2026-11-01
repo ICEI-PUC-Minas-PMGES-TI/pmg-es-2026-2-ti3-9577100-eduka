@@ -84,6 +84,7 @@ public class SuperAdminInicialSeeder implements ApplicationRunner {
                 .perfil(PerfilUsuario.SUPER_ADMIN)
                 .ativo(true)
                 .build());
-        log.info("Super admin inicial criado: {}", loginNormalizado);
+        // Sem o login (e-mail do super admin): so avisa que o primeiro acesso foi criado.
+        log.info("Super admin inicial criado");
     }
 }
