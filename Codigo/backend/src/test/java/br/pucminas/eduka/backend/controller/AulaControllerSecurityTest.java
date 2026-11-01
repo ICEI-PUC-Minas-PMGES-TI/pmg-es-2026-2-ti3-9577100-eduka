@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -153,6 +154,7 @@ class AulaControllerSecurityTest {
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(json(put(URL + "/" + UUID.randomUUID()), "{\"conteudo\":\"x\",\"chamada\":[]}"))
                 .andExpect(status().isUnauthorized());
+        mockMvc.perform(delete(URL + "/" + UUID.randomUUID())).andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -167,11 +169,15 @@ class AulaControllerSecurityTest {
                     .andExpect(status().isForbidden());
             mockMvc.perform(com(json(put(URL + "/" + id), "{\"conteudo\":\"x\",\"chamada\":[]}"), token))
                     .andExpect(status().isForbidden());
+            mockMvc.perform(com(delete(URL + "/" + id), token)).andExpect(status().isForbidden());
         }
         String superAdmin = jwtService.generateAccessToken(UUID.randomUUID(), "SUPER_ADMIN", null);
         mockMvc.perform(com(get(URL).param("turmaId", "1").param("disciplinaId", "10"), superAdmin))
                 .andExpect(status().isForbidden());
+        mockMvc.perform(com(delete(URL + "/" + id), superAdmin)).andExpect(status().isForbidden());
         verify(aulaRepository, never()).saveAndFlush(any());
+        verify(aulaRepository, never()).delete(any());
+        verify(frequenciaRepository, never()).apagarDaAula(any(), any());
         verify(professorRepository, never()).findByUsuarioIdAndEscolaId(any(), any());
     }
 
@@ -329,6 +335,40 @@ class AulaControllerSecurityTest {
         mockMvc.perform(com(get(URL + "/" + aula.getId()), tokenProfessor(usuarioId)))
                 .andExpect(status().isNotFound());
         verify(frequenciaRepository, never()).findAllByEscolaIdAndAulaId(any(), any());
+    }
+
+    // ---- excluir ----
+
+    @Test
+    void professorExcluiASuaAulaEResponde204() throws Exception {
+        UUID usuarioId = UUID.randomUUID();
+        Professor professor = professorLogado(usuarioId, true);
+        Aula aula = aula(professor);
+        when(aulaRepository.findByIdAndEscolaId(aula.getId(), ESCOLA)).thenReturn(Optional.of(aula));
+
+        mockMvc.perform(com(delete(URL + "/" + aula.getId()), tokenProfessor(usuarioId)))
+                .andExpect(status().isNoContent());
+        verify(frequenciaRepository).apagarDaAula(ESCOLA, aula.getId());
+        verify(aulaRepository).delete(aula);
+    }
+
+    @Test
+    void excluirAulaInexistenteOuDeOutraAlocacaoResponde404SemApagar() throws Exception {
+        UUID usuarioId = UUID.randomUUID();
+        Professor professor = professorLogado(usuarioId, false);
+        Aula deOutraAlocacao = aula(professor);
+        when(aulaRepository.findByIdAndEscolaId(deOutraAlocacao.getId(), ESCOLA))
+                .thenReturn(Optional.of(deOutraAlocacao));
+        UUID inexistente = UUID.randomUUID();
+        when(aulaRepository.findByIdAndEscolaId(inexistente, ESCOLA)).thenReturn(Optional.empty());
+
+        mockMvc.perform(com(delete(URL + "/" + deOutraAlocacao.getId()), tokenProfessor(usuarioId)))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(com(delete(URL + "/" + inexistente), tokenProfessor(usuarioId)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Aula nao encontrada"));
+        verify(frequenciaRepository, never()).apagarDaAula(any(), any());
+        verify(aulaRepository, never()).delete(any());
     }
 
     // ---- corrigir ----

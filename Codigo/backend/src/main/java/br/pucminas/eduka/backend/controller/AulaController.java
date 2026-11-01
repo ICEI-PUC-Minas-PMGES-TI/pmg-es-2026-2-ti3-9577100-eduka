@@ -6,6 +6,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Sort.Direction;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -94,5 +95,16 @@ public class AulaController {
     @ApiResponse(responseCode = "404", description = "Aula inexistente, de outra escola ou de turma/disciplina que nao e do professor.")
     public AulaResponse atualizar(@PathVariable UUID id, @Valid @RequestBody AtualizarAulaRequest request) {
         return aulaService.atualizar(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Exclui uma aula com a chamada",
+            description = "Apaga a aula e a presenca de cada aluno nela, tudo ou nada. Serve para desfazer uma aula registrada com data errada "
+                    + "ou em duplicidade (a data nao e editavel); as faltas dela deixam de contar no boletim.")
+    @ApiResponse(responseCode = "204", description = "Aula excluida.")
+    @ApiResponse(responseCode = "404", description = "Aula inexistente, de outra escola ou de turma/disciplina que nao e do professor.")
+    public ResponseEntity<Void> excluir(@PathVariable UUID id) {
+        aulaService.excluir(id);
+        return ResponseEntity.noContent().build();
     }
 }

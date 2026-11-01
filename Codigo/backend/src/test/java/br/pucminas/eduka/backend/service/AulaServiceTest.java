@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
@@ -540,6 +542,44 @@ class AulaServiceTest {
                 .isInstanceOf(RecursoNaoEncontradoException.class);
         assertThat(aula.getConteudo()).isEqualTo("Fracoes");
         verify(aulaRepository, never()).save(any());
+    }
+
+    // ---- excluir ----
+
+    @Test
+    void excluirApagaAChamadaEDepoisAAulaDoProfessorAlocado() {
+        Aula aula = aulaExistente();
+
+        servico().excluir(aula.getId());
+
+        InOrder ordem = inOrder(frequenciaRepository, aulaRepository);
+        ordem.verify(frequenciaRepository).apagarDaAula(ESCOLA, aula.getId());
+        ordem.verify(aulaRepository).delete(aula);
+    }
+
+    @Test
+    void excluirAulaDeOutroProfessorRespondeNaoEncontradoSemApagar() {
+        Aula aula = aula(HOJE);
+        when(aulaRepository.findByIdAndEscolaId(aula.getId(), ESCOLA)).thenReturn(Optional.of(aula));
+        alocado(false);
+
+        assertThatThrownBy(() -> servico().excluir(aula.getId()))
+                .isInstanceOf(RecursoNaoEncontradoException.class)
+                .hasMessage("Aula nao encontrada");
+        verify(frequenciaRepository, never()).apagarDaAula(any(), any());
+        verify(aulaRepository, never()).delete(any());
+    }
+
+    @Test
+    void excluirAulaInexistenteOuDeOutraEscolaRespondeNaoEncontradoSemApagar() {
+        UUID id = UUID.randomUUID();
+        when(aulaRepository.findByIdAndEscolaId(id, ESCOLA)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servico().excluir(id))
+                .isInstanceOf(RecursoNaoEncontradoException.class)
+                .hasMessage("Aula nao encontrada");
+        verify(frequenciaRepository, never()).apagarDaAula(any(), any());
+        verify(aulaRepository, never()).delete(any());
     }
 
     // ---- listar ----

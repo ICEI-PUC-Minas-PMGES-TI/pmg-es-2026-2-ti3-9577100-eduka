@@ -72,6 +72,8 @@ import br.pucminas.eduka.backend.security.UsuarioAutenticado;
  * corrigido, mas deixa de ser exigido.</li>
  * <li>Corrigir substitui o conteudo e a presenca de cada aluno enviado; a data
  * nao muda.</li>
+ * <li>Aula com data errada ou em duplicidade se desfaz excluindo-a, com a
+ * chamada dela.</li>
  * </ul>
  */
 @Service
@@ -219,6 +221,19 @@ public class AulaService {
         frequenciaRepository.saveAll(novas);
         frequenciaRepository.flush();
         return resposta(id, escolaId);
+    }
+
+    /**
+     * Apaga a aula e a chamada dela, na mesma transacao. E o jeito de desfazer
+     * uma aula registrada com data errada ou em duplicidade, que senao
+     * distorceria para sempre o percentual de faltas dos alunos.
+     */
+    @Transactional
+    public void excluir(UUID id) {
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        Aula aula = buscarAula(id, escolaId, professorAtual(escolaId));
+        frequenciaRepository.apagarDaAula(escolaId, id);
+        aulaRepository.delete(aula);
     }
 
     /**

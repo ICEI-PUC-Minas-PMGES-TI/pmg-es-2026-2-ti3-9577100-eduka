@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -18,6 +19,11 @@ public interface FrequenciaRepository extends JpaRepository<Frequencia, UUID> {
     /** A chamada de uma aula, ja com os alunos. */
     @EntityGraph(attributePaths = { "aluno" })
     List<Frequencia> findAllByEscolaIdAndAulaId(UUID escolaId, UUID aulaId);
+
+    /** Apaga a chamada inteira de uma aula (antes de apagar a aula, que a FK nao deixa orfa). */
+    @Modifying(flushAutomatically = true)
+    @Query("delete from Frequencia f where f.escolaId = :escolaId and f.aula.id = :aulaId")
+    int apagarDaAula(@Param("escolaId") UUID escolaId, @Param("aulaId") UUID aulaId);
 
     /** Presentes e faltas de varias aulas de uma vez, numa query so. */
     @Query("""

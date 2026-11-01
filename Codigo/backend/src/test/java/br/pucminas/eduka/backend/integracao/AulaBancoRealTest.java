@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.tuple;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -14,13 +15,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import br.pucminas.eduka.backend.domain.StatusMatricula;
+import br.pucminas.eduka.backend.domain.Turno;
 import br.pucminas.eduka.backend.dto.AtualizarAulaRequest;
 import br.pucminas.eduka.backend.dto.AulaRequest;
 import br.pucminas.eduka.backend.dto.AulaResponse;
 import br.pucminas.eduka.backend.dto.ChamadaItem;
 import br.pucminas.eduka.backend.dto.Paginacao;
+import br.pucminas.eduka.backend.dto.TurmaRequest;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.exception.RegistroEmUsoException;
 import br.pucminas.eduka.backend.repository.FrequenciaRepository;
+import br.pucminas.eduka.backend.service.AcademicoSecretariaService;
 import br.pucminas.eduka.backend.service.AulaService;
 
 /**
@@ -34,6 +39,8 @@ class AulaBancoRealTest extends BancoRealTest {
     private AulaService aulaService;
     @Autowired
     private FrequenciaRepository frequenciaRepository;
+    @Autowired
+    private AcademicoSecretariaService academicoService;
 
     private UUID escola;
     private long turma;
@@ -185,6 +192,62 @@ class AulaBancoRealTest extends BancoRealTest {
         assertThatThrownBy(() -> jdbc.update("INSERT INTO FREQUENCIA (ESCOLA_ID, AULA_ID, ALUNO_ID, PRESENTE) "
                 + "VALUES (?, ?, ?, false)", escola, registrada.id(), ana))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void excluirApagaAAulaEAChamadaSemMexerNasOutrasEOBoletimDeixaDeContar() {
+        AulaResponse errada = registrar(matematica, LocalDate.now().minusDays(2), false, false);
+        AulaResponse certa = registrar(matematica, LocalDate.now().minusDays(1), true, true);
+
+        aulaService.excluir(errada.id());
+
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM AULA WHERE ID_AULA = ?", Integer.class, errada.id()))
+                .isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM FREQUENCIA WHERE AULA_ID = ?", Integer.class,
+                errada.id())).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM FREQUENCIA WHERE AULA_ID = ?", Integer.class,
+                certa.id())).isEqualTo(2);
+        assertThat(frequenciaRepository.resumirPorDisciplina(escola, ana, turma))
+                .extracting(f -> f.getAulas(), f -> f.getFaltas())
+                .containsExactly(tuple(1L, 0L));
+        assertThatThrownBy(() -> aulaService.buscar(errada.id())).isInstanceOf(RecursoNaoEncontradoException.class);
+    }
+
+    @Test
+    void outraEscolaNaoExcluiAAula() {
+        AulaResponse registrada = registrar(matematica, LocalDate.now(), true, true);
+
+        UUID outraEscola = dados.escola();
+        autenticarComo(dados.usuario(outraEscola, "PROFESSOR", "Outro Professor"), "PROFESSOR", outraEscola);
+
+        assertThatThrownBy(() -> aulaService.excluir(registrada.id()))
+                .isInstanceOf(RecursoNaoEncontradoException.class);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM AULA WHERE ID_AULA = ?", Integer.class, registrada.id()))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void secretariaNaoTiraDaGradeNemExcluiTurmaComAula() {
+        registrar(matematica, LocalDate.now().minusDays(1), true, true);
+        Long periodo = jdbc.queryForObject("SELECT periodo_letivo_id FROM turma WHERE id = ?", Long.class, turma);
+        Long curso = jdbc.queryForObject("SELECT curso_id FROM turma WHERE id = ?", Long.class, turma);
+        TurmaRequest semMatematica = new TurmaRequest();
+        semMatematica.setPeriodoLetivoId(periodo);
+        semMatematica.setCursoId(curso);
+        semMatematica.setNome("1A");
+        semMatematica.setVagas(30);
+        semMatematica.setTurno(Turno.MATUTINO);
+        semMatematica.setDisciplinaIds(Set.of(fisica));
+
+        assertThatThrownBy(() -> academicoService.atualizarTurma(escola, turma, semMatematica))
+                .isInstanceOf(RegistroEmUsoException.class)
+                .hasMessageContaining("tem aulas registradas nesta turma");
+
+        jdbc.update("DELETE FROM MATRICULA_TURMA WHERE TURMA_ID = ?", turma);
+        jdbc.update("DELETE FROM ALOCACAO_PROFESSOR WHERE TURMA_ID = ?", turma);
+        assertThatThrownBy(() -> academicoService.excluirTurma(escola, turma))
+                .isInstanceOf(RegistroEmUsoException.class)
+                .hasMessage("A turma tem aulas registradas e nao pode ser excluida");
     }
 
     @Test
