@@ -215,6 +215,13 @@ public class ApiExceptionHandler {
                 .body(problema(HttpStatus.CONFLICT, ex.getMessage(), ex.getCodigo()));
     }
 
+    /** Grade de horarios: o {@code codigo} diz se o choque e na turma ou no professor. */
+    @ExceptionHandler(HorarioConflitanteException.class)
+    public ResponseEntity<ProblemDetail> horarioConflitante(HorarioConflitanteException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), ex.getCodigo()));
+    }
+
     @ExceptionHandler(CobrancaJaPagaException.class)
     public ResponseEntity<ProblemDetail> cobrancaJaPaga(CobrancaJaPagaException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
