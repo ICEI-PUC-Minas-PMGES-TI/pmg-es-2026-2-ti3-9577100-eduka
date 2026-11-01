@@ -24,6 +24,7 @@ import br.pucminas.eduka.backend.domain.PagamentoCobranca;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.domain.StatusEventoProvedor;
+import br.pucminas.eduka.backend.logging.ContextoLog;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.EventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
@@ -508,6 +509,7 @@ class RoteadorEventos {
         }
         FaturaPlataforma fatura = encontrada.get();
         registro.setEscolaId(fatura.getEscolaId());
+        ContextoLog.definirEscola(fatura.getEscolaId());
         CobrancaProvedor doAviso = evento.cobranca();
         Instant agora = clock.instant();
 
@@ -625,6 +627,7 @@ class RoteadorEventos {
         }
         CobrancaLocal cobranca = encontrada.get();
         registro.setEscolaId(cobranca.aviso().escolaId());
+        ContextoLog.definirEscola(cobranca.aviso().escolaId());
 
         Optional<UUID> escolaDaConta = evento.idContaExterna() == null ? Optional.empty()
                 : contaRepository.buscarEscolaPorIdContaExterna(evento.idContaExterna());
