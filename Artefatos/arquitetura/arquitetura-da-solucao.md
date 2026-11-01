@@ -166,7 +166,7 @@ flowchart TB
         CADC["Cadastros<br/><code>/escolas</code> · <code>/usuarios/secretarias</code><br/><code>/alunos</code> · <code>/professores</code>"]
         ACADC["Acadêmico<br/><code>/academico/secretaria</code> · alocações<br/><code>/matriculas</code>"]
         FINC["Financeiro<br/><code>/cobrancas</code> · <code>/despesas</code>"]
-        PORTC["Portais<br/><code>/portal/professor</code> (turmas, avaliações, notas)<br/><code>/portal/aluno</code>"]
+        PORTC["Portais<br/><code>/portal/professor</code> (turmas, avaliações, notas, aulas e chamada)<br/><code>/portal/aluno</code>"]
         DASHC["DashboardController<br/><code>/dashboard</code>"]
         HLTC["HealthController<br/><code>GET /health</code>"]
     end
@@ -174,7 +174,7 @@ flowchart TB
     subgraph svc["service — regra de negócio"]
         AUTHS["AuthService · VerificacaoLoginService<br/>UsuarioService · AcessoService"]
         CADS["EscolaService · SecretariaService<br/>AlunoService · ProfessorService"]
-        ACADS["AcademicoSecretariaService<br/>AlocacaoProfessorService<br/>MatriculaTurmaService · AvaliacaoService"]
+        ACADS["AcademicoSecretariaService<br/>AlocacaoProfessorService<br/>MatriculaTurmaService · AvaliacaoService · AulaService"]
         PORTS["PortalProfessorService · PortalAlunoService<br/>DashboardService"]
     end
 
@@ -384,6 +384,9 @@ sem isso, esses avisos não chegam.
 | `DELETE` | `/portal/professor/avaliacoes/{id}` (409 se já tem nota) | `PROFESSOR` |
 | `GET` | `/portal/professor/avaliacoes/{id}/notas` (alunos ativos da turma com a nota) | `PROFESSOR` |
 | `PUT` | `/portal/professor/avaliacoes/{id}/notas` (lança em lote; nota nula apaga) | `PROFESSOR` |
+| `GET` | `/portal/professor/aulas?turmaId&disciplinaId&pagina&tamanho&direcao` (aulas da disciplina na turma em páginas, da mais recente para a mais antiga, com os totais de presentes e faltas; 404 se não for alocada a ele) · `/portal/professor/aulas/{id}` (a aula com a chamada completa) | `PROFESSOR` (só turma/disciplina alocada a ele) |
+| `POST` | `/portal/professor/aulas` (registra data, conteúdo e a chamada presente/falta; 400 se a data é futura, se algum aluno com matrícula ativa na turma ficou fora da lista ou se há aluno sem matrícula ativa na turma) | `PROFESSOR` |
+| `PUT` | `/portal/professor/aulas/{id}` (corrige conteúdo e chamada, mesmas regras; a data não muda) | `PROFESSOR` |
 | `GET` | `/portal/aluno/me` (dados do próprio aluno, pelo token) | `ALUNO` |
 | `GET` | `/portal/aluno/turmas` (turmas do aluno, com a grade e os professores) | `ALUNO` |
 | `GET` | `/portal/aluno/boletim` (notas por turma e disciplina, com os totais de pontos) | `ALUNO` |
@@ -448,7 +451,7 @@ O isolamento tem duas camadas:
    `escolaId` do cliente. Quando o recurso é carregado por outro caminho,
    `IsolamentoEscola.exigirAcesso(escolaIdDoRecurso)` responde `403` se ele for de outra escola.
 2. **Persistência.** Entidades com o campo de escola anotado com `@TenantId` (hoje `Aluno`,
-   `Professor`, `AlocacaoProfessor`, `MatriculaTurma`, `Avaliacao` e `Nota`)
+   `Professor`, `AlocacaoProfessor`, `MatriculaTurma`, `Avaliacao`, `Nota`, `Aula` e `Frequencia`)
    recebem `escola_id = <escola do token>` automaticamente do Hibernate em toda consulta, e o
    campo é preenchido sozinho no insert. O tenant vem do `EscolaTenantIdentifierResolver`. Sem
    escola no contexto (login, subida da aplicação, `SUPER_ADMIN`), ele devolve um id que não
@@ -625,7 +628,7 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 * **Gestão de usuários pelo master.** A API de `/usuarios/secretarias` está pronta, mas o
   `MASTER` ainda não tem tela para cadastrar e inativar a secretaria.
 * **`@TenantId` nas demais entidades.** Hoje têm o filtro automático do Hibernate `Aluno`,
-  `Professor`, `AlocacaoProfessor`, `MatriculaTurma`, `Avaliacao` e `Nota`. As tabelas da estrutura
+  `Professor`, `AlocacaoProfessor`, `MatriculaTurma`, `Avaliacao`, `Nota`, `Aula` e `Frequencia`. As tabelas da estrutura
   acadêmica (`PeriodoLetivo`, `Curso`, `Disciplina`, `Turma`) filtram pela escola só nos services;
   as próximas entidades de negócio devem usar `@TenantId`. `Pessoa` é exceção proposital:
   o `SUPER_ADMIN` cria pessoas em nome de outras escolas, o que o filtro não expressa. Por isso
