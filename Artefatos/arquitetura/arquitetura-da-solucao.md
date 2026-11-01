@@ -213,7 +213,7 @@ que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o e
 
 | Método | Rota | Perfis autorizados |
 |---|---|---|
-| `GET` | `/health` | público |
+| `GET` | `/health` (consulta o banco: 200 `UP`, 503 `DOWN`) | público |
 | `POST` | `/login` (com a verificação ligada, devolve só a `verificacao` pendente) | público |
 | `POST` | `/login/codigo` (confere o código de 6 dígitos e devolve os tokens) | público |
 | `POST` | `/login/codigo/reenvio` (troca o código; 429 se pedir cedo demais ou passar do limite de envios) | público |

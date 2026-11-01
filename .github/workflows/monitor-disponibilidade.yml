@@ -1,0 +1,36 @@
+name: Monitor de disponibilidade
+
+# Consulta o /health de producao a cada 5 min. Queda confirmada abre (ou comenta em) uma issue com o
+# label "indisponibilidade"; a volta comenta e fecha. A logica esta em .github/scripts/monitor-disponibilidade.sh.
+# Configuracao: Settings > Secrets and variables > Actions > Variables (ver a secao "Monitor de
+# disponibilidade" do Codigo/README.md). Sem MONITOR_HEALTH_URL o job so avisa e termina sem falhar.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+# Uma verificacao por vez: uma execucao lenta nao pode abrir issue duplicada em paralelo com a seguinte.
+concurrency:
+  group: monitor-disponibilidade
+  cancel-in-progress: false
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      MONITOR_HEALTH_URL: ${{ vars.MONITOR_HEALTH_URL }}
+      MONITOR_FRONTEND_URL: ${{ vars.MONITOR_FRONTEND_URL }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+      - name: Verificar disponibilidade
+        run: bash .github/scripts/monitor-disponibilidade.sh
