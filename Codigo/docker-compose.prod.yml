@@ -67,6 +67,15 @@ services:
       ASAAS_WEBHOOK_EMAIL: ${ASAAS_WEBHOOK_EMAIL:-}
       ASAAS_WEBHOOK_CONTA_PAI: ${ASAAS_WEBHOOK_CONTA_PAI:-false}
 
+    # /health responde 503 quando o banco cai. curl existe na imagem eclipse-temurin:21-jre.
+    # start_period cobre a subida do Spring e as migrations do Flyway.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+
 
   frontend:
 
