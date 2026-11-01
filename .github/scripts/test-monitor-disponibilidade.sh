@@ -92,21 +92,21 @@ espera_status 1
 espera_gh "sem resposta"
 fim
 
-rodar "queda com issue aberta e atividade recente: nao duplica nem comenta" MONITOR_HEALTH_URL=https://api CURL_HEALTH="503" \
+rodar "queda com issue aberta e atividade recente: nao duplica nem comenta, run verde" MONITOR_HEALTH_URL=https://api CURL_HEALTH="503" \
   OPEN_ISSUE=7 ISSUE_UPDATED_AT="$(agora_menos_min 10)"
-espera_status 1
+espera_status 0
 nega_gh "issue create" && nega_gh "issue comment"
 fim
 
-rodar "queda com issue aberta parada ha 2h: comenta nela, sem criar outra" MONITOR_HEALTH_URL=https://api CURL_HEALTH="503" \
+rodar "queda com issue aberta parada ha 2h: comenta nela, sem criar outra, run verde" MONITOR_HEALTH_URL=https://api CURL_HEALTH="503" \
   OPEN_ISSUE=7 ISSUE_UPDATED_AT="$(agora_menos_min 120)"
-espera_status 1
+espera_status 0
 espera_gh "issue comment 7" && nega_gh "issue create"
 fim
 
-rodar "MONITOR_REAVISO_MINUTOS=0: comenta a cada execucao" MONITOR_HEALTH_URL=https://api CURL_HEALTH="503" \
+rodar "MONITOR_REAVISO_MINUTOS=0: comenta a cada execucao, run verde" MONITOR_HEALTH_URL=https://api CURL_HEALTH="503" \
   OPEN_ISSUE=7 ISSUE_UPDATED_AT="$(agora_menos_min 1)" MONITOR_REAVISO_MINUTOS=0
-espera_status 1
+espera_status 0
 espera_gh "issue comment 7"
 fim
 

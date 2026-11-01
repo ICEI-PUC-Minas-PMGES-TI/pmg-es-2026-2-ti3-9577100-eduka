@@ -15,8 +15,10 @@
 #   MONITOR_REAVISO_MINUTOS     padrao 60: com a issue aberta, so comenta de novo apos esse tempo
 #                               sem atividade nela (0 comenta a cada execucao)
 #
-# Sai com 1 quando ha queda (o run fica vermelho, segundo aviso alem da issue) e com 0 quando esta
-# tudo no ar ou o monitor nao foi configurado. Nunca imprime as URLs: o log do Actions pode ser publico.
+# Sai com 1 so no run que ABRE a issue de queda (o run fica vermelho, segundo aviso alem da issue) e com 0
+# nos demais casos: tudo no ar, monitor nao configurado ou queda cuja issue ja estava aberta (comentada
+# ou nao). Assim o GitHub nao manda um e-mail de run falho a cada 5 minutos, o que anularia o re-aviso
+# de 1 por hora. Nunca imprime as URLs: o log do Actions pode ser publico.
 set -euo pipefail
 
 LABEL="indisponibilidade"
@@ -79,6 +81,7 @@ if [ "${#falhas[@]}" -eq 0 ]; then
   exit 0
 fi
 
+abriu_issue=0
 lista="$(printf '%s\n' "${falhas[@]}")"
 echo "QUEDA confirmada apos $TENTATIVAS tentativas:"
 echo "$lista"
@@ -109,6 +112,12 @@ $lista
 Verificacao: $link_run
 
 Esta issue e fechada automaticamente quando o servico voltar. Enquanto estiver fora do ar, o monitor comenta aqui no maximo a cada $REAVISO_MIN minutos."
+  abriu_issue=1
 fi
 
-exit 1
+# So o run que abre a issue fica vermelho (o aviso do GitHub por e-mail); nas execucoes seguintes da
+# mesma queda sai 0, senao cada run de 5 em 5 minutos mandaria um aviso e anularia o re-aviso por hora.
+if [ "$abriu_issue" -eq 1 ]; then
+  exit 1
+fi
+exit 0
