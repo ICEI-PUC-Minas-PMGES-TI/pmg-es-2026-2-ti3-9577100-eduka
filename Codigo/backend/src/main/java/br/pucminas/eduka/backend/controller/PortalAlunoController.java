@@ -57,7 +57,7 @@ public class PortalAlunoController {
 
     /** Boletim por turma e disciplina, com as notas lancadas e os totais de pontos. */
     @GetMapping("/boletim")
-    @Operation(summary = "Boletim do aluno autenticado", description = "Por turma, cada disciplina da grade com as avaliacoes, a nota em cada uma (nula se ainda nao lancada) e os totais de pontos.")
+    @Operation(summary = "Boletim do aluno autenticado", description = "Por turma, cada disciplina da grade com as avaliacoes, a nota em cada uma (nula se ainda nao lancada), os totais de pontos e a frequencia (aulas, faltas, percentual de presenca e alerta quando as faltas passam de 25% das aulas; nula se a disciplina ainda nao teve aula).")
     public List<BoletimTurmaResponse> boletim() {
         return portalAlunoService.boletim();
     }

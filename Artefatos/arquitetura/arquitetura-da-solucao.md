@@ -393,7 +393,7 @@ sem isso, esses avisos não chegam.
 | `PUT` | `/portal/professor/aulas/{id}` (corrige conteúdo e chamada, mesmas regras; a data não muda) | `PROFESSOR` |
 | `GET` | `/portal/aluno/me` (dados do próprio aluno, pelo token) | `ALUNO` |
 | `GET` | `/portal/aluno/turmas` (turmas do aluno, com a grade e os professores) | `ALUNO` |
-| `GET` | `/portal/aluno/boletim` (notas por turma e disciplina, com os totais de pontos) | `ALUNO` |
+| `GET` | `/portal/aluno/boletim` (notas por turma e disciplina, com os totais de pontos e a frequência: aulas, faltas, presença e alerta acima de 25% de faltas; nula em disciplina sem aula) | `ALUNO` |
 | `GET` | `/portal/aluno/avaliacoes` (agenda de provas, trabalhos e tarefas das turmas ativas) | `ALUNO` |
 | `GET` | `/portal/aluno/cobrancas/{id}` (uma cobrança do próprio aluno com `situacaoPagamento`, forma, `pagamento` (valor, data e forma, quando já pago online) e `acoes`: `PAGAR` em aberto, `VER_COMPROVANTE` quando paga com pagamento registrado; 404 se for de outro aluno) | `ALUNO` |
 | `GET` | `/portal/aluno/cobrancas/{id}/comprovante` (o mesmo comprovante da gestão, sem nenhuma URL do Asaas; 404 `COMPROVANTE_INDISPONIVEL` antes da confirmação; 404 se for de outro aluno) | `ALUNO` |

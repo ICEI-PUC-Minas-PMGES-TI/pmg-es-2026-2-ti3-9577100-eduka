@@ -45,10 +45,27 @@
   gap: 18px;
 }
 
-/* Etiqueta "Na média" / "Recuperação" abaixo do professor. */
+/* Etiquetas "Na média" / "Recuperação" e "Faltas acima do limite" abaixo do professor. */
 .situacao {
   display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   margin-top: 6px;
+}
+
+/* Texto das regras de aprovação (média mínima e limite de faltas). */
+.regras {
+  color: var(--color-text-muted);
+  font-size: 13.5px;
+}
+
+.regras strong {
+  color: var(--color-text);
+}
+
+.total .faltasAlerta {
+  color: var(--color-danger);
+  font-weight: 700;
 }
 
 .turma {
