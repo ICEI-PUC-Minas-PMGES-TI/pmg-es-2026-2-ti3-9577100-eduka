@@ -267,7 +267,7 @@ que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o e
 | `DELETE` | `/academico/secretaria/{...}/{id}` (409 se o registro está em uso) | `MASTER`, `SECRETARIA` |
 | `GET` | `/professores/{professorId}/alocacoes` · `/turmas/{turmaId}/alocacoes` | `MASTER`, `SECRETARIA` |
 | `POST` | `/professores/{professorId}/alocacoes` (disciplina da grade da turma; 409 se já tem professor) | `MASTER`, `SECRETARIA` |
-| `DELETE` | `/professores/{professorId}/alocacoes/{alocacaoId}` | `MASTER`, `SECRETARIA` |
+| `DELETE` | `/professores/{professorId}/alocacoes/{alocacaoId}` (leva junto os horários dessa disciplina na grade semanal da turma, `HORARIO_TURMA` em cascata) | `MASTER`, `SECRETARIA` |
 | `GET` | `/turmas/{turmaId}/horario` (grade semanal da turma, de segunda a sábado e por hora, com disciplina e professor) | `MASTER`, `SECRETARIA` |
 | `POST` | `/turmas/{turmaId}/horario` (alocação da própria turma, dia e horas; 400 se a alocação é de outra turma ou o início não vem antes do fim; 409 `HORARIO_TURMA_CONFLITANTE` ou `HORARIO_PROFESSOR_CONFLITANTE` se sobrepõe outra aula da turma ou do professor no dia, e aulas que só se encostam não conflitam) | `MASTER`, `SECRETARIA` |
 | `PUT` | `/turmas/{turmaId}/horario/{horarioId}` (muda dia e horas; mesmas regras e 409) | `MASTER`, `SECRETARIA` |
@@ -391,6 +391,7 @@ sem isso, esses avisos não chegam.
 | `GET` | `/portal/professor/aulas?turmaId&disciplinaId&pagina&tamanho&direcao` (aulas da disciplina na turma em páginas, da mais recente para a mais antiga, com os totais de presentes e faltas; 404 se não for alocada a ele) · `/portal/professor/aulas/{id}` (a aula com a chamada completa) | `PROFESSOR` (só turma/disciplina alocada a ele) |
 | `POST` | `/portal/professor/aulas` (registra data, conteúdo e a chamada presente/falta; 400 se a data é futura, se algum aluno com matrícula ativa na turma, feita até o dia da aula, ficou fora da lista, ou se há aluno sem matrícula ativa ou matriculado depois do dia da aula) | `PROFESSOR` |
 | `PUT` | `/portal/professor/aulas/{id}` (corrige conteúdo e chamada, mesmas regras; a data não muda) | `PROFESSOR` |
+| `DELETE` | `/portal/professor/aulas/{id}` (exclui a aula e a chamada dela, para desfazer data errada ou registro em duplicidade; 204, ou 404 se for de outro professor ou outra escola) | `PROFESSOR` |
 | `GET` | `/portal/aluno/me` (dados do próprio aluno, pelo token) | `ALUNO` |
 | `GET` | `/portal/aluno/turmas` (turmas do aluno, com a grade e os professores) | `ALUNO` |
 | `GET` | `/portal/aluno/boletim` (notas por turma e disciplina, com os totais de pontos e a frequência: aulas, faltas, presença e alerta acima de 25% de faltas; nula em disciplina sem aula) | `ALUNO` |
