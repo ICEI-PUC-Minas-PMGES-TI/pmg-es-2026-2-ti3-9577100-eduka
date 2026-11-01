@@ -129,7 +129,7 @@ class AulaControllerSecurityTest {
         Turma turma = Turma.builder().id(1L).nome("1A").build();
         when(matriculaRepository.findAllByEscolaIdAndTurmaId(ESCOLA, 1L)).thenReturn(List.of(
                 MatriculaTurma.builder().id(UUID.randomUUID()).escolaId(ESCOLA).aluno(aluno).turma(turma)
-                        .status(StatusMatricula.ATIVA).build()));
+                        .status(StatusMatricula.ATIVA).dataMatricula(LocalDate.now().minusDays(30)).build()));
         when(pessoaRepository.findAllByIdInAndEscolaId(anyList(), any())).thenReturn(
                 List.of(Pessoa.builder().id(aluno.getPessoaId()).escolaId(ESCOLA).nome("Ana").ativo(true).build()));
         return aluno;

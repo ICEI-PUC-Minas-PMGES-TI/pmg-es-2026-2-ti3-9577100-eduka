@@ -61,10 +61,13 @@ import br.pucminas.eduka.backend.security.UsuarioAutenticado;
  * </p>
  * <ul>
  * <li>A data da aula nao pode ser futura (dia de hoje no fuso da escola).</li>
- * <li>A chamada e completa: todo aluno com matricula ATIVA na turma entra na
- * lista, uma vez cada. Faltar aluno na lista e 400, para a frequencia nao
- * ficar com buracos que distorcem o percentual de faltas.</li>
- * <li>Aluno sem matricula ativa na turma e 400. Ao corrigir uma aula, quem ja
+ * <li>A chamada e completa: todo aluno com matricula ATIVA na turma, feita ate
+ * o dia da aula, entra na lista, uma vez cada. Faltar aluno na lista e 400,
+ * para a frequencia nao ficar com buracos que distorcem o percentual de
+ * faltas.</li>
+ * <li>Aluno sem matricula ativa na turma, ou matriculado depois do dia da
+ * aula, e 400 (nao estava na turma naquele dia, entao nao ganha falta). Ao
+ * corrigir uma aula, quem ja
  * tinha presenca registrada nela e saiu da turma depois ainda pode ser
  * corrigido, mas deixa de ser exigido.</li>
  * <li>Corrigir substitui o conteudo e a presenca de cada aluno enviado; a data
@@ -152,7 +155,7 @@ public class AulaService {
         if (request.data().isAfter(hoje())) {
             throw new IllegalArgumentException("A data da aula nao pode ser futura");
         }
-        Map<UUID, MatriculaTurma> ativos = matriculasAtivas(escolaId, request.turmaId());
+        Map<UUID, MatriculaTurma> ativos = matriculasAtivas(escolaId, request.turmaId(), request.data());
         validarChamada(request.chamada(), ativos, Set.of());
 
         Aula aula = aulaRepository.saveAndFlush(Aula.builder()
@@ -188,7 +191,7 @@ public class AulaService {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         Aula aula = buscarAula(id, escolaId, professorAtual(escolaId));
 
-        Map<UUID, MatriculaTurma> ativos = matriculasAtivas(escolaId, aula.getTurma().getId());
+        Map<UUID, MatriculaTurma> ativos = matriculasAtivas(escolaId, aula.getTurma().getId(), aula.getData());
         Map<UUID, Frequencia> registradas = frequenciaRepository.findAllByEscolaIdAndAulaId(escolaId, id).stream()
                 .collect(Collectors.toMap(f -> f.getAluno().getId(), Function.identity()));
         validarChamada(request.chamada(), ativos, registradas.keySet());
@@ -272,9 +275,15 @@ public class AulaService {
                 .toList();
     }
 
-    private Map<UUID, MatriculaTurma> matriculasAtivas(UUID escolaId, Long turmaId) {
+    /**
+     * Quem entra na chamada de uma aula: matricula ATIVA hoje e feita ate o dia
+     * da aula. Quem se matriculou depois nao estava na turma naquele dia, e uma
+     * falta ali distorceria o percentual de faltas dele.
+     */
+    private Map<UUID, MatriculaTurma> matriculasAtivas(UUID escolaId, Long turmaId, LocalDate dataDaAula) {
         return matriculaRepository.findAllByEscolaIdAndTurmaId(escolaId, turmaId).stream()
                 .filter(m -> m.getStatus() == StatusMatricula.ATIVA)
+                .filter(m -> !m.getDataMatricula().isAfter(dataDaAula))
                 .collect(Collectors.toMap(m -> m.getAluno().getId(), Function.identity()));
     }
 

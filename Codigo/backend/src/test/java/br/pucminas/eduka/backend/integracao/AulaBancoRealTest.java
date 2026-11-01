@@ -161,6 +161,24 @@ class AulaBancoRealTest extends BancoRealTest {
     }
 
     @Test
+    void aulaAnteriorAMatriculaNaoTemChamadaDoAlunoNovo() {
+        UUID carla = dados.aluno(escola, "Carla Dias");
+        dados.matricula(escola, carla, turma, StatusMatricula.ATIVA, LocalDate.now().minusDays(5));
+
+        AulaResponse antiga = registrar(matematica, LocalDate.now().minusDays(10), true, true);
+
+        assertThat(antiga.chamada()).extracting("alunoNome").containsExactly("Ana Souza", "Bruno Alves");
+        assertThatThrownBy(() -> registrar(matematica, LocalDate.now(), true, true))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Chamada incompleta");
+        assertThatThrownBy(() -> aulaService.registrar(new AulaRequest(turma, matematica,
+                LocalDate.now().minusDays(10), "Conteudo", List.of(new ChamadaItem(ana, true),
+                        new ChamadaItem(bruno, true), new ChamadaItem(carla, false)))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Aluno sem matricula ativa na turma da aula");
+    }
+
+    @Test
     void bancoBarraFrequenciaRepetidaDoAlunoNaAula() {
         AulaResponse registrada = registrar(matematica, LocalDate.now(), true, true);
 

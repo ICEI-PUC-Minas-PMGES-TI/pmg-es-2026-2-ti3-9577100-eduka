@@ -133,8 +133,12 @@ class AulaServiceTest {
     }
 
     private MatriculaTurma matricula(Aluno aluno, StatusMatricula status) {
+        return matricula(aluno, status, HOJE.minusDays(30));
+    }
+
+    private MatriculaTurma matricula(Aluno aluno, StatusMatricula status, LocalDate dataMatricula) {
         return MatriculaTurma.builder().id(UUID.randomUUID()).escolaId(ESCOLA).aluno(aluno).turma(turma)
-                .status(status).build();
+                .status(status).dataMatricula(dataMatricula).build();
     }
 
     private static Pessoa pessoa(Aluno aluno, String nome) {
@@ -278,6 +282,75 @@ class AulaServiceTest {
                 .hasMessageContaining("1 aluno(s)");
         verify(aulaRepository, never()).saveAndFlush(any());
         verify(frequenciaRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void registrarAulaAntigaNaoExigeQuemSeMatriculouDepoisDaData() {
+        alocado(true);
+        Aluno ana = aluno();
+        Aluno novo = aluno();
+        LocalDate dataDaAula = HOJE.minusDays(10);
+        turmaComMatriculas(matricula(ana, StatusMatricula.ATIVA),
+                matricula(novo, StatusMatricula.ATIVA, dataDaAula.plusDays(1)));
+        nomes(pessoa(ana, "Ana"));
+        when(turmaRepository.getReferenceById(1L)).thenReturn(turma);
+        when(disciplinaRepository.getReferenceById(10L)).thenReturn(disciplina);
+        List<Frequencia> gravadas = gravacaoDaAula();
+
+        AulaResponse resposta = servico().registrar(registro(dataDaAula, presente(ana)));
+
+        assertThat(resposta.chamada()).extracting("alunoNome").containsExactly("Ana");
+        assertThat(gravadas).extracting(f -> f.getAluno().getId()).containsExactly(ana.getId());
+    }
+
+    @Test
+    void registrarAulaAntigaComAlunoMatriculadoDepoisDaDataRespondeErroSemGravar() {
+        alocado(true);
+        Aluno ana = aluno();
+        Aluno novo = aluno();
+        LocalDate dataDaAula = HOJE.minusDays(10);
+        turmaComMatriculas(matricula(ana, StatusMatricula.ATIVA),
+                matricula(novo, StatusMatricula.ATIVA, dataDaAula.plusDays(1)));
+
+        assertThatThrownBy(() -> servico().registrar(registro(dataDaAula, presente(ana), falta(novo))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Aluno sem matricula ativa na turma da aula");
+        verify(aulaRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void registrarExigeQuemSeMatriculouNoMesmoDiaDaAula() {
+        alocado(true);
+        Aluno ana = aluno();
+        Aluno domesmoDia = aluno();
+        LocalDate dataDaAula = HOJE.minusDays(10);
+        turmaComMatriculas(matricula(ana, StatusMatricula.ATIVA),
+                matricula(domesmoDia, StatusMatricula.ATIVA, dataDaAula));
+
+        assertThatThrownBy(() -> servico().registrar(registro(dataDaAula, presente(ana))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Chamada incompleta")
+                .hasMessageContaining("1 aluno(s)");
+    }
+
+    @Test
+    void atualizarAulaAntigaNaoExigeNemAceitaQuemSeMatriculouDepoisDaData() {
+        Aula aula = aulaExistente();
+        Aluno ana = aluno();
+        Aluno novo = aluno();
+        turmaComMatriculas(matricula(ana, StatusMatricula.ATIVA),
+                matricula(novo, StatusMatricula.ATIVA, aula.getData().plusDays(1)));
+        when(frequenciaRepository.findAllByEscolaIdAndAulaId(ESCOLA, aula.getId()))
+                .thenReturn(List.of(frequencia(aula, ana, true)));
+        nomes(pessoa(ana, "Ana"));
+
+        servico().atualizar(aula.getId(), new AtualizarAulaRequest("Fracoes", List.of(presente(ana))));
+        verify(aulaRepository).save(aula);
+
+        assertThatThrownBy(() -> servico().atualizar(aula.getId(),
+                new AtualizarAulaRequest("Fracoes", List.of(presente(ana), falta(novo)))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Aluno sem matricula ativa na turma da aula");
     }
 
     @Test

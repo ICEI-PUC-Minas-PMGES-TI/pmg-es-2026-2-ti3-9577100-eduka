@@ -74,10 +74,11 @@ public class AulaController {
     @PostMapping
     @Operation(summary = "Registra uma aula com a chamada",
             description = "O professor precisa estar alocado na turma/disciplina; senao, 404. A chamada tem de ser completa: "
-                    + "todo aluno com matricula ativa na turma entra na lista, uma vez cada. Tudo ou nada.")
+                    + "todo aluno com matricula ativa na turma, feita ate o dia da aula, entra na lista, uma vez cada. "
+                    + "Quem se matriculou depois do dia da aula nao faz parte da chamada. Tudo ou nada.")
     @ApiResponse(responseCode = "201", description = "Aula registrada.")
-    @ApiResponse(responseCode = "400", description = "Data futura; aluno repetido; aluno sem matricula ativa na turma; "
-            + "ou chamada incompleta (aluno com matricula ativa fora da lista).")
+    @ApiResponse(responseCode = "400", description = "Data futura; aluno repetido; aluno sem matricula ativa na turma "
+            + "ou matriculado depois do dia da aula; ou chamada incompleta (aluno que devia estar na chamada fora da lista).")
     @ApiResponse(responseCode = "404", description = "Turma ou disciplina nao alocada ao professor.")
     public ResponseEntity<AulaResponse> registrar(@Valid @RequestBody AulaRequest request) {
         AulaResponse response = aulaService.registrar(request);
@@ -89,7 +90,7 @@ public class AulaController {
             description = "Substitui o conteudo e a presenca de cada aluno enviado; turma, disciplina e data nao mudam. "
                     + "Mesmas regras da chamada do registro; quem ja tinha presenca nesta aula e saiu da turma depois pode ser corrigido, mas nao e exigido.")
     @ApiResponse(responseCode = "200", description = "Aula corrigida.")
-    @ApiResponse(responseCode = "400", description = "Aluno repetido; aluno sem matricula ativa na turma; ou chamada incompleta.")
+    @ApiResponse(responseCode = "400", description = "Aluno repetido; aluno sem matricula ativa na turma ou matriculado depois do dia da aula; ou chamada incompleta.")
     @ApiResponse(responseCode = "404", description = "Aula inexistente, de outra escola ou de turma/disciplina que nao e do professor.")
     public AulaResponse atualizar(@PathVariable UUID id, @Valid @RequestBody AtualizarAulaRequest request) {
         return aulaService.atualizar(id, request);
