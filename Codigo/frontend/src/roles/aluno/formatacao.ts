@@ -1,6 +1,29 @@
+import type { FrequenciaBoletim } from '../../types/portalAluno'
+
 /** Aproveitamento em %, ou null quando ainda não há nada avaliado. */
 export function aproveitamento(obtidos: number, avaliados: number): number | null {
   return avaliados > 0 ? Math.round((obtidos / avaliados) * 100) : null
+}
+
+/**
+ * Soma a frequência de várias turmas (o aluno pode ter mais de uma ativa) com a mesma regra do backend:
+ * alerta só quando as faltas passam do limite, ou seja, acima dele e nunca no limite exato.
+ * Null quando nenhuma teve aula com chamada.
+ */
+export function somarFrequencias(
+  frequencias: (FrequenciaBoletim | null)[],
+  limiteFaltasPercentual: number,
+): FrequenciaBoletim | null {
+  const dadas = frequencias.filter((f): f is FrequenciaBoletim => f !== null)
+  const totalAulas = dadas.reduce((soma, f) => soma + f.totalAulas, 0)
+  if (totalAulas === 0) return null
+  const faltas = dadas.reduce((soma, f) => soma + f.faltas, 0)
+  return {
+    totalAulas,
+    faltas,
+    percentualFrequencia: Math.round(((totalAulas - faltas) / totalAulas) * 1000) / 10,
+    alertaFaltas: faltas * 100 > totalAulas * limiteFaltasPercentual,
+  }
 }
 
 /**
