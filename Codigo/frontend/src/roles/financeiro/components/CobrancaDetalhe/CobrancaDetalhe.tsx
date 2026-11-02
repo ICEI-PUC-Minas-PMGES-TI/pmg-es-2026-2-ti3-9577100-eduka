@@ -54,7 +54,7 @@ export function CobrancaDetalhe({
     { rotulo: 'Vencimento', valor: formatarDataBr(cobranca.dataVencimento) },
     { rotulo: 'Lançada em', valor: formatarDataBr(cobranca.criadoEm) },
   ]
-  if (cobranca.status === 'CANCELADA' && cobranca.canceladaEm) {
+  if ((cobranca.status === 'CANCELADA' || cobranca.pagaAposCancelamento) && cobranca.canceladaEm) {
     campos.push({ rotulo: 'Cancelada em', valor: formatarDataBr(cobranca.canceladaEm) })
   }
 
@@ -68,6 +68,16 @@ export function CobrancaDetalhe({
           </div>
         ))}
       </dl>
+
+      {cobranca.pagaAposCancelamento && (
+        <div className={styles.avisoAposCancelamento} role="status">
+          <Icon name="alert" size={16} />
+          <span>
+            O pagamento chegou depois do cancelamento e a cobrança foi marcada como paga. Combine com o
+            pagador o que fazer com o valor.
+          </span>
+        </div>
+      )}
 
       {pagamento && (
         <div className={styles.infoPagamento}>

@@ -219,6 +219,12 @@ public class DadosDeTeste {
         return id;
     }
 
+    /** Cancela no Eduka, como o {@code CobrancaService}, sem mexer no provedor. */
+    public void cancelada(UUID cobrancaId) {
+        jdbc.update("UPDATE COBRANCA SET STATUS = 'CANCELADA', CANCELADA_EM = CURRENT_TIMESTAMP "
+                + "WHERE ID_COBRANCA = ?", cobrancaId);
+    }
+
     /** Conta de recebimento ja criada no provedor, com a credencial {@code credencial} cifrada. */
     public void contaAprovada(UUID escolaId, String credencial) {
         jdbc.update("INSERT INTO CONTA_RECEBIMENTO_ESCOLA (ESCOLA_ID, STATUS, RAZAO_SOCIAL, EMAIL_FINANCEIRO, "

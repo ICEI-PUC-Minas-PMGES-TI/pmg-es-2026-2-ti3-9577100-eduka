@@ -48,9 +48,15 @@ export function CobrancaCard({ cobranca, aberta, onAlternar, children }: Cobranc
 
         <div className={styles.infoDireita}>
           <span className={styles.valor}>{formatarMoeda(cobranca.valor)}</span>
-          <Badge tone={obterTomBadge(cobranca.status)}>
-            {ROTULOS_STATUS_COBRANCA[cobranca.status]}
-          </Badge>
+          {cobranca.pagaAposCancelamento ? (
+            <Badge tone="warning" icon="alert">
+              Paga após cancelar
+            </Badge>
+          ) : (
+            <Badge tone={obterTomBadge(cobranca.status)}>
+              {ROTULOS_STATUS_COBRANCA[cobranca.status]}
+            </Badge>
+          )}
           <span className={styles.seta} aria-hidden="true">
             <Icon name="chevronDown" size={18} className={aberta ? styles.setaAberta : undefined} />
           </span>

@@ -29,6 +29,11 @@ public record CobrancaResponse(
         StatusCobranca status,
         Instant canceladaEm,
         Instant pagaEm,
+        /**
+         * Paga no provedor depois de cancelada no Eduka (R23): o dinheiro
+         * prevaleceu e a escola precisa resolver com o pagador.
+         */
+        boolean pagaAposCancelamento,
         /** Pagamento online ou baixa manual, com o link do comprovante; nulo enquanto nao paga. */
         PagamentoDaCobrancaResponse pagamento,
         Instant criadoEm,
@@ -54,7 +59,12 @@ public record CobrancaResponse(
                 cobranca.getResponsavelId(), responsavel != null ? responsavel.getNome() : null,
                 cobranca.getDescricao(), cobranca.getValor(), cobranca.getDataVencimento(),
                 StatusCobranca.efetivo(cobranca.getStatus(), cobranca.getDataVencimento(), hoje),
-                cobranca.getCanceladaEm(), cobranca.getPagaEm(), pagamento, cobranca.getCriadoEm(),
-                cobranca.getAtualizadoEm());
+                cobranca.getCanceladaEm(), cobranca.getPagaEm(), pagaAposCancelamento(cobranca), pagamento,
+                cobranca.getCriadoEm(), cobranca.getAtualizadoEm());
+    }
+
+    /** CANCELADA_EM so e gravado ao cancelar e nunca e limpo: PAGA com ele preenchido foi paga depois. */
+    static boolean pagaAposCancelamento(Cobranca cobranca) {
+        return cobranca.getStatus() == StatusCobranca.PAGA && cobranca.getCanceladaEm() != null;
     }
 }

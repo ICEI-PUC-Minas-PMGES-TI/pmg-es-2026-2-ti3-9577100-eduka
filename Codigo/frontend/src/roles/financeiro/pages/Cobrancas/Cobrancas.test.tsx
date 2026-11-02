@@ -23,6 +23,7 @@ function cobranca(n: number, status: StatusCobranca = 'PENDENTE'): Cobranca {
     status,
     canceladaEm: null,
     pagaEm: null,
+    pagaAposCancelamento: false,
     pagamento: null,
     criadoEm: '2026-10-01T12:00:00Z',
     atualizadoEm: '2026-10-01T12:00:00Z',
