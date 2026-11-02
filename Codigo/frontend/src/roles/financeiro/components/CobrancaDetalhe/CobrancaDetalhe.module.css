@@ -47,6 +47,18 @@
   color: var(--color-success);
 }
 
+.avisoAposCancelamento {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-warning-bg);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-warning);
+}
+
 .acoes {
   display: flex;
   flex-wrap: wrap;

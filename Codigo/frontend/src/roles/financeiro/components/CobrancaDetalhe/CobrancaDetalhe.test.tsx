@@ -21,6 +21,7 @@ function cobranca(status: StatusCobranca): Cobranca {
     status,
     canceladaEm: null,
     pagaEm: null,
+    pagaAposCancelamento: false,
     pagamento: null,
     criadoEm: '2026-10-01T00:00:00Z',
     atualizadoEm: '2026-10-01T00:00:00Z',
@@ -53,5 +54,27 @@ describe('CobrancaDetalhe', () => {
 
     rerender(<CobrancaDetalhe cobranca={cobranca('PAGA')} onVerBoleto={vi.fn()} onSimularPagamento={vi.fn()} />)
     expect(screen.queryByRole('button', { name: SIMULAR })).not.toBeInTheDocument()
+  })
+
+  it('paga depois de cancelar avisa a escola e mostra quando foi cancelada', () => {
+    render(
+      <CobrancaDetalhe
+        cobranca={{
+          ...cobranca('PAGA'),
+          canceladaEm: '2026-10-05T15:00:00Z',
+          pagaAposCancelamento: true,
+        }}
+        onVerBoleto={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent(/depois do cancelamento/i)
+    expect(screen.getByText('Cancelada em')).toBeInTheDocument()
+  })
+
+  it('paga sem cancelamento não mostra o aviso', () => {
+    render(<CobrancaDetalhe cobranca={cobranca('PAGA')} onVerBoleto={vi.fn()} />)
+
+    expect(screen.queryByText(/depois do cancelamento/i)).not.toBeInTheDocument()
   })
 })

@@ -148,6 +148,22 @@ class WebhookBancoRealTest extends BancoRealTest {
         assertThat(dados.operacoesNoLog(cobranca)).containsExactly(OperacaoAuditoria.CONFIRMAR_PAGAMENTO);
     }
 
+    // ---------- Pagamento depois do cancelamento ----------
+
+    @Test
+    void pagamentoDeCobrancaCanceladaERegistradoESinalizadoNaAuditoria() throws Exception {
+        // A escola cancelou, mas o pagador ja tinha o PIX em maos e pagou.
+        dados.cancelada(cobranca);
+        String idEvento = idDeEvento();
+
+        assertThat(enviar(TOKEN, aviso(idEvento, "PAYMENT_RECEIVED", contaDaEscola))).isEqualTo(200);
+
+        assertThat(dados.statusGravado(cobranca)).isEqualTo(StatusCobranca.PAGA);
+        assertThat(dados.pagamentosDaCobranca(cobranca)).isEqualTo(1);
+        assertThat(dados.statusDoEvento(idEvento)).isEqualTo(StatusEventoProvedor.PROCESSADO);
+        assertThat(dados.operacoesNoLog(cobranca)).containsExactly(OperacaoAuditoria.PAGO_APOS_CANCELAR);
+    }
+
     // ---------- Isolamento entre escolas ----------
 
     @Test

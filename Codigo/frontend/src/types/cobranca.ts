@@ -27,6 +27,8 @@ export type Cobranca = {
   status: StatusCobranca
   canceladaEm: string | null
   pagaEm: string | null
+  /** Paga no provedor depois de cancelada no Eduka: a escola precisa resolver com o pagador. */
+  pagaAposCancelamento: boolean
   pagamento: PagamentoDaCobranca | null
   criadoEm: string
   atualizadoEm: string
