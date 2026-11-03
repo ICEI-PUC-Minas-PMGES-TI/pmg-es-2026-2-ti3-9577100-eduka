@@ -226,3 +226,12 @@
   color: var(--color-text-muted);
   text-align: center;
 }
+
+.pedidoCorrecao {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  text-align: left;
+}
