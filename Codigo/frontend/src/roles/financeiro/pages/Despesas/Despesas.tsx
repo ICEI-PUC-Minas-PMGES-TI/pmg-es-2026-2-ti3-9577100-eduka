@@ -17,6 +17,7 @@ import type {
   SituacaoDespesa,
 } from '../../../../types/despesa'
 import { formatarMoeda, hojeIso } from '../../../../utils/formatters'
+import { ModalCategorias } from '../../components/ModalCategorias/ModalCategorias'
 import { FinanceiroLayout } from '../../layouts/FinanceiroLayout'
 import styles from './Despesas.module.css'
 
@@ -76,6 +77,7 @@ export function Despesas() {
   const [erroForm, setErroForm] = useState<string | null>(null)
   const [campoInvalido, setCampoInvalido] = useState<CampoDespesa | null>(null)
   const [sucessoForm, setSucessoForm] = useState<string | null>(null)
+  const [gerenciandoCategorias, setGerenciandoCategorias] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -518,10 +520,21 @@ export function Despesas() {
               >
                 {salvando ? 'Salvando…' : 'Salvar despesa'}
               </button>
+              <button type="button" className={styles.linkCategorias} onClick={() => setGerenciandoCategorias(true)}>
+                Gerenciar categorias
+              </button>
             </form>
           </div>
         </aside>
       </div>
+
+      {gerenciandoCategorias && (
+        <ModalCategorias
+          categorias={categorias}
+          onCriada={(categoria) => setCategorias((atuais) => [...atuais, categoria])}
+          onFechar={() => setGerenciandoCategorias(false)}
+        />
+      )}
     </FinanceiroLayout>
   )
 }
