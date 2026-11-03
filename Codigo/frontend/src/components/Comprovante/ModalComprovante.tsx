@@ -7,6 +7,7 @@ import { formatarMoeda } from '../../utils/formatters'
 import { Button } from '../Button/Button'
 import { Modal, ModalAlerta, ModalAviso } from '../Modal/Modal'
 import styles from './ModalComprovante.module.css'
+import { baixarPdfComprovante } from './pdfComprovante'
 
 type ModalComprovanteProps = {
   /** Busca o comprovante (rota do perfil que está vendo). */
@@ -46,8 +47,8 @@ export function ModalComprovante({ buscar, onFechar }: ModalComprovanteProps) {
       rodape={
         <>
           {comprovante && (
-            <Button variant="outline" icon="download" onClick={() => window.print()}>
-              Imprimir
+            <Button variant="outline" icon="download" onClick={() => baixarPdfComprovante(comprovante)}>
+              Baixar comprovante (PDF)
             </Button>
           )}
           <Button variant="primary" onClick={onFechar}>
