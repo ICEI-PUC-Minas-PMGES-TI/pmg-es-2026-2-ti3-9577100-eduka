@@ -8,7 +8,9 @@ import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -150,6 +152,20 @@ class RoteadorFatura {
             LocalDate hoje = hoje();
             return faturaRepository.findAllByEscolaIdOrderByCompetenciaDesc(escolaId).stream()
                     .map(f -> FaturaPlataformaResponse.paraSuperAdmin(f, escola.getNome(), hoje))
+                    .toList();
+        });
+    }
+
+    /** Faturas de todas as escolas (IU24), com o nome de cada uma. */
+    List<FaturaPlataformaResponse> listarTodas() {
+        return transacao.execute(status -> {
+            LocalDate hoje = hoje();
+            List<FaturaPlataforma> faturas = faturaRepository.findAllByOrderByDataVencimentoDescCompetenciaDesc();
+            Map<UUID, String> nomes = escolaRepository
+                    .findAllById(faturas.stream().map(FaturaPlataforma::getEscolaId).distinct().toList()).stream()
+                    .collect(Collectors.toMap(Escola::getId, Escola::getNome));
+            return faturas.stream()
+                    .map(f -> FaturaPlataformaResponse.paraSuperAdmin(f, nomes.get(f.getEscolaId()), hoje))
                     .toList();
         });
     }

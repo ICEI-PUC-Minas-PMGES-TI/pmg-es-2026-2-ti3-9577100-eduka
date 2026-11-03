@@ -151,6 +151,10 @@ public class PaymentRoutingService {
         return roteadorFatura.listarDaEscola(escolaId);
     }
 
+    public List<FaturaPlataformaResponse> listarFaturasDeTodasAsEscolas() {
+        return roteadorFatura.listarTodas();
+    }
+
     /** R26, com a regra do R25 para fatura ja emitida. */
     public FaturaPlataformaResponse cancelarFatura(UUID escolaId, UUID faturaId) {
         return roteadorFatura.cancelar(escolaId, faturaId);

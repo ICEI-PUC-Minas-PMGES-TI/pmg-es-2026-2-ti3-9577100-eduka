@@ -1,4 +1,4 @@
-import type { Comprovante, FaturaPlataforma, LancarFaturaRequest } from '../types/faturaPlataforma'
+import type { Assinatura, Comprovante, FaturaPlataforma, LancarFaturaRequest } from '../types/faturaPlataforma'
 import type { DadosPagamento, FormaPagamento } from '../types/pagamentoAluno'
 import { apiRequest } from './api'
 
@@ -7,6 +7,11 @@ import { apiRequest } from './api'
 // em /config-pagamento/faturas.
 
 // ---- Super Admin ----
+
+/** Faturas de todas as escolas (IU24), do vencimento mais recente para o mais antigo. */
+export function listarFaturasDaPlataforma(signal?: AbortSignal): Promise<FaturaPlataforma[]> {
+  return apiRequest<FaturaPlataforma[]>('/escolas/faturas', { signal })
+}
 
 export function listarFaturasDaEscola(escolaId: string, signal?: AbortSignal): Promise<FaturaPlataforma[]> {
   return apiRequest<FaturaPlataforma[]>(`/escolas/${escolaId}/faturas`, { signal })
@@ -30,6 +35,11 @@ export function buscarComprovanteDaFatura(escolaId: string, faturaId: string): P
 }
 
 // ---- MASTER ----
+
+/** Plano, situação, vigência e limite de usuários da escola do token (IU24-A). */
+export function buscarMinhaAssinatura(signal?: AbortSignal): Promise<Assinatura> {
+  return apiRequest<Assinatura>('/config-pagamento/assinatura', { signal })
+}
 
 export function listarMinhasFaturas(signal?: AbortSignal): Promise<FaturaPlataforma[]> {
   return apiRequest<FaturaPlataforma[]>('/config-pagamento/faturas', { signal })

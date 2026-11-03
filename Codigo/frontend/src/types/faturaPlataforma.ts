@@ -1,3 +1,4 @@
+import type { PlanoEscola } from './escola'
 import type { FormaPagamento, PagamentoResumo, SituacaoPagamento } from './pagamentoAluno'
 
 // Fatura da plataforma (Fluxo A): o que a escola paga ao Eduka. Espelha
@@ -55,4 +56,15 @@ export type Comprovante = {
   dataPagamento: string
   forma: FormaPagamento
   codigoTransacao: string | null
+}
+
+/** Assinatura da escola do token (GET /config-pagamento/assinatura, IU24-A). */
+export type Assinatura = {
+  escolaNome: string
+  plano: PlanoEscola | null
+  ativa: boolean
+  /** ISO (yyyy-MM-dd). */
+  inicioVigencia: string | null
+  fimVigencia: string | null
+  limiteUsuarios: number | null
 }

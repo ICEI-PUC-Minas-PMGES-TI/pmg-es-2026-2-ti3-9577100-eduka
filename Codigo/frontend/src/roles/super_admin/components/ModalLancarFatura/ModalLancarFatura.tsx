@@ -2,13 +2,15 @@ import { useState } from 'react'
 import { Campo } from '../../../../components/Campo/Campo'
 import { CampoData } from '../../../../components/CampoData/CampoData'
 import { ModalCadastro } from '../../../../components/ModalCadastro/ModalCadastro'
+import { Select } from '../../../../components/Select/Select'
 import { ApiError } from '../../../../services/api'
+import type { Escola } from '../../../../types/escola'
 import type { LancarFaturaRequest } from '../../../../types/faturaPlataforma'
 import { hojeIso } from '../../../../utils/formatters'
 
 const MAX_DESCRICAO = 255
 
-type Campos = { competencia: string; descricao: string; valor: string; dataVencimento: string }
+type Campos = { escolaId: string; competencia: string; descricao: string; valor: string; dataVencimento: string }
 type Erros = Partial<Record<keyof Campos, string>>
 
 /** "1.234,56" ou "1234.56" -> 1234.56; NaN se não for número. */
@@ -27,15 +29,25 @@ function traduzirErro(erro: unknown): string {
 }
 
 type ModalLancarFaturaProps = {
-  escolaNome: string
+  /** Escola já escolhida (faturas de uma escola). */
+  escolaNome?: string
+  /** Sem escola escolhida (todas as escolas, IU24): o modal pede a escola entre as ativas. */
+  escolas?: Escola[]
   onFechar: () => void
-  /** Lança; deve lançar ApiError em caso de falha. */
-  onLancar: (dados: LancarFaturaRequest) => Promise<void>
+  /** Lança; deve lançar ApiError em caso de falha. `escolaId` vem quando o modal pediu a escola. */
+  onLancar: (dados: LancarFaturaRequest, escolaId?: string) => Promise<void>
 }
 
 /** Lançar a fatura do mês de uma escola (R26): competência única, valor > 0 e vencimento a partir de hoje. */
-export function ModalLancarFatura({ escolaNome, onFechar, onLancar }: ModalLancarFaturaProps) {
-  const [campos, setCampos] = useState<Campos>({ competencia: '', descricao: '', valor: '', dataVencimento: '' })
+export function ModalLancarFatura({ escolaNome, escolas, onFechar, onLancar }: ModalLancarFaturaProps) {
+  const [campos, setCampos] = useState<Campos>({
+    escolaId: '',
+    competencia: '',
+    descricao: '',
+    valor: '',
+    dataVencimento: '',
+  })
+  const ativas = (escolas ?? []).filter((e) => e.ativo)
   const [erros, setErros] = useState<Erros>({})
 
   function alterar(campo: keyof Campos, valor: string) {
@@ -45,6 +57,7 @@ export function ModalLancarFatura({ escolaNome, onFechar, onLancar }: ModalLanca
 
   function validar(): boolean {
     const novos: Erros = {}
+    if (escolas && !campos.escolaId) novos.escolaId = 'Escolha a escola que vai pagar.'
     if (!/^\d{4}-\d{2}$/.test(campos.competencia)) novos.competencia = 'Escolha o mês de referência.'
     if (!campos.descricao.trim()) novos.descricao = 'Informe a descrição.'
     if (!(lerValor(campos.valor) > 0)) novos.valor = 'Informe um valor maior que zero.'
@@ -56,7 +69,7 @@ export function ModalLancarFatura({ escolaNome, onFechar, onLancar }: ModalLanca
 
   return (
     <ModalCadastro
-      titulo={`Lançar fatura · ${escolaNome}`}
+      titulo={escolaNome ? `Lançar fatura · ${escolaNome}` : 'Lançar fatura'}
       rotuloSalvar="Lançar fatura"
       onFechar={onFechar}
       validar={validar}
@@ -67,9 +80,23 @@ export function ModalLancarFatura({ escolaNome, onFechar, onLancar }: ModalLanca
           descricao: campos.descricao.trim(),
           valor: Math.round(lerValor(campos.valor) * 100) / 100,
           dataVencimento: campos.dataVencimento,
-        })
+        }, escolas ? campos.escolaId : undefined)
       }
     >
+      {escolas && (
+        <Campo label="Escola" erro={erros.escolaId} obrigatorio largo>
+          {(props) => (
+            <Select
+              {...props}
+              name="escolaId"
+              placeholder={ativas.length === 0 ? 'Nenhuma escola ativa' : 'Escolha a escola'}
+              opcoes={ativas.map((e) => ({ valor: e.id, rotulo: e.nome }))}
+              valor={campos.escolaId}
+              onChange={(id) => alterar('escolaId', id)}
+            />
+          )}
+        </Campo>
+      )}
       <Campo label="Competência" erro={erros.competencia} obrigatorio>
         {(props) => (
           <input
