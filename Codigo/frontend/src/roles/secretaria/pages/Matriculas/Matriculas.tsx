@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
-import { paths } from '../../../../routes/paths'
+import { useRotasAcademicas } from '../../../../routes/areas'
 import { atualizarMatricula, listarMatriculas, matricularAluno } from '../../../../services/matriculaService'
 import type { TurmaAcademica } from '../../../../types/academico'
 import { ROTULOS_TURNO } from '../../../../types/alocacao'
@@ -41,6 +41,7 @@ function porNomeDoAluno(a: Matricula, b: Matricula): number {
 
 export function Matriculas() {
   const navigate = useNavigate()
+  const rotas = useRotasAcademicas()
   const { turmas, alunos, resumo, carregando, erro, recarregar, atualizarContagens } = useMatriculas()
   const [turmaId, setTurmaId] = useState<number | null>(null)
   const [filtro, setFiltro] = useState<StatusMatricula | ''>('')
@@ -144,7 +145,7 @@ export function Matriculas() {
       {!carregando && !erro && !turma && (
         <div className={styles.estado}>
           <span>Nenhuma turma cadastrada ainda. Cadastre uma turma para matricular os alunos.</span>
-          <Button size="sm" onClick={() => navigate(`${paths.secretaria.academico}?aba=turmas`)}>
+          <Button size="sm" onClick={() => navigate(`${rotas.academico}?aba=turmas`)}>
             Ir para Turmas
           </Button>
         </div>
