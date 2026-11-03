@@ -59,6 +59,79 @@
   color: var(--color-warning);
 }
 
+.tituloAndamento {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+}
+
+.andamento {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.andamento li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.marcador {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.feita,
+.atual {
+  color: var(--color-text);
+}
+
+.feita .marcador {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.atual .marcador {
+  border: 1.5px solid var(--color-warning);
+  color: var(--color-warning);
+}
+
+.futura {
+  color: var(--color-text-subtle);
+}
+
+.futura .marcador {
+  border: 1.5px solid currentColor;
+}
+
+.avisoBloqueio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-warning-bg);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
 .acoes {
   display: flex;
   flex-wrap: wrap;

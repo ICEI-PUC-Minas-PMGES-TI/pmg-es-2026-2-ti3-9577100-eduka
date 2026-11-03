@@ -12,9 +12,10 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.Cobranca;
+import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 
-/** Sinal de pagamento depois do cancelamento (R23) na listagem da escola. */
+/** Sinais que a listagem da escola leva prontos: pago apos cancelar (R23) e se ainda edita (R24). */
 class CobrancaResponseTest {
 
     private static final LocalDate HOJE = LocalDate.of(2026, 10, 20);
@@ -35,5 +36,21 @@ class CobrancaResponseTest {
         CobrancaResponse resposta = CobrancaResponse.de(cobranca, null, null, HOJE);
 
         assertThat(resposta.pagaAposCancelamento()).isEqualTo(esperado);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "PENDENTE,  NAO_EMITIDA,   true",
+            "EM_ATRASO, FALHA_EMISSAO, true",
+            "PENDENTE,  EMITINDO,      false",
+            "PENDENTE,  EMITIDA,       false",
+            "PAGA,      NAO_EMITIDA,   false",
+            "CANCELADA, NAO_EMITIDA,   false" })
+    void editavelSoEmAbertoAntesDoPagar(StatusCobranca status, SituacaoProvedor situacao, boolean esperado) {
+        Cobranca cobranca = Cobranca.builder().id(UUID.randomUUID()).aluno(Aluno.builder().build())
+                .descricao("Mensalidade").valor(new BigDecimal("500.00")).dataVencimento(HOJE.plusDays(5))
+                .status(status).situacaoProvedor(situacao).build();
+
+        assertThat(CobrancaResponse.de(cobranca, null, null, HOJE).editavel()).isEqualTo(esperado);
     }
 }

@@ -29,12 +29,18 @@ export type Cobranca = {
   pagaEm: string | null
   /** Paga no provedor depois de cancelada no Eduka: a escola precisa resolver com o pagador. */
   pagaAposCancelamento: boolean
+  /** Forma escolhida no Pagar; nula antes de o aluno clicar em Pagar. */
+  formaPagamento: 'PIX' | 'BOLETO' | null
+  /** Quando o aluno clicou em Pagar pela primeira vez. */
+  pagamentoIniciadoEm: string | null
+  /** Em aberto e antes do Pagar: a escola ainda pode editar. */
+  editavel: boolean
   pagamento: PagamentoDaCobranca | null
   criadoEm: string
   atualizadoEm: string
 }
 
-export type FiltroCobranca = 'TODAS' | 'PENDENTE' | 'EM_ATRASO' | 'PAGA'
+export type FiltroCobranca = 'TODAS' | 'PENDENTE' | 'EM_ATRASO' | 'PAGA' | 'CANCELADA'
 
 // Espelha o PaginaCobrancasResponse do backend (GET /cobrancas/pagina).
 export type PaginaCobrancas = {
@@ -63,4 +69,13 @@ export const ROTULOS_STATUS_COBRANCA: Record<StatusCobranca, string> = {
   EM_ATRASO: 'Em atraso',
   PAGA: 'Paga',
   CANCELADA: 'Cancelada',
+}
+
+/** Corpo do PUT /cobrancas/{id}: substitui tudo, então matrícula e responsável voltam como estavam. */
+export type AtualizarCobrancaRequest = {
+  matriculaId: string | null
+  responsavelId: string | null
+  descricao: string
+  valor: number
+  dataVencimento: string
 }
