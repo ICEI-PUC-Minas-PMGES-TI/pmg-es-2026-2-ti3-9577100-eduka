@@ -66,4 +66,47 @@ describe('PainelContaRecebimento', () => {
     renderizar('APROVADA', vi.fn())
     expect(screen.queryByRole('button', { name: APROVAR })).not.toBeInTheDocument()
   })
+
+  it('recusada mostra o motivo do Asaas e o Corrigir e reenviar', async () => {
+    const onAtivar = vi.fn()
+    render(
+      <PainelContaRecebimento
+        conta={{
+          ...conta('ERRO_CRIACAO'),
+          ultimoErro: 'O CNPJ informado não confere com a Receita.',
+          solicitadaEm: '2026-10-14T12:00:00Z',
+          podeAtivar: true,
+        }}
+        sincronizando={false}
+        erroSincronizar={null}
+        onAtivar={onAtivar}
+        onSincronizar={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/o asaas recusou o cadastro/i)
+    expect(screen.getByRole('alert')).toHaveTextContent('O CNPJ informado não confere com a Receita.')
+    await userEvent.click(screen.getByRole('button', { name: /corrigir e reenviar/i }))
+    expect(onAtivar).toHaveBeenCalled()
+  })
+
+  it('mostra as etapas da ativação até onde a conta chegou', () => {
+    render(
+      <PainelContaRecebimento
+        conta={{ ...conta('AGUARDANDO_APROVACAO'), solicitadaEm: '2026-10-14T12:00:00Z' }}
+        sincronizando={false}
+        erroSincronizar={null}
+        onAtivar={vi.fn()}
+        onSincronizar={vi.fn()}
+      />,
+    )
+
+    const etapas = screen.getByRole('list', { name: /etapas da ativação/i }).querySelectorAll('li')
+    expect(etapas).toHaveLength(3)
+    expect(etapas[0]).toHaveTextContent(/dados enviados ·/i)
+    expect(etapas[1].className).toMatch(/feita/)
+    expect(etapas[2].className).not.toMatch(/feita/)
+    expect(screen.getByRole('button', { name: /sincronizar agora/i })).toBeInTheDocument()
+  })
 })
+
