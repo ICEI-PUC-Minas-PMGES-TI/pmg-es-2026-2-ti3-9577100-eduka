@@ -55,6 +55,13 @@ public class ApiExceptionHandler {
                 .body(problema(HttpStatus.UNAUTHORIZED, ex.getMessage()));
     }
 
+    /** O front reconhece pelo {@code codigo} e mostra o aviso de suspensao (IU04). */
+    @ExceptionHandler(EscolaSuspensaException.class)
+    public ResponseEntity<ProblemDetail> escolaSuspensa(EscolaSuspensaException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(problema(HttpStatus.FORBIDDEN, ex.getMessage(), "ESCOLA_SUSPENSA"));
+    }
+
     @ExceptionHandler(SenhaProvisoriaExpiradaException.class)
     public ResponseEntity<ProblemDetail> senhaProvisoriaExpirada(SenhaProvisoriaExpiradaException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -201,6 +208,12 @@ public class ApiExceptionHandler {
     public ResponseEntity<ProblemDetail> recebimentosIndisponiveis(RecebimentosIndisponiveisException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "RECEBIMENTOS_INDISPONIVEIS"));
+    }
+
+    @ExceptionHandler(SolicitacaoCorrecaoAbertaException.class)
+    public ResponseEntity<ProblemDetail> solicitacaoCorrecaoAberta(SolicitacaoCorrecaoAbertaException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "SOLICITACAO_ABERTA"));
     }
 
     @ExceptionHandler(PagamentoEmProcessamentoException.class)
