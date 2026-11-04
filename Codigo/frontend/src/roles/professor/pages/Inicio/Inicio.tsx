@@ -153,7 +153,7 @@ function Resumo({ dados }: { dados: DashboardProfessor }) {
                     detalhe={`${avaliacao.notasFaltando} ${plural(avaliacao.notasFaltando, 'aluno sem nota', 'alunos sem nota')}`}
                     alerta
                     acao={
-                      <Button size="sm" variant="primary" icon="check" onClick={() => lancarNotas(avaliacao)}>
+                      <Button size="sm" variant="primary" icon="check" className={styles.acaoLarga} onClick={() => lancarNotas(avaliacao)}>
                         Lançar
                       </Button>
                     }

@@ -59,7 +59,7 @@ export function GradeSemanal({ turmas }: { turmas: TurmaDoProfessor[] }) {
                     {formatarHora(hora)}
                   </th>
                   {dias.map((d) => (
-                    <td key={d.dia}>
+                    <td key={d.dia} data-rotulo={d.longo}>
                       {(aulas.get(`${hora}|${d.dia}`) ?? []).map((aula) => (
                         <span key={`${aula.turma}|${aula.disciplina}`} className={styles.aula}>
                           <strong>{aula.turma}</strong>

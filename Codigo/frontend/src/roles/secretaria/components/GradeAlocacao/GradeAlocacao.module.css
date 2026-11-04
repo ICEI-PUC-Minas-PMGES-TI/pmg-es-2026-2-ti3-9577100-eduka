@@ -220,6 +220,21 @@
     align-items: flex-start;
     width: 100%;
   }
+
+  .rodape {
+    padding: 14px 16px;
+  }
+
+  .acoes {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .acoes > button {
+    flex: 1;
+    min-width: 0;
+    padding-inline: 12px;
+  }
 }
 
 .horario {

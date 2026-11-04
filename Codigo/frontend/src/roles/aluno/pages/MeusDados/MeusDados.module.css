@@ -233,3 +233,14 @@
   font-size: 13px;
   text-align: left;
 }
+
+/* Celular: as três abas dividem a linha, sem quebrar o rótulo em duas. */
+@media (max-width: 480px) {
+  .tabBotao {
+    flex: 1 1 auto;
+    min-height: 40px;
+    padding: 8px 8px;
+    font-size: 13.5px;
+    white-space: nowrap;
+  }
+}

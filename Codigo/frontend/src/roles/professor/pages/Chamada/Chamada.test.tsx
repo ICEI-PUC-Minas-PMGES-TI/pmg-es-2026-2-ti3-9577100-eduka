@@ -22,7 +22,7 @@ const TURMAS: TurmaDoProfessor[] = [
     periodoLetivoNome: '2026',
     cursoId: 1,
     cursoNome: 'Médio',
-    disciplinas: [{ id: 10, nome: 'Matemática', codigo: null, cargaHoraria: 60 }],
+    disciplinas: [{ id: 10, nome: 'Matemática', codigo: null, cargaHoraria: 60, horarios: [] }],
   },
 ]
 

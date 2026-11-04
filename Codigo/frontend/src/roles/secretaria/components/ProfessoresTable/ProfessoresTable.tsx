@@ -66,7 +66,7 @@ export function ProfessoresTable({
                 !erro &&
                 paginacao.itensDaPagina.map((professor) => (
                   <tr key={professor.id} className={professor.ativo ? '' : styles.inativo}>
-                    <td>
+                    <td className={styles.colPrincipal}>
                       <div className={styles.professor}>
                         <span className={styles.avatar} aria-hidden="true">
                           {iniciais(professor.nome)}
@@ -77,10 +77,10 @@ export function ProfessoresTable({
                         </div>
                       </div>
                     </td>
-                    <td className={styles.secundario}>{SEM_DADO}</td>
-                    <td>{professor.vinculo ? ROTULOS_VINCULO[professor.vinculo] : SEM_DADO}</td>
-                    <td>{SEM_DADO}</td>
-                    <td>
+                    <td className={`${styles.secundario} ${styles.semDado}`}>{SEM_DADO}</td>
+                    <td data-rotulo="Vínculo">{professor.vinculo ? ROTULOS_VINCULO[professor.vinculo] : SEM_DADO}</td>
+                    <td className={styles.semDado}>{SEM_DADO}</td>
+                    <td data-rotulo="Situação">
                       {professor.ativo ? (
                         <Badge tone="success">Ativo</Badge>
                       ) : (

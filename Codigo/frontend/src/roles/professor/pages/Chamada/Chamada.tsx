@@ -149,6 +149,7 @@ export function Chamada() {
           </label>
           <CampoData
             id={campoDataId}
+            className={styles.campoData}
             valor={data}
             max={hojeIso()}
             onChange={(nova) =>
@@ -277,10 +278,10 @@ export function Chamada() {
                       className={aula.id === aulaAbertaId ? styles.aberta : undefined}
                       aria-current={aula.id === aulaAbertaId || undefined}
                     >
-                      <td className={styles.data}>{formatarData(aula.data)}</td>
+                      <td data-rotulo="Data" className={styles.data}>{formatarData(aula.data)}</td>
                       <td className={styles.conteudo}>{aula.conteudo}</td>
-                      <td className={styles.numero}>{aula.presentes}</td>
-                      <td className={styles.numero}>{aula.faltas}</td>
+                      <td data-rotulo="Presentes" className={styles.numero}>{aula.presentes}</td>
+                      <td data-rotulo="Faltas" className={styles.numero}>{aula.faltas}</td>
                       <td className={styles.acao}>
                         <Button
                           size="sm"

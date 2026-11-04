@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { Children, cloneElement, isValidElement, type ReactNode } from 'react'
 import { Button } from '../../../../components/Button/Button'
 import { Paginacao } from '../../../../components/Paginacao/Paginacao'
 import { usePaginacao } from '../../../../hooks/usePaginacao'
@@ -44,6 +44,20 @@ type TabelaProps = {
   className?: string
 }
 
+/** Dá a cada célula o nome da coluna (data-rotulo), que no celular aparece em cima do dado. */
+function comRotulos(linha: ReactNode, colunas: string[]): ReactNode {
+  if (!isValidElement<{ children?: ReactNode }>(linha)) return linha
+  return cloneElement(
+    linha,
+    undefined,
+    Children.toArray(linha.props.children).map((celula, indice) =>
+      isValidElement<{ 'data-rotulo'?: string }>(celula) && colunas[indice]
+        ? cloneElement(celula, { 'data-rotulo': colunas[indice] })
+        : celula,
+    ),
+  )
+}
+
 /** Tabela em card de vidro, no mesmo visual da lista de professores, com 10 linhas por página. */
 export function Tabela({
   colunas,
@@ -68,7 +82,7 @@ export function Tabela({
                 ))}
               </tr>
             </thead>
-            <tbody>{paginacao.itensDaPagina}</tbody>
+            <tbody>{paginacao.itensDaPagina.map((linha) => comRotulos(linha, colunas))}</tbody>
           </table>
         </div>
         {linhas.length === 0 && <p className={styles.mensagem}>{vazio}</p>}

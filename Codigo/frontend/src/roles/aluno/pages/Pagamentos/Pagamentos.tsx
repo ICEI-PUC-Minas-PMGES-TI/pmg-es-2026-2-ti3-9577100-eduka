@@ -248,16 +248,16 @@ export function Pagamentos() {
                       <tbody>
                         {paginasHistorico.itensDaPagina.map((c) => (
                           <tr key={c.id}>
-                            <td>
+                            <td className={styles.colPrincipal}>
                               <span className={styles.descricao}>{c.descricao}</span>
                               {c.turmaNome && <span className={styles.secundario}>{c.turmaNome}</span>}
                             </td>
-                            <td className={styles.data}>{formatarData(c.dataVencimento)}</td>
-                            <td className={styles.numero}>{formatarMoeda(c.pagamento?.valorPago ?? c.valor)}</td>
-                            <td>
+                            <td data-rotulo="Vencimento" className={styles.data}>{formatarData(c.dataVencimento)}</td>
+                            <td data-rotulo="Valor" className={styles.numero}>{formatarMoeda(c.pagamento?.valorPago ?? c.valor)}</td>
+                            <td data-rotulo="Situação">
                               <Badge tone={TOM_STATUS[c.status]}>{ROTULOS_STATUS_COBRANCA_ALUNO[c.status]}</Badge>
                             </td>
-                            <td className={styles.secundario}>{descreverPagamento(c) ?? '—'}</td>
+                            <td data-rotulo="Pagamento" className={styles.secundario}>{descreverPagamento(c) ?? '—'}</td>
                             <td className={styles.acao}>
                               <AcaoDaCobranca cobranca={c} onPagar={pagar} onVerComprovante={setComprovanteDe} />
                             </td>
