@@ -48,7 +48,7 @@ function abrir(turmas: TurmaDoProfessor[] = [TURMA]) {
   const router = createMemoryRouter(
     [
       { path: '/professor/turmas', element: <MinhasTurmas /> },
-      { path: '/professor/notas', element: <p>Tela de notas</p> },
+      { path: '/professor/avaliacoes', element: <p>Tela de avaliações</p> },
     ],
     { initialEntries: ['/professor/turmas'] },
   )
@@ -94,13 +94,23 @@ describe('MinhasTurmas', () => {
     expect(within(dialogo).getByText('1 aluno ativo')).toBeInTheDocument()
   })
 
-  it('lançar notas abre as notas já na turma e na disciplina', async () => {
+  it('lançar notas abre as avaliações já na turma e na disciplina', async () => {
     const router = abrir()
 
     await userEvent.click(await screen.findByRole('button', { name: /lançar notas/i }))
 
-    expect(await screen.findByText('Tela de notas')).toBeInTheDocument()
+    expect(await screen.findByText('Tela de avaliações')).toBeInTheDocument()
     expect(router.state.location.search).toBe('?turma=7&disciplina=3')
+  })
+
+  it('criar avaliação abre o cadastro com a turma do card', async () => {
+    const router = abrir()
+
+    await userEvent.click(await screen.findByRole('button', { name: /criar avaliação/i }))
+
+    expect(await screen.findByText('Tela de avaliações')).toBeInTheDocument()
+    expect(router.state.location.search).toBe('?turma=7&disciplina=3')
+    expect(router.state.location.state).toEqual({ abrirCadastro: true, turmaId: 7 })
   })
 
   it('sem horário definido, avisa no card e na grade', async () => {

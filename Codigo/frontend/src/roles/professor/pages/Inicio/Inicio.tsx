@@ -4,7 +4,7 @@ import { Button } from '../../../../components/Button/Button'
 import { Atalhos, Colunas, EstadoDashboard, Painel, PainelVazio } from '../../../../components/Dashboard/Dashboard'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
-import { paths, type EstadoAbrirCadastro } from '../../../../routes/paths'
+import { paths, type EstadoNovaAvaliacao } from '../../../../routes/paths'
 import { obterDashboardProfessor } from '../../../../services/portalProfessorService'
 import type { AvaliacaoResumo, DashboardProfessor } from '../../../../types/dashboard'
 import { ROTULOS_TIPO_AVALIACAO } from '../../../../types/portalAluno'
@@ -42,7 +42,7 @@ function Resumo({ dados }: { dados: DashboardProfessor }) {
       turma: String(avaliacao.turmaId),
       disciplina: String(avaliacao.disciplinaId),
     })
-    navigate(`${paths.professor.notas}?${params}`)
+    navigate(`${paths.professor.avaliacoes}?${params}`)
   }
 
   function lancarNotas(avaliacao: AvaliacaoResumo) {
@@ -51,7 +51,7 @@ function Resumo({ dados }: { dados: DashboardProfessor }) {
       disciplina: String(avaliacao.disciplinaId),
       avaliacao: avaliacao.id,
     })
-    navigate(`${paths.professor.notas}?${params}`)
+    navigate(`${paths.professor.avaliacoes}?${params}`)
   }
 
   return (
@@ -91,12 +91,12 @@ function Resumo({ dados }: { dados: DashboardProfessor }) {
           horizontal
           itens={[
             { rotulo: 'Fazer chamada', icon: 'calendar', onClick: () => navigate(paths.professor.chamada) },
-            { rotulo: 'Lançar notas', icon: 'check', onClick: () => navigate(paths.professor.notas) },
+            { rotulo: 'Lançar notas', icon: 'check', onClick: () => navigate(paths.professor.avaliacoes) },
             {
               rotulo: 'Criar uma avaliação',
               icon: 'plus',
               onClick: () =>
-                navigate(paths.professor.notas, { state: { abrirCadastro: true } satisfies EstadoAbrirCadastro }),
+                navigate(paths.professor.avaliacoes, { state: { abrirCadastro: true } satisfies EstadoNovaAvaliacao }),
             },
             { rotulo: 'Ver minhas turmas', icon: 'users', onClick: () => navigate(paths.professor.turmas) },
           ]}

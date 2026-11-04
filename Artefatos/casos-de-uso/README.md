@@ -58,8 +58,8 @@ São 30 casos de uso: 17 completos e 13 parciais. O Anexo A do documento detalha
 | ID | Caso de uso | Ator primário | Requisitos | Situação | Tela |
 |---|---|---|---|---|---|
 | UC19 | Consultar Turmas e Disciplinas Alocadas | PROFESSOR | RF10 | Completo | `/professor/turmas` |
-| UC20 | Cadastrar Avaliações | PROFESSOR | RF25 | Completo | `/professor/notas` |
-| UC21 | Lançar Notas dos Alunos | PROFESSOR | RF25 | Completo | `/professor/notas` |
+| UC20 | Cadastrar Avaliações | PROFESSOR | RF25 | Completo | `/professor/avaliacoes` |
+| UC21 | Lançar Notas dos Alunos | PROFESSOR | RF25 | Completo | `/professor/avaliacoes` |
 
 ### Portal do aluno ([diagrama](diagramas/png/06-portal-do-aluno.png))
 
