@@ -2,6 +2,7 @@
 package br.pucminas.eduka.backend.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -30,6 +31,7 @@ import br.pucminas.eduka.backend.domain.AlunoResponsavel;
 import br.pucminas.eduka.backend.domain.PapelPessoa;
 import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Pessoa;
+import br.pucminas.eduka.backend.domain.StatusMatricula;
 import br.pucminas.eduka.backend.domain.PessoaPapel;
 import br.pucminas.eduka.backend.domain.Responsavel;
 import br.pucminas.eduka.backend.domain.Usuario;
@@ -43,6 +45,7 @@ import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
+import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.ResponsavelRepository;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
@@ -75,6 +78,8 @@ class AlunoServiceTest {
     private CobrancaRepository cobrancaRepository;
     @Mock
     private AcessoService acessoService;
+    @Mock
+    private MatriculaTurmaRepository matriculaRepository;
 
     private AlunoService alunoService;
 
@@ -87,7 +92,7 @@ class AlunoServiceTest {
                 alunoResponsavelRepository, alunoRepository, pessoaRepository, pessoaPapelRepository,
                 cobrancaRepository, isolamentoEscola);
         alunoService = new AlunoService(alunoRepository, pessoaRepository, pessoaPapelRepository,
-                responsavelService, isolamentoEscola, acessoService);
+                responsavelService, isolamentoEscola, acessoService, matriculaRepository);
     }
 
     @AfterEach
@@ -152,6 +157,54 @@ class AlunoServiceTest {
         List<AlunoResponse> resultado = alunoService.listar(" AN ");
 
         assertThat(resultado).extracting(AlunoResponse::nome).containsExactly("Ana Silva");
+    }
+
+    private static MatriculaTurmaRepository.Vigente vigente(Aluno aluno, StatusMatricula status, long turmaId,
+            String turmaNome) {
+        return new MatriculaTurmaRepository.Vigente() {
+            public UUID getAlunoId() {
+                return aluno.getId();
+            }
+
+            public StatusMatricula getStatus() {
+                return status;
+            }
+
+            public Long getTurmaId() {
+                return turmaId;
+            }
+
+            public String getTurmaNome() {
+                return turmaNome;
+            }
+        };
+    }
+
+    @Test
+    void listarTrazASituacaoDeCadaAlunoComAAtivaValendoMaisQueATrancada() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Pessoa pessoaAna = pessoa("Ana");
+        Pessoa pessoaBia = pessoa("Bia");
+        Pessoa pessoaCaio = pessoa("Caio");
+        Aluno ana = aluno(ESCOLA_A, pessoaAna.getId());
+        Aluno bia = aluno(ESCOLA_A, pessoaBia.getId());
+        Aluno caio = aluno(ESCOLA_A, pessoaCaio.getId());
+        when(alunoRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of(ana, bia, caio));
+        when(pessoaRepository.findAllByIdInAndEscolaId(any(), eq(ESCOLA_A)))
+                .thenReturn(List.of(pessoaAna, pessoaBia, pessoaCaio));
+        // Ana tem a trancada antes da ativa; Bia so a trancada; Caio nada.
+        when(matriculaRepository.listarVigentes(ESCOLA_A)).thenReturn(List.of(
+                vigente(ana, StatusMatricula.TRANCADA, 1L, "1A"),
+                vigente(ana, StatusMatricula.ATIVA, 2L, "2B"),
+                vigente(bia, StatusMatricula.TRANCADA, 1L, "1A")));
+
+        List<AlunoResponse> resultado = alunoService.listar(null);
+
+        assertThat(resultado).extracting(AlunoResponse::nome, AlunoResponse::situacao, AlunoResponse::turmaId,
+                AlunoResponse::turmaNome).containsExactly(
+                        tuple("Ana", AlunoResponse.Situacao.MATRICULADO, 2L, "2B"),
+                        tuple("Bia", AlunoResponse.Situacao.TRANCADO, 1L, "1A"),
+                        tuple("Caio", AlunoResponse.Situacao.SEM_TURMA, null, null));
     }
 
     @Test
@@ -245,7 +298,7 @@ class AlunoServiceTest {
         });
 
         AlunoResponse resultado = alunoService.cadastrar(request("Ana", "2026-001", null,
-                List.of(new ResponsavelRequest("Maria Silva", null, "maria@example.com", "31999998888", "MAE", true))));
+                List.of(new ResponsavelRequest("Maria Silva", "52998224725", "maria@example.com", "31999998888", "MAE", true))));
 
         assertThat(resultado.responsaveis()).hasSize(1);
         assertThat(resultado.responsaveis().get(0).nome()).isEqualTo("Maria Silva");

@@ -66,6 +66,46 @@ describe('Paginacao', () => {
     expect(screen.getByText('Página 2 de 2')).toBeInTheDocument()
   })
 
+  it('numera a primeira, a última e as vizinhas da atual, e vai direto para uma delas', async () => {
+    render(<Lista itens={Array.from({ length: 95 }, (_, i) => i + 1)} />)
+
+    const numeros = () =>
+      screen.getAllByRole('button', { name: /^Página \d+$/ }).map((b) => b.textContent)
+    expect(numeros()).toEqual(['1', '2', '10'])
+    expect(screen.getByRole('button', { name: 'Página 1' })).toHaveAttribute('aria-current', 'page')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Página 10' }))
+    expect(itensVisiveis()).toEqual([91, 92, 93, 94, 95])
+    expect(numeros()).toEqual(['1', '9', '10'])
+
+    await userEvent.click(screen.getByRole('button', { name: 'Página 9' }))
+    expect(numeros()).toEqual(['1', '8', '9', '10'])
+  })
+
+  it('trocar a quantidade por página mantém na tela o primeiro item que estava nela', async () => {
+    render(<Lista itens={Array.from({ length: 95 }, (_, i) => i + 1)} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Página 2' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Página 3' }))
+    expect(itensVisiveis()[0]).toBe(21)
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Itens por página' }))
+    await userEvent.click(screen.getByRole('option', { name: '20' }))
+
+    // O 21 abre a página 2 de 20 em 20.
+    expect(itensVisiveis()).toEqual(Array.from({ length: 20 }, (_, i) => i + 21))
+    expect(screen.getByText('21–40 de 95')).toBeInTheDocument()
+  })
+
+  it('com a página maior que a lista, fica só a escolha da quantidade para poder voltar', async () => {
+    render(<Lista />)
+    await userEvent.click(screen.getByRole('combobox', { name: 'Itens por página' }))
+    await userEvent.click(screen.getByRole('option', { name: '50' }))
+
+    expect(itensVisiveis()).toHaveLength(23)
+    expect(screen.queryByRole('button', { name: 'Próxima' })).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Itens por página' })).toBeInTheDocument()
+  })
+
   it('some quando tudo cabe numa página', () => {
     render(<Lista itens={[1, 2, 3]} />)
 

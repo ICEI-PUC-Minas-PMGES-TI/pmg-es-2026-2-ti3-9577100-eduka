@@ -4,11 +4,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import javax.sql.DataSource;
+
 import org.junit.jupiter.api.Test;
+import org.mockito.Answers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import br.pucminas.eduka.backend.security.JwtConfig;
@@ -23,6 +27,10 @@ class HealthControllerSecurityTest {
 
     @Autowired
     private JwtService jwtService;
+
+    // O /health consulta o banco; nesta fatia o DataSource e um mock que responde.
+    @MockitoBean(answers = Answers.RETURNS_DEEP_STUBS)
+    private DataSource dataSource;
 
     @Test
     void healthEndpointIsReachableWithoutAuthentication() throws Exception {

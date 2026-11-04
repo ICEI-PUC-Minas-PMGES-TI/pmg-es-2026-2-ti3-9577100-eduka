@@ -66,6 +66,8 @@ export type TurmaAcademica = {
   ativa: boolean
   /** Grade da turma. */
   disciplinas: Disciplina[]
+  /** Vagas ocupadas: só matrícula ativa conta. */
+  matriculasAtivas: number
 }
 
 export type TurmaRequest = {

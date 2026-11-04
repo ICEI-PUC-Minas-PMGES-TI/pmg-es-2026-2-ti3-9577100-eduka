@@ -2,6 +2,7 @@ package br.pucminas.eduka.backend.repository;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -49,6 +50,15 @@ public record CobrancaFiltro(
      */
     public Specification<Cobranca> daEscolaEmQualquerStatus(UUID escolaId) {
         return (cobranca, query, cb) -> cb.and(semStatus(escolaId, cobranca, cb).toArray(Predicate[]::new));
+    }
+
+    /**
+     * Cobrancas de algum dos alunos; sem nenhum aluno, nenhuma passa. Para a
+     * busca pelo nome, que e cifrado: quem chama acha os alunos fora do banco.
+     */
+    public static Specification<Cobranca> deAlgumDosAlunos(Collection<UUID> alunoIds) {
+        return (cobranca, query, cb) -> alunoIds.isEmpty() ? cb.disjunction()
+                : cobranca.get("aluno").get("id").in(alunoIds);
     }
 
     private List<Predicate> semStatus(UUID escolaId, Root<Cobranca> cobranca, CriteriaBuilder cb) {

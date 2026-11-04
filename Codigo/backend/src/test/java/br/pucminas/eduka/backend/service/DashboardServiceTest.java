@@ -140,18 +140,19 @@ class DashboardServiceTest {
                 .tipo(TipoAvaliacao.PROVA).titulo(titulo).data(data).valor(new BigDecimal(valor)).build();
     }
 
-    private static NotaRepository.SomaPorAvaliacao soma(Avaliacao avaliacao, long total, String soma) {
-        return new NotaRepository.SomaPorAvaliacao() {
-            public UUID getAvaliacaoId() {
-                return avaliacao.getId();
-            }
-
+    /** Somas nulas, como o banco devolve quando nao ha nota. */
+    private static NotaRepository.Aproveitamento aproveitamento(long total, String obtido, String possivel) {
+        return new NotaRepository.Aproveitamento() {
             public long getTotal() {
                 return total;
             }
 
-            public BigDecimal getSoma() {
-                return new BigDecimal(soma);
+            public BigDecimal getObtido() {
+                return obtido == null ? null : new BigDecimal(obtido);
+            }
+
+            public BigDecimal getPossivel() {
+                return possivel == null ? null : new BigDecimal(possivel);
             }
         };
     }
@@ -168,19 +169,42 @@ class DashboardServiceTest {
         };
     }
 
+    private static MatriculaTurmaRepository.AtivasNaTurma ativas(Turma turma, long quantidade) {
+        return new MatriculaTurmaRepository.AtivasNaTurma() {
+            public Long getTurmaId() {
+                return turma.getId();
+            }
+
+            public long getQuantidade() {
+                return quantidade;
+            }
+        };
+    }
+
+    private static MatriculaTurmaRepository.PorSituacao naSituacao(StatusMatricula status, long quantidade) {
+        return new MatriculaTurmaRepository.PorSituacao() {
+            public StatusMatricula getStatus() {
+                return status;
+            }
+
+            public long getQuantidade() {
+                return quantidade;
+            }
+        };
+    }
+
+    // As contagens vem do banco (o MatriculaTurmaRepository e conferido no DashboardBancoRealTest);
+    // aqui, as contas feitas com elas.
+
     @Test
     void escolaContaPessoasEstruturaOcupacaoEAproveitamento() {
-        Aluno ana = aluno();
-        Aluno bruno = aluno();
-        Aluno semTurma = aluno();
-        when(alunoRepository.findAllByEscolaId(ESCOLA)).thenReturn(List.of(ana, bruno, semTurma));
+        // 3 alunos: 2 com matricula ativa (uma em cada turma) e 1 so com matricula concluida.
+        when(alunoRepository.countByEscolaId(ESCOLA)).thenReturn(3L);
+        when(matriculaRepository.contarAlunosComMatriculaAtiva(ESCOLA)).thenReturn(2L);
         Turma encerrada = turma(3L, "3C", 30, false);
-        when(matriculaRepository.findAllByEscolaId(ESCOLA)).thenReturn(List.of(
-                matricula(ana, turmaA, StatusMatricula.ATIVA, HOJE),
-                matricula(bruno, turmaB, StatusMatricula.ATIVA, HOJE),
-                matricula(semTurma, encerrada, StatusMatricula.CONCLUIDA, HOJE)));
-        when(professorRepository.findAllByEscolaId(ESCOLA)).thenReturn(List.of(
-                Professor.builder().ativo(true).build(), Professor.builder().ativo(false).build()));
+        when(matriculaRepository.contarAtivasPorTurma(ESCOLA)).thenReturn(List.of(ativas(turmaA, 1), ativas(turmaB, 1)));
+        when(professorRepository.countByEscolaId(ESCOLA)).thenReturn(2L);
+        when(professorRepository.countByEscolaIdAndAtivoTrue(ESCOLA)).thenReturn(1L);
         when(usuarioRepository.findAllByEscolaIdAndPerfil(ESCOLA, PerfilUsuario.SECRETARIA)).thenReturn(List.of(
                 Usuario.builder().ativo(true).build(), Usuario.builder().ativo(false).build()));
         when(usuarioRepository.findAllByEscolaIdAndPerfil(ESCOLA, PerfilUsuario.FINANCEIRO)).thenReturn(List.of());
@@ -190,13 +214,11 @@ class DashboardServiceTest {
                         .dataFim(LocalDate.of(2026, 7, 1)).build(),
                 PeriodoLetivo.builder().nome("2026/2").ativo(true).dataInicio(LocalDate.of(2026, 8, 1))
                         .dataFim(LocalDate.of(2026, 12, 18)).build()));
-        when(cursoRepository.findAllByEscolaId(ESCOLA)).thenReturn(List.of(Curso.builder().build()));
-        when(disciplinaRepository.findAllByEscolaId(ESCOLA)).thenReturn(List.of(matematica, fisica));
-        Avaliacao prova = avaliacao(turmaA, matematica, "Prova", HOJE, "10");
-        Avaliacao lista = avaliacao(turmaA, fisica, "Lista", HOJE, "5");
-        when(avaliacaoRepository.findAllByEscolaId(ESCOLA)).thenReturn(List.of(prova, lista));
-        // Prova: 2 notas somando 15 de 20 possiveis; lista: 1 nota de 5 em 5. Total 20/25 = 80%.
-        when(notaRepository.somarPorAvaliacao(ESCOLA)).thenReturn(List.of(soma(prova, 2, "15"), soma(lista, 1, "5")));
+        when(cursoRepository.countByEscolaId(ESCOLA)).thenReturn(1L);
+        when(disciplinaRepository.countByEscolaId(ESCOLA)).thenReturn(2L);
+        when(avaliacaoRepository.countByEscolaId(ESCOLA)).thenReturn(2L);
+        // 3 notas somando 20 de 25 possiveis = 80%.
+        when(notaRepository.somarAproveitamento(ESCOLA)).thenReturn(aproveitamento(3, "20", "25"));
 
         DashboardEscolaResponse resposta = service.escola();
 
@@ -209,16 +231,11 @@ class DashboardServiceTest {
 
     @Test
     void escolaSemVagasNemNotasDevolvePercentuaisNulos() {
-        when(alunoRepository.findAllByEscolaId(ESCOLA)).thenReturn(List.of());
-        when(matriculaRepository.findAllByEscolaId(ESCOLA)).thenReturn(List.of());
-        when(professorRepository.findAllByEscolaId(ESCOLA)).thenReturn(List.of());
+        // As contagens sem stub ja voltam 0 e as listas, vazias.
         when(usuarioRepository.findAllByEscolaIdAndPerfil(eq(ESCOLA), any())).thenReturn(List.of());
         when(turmaRepository.findAllByEscolaId(ESCOLA)).thenReturn(List.of());
         when(periodoLetivoRepository.findAllByEscolaId(ESCOLA)).thenReturn(List.of());
-        when(cursoRepository.findAllByEscolaId(ESCOLA)).thenReturn(List.of());
-        when(disciplinaRepository.findAllByEscolaId(ESCOLA)).thenReturn(List.of());
-        when(avaliacaoRepository.findAllByEscolaId(ESCOLA)).thenReturn(List.of());
-        when(notaRepository.somarPorAvaliacao(ESCOLA)).thenReturn(List.of());
+        when(notaRepository.somarAproveitamento(ESCOLA)).thenReturn(aproveitamento(0, null, null));
 
         DashboardEscolaResponse resposta = service.escola();
 
@@ -229,16 +246,15 @@ class DashboardServiceTest {
 
     @Test
     void secretariaResumeMatriculasEVagasDaMaisCheiaParaAMaisVazia() {
-        Aluno ana = aluno();
-        Aluno bruno = aluno();
-        Aluno carla = aluno();
-        Aluno semTurma = aluno();
-        when(alunoRepository.findAllByEscolaId(ESCOLA)).thenReturn(List.of(ana, bruno, carla, semTurma));
-        when(matriculaRepository.findAllByEscolaId(ESCOLA)).thenReturn(List.of(
-                matricula(ana, turmaA, StatusMatricula.ATIVA, HOJE.minusDays(5)),
-                matricula(bruno, turmaA, StatusMatricula.ATIVA, HOJE.minusDays(60)),
-                matricula(carla, turmaB, StatusMatricula.ATIVA, HOJE.minusDays(30)),
-                matricula(semTurma, turmaB, StatusMatricula.CANCELADA, HOJE.minusDays(90))));
+        // 4 alunos: 3 ativos (2 na 1A, 1 na 2B) e 1 so com matricula cancelada.
+        when(alunoRepository.countByEscolaId(ESCOLA)).thenReturn(4L);
+        when(matriculaRepository.contarPorSituacao(ESCOLA)).thenReturn(List.of(
+                naSituacao(StatusMatricula.ATIVA, 3), naSituacao(StatusMatricula.CANCELADA, 1)));
+        // Ultimos 30 dias incluem o 30o dia para tras.
+        when(matriculaRepository.countByEscolaIdAndDataMatriculaGreaterThanEqual(ESCOLA, HOJE.minusDays(30)))
+                .thenReturn(2L);
+        when(matriculaRepository.contarAlunosComMatriculaAtiva(ESCOLA)).thenReturn(3L);
+        when(matriculaRepository.contarAtivasPorTurma(ESCOLA)).thenReturn(List.of(ativas(turmaA, 2), ativas(turmaB, 1)));
         when(turmaRepository.findAllByEscolaId(ESCOLA)).thenReturn(List.of(turmaB, turmaA));
 
         DashboardSecretariaResponse resposta = service.secretaria();
@@ -247,7 +263,6 @@ class DashboardServiceTest {
                 .containsEntry(StatusMatricula.CANCELADA, 1L)
                 .containsEntry(StatusMatricula.TRANCADA, 0L)
                 .containsEntry(StatusMatricula.CONCLUIDA, 0L);
-        // Ultimos 30 dias incluem o 30o dia para tras.
         assertThat(resposta.matriculasUltimos30Dias()).isEqualTo(2);
         assertThat(resposta.alunosSemTurma()).isEqualTo(1);
         // 1A: 2 de 2 (lotada); 2B: 1 de 4.

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -59,6 +60,34 @@ class DespesaBancoRealTest extends BancoRealTest {
     private AtualizarDespesaRequest edicao() {
         return new AtualizarDespesaRequest("Conta de agua", categoria, new BigDecimal("75.00"),
                 LocalDate.now().plusDays(8));
+    }
+
+    // ---------- Listagem ----------
+
+    @Test
+    void listaFiltraNoBancoPorSituacaoCategoriaEVencimentoPeloVencimento() {
+        UUID outraCategoria = dados.categoriaDespesa(escola);
+        BigDecimal valor = new BigDecimal("50.00");
+        UUID luzDeOutubro = dados.despesa(escola, categoria, valor, LocalDate.of(2026, 10, 15),
+                SituacaoDespesa.A_PAGAR, null);
+        UUID aguaDeOutubro = dados.despesa(escola, categoria, valor, LocalDate.of(2026, 10, 5),
+                SituacaoDespesa.A_PAGAR, null);
+        dados.despesa(escola, outraCategoria, valor, LocalDate.of(2026, 10, 20), SituacaoDespesa.A_PAGAR, null);
+        UUID paga = dados.despesa(escola, categoria, valor, LocalDate.of(2026, 10, 31), SituacaoDespesa.PAGA,
+                Instant.now());
+        dados.despesa(escola, categoria, valor, LocalDate.of(2026, 11, 1), SituacaoDespesa.A_PAGAR, null);
+        UUID outraEscola = dados.escola();
+        dados.despesa(outraEscola, dados.categoriaDespesa(outraEscola), valor, LocalDate.of(2026, 10, 10),
+                SituacaoDespesa.A_PAGAR, null);
+        LocalDate inicio = LocalDate.of(2026, 10, 1);
+        LocalDate fim = LocalDate.of(2026, 10, 31);
+
+        assertThat(despesaService.listar(SituacaoDespesa.A_PAGAR, categoria, inicio, fim))
+                .extracting(DespesaResponse::id).containsExactly(aguaDeOutubro, luzDeOutubro);
+        // So o mes, como a tela pede: as quatro de outubro da escola, em qualquer situacao e categoria.
+        assertThat(despesaService.listar(null, null, inicio, fim)).hasSize(4)
+                .extracting(DespesaResponse::id).contains(paga);
+        assertThat(despesaService.listar(null, null, null, null)).hasSize(5);
     }
 
     // ---------- Mudancas de situacao ----------

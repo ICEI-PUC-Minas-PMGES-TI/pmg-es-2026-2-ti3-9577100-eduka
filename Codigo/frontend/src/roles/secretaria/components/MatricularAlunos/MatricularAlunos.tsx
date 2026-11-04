@@ -4,7 +4,7 @@ import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
 import { mensagemErroMatricula } from '../../../../services/matriculaService'
 import type { TurmaAcademica } from '../../../../types/academico'
-import type { AlunoResumo } from '../../../../types/aluno'
+import type { AlunoDaLista, AlunoResumo } from '../../../../types/aluno'
 import {
   ROTULOS_STATUS_MATRICULA,
   TOM_DO_STATUS,
@@ -13,6 +13,7 @@ import {
   type StatusMatricula,
 } from '../../../../types/matricula'
 import { iniciais, plural } from '../../../../utils/formatters'
+import { Dica } from '../../../../components/Dica/Dica'
 import styles from './MatricularAlunos.module.css'
 
 /** Resultado de uma matrícula em lote: quem entrou e quem foi recusado, com o motivo. */
@@ -23,9 +24,10 @@ export type ResultadoMatriculas = {
 
 type MatricularAlunosProps = {
   turma: TurmaAcademica
-  alunos: AlunoResumo[]
-  /** Todas as matrículas da escola: marcam quem já está na turma e onde cada aluno estuda. */
-  matriculas: Matricula[]
+  /** Com a turma ativa de cada um, para mostrar de onde o aluno vem. */
+  alunos: AlunoDaLista[]
+  /** As matrículas desta turma, em qualquer situação: marcam quem já está nela. */
+  matriculasDaTurma: Matricula[]
   vagasLivres: number
   /** Matricula um aluno; deve lançar ApiError em caso de falha. */
   onMatricular: (dados: MatriculaRequest) => Promise<Matricula>
@@ -48,7 +50,7 @@ function corresponde(aluno: AlunoResumo, busca: string): boolean {
 export function MatricularAlunos({
   turma,
   alunos,
-  matriculas,
+  matriculasDaTurma,
   vagasLivres,
   onMatricular,
   onConcluido,
@@ -57,12 +59,12 @@ export function MatricularAlunos({
   const [selecionados, setSelecionados] = useState<string[]>([])
   const [enviando, setEnviando] = useState(false)
 
-  const naTurma = new Map<string, StatusMatricula>(
-    matriculas.filter((m) => m.turmaId === turma.id).map((m) => [m.alunoId, m.status]),
-  )
+  const naTurma = new Map<string, StatusMatricula>(matriculasDaTurma.map((m) => [m.alunoId, m.status]))
   // De onde o aluno vem: a turma ativa dele em outro lugar, se houver.
   const outraTurmaAtiva = new Map(
-    matriculas.filter((m) => m.status === 'ATIVA' && m.turmaId !== turma.id).map((m) => [m.alunoId, m.turmaNome]),
+    alunos
+      .filter((a) => a.situacao === 'MATRICULADO' && a.turmaId !== turma.id)
+      .map((a) => [a.id, a.turmaNome]),
   )
   // Quem pode entrar vem primeiro; quem já está na turma, no fim.
   const visiveis = alunos
@@ -143,17 +145,20 @@ export function MatricularAlunos({
                     {status === 'ATIVA' ? 'Matriculado' : ROTULOS_STATUS_MATRICULA[status]}
                   </Badge>
                 ) : (
-                  <Button
-                    size="sm"
-                    variant={marcado ? 'accent' : 'primary'}
-                    icon={marcado ? 'check' : undefined}
-                    aria-pressed={marcado}
-                    disabled={enviando || !podeMatricular || (!marcado && limiteAtingido)}
-                    title={!marcado && limiteAtingido && podeMatricular ? 'Todas as vagas livres já foram escolhidas' : undefined}
-                    onClick={() => alternar(aluno.id)}
+                  <Dica
+                    texto={!marcado && limiteAtingido && podeMatricular ? 'Todas as vagas livres já foram escolhidas' : null}
                   >
-                    {marcado ? 'Selecionado' : 'Matricular'}
-                  </Button>
+                    <Button
+                      size="sm"
+                      variant={marcado ? 'accent' : 'primary'}
+                      icon={marcado ? 'check' : undefined}
+                      aria-pressed={marcado}
+                      disabled={enviando || !podeMatricular || (!marcado && limiteAtingido)}
+                      onClick={() => alternar(aluno.id)}
+                    >
+                      {marcado ? 'Selecionado' : 'Matricular'}
+                    </Button>
+                  </Dica>
                 )}
               </li>
             )

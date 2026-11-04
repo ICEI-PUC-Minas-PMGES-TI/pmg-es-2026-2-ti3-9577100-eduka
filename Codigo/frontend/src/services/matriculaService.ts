@@ -1,15 +1,25 @@
-import type { AlunoResumo } from '../types/aluno'
+import type { AlunoDaLista } from '../types/aluno'
 import type { AtualizarMatriculaRequest, Matricula, MatriculaRequest } from '../types/matricula'
 import { ApiError, apiRequest } from './api'
 
 // O backend já limita alunos e matrículas à escola de quem está logado.
 
-export function listarAlunos(signal?: AbortSignal): Promise<AlunoResumo[]> {
-  return apiRequest<AlunoResumo[]>('/alunos', { signal })
+/** Com a situação e a turma atual de cada aluno. */
+export function listarAlunos(signal?: AbortSignal): Promise<AlunoDaLista[]> {
+  return apiRequest<AlunoDaLista[]>('/alunos', { signal })
 }
 
-export function listarMatriculas(signal?: AbortSignal): Promise<Matricula[]> {
-  return apiRequest<Matricula[]>('/matriculas', { signal })
+/**
+ * As matrículas de uma turma ou de um aluno, em qualquer situação. O filtro
+ * evita trazer o histórico da escola inteira.
+ */
+export function listarMatriculas(
+  filtro: { turmaId: number } | { alunoId: string },
+  signal?: AbortSignal,
+): Promise<Matricula[]> {
+  const params: Record<string, string> =
+    'turmaId' in filtro ? { turmaId: String(filtro.turmaId) } : { alunoId: filtro.alunoId }
+  return apiRequest<Matricula[]>(`/matriculas?${new URLSearchParams(params)}`, { signal })
 }
 
 /** 409 se o aluno já tem matrícula na turma ou se a turma está cheia. */

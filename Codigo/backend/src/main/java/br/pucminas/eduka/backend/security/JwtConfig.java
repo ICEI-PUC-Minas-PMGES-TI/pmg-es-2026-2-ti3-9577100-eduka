@@ -26,6 +26,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -35,6 +36,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
+
+import br.pucminas.eduka.backend.logging.EscolaLogFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -179,6 +182,8 @@ public class JwtConfig {
 				.exceptionHandling(handling -> handling
 						.authenticationEntryPoint(authenticationEntryPoint)
 						.accessDeniedHandler(accessDeniedHandler))
+				// Logo depois do JWT validado: o escolaId do usuario passa a sair em todo log da requisicao.
+				.addFilterAfter(new EscolaLogFilter(), BearerTokenAuthenticationFilter.class)
 				.build();
 	}
 }

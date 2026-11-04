@@ -3,9 +3,12 @@ import { apiRequest } from './api'
 
 // O backend já limita despesas e categorias à escola de quem está logado.
 
-/** Ordenadas pelo vencimento. */
-export function listarDespesas(signal?: AbortSignal): Promise<Despesa[]> {
-  return apiRequest<Despesa[]>('/despesas', { signal })
+/** Intervalo de vencimento, AAAA-MM-DD, com as duas pontas. */
+export type PeriodoDespesas = { vencimentoDe: string; vencimentoAte: string }
+
+/** As que vencem no período, ordenadas pelo vencimento. */
+export function listarDespesas(periodo: PeriodoDespesas, signal?: AbortSignal): Promise<Despesa[]> {
+  return apiRequest<Despesa[]>(`/despesas?${new URLSearchParams(periodo)}`, { signal })
 }
 
 export function listarCategoriasDespesa(signal?: AbortSignal): Promise<CategoriaDespesa[]> {

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Button } from '../../../../components/Button/Button'
 import { Paginacao } from '../../../../components/Paginacao/Paginacao'
 import { usePaginacao } from '../../../../hooks/usePaginacao'
+import { Dica } from '../../../../components/Dica/Dica'
 import styles from './PainelSecretaria.module.css'
 
 type CabecalhoAbaProps = {
@@ -39,14 +40,23 @@ type TabelaProps = {
   rotuloPaginacao?: string
   /** Quando muda (filtro, turma), a tabela volta para a primeira página. */
   reiniciarCom?: string | number
+  /** Classe extra do card, para quem precisa ajustar a tabela (ex.: sem largura mínima). */
+  className?: string
 }
 
 /** Tabela em card de vidro, no mesmo visual da lista de professores, com 10 linhas por página. */
-export function Tabela({ colunas, vazio, linhas, rotuloPaginacao = 'Páginas da tabela', reiniciarCom }: TabelaProps) {
+export function Tabela({
+  colunas,
+  vazio,
+  linhas,
+  rotuloPaginacao = 'Páginas da tabela',
+  reiniciarCom,
+  className,
+}: TabelaProps) {
   const { paginacao, topo } = usePaginacao(linhas, { reiniciarCom })
   return (
     <>
-      <div ref={topo} className={styles.card}>
+      <div ref={topo} className={[styles.card, className].filter(Boolean).join(' ')}>
         <div className={styles.rolagem}>
           <table className={styles.tabela}>
             <thead>
@@ -86,14 +96,9 @@ export function AcoesLinha({ nome, onVer, onEditar, onExcluir }: AcoesLinhaProps
       <Button size="sm" icon="edit" onClick={onEditar}>
         Editar
       </Button>
-      <Button
-        size="sm"
-        icon="trash"
-        variant="dangerOutline"
-        aria-label={`Excluir ${nome}`}
-        title="Excluir"
-        onClick={onExcluir}
-      />
+      <Dica texto="Excluir" descrever={false}>
+        <Button size="sm" icon="trash" variant="dangerOutline" aria-label={`Excluir ${nome}`} onClick={onExcluir} />
+      </Dica>
     </span>
   )
 }

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Button } from '../Button/Button'
+import { Dica } from '../Dica/Dica'
 import { Icon, type IconName } from '../Icon/Icon'
 import styles from './Dashboard.module.css'
 
@@ -87,17 +88,17 @@ export function Atalhos({ titulo, itens, horizontal = false }: AtalhosProps) {
       <h2 className={styles.atalhosTitulo}>{titulo}</h2>
       <div className={styles.atalhosLista}>
         {itens.map((item, indice) => (
-          <button
-            key={item.rotulo}
-            type="button"
-            className={`${styles.atalho} ${indice === 0 ? styles.atalhoDestaque : ''}`}
-            disabled={!item.onClick}
-            title={item.onClick ? undefined : 'Em breve'}
-            onClick={item.onClick}
-          >
-            <Icon name={item.icon} size={16} />
-            <span>{item.rotulo}</span>
-          </button>
+          <Dica key={item.rotulo} texto={item.onClick ? null : 'Em breve'} className={styles.alvoAtalho}>
+            <button
+              type="button"
+              className={`${styles.atalho} ${indice === 0 ? styles.atalhoDestaque : ''}`}
+              disabled={!item.onClick}
+              onClick={item.onClick}
+            >
+              <Icon name={item.icon} size={16} />
+              <span>{item.rotulo}</span>
+            </button>
+          </Dica>
         ))}
       </div>
     </section>
@@ -122,9 +123,9 @@ export function GraficoBarras({ itens, rotulo }: { itens: Barra[]; rotulo: strin
           <div className={styles.trilho}>
             <div className={styles.barra} style={{ height: `${(item.valor / maximo) * 100}%` }} />
           </div>
-          <span className={styles.rotuloBarra} title={item.rotulo}>
-            {item.rotulo}
-          </span>
+          <Dica texto={item.rotulo} soSeCortado className={styles.alvoRotulo}>
+            <span className={styles.rotuloBarra}>{item.rotulo}</span>
+          </Dica>
         </li>
       ))}
     </ul>
@@ -149,45 +150,107 @@ type GraficoComparativoProps = {
   grupos: GrupoBarras[]
   /** Texto de cada valor no tooltip e no leitor de tela. */
   formatar: (valor: number) => string
+  /** Texto curto das marcas do eixo (ex.: "R$ 1,5 mil"). */
+  formatarEixo: (valor: number) => string
+  /** Um texto por série, ao lado do nome na legenda (ex.: o total do período). */
+  resumo?: string[]
+  /** Fica na ponta direita da legenda (ex.: o saldo do período). */
+  aoLadoDaLegenda?: ReactNode
 }
 
-/** Barras verticais lado a lado por grupo (ex.: entrou e saiu em cada mês), com legenda. */
-export function GraficoComparativo({ rotulo, series, grupos, formatar }: GraficoComparativoProps) {
-  const maximo = Math.max(1, ...grupos.flatMap((grupo) => grupo.valores))
+/** Divisões do eixo: quatro faixas, cinco marcas (zero incluído). */
+const FAIXAS_DO_EIXO = 4
+
+/**
+ * Topo do eixo: o primeiro valor "redondo" que cobre o maior valor, para as
+ * marcas caírem em números fáceis de ler (ex.: 1.180 -> 2.000, de 500 em 500).
+ */
+function topoDoEixo(maximo: number): number {
+  const ordem = 10 ** Math.floor(Math.log10(maximo))
+  return ([1, 2, 4, 6, 8, 10].find((fator) => maximo <= fator * ordem) ?? 10) * ordem
+}
+
+/**
+ * Barras verticais lado a lado por grupo (ex.: entrou e saiu em cada mês), com
+ * eixo, linhas de grade e legenda.
+ */
+export function GraficoComparativo({
+  rotulo,
+  series,
+  grupos,
+  formatar,
+  formatarEixo,
+  resumo,
+  aoLadoDaLegenda,
+}: GraficoComparativoProps) {
+  const topo = topoDoEixo(Math.max(1, ...grupos.flatMap((grupo) => grupo.valores)))
+  // Do topo para o zero, na ordem em que aparecem no eixo.
+  const marcas = Array.from({ length: FAIXAS_DO_EIXO + 1 }, (_, i) => (topo * (FAIXAS_DO_EIXO - i)) / FAIXAS_DO_EIXO)
   return (
     <div className={styles.comparativo}>
-      <ul className={styles.legenda}>
-        {series.map((serie, indice) => (
-          <li key={serie}>
-            <span className={`${styles.amostra} ${CORES_SERIE[indice]}`} aria-hidden="true" />
-            {serie}
-          </li>
-        ))}
-      </ul>
-      <ul className={styles.grafico} aria-label={rotulo}>
-        {grupos.map((grupo) => (
-          <li key={grupo.rotulo} className={styles.colunaGrafico}>
-            <div className={`${styles.trilho} ${styles.trilhoAgrupado}`}>
-              {grupo.valores.map((valor, indice) => {
-                const texto = `${series[indice]} em ${grupo.titulo ?? grupo.rotulo}: ${formatar(valor)}`
-                return (
-                  <div
-                    key={series[indice]}
-                    role="img"
-                    aria-label={texto}
-                    title={texto}
-                    className={`${styles.barraAgrupada} ${CORES_SERIE[indice]}`}
-                    style={{ height: `${(valor / maximo) * 100}%` }}
-                  />
-                )
-              })}
-            </div>
-            <span className={styles.rotuloBarra} title={grupo.titulo}>
-              {grupo.rotulo}
-            </span>
-          </li>
-        ))}
-      </ul>
+      <div className={styles.cabecalhoGrafico}>
+        <ul className={styles.legenda}>
+          {series.map((serie, indice) => (
+            <li key={serie}>
+              <span className={`${styles.amostra} ${CORES_SERIE[indice]}`} aria-hidden="true" />
+              {serie}
+              {resumo?.[indice] && <strong className={styles.resumoSerie}>{resumo[indice]}</strong>}
+            </li>
+          ))}
+        </ul>
+        {aoLadoDaLegenda}
+      </div>
+      <div className={styles.areaGrafico}>
+        <div className={styles.eixo} aria-hidden="true">
+          {marcas.map((marca) => (
+            <span key={marca}>{formatarEixo(marca)}</span>
+          ))}
+        </div>
+        <div className={styles.plotagem}>
+          <div className={styles.grade} aria-hidden="true">
+            {marcas.map((marca) => (
+              <span key={marca} />
+            ))}
+          </div>
+          <ul className={styles.grafico} aria-label={rotulo}>
+            {grupos.map((grupo) => (
+              <li key={grupo.titulo ?? grupo.rotulo} className={styles.colunaGrafico}>
+                {/* A dica é da coluna inteira: o mês e as séries juntas. As barras já se
+                    descrevem (aria-label) para o leitor de tela. */}
+                <Dica
+                  descrever={false}
+                  className={styles.alvoColuna}
+                  texto={
+                    <span className={styles.dicaGrafico}>
+                      <strong className={styles.dicaTitulo}>{grupo.titulo ?? grupo.rotulo}</strong>
+                      {grupo.valores.map((valor, indice) => (
+                        <span key={series[indice]} className={styles.dicaLinha}>
+                          <span className={`${styles.amostra} ${CORES_SERIE[indice]}`} aria-hidden="true" />
+                          {series[indice]}
+                          <strong>{formatar(valor)}</strong>
+                        </span>
+                      ))}
+                    </span>
+                  }
+                >
+                  <div className={`${styles.trilho} ${styles.trilhoAgrupado}`}>
+                    {grupo.valores.map((valor, indice) => (
+                      <div
+                        key={series[indice]}
+                        role="img"
+                        aria-label={`${series[indice]} em ${grupo.titulo ?? grupo.rotulo}: ${formatar(valor)}`}
+                        className={`${styles.barraAgrupada} ${CORES_SERIE[indice]}`}
+                        style={{ height: `${(valor / topo) * 100}%` }}
+                      />
+                    ))}
+                  </div>
+                </Dica>
+                <span className={styles.rotuloBarra}>{grupo.rotulo}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
     </div>
   )
 }

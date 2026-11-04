@@ -18,7 +18,6 @@
   background: var(--glass-bg);
   box-shadow: var(--glass-shadow-sm);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .tipo {
@@ -44,24 +43,26 @@
 
 /* ---------- Tabela do diário ---------- */
 
+/* O card fica na coluna da direita, ao lado das avaliações: a tabela se
+   ajusta à largura dele em vez de rolar para o lado, e no card estreito cada
+   aluno vira um bloco (ver o @container no fim). */
 .card {
+  container-type: inline-size;
   padding: 8px 10px 0;
   border: var(--glass-border);
   border-radius: var(--radius-xl);
   background: var(--glass-bg);
   box-shadow: var(--glass-shadow);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
 }
 
-/* Em telas estreitas a tabela rola dentro do card, sem rolar a página. */
+/* Rede de segurança: com o ajuste abaixo, nada deve passar da largura. */
 .rolagem {
   overflow-x: auto;
 }
 
 .tabela {
   width: 100%;
-  min-width: 760px;
   border-collapse: collapse;
 }
 
@@ -85,15 +86,16 @@
   vertical-align: middle;
 }
 
-.tabela td:first-child {
+/* Nota e situação no tamanho do conteúdo; o nome e a observação dividem o resto. */
+.tabela .colunaNota,
+.tabela .colunaSituacao {
   width: 1%;
   white-space: nowrap;
 }
 
-.tabela th:nth-child(3),
-.tabela td:nth-child(3) {
-  width: 1%;
-  white-space: nowrap;
+/* A observação nunca fica espremida a ponto de não dar para ler o que se digita. */
+.celObservacao {
+  min-width: 150px;
 }
 
 /* Linha com alteração ainda não salva. */
@@ -112,6 +114,13 @@
 .aluno {
   font-family: var(--font-display);
   font-weight: 800;
+}
+
+/* Número de matrícula embaixo do nome, como na tabela de matrículas da secretaria. */
+.numero {
+  display: block;
+  color: var(--color-text-subtle);
+  font-size: 12.5px;
 }
 
 .nota {
@@ -221,6 +230,73 @@
   font-family: var(--font-display);
   font-size: 17px;
   font-weight: 800;
+}
+
+/* Card estreito (celular): cada aluno vira um bloco, com os campos na largura toda. */
+@container (max-width: 600px) {
+  .tabela,
+  .tabela tbody {
+    display: block;
+  }
+
+  .tabela thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .tabela tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'aluno situacao'
+      'nota nota'
+      'observacao observacao';
+    gap: 10px 12px;
+    padding: 14px;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .tabela tbody tr > td {
+    display: block;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    white-space: normal;
+  }
+
+  .tabela tbody tr > .celAluno {
+    grid-area: aluno;
+  }
+
+  .tabela tbody tr > .celSituacao {
+    grid-area: situacao;
+    align-self: start;
+  }
+
+  .tabela tbody tr > .celNota {
+    grid-area: nota;
+  }
+
+  .tabela tbody tr > .celObservacao {
+    grid-area: observacao;
+  }
+
+  .tabela tbody tr > .celNota::before,
+  .tabela tbody tr > .celObservacao::before {
+    content: attr(data-rotulo);
+    display: block;
+    margin-bottom: 4px;
+    color: var(--color-text-subtle);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
 }
 
 @media (max-width: 860px) {

@@ -74,6 +74,18 @@ function Resumo({ dados }: { dados: DashboardFinanceiro }) {
         />
       </StatCards>
 
+      <Atalhos
+        titulo="Atalhos do dia"
+        horizontal
+        itens={[
+          { rotulo: 'Nova cobrança', icon: 'plus', onClick: () => navigate(paths.financeiro.novaCobranca) },
+          { rotulo: 'Ver cobranças em atraso', icon: 'alert', onClick: () => navigate(COBRANCAS_EM_ATRASO) },
+          { rotulo: 'Lançar uma despesa', icon: 'dollarSign', onClick: () => navigate(paths.financeiro.despesas) },
+        ]}
+      />
+
+      <EntrouESaiu meses={dados.ultimosMeses} />
+
       <Colunas>
         <VencemNaSemana
           cobrancas={dados.vencemNaSemana}
@@ -83,20 +95,7 @@ function Resumo({ dados }: { dados: DashboardFinanceiro }) {
             </Button>
           }
         />
-
-        <Atalhos
-          titulo="Atalhos do dia"
-          itens={[
-            { rotulo: 'Nova cobrança', icon: 'plus', onClick: () => navigate(paths.financeiro.novaCobranca) },
-            { rotulo: 'Ver cobranças em atraso', icon: 'alert', onClick: () => navigate(COBRANCAS_EM_ATRASO) },
-            { rotulo: 'Lançar uma despesa', icon: 'dollarSign', onClick: () => navigate(paths.financeiro.despesas) },
-          ]}
-        />
-      </Colunas>
-
-      <Colunas>
         <UltimosPagamentos pagamentos={dados.ultimosPagamentos} />
-        <EntrouESaiu meses={dados.ultimosMeses} />
       </Colunas>
     </>
   )

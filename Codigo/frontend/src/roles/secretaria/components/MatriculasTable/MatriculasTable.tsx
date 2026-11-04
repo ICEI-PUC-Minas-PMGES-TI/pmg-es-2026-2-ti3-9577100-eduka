@@ -22,24 +22,32 @@ export function MatriculasTable({ matriculas, mensagemVazia, reiniciarCom, onVer
       vazio={mensagemVazia}
       rotuloPaginacao="Páginas das matrículas"
       reiniciarCom={reiniciarCom}
+      className={styles.cartao}
       linhas={matriculas.map((m) => (
         <tr key={m.id}>
-          <td>
+          <td className={styles.aluno}>
             <span className={styles.nome}>{m.alunoNome ?? '—'}</span>
             <span className={styles.numero}>Nº {m.alunoNumeroMatricula}</span>
           </td>
-          <td>{formatarData(m.dataMatricula)}</td>
-          <td>
+          {/* data-rotulo: no card estreito, as colunas viram linhas e o rótulo vai junto. */}
+          <td className={styles.data} data-rotulo="Matriculado em">
+            {formatarData(m.dataMatricula)}
+          </td>
+          <td className={styles.situacao}>
             <Badge tone={TOM_DO_STATUS[m.status]}>{ROTULOS_STATUS_MATRICULA[m.status]}</Badge>
           </td>
-          <td className={styles.observacao}>{m.observacao ?? '—'}</td>
+          <td className={styles.observacao} data-rotulo="Observação">
+            {m.observacao ?? '—'}
+          </td>
           <td className={styles.acoes}>
-            <Button size="sm" icon="eye" onClick={() => onVer(m)}>
-              Ver
-            </Button>{' '}
-            <Button size="sm" icon="edit" onClick={() => onAlterar(m)}>
-              Alterar
-            </Button>
+            <div className={styles.botoes}>
+              <Button size="sm" icon="eye" onClick={() => onVer(m)}>
+                Ver
+              </Button>
+              <Button size="sm" icon="edit" onClick={() => onAlterar(m)}>
+                Alterar
+              </Button>
+            </div>
           </td>
         </tr>
       ))}

@@ -5,6 +5,7 @@ import { obterUsuarioLogado } from '../../../services/authService'
 
 const MENU: ItemMenu[] = [
   { label: 'Escolas', icon: 'home', to: paths.superAdmin.escolas },
+  // Em breve: ainda sem página.
   { label: 'Usuários', icon: 'users' },
   { label: 'Assinaturas', icon: 'card' },
   { label: 'Configurações', icon: 'settings' },

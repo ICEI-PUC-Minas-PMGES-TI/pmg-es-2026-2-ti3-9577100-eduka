@@ -1,6 +1,7 @@
 package br.pucminas.eduka.backend.service;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -8,6 +9,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +19,9 @@ import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.PessoaPapel;
 import br.pucminas.eduka.backend.domain.Professor;
 import br.pucminas.eduka.backend.domain.Usuario;
+import br.pucminas.eduka.backend.dto.Ordenacao;
+import br.pucminas.eduka.backend.dto.PaginaResponse;
+import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.dto.ProfessorRequest;
 import br.pucminas.eduka.backend.dto.ProfessorResponse;
 import br.pucminas.eduka.backend.exception.CpfJaCadastradoException;
@@ -77,6 +82,25 @@ public class ProfessorService {
      * @param nome  filtro parcial, sem diferenciar caixa; nulo ou vazio lista todos
      * @param ativo nulo lista ativos e inativos
      */
+    /**
+     * Pagina dos professores da escola, com os mesmos filtros de
+     * {@link #listar}. O nome e cifrado, entao filtro e ordem por nome sao
+     * feitos em memoria, e so a pagina vai na resposta.
+     */
+    public PaginaResponse<ProfessorResponse> listarPaginado(String nome, Boolean ativo, Paginacao paginacao,
+            Ordenacao.Professores ordenarPor, Direction direcao) {
+        Comparator<ProfessorResponse> campo = switch (ordenarPor) {
+            case NOME -> Comparator.comparing(ProfessorResponse::nome, Paginacao.ORDEM_DE_NOME);
+            case DATA_ADMISSAO -> Comparator.comparing(ProfessorResponse::dataAdmissao,
+                    Comparator.nullsLast(Comparator.naturalOrder()));
+        };
+        List<ProfessorResponse> ordenados = listar(nome, ativo).stream()
+                .sorted(Ordenacao.emMemoria(campo, Ordenacao.ou(direcao, Direction.ASC),
+                        Comparator.comparing(ProfessorResponse::id)))
+                .toList();
+        return PaginaResponse.recortar(ordenados, paginacao);
+    }
+
     public List<ProfessorResponse> listar(String nome, Boolean ativo) {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         List<Professor> professores = professorRepository.findAllByEscolaId(escolaId);

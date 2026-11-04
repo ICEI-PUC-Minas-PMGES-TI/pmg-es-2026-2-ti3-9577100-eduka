@@ -24,6 +24,7 @@ import { SeletorTurmaDisciplina } from '../../components/SeletorTurmaDisciplina/
 import { useTurmaDisciplina } from '../../hooks/useTurmaDisciplina'
 import { ProfessorLayout } from '../../layouts/ProfessorLayout'
 import { mensagemErroAvaliacao } from '../../notas'
+import { Dica } from '../../../../components/Dica/Dica'
 import styles from './Notas.module.css'
 
 const NENHUMA_AVALIACAO: AvaliacaoDoProfessor[] = []
@@ -334,16 +335,23 @@ function ItemAvaliacao({ avaliacao, selecionada, onEscolher, onEditar, onExcluir
         </span>
       </button>
       <span className={styles.itemAcoes}>
-        <Button size="sm" icon="edit" aria-label={`Editar ${avaliacao.titulo}`} title="Editar" onClick={onEditar} />
-        <Button
-          size="sm"
-          icon="trash"
-          variant="dangerOutline"
-          aria-label={`Excluir ${avaliacao.titulo}`}
-          title={temNotas ? 'Tem notas lançadas: apague as notas antes de excluir' : 'Excluir'}
-          disabled={temNotas}
-          onClick={onExcluir}
-        />
+        <Dica texto="Editar" descrever={false}>
+          <Button size="sm" icon="edit" aria-label={`Editar ${avaliacao.titulo}`} onClick={onEditar} />
+        </Dica>
+        {/* Bloqueado, a dica explica o motivo: aí ela vale como descrição. */}
+        <Dica
+          texto={temNotas ? 'Tem notas lançadas: apague as notas antes de excluir' : 'Excluir'}
+          descrever={temNotas}
+        >
+          <Button
+            size="sm"
+            icon="trash"
+            variant="dangerOutline"
+            aria-label={`Excluir ${avaliacao.titulo}`}
+            disabled={temNotas}
+            onClick={onExcluir}
+          />
+        </Dica>
       </span>
     </li>
   )

@@ -5,6 +5,7 @@ import { Paginacao } from '../../../../components/Paginacao/Paginacao'
 import { usePaginacao } from '../../../../hooks/usePaginacao'
 import type { AlunoResumo } from '../../../../types/aluno'
 import { iniciais } from '../../../../utils/formatters'
+import { Dica } from '../../../../components/Dica/Dica'
 import styles from './AlunosTable.module.css'
 
 const SEM_DADO = '—'
@@ -103,15 +104,16 @@ export function AlunosTable({
                           <Button size="sm" icon="edit" onClick={() => onEditar(aluno)}>
                             Editar
                           </Button>
-                          <Button
-                            size="sm"
-                            icon="mail"
-                            disabled={reenviandoId === aluno.id}
-                            title="Envia uma nova senha provisória para o e-mail do aluno"
-                            onClick={() => onReenviarAcesso(aluno)}
-                          >
-                            Reenviar acesso
-                          </Button>
+                          <Dica texto="Envia uma nova senha provisória para o e-mail do aluno">
+                            <Button
+                              size="sm"
+                              icon="mail"
+                              disabled={reenviandoId === aluno.id}
+                              onClick={() => onReenviarAcesso(aluno)}
+                            >
+                              Reenviar acesso
+                            </Button>
+                          </Dica>
                         </div>
                       </td>
                     </tr>

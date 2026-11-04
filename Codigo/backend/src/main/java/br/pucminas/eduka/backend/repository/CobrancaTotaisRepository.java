@@ -20,6 +20,9 @@ public interface CobrancaTotaisRepository {
      */
     List<Grupo> agruparPorStatusEVencimento(Specification<Cobranca> filtro);
 
+    /** Quantos alunos diferentes tem cobranca que passa em {@code filtro}. */
+    long contarAlunos(Specification<Cobranca> filtro);
+
     record Grupo(StatusCobranca status, LocalDate dataVencimento, long quantidade, BigDecimal valor) {
     }
 }

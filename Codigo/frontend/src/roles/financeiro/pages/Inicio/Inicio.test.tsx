@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { paths } from '../../../../routes/paths'
 import { problema, simularApi, type RespostaApi } from '../../../../test/api'
 import type { DashboardFinanceiro } from '../../../../types/dashboard'
@@ -14,7 +14,13 @@ function reais(valor: number): string {
   return formatarMoeda(valor).replace(/\s/g, ' ')
 }
 
-const MESES_SEM_MOVIMENTO = ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10'].map((mes) => ({
+// Os 12 meses que o backend manda, de novembro de 2025 a outubro de 2026.
+const DOZE_MESES = Array.from({ length: 12 }, (_, i) => {
+  const mes = ((10 + i) % 12) + 1
+  return `${mes > 10 ? 2025 : 2026}-${String(mes).padStart(2, '0')}`
+})
+
+const MESES_SEM_MOVIMENTO = DOZE_MESES.map((mes) => ({
   mes,
   entrou: 0,
   saiu: 0,
@@ -36,7 +42,7 @@ const PAINEL: DashboardFinanceiro = {
   faltaReceber: { valor: 850, quantidade: 3 },
   emAtraso: { alunos: 1, cobrancas: 1, valor: 300, inadimplencia: 46 },
   despesasAPagar: { valor: 150, quantidade: 2, proximoVencimento: '2026-10-31' },
-  ultimosMeses: [...MESES_SEM_MOVIMENTO.slice(0, 5), { mes: '2026-10', entrou: 295, saiu: 40 }],
+  ultimosMeses: [...MESES_SEM_MOVIMENTO.slice(0, 11), { mes: '2026-10', entrou: 295, saiu: 40 }],
   vencemNaSemana: [
     {
       id: 'cob-atrasada',
@@ -80,10 +86,16 @@ const PAINEL: DashboardFinanceiro = {
   ultimasAcoes: [],
 }
 
+const PAGINA_VAZIA = { conteudo: [], pagina: 0, tamanho: 10, totalElementos: 0, totalPaginas: 0, totaisPorStatus: [] }
+
 function abrir(painel: RespostaApi) {
-  simularApi(({ caminho }) => {
+  const chamadas = simularApi(({ caminho }) => {
     if (caminho === '/dashboard/financeiro') return painel
-    if (caminho === '/cobrancas') return { corpo: [] }
+    if (caminho.startsWith('/cobrancas/pagina?')) return { corpo: PAGINA_VAZIA }
+    // O período do calendário: de 5 a 20 de outubro de 2026.
+    if (caminho === '/dashboard/financeiro/movimento?de=2026-10-05&ate=2026-10-20') {
+      return { corpo: [{ mes: '2026-10', entrou: 70, saiu: 10 }] }
+    }
     return undefined
   })
   const router = createMemoryRouter(
@@ -96,9 +108,14 @@ function abrir(painel: RespostaApi) {
     { initialEntries: [paths.financeiro.inicio] },
   )
   render(<RouterProvider router={router} />)
+  return chamadas
 }
 
 describe('Início do financeiro', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('mostra os totais do mês, o que vence na semana e os últimos pagamentos', async () => {
     abrir({ corpo: PAINEL })
 
@@ -133,12 +150,64 @@ describe('Início do financeiro', () => {
     expect(screen.getByText('Nenhum dinheiro entrou ou saiu nos últimos 6 meses.')).toBeInTheDocument()
   })
 
+  it('o filtro troca quantos meses o gráfico mostra, com os totais e o saldo do período', async () => {
+    // Todo mês entrou 100 e saiu 30; em dezembro de 2025 saiu uma despesa grande.
+    const ano = DOZE_MESES.map((mes) => ({ mes, entrou: 100, saiu: mes === '2025-12' ? 2000 : 30 }))
+    abrir({ corpo: { ...PAINEL, ultimosMeses: ano } })
+
+    const grafico = await screen.findByRole('list', { name: 'Dinheiro que entrou e saiu por mês' })
+    const meses = () => within(grafico).getAllByRole('listitem')
+    expect(meses()).toHaveLength(6)
+    expect(screen.getByRole('button', { name: '6 meses' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText(reais(600))).toBeInTheDocument()
+    expect(screen.getByText(`Saldo + ${reais(420)}`)).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: '12 meses' }))
+    expect(meses()).toHaveLength(12)
+    expect(screen.getByText('Cobranças recebidas e despesas pagas nos últimos 12 meses.')).toBeInTheDocument()
+    // 1.200 entraram e 11 × 30 + 2.000 = 2.330 saíram.
+    expect(screen.getByText(`Saldo − ${reais(1130)}`)).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: '3 meses' }))
+    expect(meses()).toHaveLength(3)
+    expect(screen.getByRole('img', { name: `Entrou em outubro de 2026: ${formatarMoeda(100)}` })).toBeInTheDocument()
+  })
+
+  it('o calendário busca o período escolhido e mostra só os meses dele', async () => {
+    // O calendário abre no mês de hoje: outubro de 2026.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-30T15:00:00Z'))
+    const chamadas = abrir({ corpo: PAINEL })
+
+    await userEvent.click(await screen.findByRole('button', { name: /personalizado/i }))
+    const calendario = screen.getByRole('dialog', { name: 'Escolher período' })
+    expect(within(calendario).getByRole('button', { name: 'Aplicar' })).toBeDisabled()
+    await userEvent.click(within(calendario).getByRole('button', { name: /(?<!\d)5 de outubro de 2026/i }))
+    await userEvent.click(within(calendario).getByRole('button', { name: /20 de outubro de 2026/i }))
+    expect(within(calendario).getByText('05/10/2026 – 20/10/2026')).toBeInTheDocument()
+    await userEvent.click(within(calendario).getByRole('button', { name: 'Aplicar' }))
+
+    expect(await screen.findByText(`Saldo + ${reais(60)}`)).toBeInTheDocument()
+    expect(chamadas.map((c) => c.caminho)).toContain('/dashboard/financeiro/movimento?de=2026-10-05&ate=2026-10-20')
+    expect(screen.getByText('Cobranças recebidas e despesas pagas de 05/10/2026 a 20/10/2026.')).toBeInTheDocument()
+    const grafico = screen.getByRole('list', { name: 'Dinheiro que entrou e saiu por mês' })
+    expect(within(grafico).getAllByRole('listitem')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: /05\/10\/2026 – 20\/10\/2026/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '6 meses' })).toHaveAttribute('aria-pressed', 'false')
+
+    // Voltar a um atalho usa os meses que o painel já trouxe.
+    await userEvent.click(screen.getByRole('button', { name: '3 meses' }))
+    expect(within(screen.getByRole('list', { name: 'Dinheiro que entrou e saiu por mês' })).getAllByRole('listitem'))
+      .toHaveLength(3)
+  })
+
   it('o atalho de atraso abre as cobranças já filtradas em Atrasadas', async () => {
-    abrir({ corpo: PAINEL })
+    const chamadas = abrir({ corpo: PAINEL })
 
     await userEvent.click(await screen.findByRole('button', { name: 'Ver cobranças em atraso' }))
 
-    expect(await screen.findByRole('tab', { name: /Atrasadas/ })).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByRole('button', { name: /Atrasadas/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(chamadas.map((c) => c.caminho)).toContain('/cobrancas/pagina?pagina=0&tamanho=10&status=EM_ATRASO')
   })
 
   it.each([

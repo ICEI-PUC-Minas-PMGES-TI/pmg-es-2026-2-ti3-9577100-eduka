@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
-import { usePopoverFlutuante } from '../../hooks/usePopoverFlutuante'
+import { POPOVER, usePopoverFlutuante } from '../../hooks/usePopoverFlutuante'
 import { Icon } from '../Icon/Icon'
 import styles from './Select.module.css'
 
@@ -55,6 +55,7 @@ export function Select<T extends string>({
     ancoraRef: botaoRef,
     popoverRef: listaRef,
     estilo: posicao,
+    portal,
   } = usePopoverFlutuante<HTMLButtonElement, HTMLUListElement>(aberto, () => setAberto(false), {
     alturaMinimaAbaixo: 160,
     alturaMaxima: ALTURA_MAXIMA_MENU,
@@ -185,9 +186,10 @@ export function Select<T extends string>({
         />
       </button>
 
-      {aberto && (
+      {portal(
         <ul
           ref={listaRef}
+          {...POPOVER}
           id={listaId}
           className={styles.menu}
           style={posicao}

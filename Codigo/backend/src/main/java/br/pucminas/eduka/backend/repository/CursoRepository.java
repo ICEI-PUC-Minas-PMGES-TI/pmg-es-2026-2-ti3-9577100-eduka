@@ -8,6 +8,8 @@ import java.util.UUID;
 
 public interface CursoRepository extends JpaRepository<Curso, Long> {
     List<Curso> findAllByEscolaId(UUID escolaId);
+
+    long countByEscolaId(UUID escolaId);
     Optional<Curso> findByIdAndEscolaId(Long id, UUID escolaId);
 }
 

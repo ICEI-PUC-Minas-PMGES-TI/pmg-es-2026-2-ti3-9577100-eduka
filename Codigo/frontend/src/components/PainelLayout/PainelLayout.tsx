@@ -7,12 +7,17 @@ import { iniciais } from '../../utils/formatters'
 import { Button } from '../Button/Button'
 import { Icon, type IconName } from '../Icon/Icon'
 import { Modal } from '../Modal/Modal'
+import { Dica } from '../Dica/Dica'
 import styles from './PainelLayout.module.css'
 
 /** Item do menu flutuante; sem `to` ainda não tem página e aparece desabilitado. */
 export type ItemMenu = {
   label: string
   icon: IconName
+  /**
+   * Página do item. Sem ela, o item aparece apagado com a dica "Em breve",
+   * marcando o que ainda falta implementar (no celular, some por inteiro).
+   */
   to?: string
 }
 
@@ -94,16 +99,12 @@ export function PainelLayout({
               </span>
             </div>
           )}
-          <button
-            type="button"
-            className={styles.pilula}
-            disabled={!ajuda}
-            title={ajuda ? 'Ajuda e orientações' : 'Em breve'}
-            onClick={() => setAjudaAberta(true)}
-          >
-            <Icon name="help" size={17} />
-            Ajuda
-          </button>
+          <Dica texto={ajuda ? 'Ajuda e orientações' : 'Em breve'}>
+            <button type="button" className={styles.pilula} disabled={!ajuda} onClick={() => setAjudaAberta(true)}>
+              <Icon name="help" size={17} />
+              Ajuda
+            </button>
+          </Dica>
           <button type="button" className={styles.pilula} onClick={sair}>
             <Icon name="logout" size={17} />
             Sair
@@ -126,10 +127,12 @@ export function PainelLayout({
                 <span>{item.label}</span>
               </NavLink>
             ) : (
-              <button key={item.label} type="button" className={styles.item} disabled title="Em breve">
-                <Icon name={item.icon} size={16} />
-                <span>{item.label}</span>
-              </button>
+              <Dica key={item.label} texto="Em breve">
+                <button type="button" className={styles.item} disabled>
+                  <Icon name={item.icon} size={16} />
+                  <span>{item.label}</span>
+                </button>
+              </Dica>
             ),
           )}
         </nav>

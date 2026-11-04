@@ -166,7 +166,7 @@ flowchart TB
         CADC["Cadastros<br/><code>/escolas</code> · <code>/usuarios/secretarias</code><br/><code>/alunos</code> · <code>/professores</code>"]
         ACADC["Acadêmico<br/><code>/academico/secretaria</code> · alocações<br/><code>/matriculas</code>"]
         FINC["Financeiro<br/><code>/cobrancas</code> · <code>/despesas</code>"]
-        PORTC["Portais<br/><code>/portal/professor</code> (turmas, avaliações, notas)<br/><code>/portal/aluno</code>"]
+        PORTC["Portais<br/><code>/portal/professor</code> (turmas, avaliações, notas, aulas e chamada)<br/><code>/portal/aluno</code>"]
         DASHC["DashboardController<br/><code>/dashboard</code>"]
         HLTC["HealthController<br/><code>GET /health</code>"]
     end
@@ -174,7 +174,7 @@ flowchart TB
     subgraph svc["service — regra de negócio"]
         AUTHS["AuthService · VerificacaoLoginService<br/>UsuarioService · AcessoService"]
         CADS["EscolaService · SecretariaService<br/>AlunoService · ProfessorService"]
-        ACADS["AcademicoSecretariaService<br/>AlocacaoProfessorService<br/>MatriculaTurmaService · AvaliacaoService"]
+        ACADS["AcademicoSecretariaService<br/>AlocacaoProfessorService · HorarioTurmaService<br/>MatriculaTurmaService · AvaliacaoService · AulaService"]
         PORTS["PortalProfessorService · PortalAlunoService<br/>DashboardService"]
     end
 
@@ -213,7 +213,7 @@ que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o e
 
 | Método | Rota | Perfis autorizados |
 |---|---|---|
-| `GET` | `/health` | público |
+| `GET` | `/health` (consulta o banco: 200 `UP`, 503 `DOWN`) | público |
 | `POST` | `/login` (com a verificação ligada, devolve só a `verificacao` pendente) | público |
 | `POST` | `/login/codigo` (confere o código de 6 dígitos e devolve os tokens) | público |
 | `POST` | `/login/codigo/reenvio` (troca o código; 429 se pedir cedo demais ou passar do limite de envios) | público |
@@ -267,7 +267,11 @@ que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o e
 | `DELETE` | `/academico/secretaria/{...}/{id}` (409 se o registro está em uso) | `MASTER`, `SECRETARIA` |
 | `GET` | `/professores/{professorId}/alocacoes` · `/turmas/{turmaId}/alocacoes` | `MASTER`, `SECRETARIA` |
 | `POST` | `/professores/{professorId}/alocacoes` (disciplina da grade da turma; 409 se já tem professor) | `MASTER`, `SECRETARIA` |
-| `DELETE` | `/professores/{professorId}/alocacoes/{alocacaoId}` | `MASTER`, `SECRETARIA` |
+| `DELETE` | `/professores/{professorId}/alocacoes/{alocacaoId}` (leva junto os horários dessa disciplina na grade semanal da turma, `HORARIO_TURMA` em cascata) | `MASTER`, `SECRETARIA` |
+| `GET` | `/turmas/{turmaId}/horario` (grade semanal da turma, de segunda a sábado e por hora, com disciplina e professor) | `MASTER`, `SECRETARIA` |
+| `POST` | `/turmas/{turmaId}/horario` (alocação da própria turma, dia e horas; 400 se a alocação é de outra turma ou o início não vem antes do fim; 409 `HORARIO_TURMA_CONFLITANTE` ou `HORARIO_PROFESSOR_CONFLITANTE` se sobrepõe outra aula da turma ou do professor no dia, e aulas que só se encostam não conflitam) | `MASTER`, `SECRETARIA` |
+| `PUT` | `/turmas/{turmaId}/horario/{horarioId}` (muda dia e horas; mesmas regras e 409) | `MASTER`, `SECRETARIA` |
+| `DELETE` | `/turmas/{turmaId}/horario/{horarioId}` | `MASTER`, `SECRETARIA` |
 | `GET` | `/matriculas?turmaId` · `/matriculas/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO`, `PROFESSOR` |
 | `POST` | `/matriculas` (409 se a turma está sem vagas ou o aluno já está nela) | `MASTER`, `SECRETARIA` |
 | `PATCH` | `/matriculas/{id}` (trancar, reativar, transferir, concluir, cancelar ou editar a observação) | `MASTER`, `SECRETARIA` |
@@ -384,9 +388,13 @@ sem isso, esses avisos não chegam.
 | `DELETE` | `/portal/professor/avaliacoes/{id}` (409 se já tem nota) | `PROFESSOR` |
 | `GET` | `/portal/professor/avaliacoes/{id}/notas` (alunos ativos da turma com a nota) | `PROFESSOR` |
 | `PUT` | `/portal/professor/avaliacoes/{id}/notas` (lança em lote; nota nula apaga) | `PROFESSOR` |
+| `GET` | `/portal/professor/aulas?turmaId&disciplinaId&pagina&tamanho&direcao` (aulas da disciplina na turma em páginas, da mais recente para a mais antiga, com os totais de presentes e faltas; 404 se não for alocada a ele) · `/portal/professor/aulas/{id}` (a aula com a chamada completa) | `PROFESSOR` (só turma/disciplina alocada a ele) |
+| `POST` | `/portal/professor/aulas` (registra data, conteúdo e a chamada presente/falta; 400 se a data é futura, se algum aluno com matrícula ativa na turma, feita até o dia da aula, ficou fora da lista, ou se há aluno sem matrícula ativa ou matriculado depois do dia da aula) | `PROFESSOR` |
+| `PUT` | `/portal/professor/aulas/{id}` (corrige conteúdo e chamada, mesmas regras; a data não muda) | `PROFESSOR` |
+| `DELETE` | `/portal/professor/aulas/{id}` (exclui a aula e a chamada dela, para desfazer data errada ou registro em duplicidade; 204, ou 404 se for de outro professor ou outra escola) | `PROFESSOR` |
 | `GET` | `/portal/aluno/me` (dados do próprio aluno, pelo token) | `ALUNO` |
 | `GET` | `/portal/aluno/turmas` (turmas do aluno, com a grade e os professores) | `ALUNO` |
-| `GET` | `/portal/aluno/boletim` (notas por turma e disciplina, com os totais de pontos) | `ALUNO` |
+| `GET` | `/portal/aluno/boletim` (notas por turma e disciplina, com os totais de pontos e a frequência: aulas, faltas, presença e alerta acima de 25% de faltas; nula em disciplina sem aula) | `ALUNO` |
 | `GET` | `/portal/aluno/avaliacoes` (agenda de provas, trabalhos e tarefas das turmas ativas) | `ALUNO` |
 | `GET` | `/portal/aluno/cobrancas/{id}` (uma cobrança do próprio aluno com `situacaoPagamento`, forma, `pagamento` (valor, data e forma, quando já pago online) e `acoes`: `PAGAR` em aberto, `VER_COMPROVANTE` quando paga com pagamento registrado; 404 se for de outro aluno) | `ALUNO` |
 | `GET` | `/portal/aluno/cobrancas/{id}/comprovante` (o mesmo comprovante da gestão, sem nenhuma URL do Asaas; 404 `COMPROVANTE_INDISPONIVEL` antes da confirmação; 404 se for de outro aluno) | `ALUNO` |
@@ -448,7 +456,7 @@ O isolamento tem duas camadas:
    `escolaId` do cliente. Quando o recurso é carregado por outro caminho,
    `IsolamentoEscola.exigirAcesso(escolaIdDoRecurso)` responde `403` se ele for de outra escola.
 2. **Persistência.** Entidades com o campo de escola anotado com `@TenantId` (hoje `Aluno`,
-   `Professor`, `AlocacaoProfessor`, `MatriculaTurma`, `Avaliacao` e `Nota`)
+   `Professor`, `AlocacaoProfessor`, `MatriculaTurma`, `Avaliacao`, `Nota`, `Aula` e `Frequencia`)
    recebem `escola_id = <escola do token>` automaticamente do Hibernate em toda consulta, e o
    campo é preenchido sozinho no insert. O tenant vem do `EscolaTenantIdentifierResolver`. Sem
    escola no contexto (login, subida da aplicação, `SUPER_ADMIN`), ele devolve um id que não
@@ -625,7 +633,7 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 * **Gestão de usuários pelo master.** A API de `/usuarios/secretarias` está pronta, mas o
   `MASTER` ainda não tem tela para cadastrar e inativar a secretaria.
 * **`@TenantId` nas demais entidades.** Hoje têm o filtro automático do Hibernate `Aluno`,
-  `Professor`, `AlocacaoProfessor`, `MatriculaTurma`, `Avaliacao` e `Nota`. As tabelas da estrutura
+  `Professor`, `AlocacaoProfessor`, `MatriculaTurma`, `Avaliacao`, `Nota`, `Aula` e `Frequencia`. As tabelas da estrutura
   acadêmica (`PeriodoLetivo`, `Curso`, `Disciplina`, `Turma`) filtram pela escola só nos services;
   as próximas entidades de negócio devem usar `@TenantId`. `Pessoa` é exceção proposital:
   o `SUPER_ADMIN` cria pessoas em nome de outras escolas, o que o filtro não expressa. Por isso

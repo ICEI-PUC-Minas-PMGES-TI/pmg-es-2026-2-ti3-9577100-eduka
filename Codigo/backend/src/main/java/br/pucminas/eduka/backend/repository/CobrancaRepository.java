@@ -42,6 +42,19 @@ public interface CobrancaRepository
     @EntityGraph(attributePaths = { "aluno", "matricula", "matricula.turma" })
     Optional<Cobranca> findByIdAndEscolaId(UUID id, UUID escolaId);
 
+    /**
+     * Cobrancas da escola pagas de {@code desde} (inclusive) ate {@code antes}
+     * (exclusive), com o que entrou: o valor pago no provedor ou, na baixa
+     * manual (sem pagamento registrado), o da cobranca. Para o painel somar
+     * por mes.
+     */
+    @Query("SELECT c.pagaEm AS pagaEm, COALESCE(p.valorPago, c.valor) AS valor FROM Cobranca c "
+            + "LEFT JOIN PagamentoCobranca p ON p.cobrancaId = c.id AND p.escolaId = c.escolaId "
+            + "WHERE c.escolaId = :escolaId AND c.status = br.pucminas.eduka.backend.domain.StatusCobranca.PAGA "
+            + "AND c.pagaEm >= :desde AND c.pagaEm < :antes")
+    List<Movimento> recebidosEntre(@Param("escolaId") UUID escolaId, @Param("desde") Instant desde,
+            @Param("antes") Instant antes);
+
     /** {@code responsavelId} e o id da pessoa do responsavel, como na coluna. */
     boolean existsByEscolaIdAndResponsavelId(UUID escolaId, UUID responsavelId);
 

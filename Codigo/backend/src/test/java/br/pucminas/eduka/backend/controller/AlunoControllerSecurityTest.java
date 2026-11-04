@@ -37,6 +37,7 @@ import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
+import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.ResponsavelRepository;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
@@ -83,6 +84,8 @@ class AlunoControllerSecurityTest {
     private ResponsavelRepository responsavelRepository;
     @MockitoBean
     private CobrancaRepository cobrancaRepository;
+    @MockitoBean
+    private MatriculaTurmaRepository matriculaRepository;
     @MockitoBean
     private UsuarioRepository usuarioRepository;
 

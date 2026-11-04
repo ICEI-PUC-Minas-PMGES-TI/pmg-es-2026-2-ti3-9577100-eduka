@@ -40,4 +40,15 @@ class CobrancaTotaisRepositoryImpl implements CobrancaTotaisRepository {
                         linha.get(valor)))
                 .toList();
     }
+
+    @Override
+    public long contarAlunos(Specification<Cobranca> filtro) {
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Long> query = cb.createQuery(Long.class);
+        Root<Cobranca> cobranca = query.from(Cobranca.class);
+
+        query.select(cb.countDistinct(cobranca.get("aluno").get("id")))
+                .where(filtro.toPredicate(cobranca, query, cb));
+        return entityManager.createQuery(query).getSingleResult();
+    }
 }

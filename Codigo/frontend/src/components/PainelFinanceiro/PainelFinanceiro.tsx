@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import type { PerfilUsuario } from '../../services/authService'
 import type {
   AcaoRecente,
@@ -9,8 +9,13 @@ import type {
   PagamentoRecente,
 } from '../../types/dashboard'
 import { ROTULOS_FORMA_PAGAMENTO } from '../../types/pagamentoAluno'
-import { formatarDiaMes, formatarMoeda, hojeIso } from '../../utils/formatters'
+import { formatarDiaMes, formatarMoeda, formatarMoedaCompacta, hojeIso } from '../../utils/formatters'
+import { useCarregamento } from '../../hooks/useCarregamento'
+import { obterMovimentoFinanceiro } from '../../services/dashboardService'
 import { Badge } from '../Badge/Badge'
+import { Button } from '../Button/Button'
+import { formatarIso } from '../CampoData/datas'
+import { CampoPeriodo, type Periodo } from '../CampoPeriodo/CampoPeriodo'
 import { GraficoComparativo, Painel, PainelVazio } from '../Dashboard/Dashboard'
 import styles from './PainelFinanceiro.module.css'
 
@@ -91,24 +96,148 @@ function diaEHora(instante: string): string {
   return DIA_E_HORA.format(new Date(instante)).replace(', ', ' às ')
 }
 
-/** Gráfico de barras dos 6 últimos meses: cobranças pagas e despesas pagas. */
+/** Atalhos de período: os últimos meses, que o painel já trouxe; trocar entre eles não busca de novo. */
+const PERIODOS = [3, 6, 12]
+const PERIODO_INICIAL = 6
+
+/** Maior período do calendário, como o backend aceita. */
+const MAXIMO_DE_MESES = 24
+
+// Estável: o useCarregamento pede o valor inicial sempre igual.
+const SEM_MESES: MesFinanceiro[] = []
+
+/** Os últimos meses (atalho) ou um período escolhido no calendário. */
+type FiltroDoGrafico = { tipo: 'meses'; meses: number } | { tipo: 'periodo'; periodo: Periodo }
+
+/** Quantos meses de calendário o período toca, contando os das pontas. */
+function mesesNoPeriodo({ de, ate }: Periodo): number {
+  const [anoDe, mesDe] = de.split('-').map(Number)
+  const [anoAte, mesAte] = ate.split('-').map(Number)
+  return (anoAte - anoDe) * 12 + (mesAte - mesDe) + 1
+}
+
+/**
+ * Gráfico de barras de cobranças pagas e despesas pagas por mês. Os atalhos
+ * mostram os últimos 3, 6 ou 12 meses; "Personalizado" abre um calendário e
+ * busca o período escolhido.
+ */
 export function EntrouESaiu({ meses }: { meses: MesFinanceiro[] }) {
-  const semMovimento = meses.every((mes) => mes.entrou === 0 && mes.saiu === 0)
+  const [filtro, setFiltro] = useState<FiltroDoGrafico>({ tipo: 'meses', meses: PERIODO_INICIAL })
+  const [erroPeriodo, setErroPeriodo] = useState<string | null>(null)
+  const periodo = filtro.tipo === 'periodo' ? filtro.periodo : null
+
+  const buscarPeriodo = useMemo(
+    () => (periodo ? (signal: AbortSignal) => obterMovimentoFinanceiro(periodo, signal) : null),
+    [periodo],
+  )
+  const doCalendario = useCarregamento(buscarPeriodo, SEM_MESES, 'Não foi possível carregar o período.')
+
+  const doPeriodo = filtro.tipo === 'meses' ? meses.slice(-filtro.meses) : doCalendario.dados
+  const entrou = doPeriodo.reduce((soma, mes) => soma + mes.entrou, 0)
+  const saiu = doPeriodo.reduce((soma, mes) => soma + mes.saiu, 0)
+  const saldo = entrou - saiu
+  // Com mais de um ano na tela, o mês curto leva o ano junto ("out/25").
+  const variosAnos = new Set(doPeriodo.map((mes) => mes.mes.slice(0, 4))).size > 1
+
+  const quando =
+    filtro.tipo === 'meses'
+      ? `nos últimos ${filtro.meses} meses`
+      : filtro.periodo.de === filtro.periodo.ate
+        ? `em ${formatarIso(filtro.periodo.de)}`
+        : `de ${formatarIso(filtro.periodo.de)} a ${formatarIso(filtro.periodo.ate)}`
+
+  function escolherPeriodo(escolhido: Periodo) {
+    if (mesesNoPeriodo(escolhido) > MAXIMO_DE_MESES) {
+      setErroPeriodo(`Escolha um período de até ${MAXIMO_DE_MESES} meses.`)
+      return
+    }
+    setErroPeriodo(null)
+    setFiltro({ tipo: 'periodo', periodo: escolhido })
+  }
+
+  function escolherMeses(quantidade: number) {
+    setErroPeriodo(null)
+    setFiltro({ tipo: 'meses', meses: quantidade })
+  }
+
+  function conteudo() {
+    if (periodo && doCalendario.carregando) {
+      return <PainelVazio>Carregando o período…</PainelVazio>
+    }
+    if (periodo && doCalendario.erro) {
+      return (
+        <div className={styles.erroGrafico} role="alert">
+          <span>{doCalendario.erro}</span>
+          <Button size="sm" onClick={doCalendario.recarregar}>
+            Tentar novamente
+          </Button>
+        </div>
+      )
+    }
+    if (entrou === 0 && saiu === 0) {
+      return <PainelVazio>{`Nenhum dinheiro entrou ou saiu ${quando}.`}</PainelVazio>
+    }
+    return (
+      <GraficoComparativo
+        rotulo="Dinheiro que entrou e saiu por mês"
+        series={['Entrou', 'Saiu']}
+        formatar={formatarMoeda}
+        formatarEixo={formatarMoedaCompacta}
+        resumo={[formatarMoeda(entrou), formatarMoeda(saiu)]}
+        aoLadoDaLegenda={
+          <Badge tone={saldo < 0 ? 'danger' : 'success'}>
+            Saldo {saldo < 0 ? '−' : '+'} {formatarMoeda(Math.abs(saldo))}
+          </Badge>
+        }
+        grupos={doPeriodo.map((mes) => {
+          const nome = nomeDoMes(mes.mes)
+          return {
+            rotulo: variosAnos ? `${nome.curto}/${mes.mes.slice(2, 4)}` : nome.curto,
+            titulo: nome.extenso,
+            valores: [mes.entrou, mes.saiu],
+          }
+        })}
+      />
+    )
+  }
+
   return (
-    <Painel titulo="Dinheiro que entrou e saiu" descricao="Cobranças recebidas e despesas pagas nos últimos 6 meses.">
-      {semMovimento ? (
-        <PainelVazio>Nenhum dinheiro entrou ou saiu nos últimos 6 meses.</PainelVazio>
-      ) : (
-        <GraficoComparativo
-          rotulo="Dinheiro que entrou e saiu por mês"
-          series={['Entrou', 'Saiu']}
-          formatar={formatarMoeda}
-          grupos={meses.map((mes) => {
-            const nome = nomeDoMes(mes.mes)
-            return { rotulo: nome.curto, titulo: nome.extenso, valores: [mes.entrou, mes.saiu] }
+    <Painel
+      titulo="Dinheiro que entrou e saiu"
+      descricao={`Cobranças recebidas e despesas pagas ${quando}.`}
+      acao={
+        <div className={styles.periodos} role="group" aria-label="Período do gráfico">
+          {PERIODOS.map((opcao) => {
+            const ativo = filtro.tipo === 'meses' && filtro.meses === opcao
+            return (
+              <button
+                key={opcao}
+                type="button"
+                aria-pressed={ativo}
+                className={`${styles.periodo} ${ativo ? styles.periodoAtivo : ''}`}
+                onClick={() => escolherMeses(opcao)}
+              >
+                {opcao} meses
+              </button>
+            )
           })}
-        />
+          <CampoPeriodo
+            valor={periodo}
+            onChange={escolherPeriodo}
+            placeholder="Personalizado"
+            max={hojeIso()}
+            aria-pressed={periodo !== null}
+            className={`${styles.periodo} ${periodo ? styles.periodoAtivo : ''}`}
+          />
+        </div>
+      }
+    >
+      {erroPeriodo && (
+        <p className={styles.avisoPeriodo} role="alert">
+          {erroPeriodo}
+        </p>
       )}
+      {conteudo()}
     </Painel>
   )
 }

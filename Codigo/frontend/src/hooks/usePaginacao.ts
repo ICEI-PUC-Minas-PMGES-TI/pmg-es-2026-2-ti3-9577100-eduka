@@ -1,9 +1,13 @@
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
 /** Itens por página das listas, quando a tela não define outro valor. */
 export const POR_PAGINA = 10
 
+/** Quantos itens por página o usuário pode escolher. */
+export const OPCOES_POR_PAGINA = [10, 20, 50]
+
 type OpcoesPaginacao = {
+  /** Itens por página ao abrir a tela; o usuário pode trocar. */
   porPagina?: number
   /**
    * Quando muda (busca, filtro, aba), a lista volta para a primeira página.
@@ -23,18 +27,28 @@ export type EstadoPaginacao<T> = {
   inicio: number
   total: number
   irPara: (pagina: number) => void
+  porPagina: number
+  /** Troca a quantidade por página; sem ela, a Paginacao não oferece a escolha. */
+  mudarPorPagina?: (porPagina: number) => void
+}
+
+/** Página (a partir de 1) onde fica o item `inicio` com `porPagina` itens em cada. */
+function paginaDoItem(inicio: number, porPagina: number): number {
+  return Math.floor(inicio / porPagina) + 1
 }
 
 /**
  * Paginação feita no front, sobre a lista já carregada. A página nunca passa
  * da última, mesmo depois de uma recarga encolher a lista. Trocar de página
- * rola até o elemento que recebe o `topo` (ref).
+ * rola até o elemento que recebe o `topo` (ref). Trocar a quantidade por
+ * página mantém na tela o primeiro item que estava nela.
  */
 export function usePaginacao<T, E extends HTMLElement = HTMLDivElement>(
   itens: T[],
-  { porPagina = POR_PAGINA, reiniciarCom }: OpcoesPaginacao = {},
+  { porPagina: porPaginaInicial = POR_PAGINA, reiniciarCom }: OpcoesPaginacao = {},
 ) {
   const [estado, setEstado] = useState({ pagina: 1, chave: reiniciarCom })
+  const [porPagina, setPorPagina] = useState(porPaginaInicial)
   const topo = useRef<E>(null)
 
   let pagina = estado.pagina
@@ -53,6 +67,11 @@ export function usePaginacao<T, E extends HTMLElement = HTMLDivElement>(
     topo.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  function mudarPorPagina(novo: number) {
+    setPorPagina(novo)
+    setEstado((atual) => ({ ...atual, pagina: paginaDoItem(inicio, novo) }))
+  }
+
   const paginacao: EstadoPaginacao<T> = {
     itensDaPagina: itens.slice(inicio, inicio + porPagina),
     pagina: paginaAtual,
@@ -60,7 +79,62 @@ export function usePaginacao<T, E extends HTMLElement = HTMLDivElement>(
     inicio,
     total: itens.length,
     irPara,
+    porPagina,
+    mudarPorPagina,
   }
   // O ref sai separado: junto do estado, o lint trataria toda leitura do estado como leitura de ref.
   return { paginacao, topo }
+}
+
+/**
+ * Página pedida ao backend (a partir de 0) e quantos itens por página.
+ * `irPara` recebe a página como a Paginacao mostra, a partir de 1, e rola até
+ * o elemento que recebe o `topo`. Busca ou filtro novo volta com `setPagina(0)`.
+ */
+export function usePaginaDoBackend<E extends HTMLElement = HTMLDivElement>() {
+  const [pagina, setPagina] = useState(0)
+  const [porPagina, setPorPagina] = useState(POR_PAGINA)
+  const topo = useRef<E>(null)
+
+  const irPara = useCallback((nova: number) => {
+    setPagina(nova - 1)
+    topo.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
+
+  /** Mantém na tela o primeiro item que estava nela. */
+  const mudarPorPagina = useCallback(
+    (novo: number) => {
+      setPagina(paginaDoItem(pagina * porPagina, novo) - 1)
+      setPorPagina(novo)
+    },
+    [pagina, porPagina],
+  )
+
+  return { pagina, setPagina, porPagina, irPara, mudarPorPagina, topo }
+}
+
+/** Página que o backend já devolve cortada; `pagina` começa em 0. */
+export type PaginaDoBackend<T> = {
+  conteudo: T[]
+  pagina: number
+  tamanho: number
+  totalElementos: number
+  totalPaginas: number
+}
+
+/** Estado do componente Paginacao para uma lista paginada no backend; os controles vêm do usePaginaDoBackend. */
+export function paginacaoDoBackend<T>(
+  pagina: PaginaDoBackend<T>,
+  { irPara, mudarPorPagina }: Pick<EstadoPaginacao<T>, 'irPara' | 'mudarPorPagina'>,
+): EstadoPaginacao<T> {
+  return {
+    itensDaPagina: pagina.conteudo,
+    pagina: pagina.pagina + 1,
+    totalPaginas: Math.max(1, pagina.totalPaginas),
+    inicio: pagina.pagina * pagina.tamanho,
+    total: pagina.totalElementos,
+    irPara,
+    porPagina: pagina.tamanho,
+    mudarPorPagina,
+  }
 }

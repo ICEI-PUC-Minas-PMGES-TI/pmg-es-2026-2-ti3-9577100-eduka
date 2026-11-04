@@ -4,6 +4,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -17,12 +18,16 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.pucminas.eduka.backend.dto.Ordenacao;
+import br.pucminas.eduka.backend.dto.PaginaResponse;
+import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.dto.ProfessorRequest;
 import br.pucminas.eduka.backend.dto.ProfessorResponse;
 import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.ProfessorService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
@@ -54,6 +59,22 @@ public class ProfessorController {
             @Parameter(description = "Filtro parcial pelo nome") @RequestParam(required = false) String nome,
             @Parameter(description = "Filtra por ativos (true) ou inativos (false)") @RequestParam(required = false) Boolean ativo) {
         return professorService.listar(nome, ativo);
+    }
+
+    @GetMapping("/pagina")
+    @Operation(summary = "Lista os professores em paginas", description = "Filtros opcionais por parte do nome e "
+            + "por `ativo`. `pagina` comeca em 0; `tamanho` vai de 1 a 100. `ordenarPor`: NOME (padrao) ou "
+            + "DATA_ADMISSAO; `direcao`: ASC (padrao) ou DESC.")
+    @ApiResponse(responseCode = "200", description = "A pagina de professores.")
+    @ApiResponse(responseCode = "400", description = "Pagina, tamanho ou ordenacao invalidos.")
+    public PaginaResponse<ProfessorResponse> listarPaginado(
+            @Parameter(description = "Filtro parcial pelo nome") @RequestParam(required = false) String nome,
+            @Parameter(description = "Filtra por ativos (true) ou inativos (false)") @RequestParam(required = false) Boolean ativo,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = Paginacao.TAMANHO_PADRAO) int tamanho,
+            @RequestParam(defaultValue = "NOME") Ordenacao.Professores ordenarPor,
+            @RequestParam(required = false) Direction direcao) {
+        return professorService.listarPaginado(nome, ativo, new Paginacao(pagina, tamanho), ordenarPor, direcao);
     }
 
     @GetMapping("/{id}")

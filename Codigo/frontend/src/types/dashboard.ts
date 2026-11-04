@@ -192,7 +192,7 @@ export type DashboardFinanceiro = {
     /** ISO (yyyy-MM-dd), de hoje em diante; nulo se não houver. */
     proximoVencimento: string | null
   }
-  /** Os 6 últimos meses, do mais antigo ao atual. */
+  /** Os 12 últimos meses, do mais antigo ao atual; o gráfico filtra quantos mostra. */
   ultimosMeses: MesFinanceiro[]
   /** Em atraso e as que vencem até daqui a 6 dias, pelo vencimento; no máximo 10. */
   vencemNaSemana: CobrancaDaSemana[]

@@ -8,6 +8,7 @@ import {
   listarCategoriasDespesa,
   listarDespesas,
   mudarSituacaoDespesa,
+  type PeriodoDespesas,
 } from '../../../../services/despesaService'
 import type {
   CategoriaDespesa,
@@ -24,6 +25,14 @@ function rotuloDoMes(anoMes: string): string {
   const [ano, mes] = anoMes.split('-').map(Number)
   const rotulo = new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
   return rotulo.charAt(0).toUpperCase() + rotulo.slice(1)
+}
+
+/** "2026-02" -> do dia 01 ao 28 de fevereiro, como o backend filtra. */
+function periodoDoMes(anoMes: string): PeriodoDespesas {
+  const [ano, mes] = anoMes.split('-').map(Number)
+  // Dia 0 do mês seguinte é o último deste.
+  const ultimoDia = new Date(ano, mes, 0).getDate()
+  return { vencimentoDe: `${anoMes}-01`, vencimentoAte: `${anoMes}-${String(ultimoDia).padStart(2, '0')}` }
 }
 
 function mensagemDeErro(e: unknown, padrao: string): string {
@@ -70,7 +79,9 @@ export function Despesas() {
 
   useEffect(() => {
     const controller = new AbortController()
-    Promise.all([listarDespesas(controller.signal), listarCategoriasDespesa(controller.signal)])
+    // A tela é a lista do mês: o histórico das outras despesas fica no backend.
+    const doMes = periodoDoMes(hojeIso().slice(0, 7))
+    Promise.all([listarDespesas(doMes, controller.signal), listarCategoriasDespesa(controller.signal)])
       .then(([dadosDespesas, dadosCategorias]) => {
         setDespesas(dadosDespesas)
         setCategorias(dadosCategorias)

@@ -179,10 +179,9 @@ export function DiarioNotas({ avaliacao, notas, onPendente, onSalvo }: DiarioNot
             <table ref={tabelaRef} className={styles.tabela}>
               <thead>
                 <tr>
-                  <th>Matrícula</th>
                   <th>Aluno</th>
-                  <th>Nota</th>
-                  <th>Situação</th>
+                  <th className={styles.colunaNota}>Nota</th>
+                  <th className={styles.colunaSituacao}>Situação</th>
                   <th>Observação</th>
                 </tr>
               </thead>
@@ -195,27 +194,34 @@ export function DiarioNotas({ avaliacao, notas, onPendente, onSalvo }: DiarioNot
                   if (!editavel(n)) {
                     return (
                       <tr key={n.alunoId} className={styles.inativo}>
-                        <td className={styles.secundario}>{n.alunoNumeroMatricula}</td>
-                        <td>
+                        <td className={styles.celAluno}>
                           <span className={styles.aluno}>{n.alunoNome}</span>{' '}
                           <Badge tone="neutral">
                             {n.situacaoMatricula ? ROTULOS_STATUS_MATRICULA[n.situacaoMatricula] : 'Saiu da turma'}
                           </Badge>
+                          <span className={styles.numero}>Nº {n.alunoNumeroMatricula}</span>
                         </td>
-                        <td>{n.valor === null ? '—' : formatarPontos(n.valor)}</td>
-                        <td>
+                        {/* data-rotulo: no card estreito, as colunas viram linhas e o rótulo vai junto. */}
+                        <td className={`${styles.colunaNota} ${styles.celNota}`} data-rotulo="Nota">
+                          {n.valor === null ? '—' : formatarPontos(n.valor)}
+                        </td>
+                        <td className={`${styles.colunaSituacao} ${styles.celSituacao}`}>
                           <Situacao nota={n.valor} valor={avaliacao.valor} />
                         </td>
-                        <td className={styles.secundario}>{n.observacao ?? '—'}</td>
+                        <td className={`${styles.secundario} ${styles.celObservacao}`} data-rotulo="Observação">
+                          {n.observacao ?? '—'}
+                        </td>
                       </tr>
                     )
                   }
 
                   return (
                     <tr key={n.alunoId} className={alterados.includes(n) ? styles.alterado : undefined}>
-                      <td className={styles.secundario}>{n.alunoNumeroMatricula}</td>
-                      <td className={styles.aluno}>{n.alunoNome}</td>
-                      <td>
+                      <td className={styles.celAluno}>
+                        <span className={styles.aluno}>{n.alunoNome}</span>
+                        <span className={styles.numero}>Nº {n.alunoNumeroMatricula}</span>
+                      </td>
+                      <td className={`${styles.colunaNota} ${styles.celNota}`} data-rotulo="Nota">
                         <div className={styles.nota}>
                           <input
                             className={`${styles.campo} ${styles.campoNota}`}
@@ -237,10 +243,10 @@ export function DiarioNotas({ avaliacao, notas, onPendente, onSalvo }: DiarioNot
                           </span>
                         )}
                       </td>
-                      <td>
+                      <td className={`${styles.colunaSituacao} ${styles.celSituacao}`}>
                         <Situacao nota={lerPontos(linha.nota)} valor={avaliacao.valor} />
                       </td>
-                      <td>
+                      <td className={styles.celObservacao} data-rotulo="Observação">
                         <input
                           className={styles.campo}
                           maxLength={MAX_OBSERVACAO}

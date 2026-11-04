@@ -73,8 +73,8 @@ public class DemoAcessoService {
         this.usuarioRepository = usuarioRepository;
         this.jwtService = jwtService;
         this.loginSuperAdmin = loginSuperAdmin.isBlank() ? "" : UsuarioService.normalizarLogin(loginSuperAdmin);
-        // So o tamanho da senha: confere a configuracao sem expor o valor no log.
-        log.info("Acesso de demonstracao: login {}, senha de {} caracteres", loginAcesso, senhaAcesso.length());
+        // Nem login nem senha: so confirma que o acesso foi configurado.
+        log.info("Acesso de demonstracao configurado");
     }
 
     /** Contas disponiveis, so as que existem e estao ativas no banco. */

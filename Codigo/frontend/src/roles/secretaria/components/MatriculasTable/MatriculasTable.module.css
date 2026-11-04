@@ -1,3 +1,18 @@
+/* O card fica na coluna estreita da tela de matrículas: a tabela se ajusta à
+   largura dele em vez de rolar para o lado. */
+.cartao {
+  container-type: inline-size;
+}
+
+.cartao table {
+  min-width: 0;
+}
+
+/* "Matriculado em" quebra em duas linhas em vez de alargar a coluna. */
+.cartao thead th {
+  white-space: normal;
+}
+
 .nome {
   display: block;
   font-family: var(--font-display);
@@ -11,6 +26,10 @@
   font-size: 12.5px;
 }
 
+.data {
+  white-space: nowrap;
+}
+
 .observacao {
   max-width: 260px;
   color: var(--color-text-muted);
@@ -19,5 +38,79 @@
 
 .acoes {
   text-align: right;
-  white-space: nowrap;
+}
+
+/* Lado a lado quando cabe; um embaixo do outro quando a coluna aperta. */
+.botoes {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* Card estreito (celular): cada matrícula vira um bloco, sem esconder nenhum dado. */
+@container (max-width: 620px) {
+  .cartao table,
+  .cartao tbody {
+    display: block;
+  }
+
+  .cartao thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .cartao tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'aluno situacao'
+      'data data'
+      'observacao observacao'
+      'acoes acoes';
+    gap: 6px 12px;
+    padding: 14px;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .cartao tbody tr > td {
+    display: block;
+    padding: 0;
+    border: 0;
+  }
+
+  .cartao tbody tr > .aluno {
+    grid-area: aluno;
+  }
+
+  .cartao tbody tr > .situacao {
+    grid-area: situacao;
+  }
+
+  .cartao tbody tr > .data {
+    grid-area: data;
+    font-size: 13.5px;
+    white-space: normal;
+  }
+
+  .cartao tbody tr > .observacao {
+    grid-area: observacao;
+    max-width: none;
+    font-size: 13.5px;
+  }
+
+  .cartao tbody tr > .data::before,
+  .cartao tbody tr > .observacao::before {
+    content: attr(data-rotulo) ': ';
+    color: var(--color-text-subtle);
+    font-weight: 700;
+  }
+
+  .cartao tbody tr > .acoes {
+    grid-area: acoes;
+  }
 }

@@ -14,7 +14,7 @@ export function cadastrarAluno(dados: AlunoRequest): Promise<Aluno> {
   return apiRequest<Aluno>('/alunos', { method: 'POST', body: JSON.stringify(dados) })
 }
 
-/** Substitui os dados do aluno; os responsáveis não mudam. 409 como no cadastro. */
+/** Substitui os dados do aluno; os responsáveis mudam em responsavelService. 409 como no cadastro. */
 export function atualizarAluno(id: string, dados: AlunoRequest): Promise<Aluno> {
   return apiRequest<Aluno>(`/alunos/${id}`, { method: 'PUT', body: JSON.stringify(dados) })
 }
