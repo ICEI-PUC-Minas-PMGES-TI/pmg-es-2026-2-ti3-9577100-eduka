@@ -26,11 +26,13 @@ public record TurmaDoProfessorResponse(
             Long id,
             String nome,
             String codigo,
-            Integer cargaHoraria) {
+            Integer cargaHoraria,
+            /** Aulas da disciplina na turma, por dia e hora (IU13); vazia sem horario definido. */
+            List<HorarioAulaResponse> horarios) {
 
-        public static DisciplinaDoProfessor de(Disciplina disciplina) {
+        public static DisciplinaDoProfessor de(Disciplina disciplina, List<HorarioAulaResponse> horarios) {
             return new DisciplinaDoProfessor(disciplina.getId(), disciplina.getNome(), disciplina.getCodigo(),
-                    disciplina.getCargaHoraria());
+                    disciplina.getCargaHoraria(), horarios);
         }
     }
 

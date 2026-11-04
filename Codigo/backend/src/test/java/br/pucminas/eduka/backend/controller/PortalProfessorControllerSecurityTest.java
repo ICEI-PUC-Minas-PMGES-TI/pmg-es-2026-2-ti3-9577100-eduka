@@ -30,6 +30,9 @@ import br.pucminas.eduka.backend.domain.Turma;
 import br.pucminas.eduka.backend.domain.Turno;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
 import br.pucminas.eduka.backend.repository.AlocacaoProfessorRepository;
+import br.pucminas.eduka.backend.repository.HorarioAulaRepository;
+import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
+import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.repository.ProfessorRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
@@ -63,6 +66,12 @@ class PortalProfessorControllerSecurityTest {
     private AlocacaoProfessorRepository alocacaoRepository;
     @MockitoBean
     private DashboardService dashboardService;
+    @MockitoBean
+    private HorarioAulaRepository horarioRepository;
+    @MockitoBean
+    private MatriculaTurmaRepository matriculaRepository;
+    @MockitoBean
+    private PessoaRepository pessoaRepository;
 
     private String accessToken(UUID usuarioId, String perfil, UUID escolaId) {
         return jwtService.generateAccessToken(usuarioId, perfil, escolaId);

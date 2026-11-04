@@ -3,6 +3,7 @@ import { Icon } from '../../../../components/Icon/Icon'
 import { ROTULOS_TURNO, type DisciplinaDaTurma, type Turma } from '../../../../types/alocacao'
 import type { EscolhasDaTurma } from '../../hooks/useAlocacoes'
 import { SeletorProfessor, type OpcaoProfessor } from '../SeletorProfessor/SeletorProfessor'
+import { descreverHorarios, type HorarioAula } from '../../../../types/horario'
 import styles from './GradeAlocacao.module.css'
 
 type GradeAlocacaoProps = {
@@ -18,6 +19,9 @@ type GradeAlocacaoProps = {
   /** Quantas disciplinas estão com escolha diferente da gravada. */
   mudancas: number
   salvando: boolean
+  /** Horário das aulas da turma (IU13), de todas as disciplinas. */
+  horarios: HorarioAula[]
+  onEditarHorario: (disciplina: DisciplinaDaTurma) => void
   onEscolher: (disciplinaId: number, professorId: string) => void
   onDesfazer: () => void
   onSalvar: () => void
@@ -35,6 +39,8 @@ export function GradeAlocacao({
   escolhas,
   mudancas,
   salvando,
+  horarios,
+  onEditarHorario,
   onEscolher,
   onDesfazer,
   onSalvar,
@@ -97,6 +103,17 @@ export function GradeAlocacao({
                     .filter(Boolean)
                     .join(' · ')}
                   {alterada && <span className={styles.alterada}>Alterada</span>}
+                </span>
+                <span className={styles.horario}>
+                  {descreverHorarios(horarios.filter((h) => h.disciplinaId === disciplina.id)) ?? 'Sem horário'}
+                  <button
+                    type="button"
+                    className={styles.editarHorario}
+                    aria-label={`Horário de ${disciplina.nome}`}
+                    onClick={() => onEditarHorario(disciplina)}
+                  >
+                    Definir horário
+                  </button>
                 </span>
               </div>
               <div className={styles.seletor}>
