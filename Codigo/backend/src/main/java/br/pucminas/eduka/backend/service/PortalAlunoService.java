@@ -210,8 +210,10 @@ public class PortalAlunoService {
         return avaliacaoRepository.findAllByEscolaIdAndTurmaIdIn(escolaId, turmaIds(matriculas));
     }
 
+    /** So as notas publicadas: em rascunho (IU14), o aluno ainda nao ve a nota. */
     private Map<UUID, Nota> notasPorAvaliacao(Aluno aluno, UUID escolaId) {
         return notaRepository.findAllByEscolaIdAndAlunoId(escolaId, aluno.getId()).stream()
+                .filter(n -> n.getAvaliacao().isNotasPublicadas())
                 .collect(Collectors.toMap(n -> n.getAvaliacao().getId(), Function.identity()));
     }
 

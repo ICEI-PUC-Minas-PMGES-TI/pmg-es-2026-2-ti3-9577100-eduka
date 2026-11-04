@@ -207,6 +207,17 @@ class RoteadorFaturaTest {
     }
 
     @Test
+    void superAdminVeAsFaturasDeTodasAsEscolasComONomeDeCada() {
+        when(faturaRepository.findAllByOrderByDataVencimentoDescCompetenciaDesc()).thenReturn(List.of(fatura));
+        when(escolaRepository.findAllById(List.of(ESCOLA))).thenReturn(List.of(escola));
+
+        assertThat(roteador.listarTodas()).singleElement().satisfies(f -> {
+            assertThat(f.escolaNome()).isEqualTo("Colegio Horizonte");
+            assertThat(f.acoes()).containsExactly(FaturaPlataformaResponse.CANCELAR);
+        });
+    }
+
+    @Test
     void faturaPendenteVencidaApareceEmAtraso() {
         fatura.setDataVencimento(HOJE.minusDays(1));
         when(faturaRepository.findAllByEscolaIdOrderByCompetenciaDesc(ESCOLA)).thenReturn(List.of(fatura));

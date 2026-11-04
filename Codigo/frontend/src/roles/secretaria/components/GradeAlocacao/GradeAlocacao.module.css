@@ -221,3 +221,27 @@
     width: 100%;
   }
 }
+
+.horario {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  color: var(--color-text-subtle);
+  font-size: 12.5px;
+}
+
+.editarHorario {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--color-primary, #7c4dff);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.editarHorario:hover {
+  text-decoration: underline;
+}

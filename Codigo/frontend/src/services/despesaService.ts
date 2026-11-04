@@ -15,6 +15,11 @@ export function listarCategoriasDespesa(signal?: AbortSignal): Promise<Categoria
   return apiRequest<CategoriaDespesa[]>('/categorias-despesa', { signal })
 }
 
+/** 409 se a escola já tem categoria com o mesmo nome (sem diferenciar maiúsculas). */
+export function criarCategoriaDespesa(nome: string): Promise<CategoriaDespesa> {
+  return apiRequest<CategoriaDespesa>('/categorias-despesa', { method: 'POST', body: JSON.stringify({ nome }) })
+}
+
 /** 404 se a categoria não é da escola. */
 export function criarDespesa(dados: NovaDespesaRequest): Promise<Despesa> {
   return apiRequest<Despesa>('/despesas', { method: 'POST', body: JSON.stringify(dados) })

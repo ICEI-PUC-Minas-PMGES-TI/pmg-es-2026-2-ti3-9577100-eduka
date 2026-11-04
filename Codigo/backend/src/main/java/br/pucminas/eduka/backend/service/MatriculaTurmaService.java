@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.MatriculaTurma;
+import br.pucminas.eduka.backend.domain.PeriodoLetivo;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.StatusMatricula;
 import br.pucminas.eduka.backend.domain.Turma;
@@ -59,7 +60,8 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 public class MatriculaTurmaService {
 
     /** A data da matricula e a do calendario da escola, nao a de UTC. */
-    private static final ZoneId FUSO_ESCOLA = ZoneId.of("America/Sao_Paulo");
+    /** Fuso das datas da escola; o servico academico usa o mesmo. */
+    static final ZoneId FUSO_ESCOLA = ZoneId.of("America/Sao_Paulo");
 
     private final MatriculaTurmaRepository matriculaRepository;
     private final AlunoRepository alunoRepository;
@@ -225,6 +227,14 @@ public class MatriculaTurmaService {
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Turma nao encontrada"));
         if (!Boolean.TRUE.equals(turma.getAtiva())) {
             throw new IllegalArgumentException("Turma inativa nao recebe matricula");
+        }
+        // IU09: periodo encerrado nao recebe matricula; planejado, so depois de Abrir matriculas.
+        PeriodoLetivo periodo = turma.getPeriodoLetivo();
+        if (periodo.getEncerradoEm() != null) {
+            throw new IllegalArgumentException("Periodo letivo encerrado nao recebe matricula");
+        }
+        if (hoje().isBefore(periodo.getDataInicio()) && !periodo.isMatriculasAbertas()) {
+            throw new IllegalArgumentException("As matriculas deste periodo letivo ainda nao foram abertas");
         }
         return turma;
     }

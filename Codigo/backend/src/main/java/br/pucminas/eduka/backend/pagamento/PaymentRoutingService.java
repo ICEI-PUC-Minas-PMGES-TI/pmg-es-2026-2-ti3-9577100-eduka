@@ -157,6 +157,10 @@ public class PaymentRoutingService {
         return roteadorFatura.listarDaEscola(escolaId);
     }
 
+    public List<FaturaPlataformaResponse> listarFaturasDeTodasAsEscolas() {
+        return roteadorFatura.listarTodas();
+    }
+
     public PaginaResponse<FaturaPlataformaResponse> listarFaturas(UUID escolaId, StatusCobranca status,
             Paginacao paginacao, Ordenacao.Faturas ordenarPor, Direction direcao) {
         return roteadorFatura.listarDaEscola(escolaId, status, paginacao, ordenarPor, direcao);

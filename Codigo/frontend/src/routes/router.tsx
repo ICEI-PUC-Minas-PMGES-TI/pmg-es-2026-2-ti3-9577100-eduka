@@ -1,4 +1,5 @@
 import { createBrowserRouter } from 'react-router'
+import { AcessoSuspenso } from '../pages/AcessoSuspenso/AcessoSuspenso'
 import { Home } from '../pages/Home/Home'
 import { Login } from '../pages/Login/Login'
 import { PaginaNaoEncontrada } from '../pages/PaginaNaoEncontrada/PaginaNaoEncontrada'
@@ -15,6 +16,7 @@ export const router = createBrowserRouter([
   { path: '/', element: <Home /> },
   { path: paths.login, element: <Login /> },
   { path: paths.loginAdmin, element: <LoginAdmin /> },
+  { path: paths.acessoSuspenso, element: <AcessoSuspenso /> },
   // Login de um clique por perfil. Em produção DEV é false e o Vite remove
   // este trecho, junto com o chunk da tela: /login/dev cai no 404.
   ...(import.meta.env.DEV

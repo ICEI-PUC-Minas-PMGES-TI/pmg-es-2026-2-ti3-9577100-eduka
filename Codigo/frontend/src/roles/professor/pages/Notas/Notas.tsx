@@ -237,12 +237,14 @@ export function Notas() {
                 avaliacao={avaliacao}
                 notas={notas.dados}
                 onPendente={setPendente}
-                onSalvo={(salvas) => {
+                onSalvo={(salvas, publicadas) => {
                   notas.atualizar(() => salvas)
                   // Mantém o "N notas lançadas" da lista de avaliações em dia sem buscar de novo.
                   const lancadas = salvas.filter((n) => n.valor !== null).length
                   avaliacoes.atualizar((lista) =>
-                    lista.map((a) => (a.id === avaliacao.id ? { ...a, notasLancadas: lancadas } : a)),
+                    lista.map((a) =>
+                      a.id === avaliacao.id ? { ...a, notasLancadas: lancadas, notasPublicadas: publicadas } : a,
+                    ),
                   )
                 }}
               />
@@ -332,6 +334,7 @@ function ItemAvaliacao({ avaliacao, selecionada, onEscolher, onEditar, onExcluir
           {temNotas
             ? `${avaliacao.notasLancadas} ${plural(avaliacao.notasLancadas, 'nota lançada', 'notas lançadas')}`
             : 'Sem notas'}
+          {!avaliacao.notasPublicadas && ' · rascunho'}
         </span>
       </button>
       <span className={styles.itemAcoes}>

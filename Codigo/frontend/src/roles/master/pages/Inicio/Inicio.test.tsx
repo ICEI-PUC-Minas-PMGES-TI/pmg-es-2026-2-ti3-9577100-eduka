@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router'
+import userEvent from '@testing-library/user-event'
+import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import { problema, simularApi, type RespostaApi } from '../../../../test/api'
 import type { DashboardEscola, DashboardFinanceiro } from '../../../../types/dashboard'
@@ -113,4 +114,27 @@ describe('Início do master', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Você não tem permissão para acessar este recurso.')
     expect(screen.queryByRole('region', { name: 'Resumo da escola' })).not.toBeInTheDocument()
   })
+
+  it('os atalhos levam às telas da secretaria e do financeiro dentro da gestão', async () => {
+    simularApi(({ caminho }) => {
+      if (caminho === '/dashboard/escola') return { corpo: ESCOLA }
+      if (caminho === '/dashboard/financeiro') return { corpo: FINANCEIRO }
+      return undefined
+    })
+    const router = createMemoryRouter(
+      [
+        { path: '/master/inicio', element: <Inicio /> },
+        { path: '/master/matriculas', element: <p>Tela de matrículas</p> },
+        { path: '/master/despesas', element: <p>Tela de despesas</p> },
+      ],
+      { initialEntries: ['/master/inicio'] },
+    )
+    render(<RouterProvider router={router} />)
+
+    const atalhos = await screen.findByRole('heading', { name: /o que você quer fazer/i })
+    expect(atalhos).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /matricular um aluno/i }))
+    expect(await screen.findByText('Tela de matrículas')).toBeInTheDocument()
+  })
 })
+

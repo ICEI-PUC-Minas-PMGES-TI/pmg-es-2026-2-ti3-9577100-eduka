@@ -201,12 +201,12 @@ describe('Início do financeiro', () => {
       .toHaveLength(3)
   })
 
-  it('o atalho de atraso abre as cobranças já filtradas em Atrasadas', async () => {
+  it('o atalho de atraso abre as cobranças já filtradas em Em atraso', async () => {
     const chamadas = abrir({ corpo: PAINEL })
 
     await userEvent.click(await screen.findByRole('button', { name: 'Ver cobranças em atraso' }))
 
-    expect(await screen.findByRole('button', { name: /Atrasadas/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(await screen.findByRole('button', { name: /Em atraso/ })).toHaveAttribute('aria-pressed', 'true')
     expect(chamadas.map((c) => c.caminho)).toContain('/cobrancas/pagina?pagina=0&tamanho=10&status=EM_ATRASO')
   })
 

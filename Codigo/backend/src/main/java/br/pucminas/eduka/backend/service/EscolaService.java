@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import br.pucminas.eduka.backend.domain.Endereco;
 import br.pucminas.eduka.backend.domain.Escola;
+import br.pucminas.eduka.backend.dto.AssinaturaResponse;
 import br.pucminas.eduka.backend.dto.EnderecoDto;
 import br.pucminas.eduka.backend.dto.EscolaRequest;
 import br.pucminas.eduka.backend.dto.EscolaResponse;
@@ -34,6 +35,12 @@ public class EscolaService {
 
     public EscolaResponse buscarPorId(UUID id) {
         return EscolaResponse.from(buscarOuFalhar(id));
+    }
+
+    /** Assinatura da escola (IU24-A): o MASTER consulta a da escola do token. */
+    @Transactional(readOnly = true)
+    public AssinaturaResponse assinatura(UUID escolaId) {
+        return AssinaturaResponse.de(buscarOuFalhar(escolaId));
     }
 
     /**

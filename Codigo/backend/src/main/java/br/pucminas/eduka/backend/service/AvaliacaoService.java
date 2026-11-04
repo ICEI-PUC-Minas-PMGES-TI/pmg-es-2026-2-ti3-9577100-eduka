@@ -248,6 +248,9 @@ public class AvaliacaoService {
                 notaRepository.save(existente);
             }
         }
+        // Rascunho guarda sem publicar; Lancar notas publica a avaliacao inteira no boletim.
+        avaliacao.setNotasPublicadas(!request.ehRascunho());
+        avaliacaoRepository.save(avaliacao);
         notaRepository.flush();
         return montarNotas(avaliacao, escolaId);
     }

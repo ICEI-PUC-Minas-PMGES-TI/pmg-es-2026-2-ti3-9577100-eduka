@@ -4,9 +4,11 @@ import java.util.List;
 
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.pucminas.eduka.backend.dto.AlunoDaTurmaResponse;
 import br.pucminas.eduka.backend.dto.DashboardProfessorResponse;
 import br.pucminas.eduka.backend.dto.TurmaDoProfessorResponse;
 import br.pucminas.eduka.backend.security.Perfis;
@@ -40,6 +42,14 @@ public class PortalProfessorController {
     @Operation(summary = "Lista as turmas do professor", description = "Cada turma vem com as disciplinas que ele leciona nela.")
     public List<TurmaDoProfessorResponse> listarMinhasTurmas() {
         return portalProfessorService.listarMinhasTurmas();
+    }
+
+    /** Alunos da turma (Ver alunos, IU13); so de turma em que o professor leciona. */
+    @GetMapping("/turmas/{turmaId}/alunos")
+    @Operation(summary = "Alunos de uma turma do professor", description = "Ativos e trancados, por nome. 404 se o "
+            + "professor nao leciona na turma.")
+    public List<AlunoDaTurmaResponse> alunosDaTurma(@PathVariable Long turmaId) {
+        return portalProfessorService.alunosDaTurma(turmaId);
     }
 
     /** Resumo das turmas, alunos, proximas avaliacoes e notas pendentes do professor. */
