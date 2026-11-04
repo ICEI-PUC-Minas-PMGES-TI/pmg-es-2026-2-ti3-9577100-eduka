@@ -1,6 +1,7 @@
 import { Navigate, redirect, type RouteObject } from 'react-router'
 import { paths } from '../../routes/paths'
 import { RotaProtegida } from '../../routes/RotaProtegida'
+import { Chamada } from './pages/Chamada/Chamada'
 import { Inicio } from './pages/Inicio/Inicio'
 import { MinhasTurmas } from './pages/MinhasTurmas/MinhasTurmas'
 import { Notas } from './pages/Notas/Notas'
@@ -19,5 +20,6 @@ export const professorRoutes: RouteObject = {
       loader: ({ request }) => redirect(`${paths.professor.notas}${new URL(request.url).search}`),
     },
     { path: paths.professor.notas, element: <Notas /> },
+    { path: paths.professor.chamada, element: <Chamada /> },
   ],
 }

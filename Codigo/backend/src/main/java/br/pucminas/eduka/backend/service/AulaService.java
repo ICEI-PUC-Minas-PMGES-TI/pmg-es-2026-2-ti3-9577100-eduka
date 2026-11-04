@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -24,10 +25,12 @@ import br.pucminas.eduka.backend.domain.MatriculaTurma;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.Professor;
 import br.pucminas.eduka.backend.domain.StatusMatricula;
+import br.pucminas.eduka.backend.dto.AlunoDaChamadaResponse;
 import br.pucminas.eduka.backend.dto.AtualizarAulaRequest;
 import br.pucminas.eduka.backend.dto.AulaRequest;
 import br.pucminas.eduka.backend.dto.AulaResponse;
 import br.pucminas.eduka.backend.dto.AulaResumoResponse;
+import br.pucminas.eduka.backend.dto.ChamadaDoDiaResponse;
 import br.pucminas.eduka.backend.dto.ChamadaItem;
 import br.pucminas.eduka.backend.dto.FrequenciaAlunoResponse;
 import br.pucminas.eduka.backend.dto.Ordenacao;
@@ -125,14 +128,32 @@ public class AulaService {
         if (pagina.isEmpty()) {
             return PaginaResponse.de(pagina, aula -> AulaResumoResponse.de(aula, 0, 0));
         }
-        Map<UUID, FrequenciaRepository.TotaisDaAula> totais = frequenciaRepository
-                .contarPorAula(escolaId, pagina.getContent().stream().map(Aula::getId).toList()).stream()
-                .collect(Collectors.toMap(FrequenciaRepository.TotaisDaAula::getAulaId, Function.identity()));
-        return PaginaResponse.de(pagina, aula -> {
-            FrequenciaRepository.TotaisDaAula total = totais.get(aula.getId());
-            return AulaResumoResponse.de(aula, total != null ? total.getPresentes() : 0,
-                    total != null ? total.getFaltas() : 0);
-        });
+        Map<UUID, FrequenciaRepository.TotaisDaAula> totais = totaisPorAula(escolaId, pagina.getContent());
+        return PaginaResponse.de(pagina, aula -> resumo(aula, totais));
+    }
+
+    /**
+     * O que a tela de chamada precisa para um dia: quem entra na chamada (as
+     * mesmas regras do registro) e as aulas ja registradas nele. Sem
+     * {@code data}, vale hoje no fuso da escola.
+     *
+     * @throws IllegalArgumentException data futura
+     */
+    @Transactional(readOnly = true)
+    public ChamadaDoDiaResponse chamadaDoDia(Long turmaId, Long disciplinaId, LocalDate data) {
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        exigirAlocacao(professorAtual(escolaId), escolaId, turmaId, disciplinaId);
+        LocalDate dia = data != null ? data : hoje();
+        if (dia.isAfter(hoje())) {
+            throw new IllegalArgumentException("A data da aula nao pode ser futura");
+        }
+
+        List<Aula> aulas = aulaRepository.findAllByEscolaIdAndTurmaIdAndDisciplinaIdAndData(escolaId, turmaId,
+                disciplinaId, dia, Ordenacao.noBanco(Direction.ASC, "criadoEm"));
+        Map<UUID, FrequenciaRepository.TotaisDaAula> totais = aulas.isEmpty() ? Map.of()
+                : totaisPorAula(escolaId, aulas);
+        return new ChamadaDoDiaResponse(dia, alunosDaChamada(escolaId, turmaId, dia),
+                aulas.stream().map(aula -> resumo(aula, totais)).toList());
     }
 
     @Transactional(readOnly = true)
@@ -257,6 +278,36 @@ public class AulaService {
                     "Chamada incompleta: %d aluno(s) com matricula ativa na turma ficaram fora da lista"
                             .formatted(ausentes));
         }
+    }
+
+    private Map<UUID, FrequenciaRepository.TotaisDaAula> totaisPorAula(UUID escolaId, List<Aula> aulas) {
+        return frequenciaRepository.contarPorAula(escolaId, aulas.stream().map(Aula::getId).toList()).stream()
+                .collect(Collectors.toMap(FrequenciaRepository.TotaisDaAula::getAulaId, Function.identity()));
+    }
+
+    private static AulaResumoResponse resumo(Aula aula, Map<UUID, FrequenciaRepository.TotaisDaAula> totais) {
+        FrequenciaRepository.TotaisDaAula total = totais.get(aula.getId());
+        return AulaResumoResponse.de(aula, total != null ? total.getPresentes() : 0,
+                total != null ? total.getFaltas() : 0);
+    }
+
+    /** Quem entra na chamada do dia, pelo nome. */
+    private List<AlunoDaChamadaResponse> alunosDaChamada(UUID escolaId, Long turmaId, LocalDate dia) {
+        Collection<MatriculaTurma> matriculas = matriculasAtivas(escolaId, turmaId, dia).values();
+        if (matriculas.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> pessoaIds = matriculas.stream().map(m -> m.getAluno().getPessoaId()).distinct().toList();
+        Map<UUID, Pessoa> pessoasPorId = pessoaRepository.findAllByIdInAndEscolaId(pessoaIds, escolaId).stream()
+                .collect(Collectors.toMap(Pessoa::getId, Function.identity()));
+        return matriculas.stream()
+                .map(m -> {
+                    Pessoa pessoa = pessoasPorId.get(m.getAluno().getPessoaId());
+                    return new AlunoDaChamadaResponse(m.getAluno().getId(), pessoa != null ? pessoa.getNome() : null,
+                            m.getAluno().getMatricula());
+                })
+                .sorted(Comparator.comparing(AlunoDaChamadaResponse::alunoNome, Paginacao.ORDEM_DE_NOME))
+                .toList();
     }
 
     private AulaResponse resposta(UUID aulaId, UUID escolaId) {

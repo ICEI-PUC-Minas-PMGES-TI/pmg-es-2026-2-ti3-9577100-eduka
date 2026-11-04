@@ -90,6 +90,7 @@ function Resumo({ dados }: { dados: DashboardProfessor }) {
           titulo="Atalhos do dia"
           horizontal
           itens={[
+            { rotulo: 'Fazer chamada', icon: 'calendar', onClick: () => navigate(paths.professor.chamada) },
             { rotulo: 'Lançar notas', icon: 'check', onClick: () => navigate(paths.professor.notas) },
             {
               rotulo: 'Criar uma avaliação',

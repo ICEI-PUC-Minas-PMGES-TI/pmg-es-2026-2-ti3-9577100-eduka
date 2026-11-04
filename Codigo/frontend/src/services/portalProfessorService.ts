@@ -1,3 +1,5 @@
+import type { PaginaDoBackend } from '../hooks/usePaginacao'
+import type { Aula, AulaRequest, AulaResumo, ChamadaDoDia, DadosAula } from '../types/aula'
 import type {
   AvaliacaoDoProfessor,
   AvaliacaoRequest,
@@ -10,6 +12,7 @@ import type { TurmaDoProfessor } from '../types/turmaProfessor'
 import { apiRequest } from './api'
 
 const AVALIACOES = '/portal/professor/avaliacoes'
+const AULAS = '/portal/professor/aulas'
 
 // Professor e escola saem do token: não há como pedir as turmas de outro professor.
 export function listarMinhasTurmas(signal?: AbortSignal): Promise<TurmaDoProfessor[]> {
@@ -56,4 +59,51 @@ export function lancarNotas(avaliacaoId: string, notas: LancamentoNota[]): Promi
     method: 'PUT',
     body: JSON.stringify({ notas }),
   })
+}
+
+/** Quem entra na chamada do dia e as aulas já registradas nele. 400 se a data é futura; 404 se o professor não está alocado. */
+export function obterChamadaDoDia(
+  turmaId: number,
+  disciplinaId: number,
+  data: string,
+  signal?: AbortSignal,
+): Promise<ChamadaDoDia> {
+  const params = new URLSearchParams({ turmaId: String(turmaId), disciplinaId: String(disciplinaId), data })
+  return apiRequest<ChamadaDoDia>(`${AULAS}/chamada?${params}`, { signal })
+}
+
+/** Histórico de aulas da disciplina na turma, da mais recente para a mais antiga. */
+export function listarAulas(
+  turmaId: number,
+  disciplinaId: number,
+  pagina: number,
+  tamanho: number,
+  signal?: AbortSignal,
+): Promise<PaginaDoBackend<AulaResumo>> {
+  const params = new URLSearchParams({
+    turmaId: String(turmaId),
+    disciplinaId: String(disciplinaId),
+    pagina: String(pagina),
+    tamanho: String(tamanho),
+  })
+  return apiRequest<PaginaDoBackend<AulaResumo>>(`${AULAS}?${params}`, { signal })
+}
+
+export function buscarAula(id: string, signal?: AbortSignal): Promise<Aula> {
+  return apiRequest<Aula>(`${AULAS}/${id}`, { signal })
+}
+
+/** Tudo ou nada; 400 se a data é futura ou a chamada não traz todos os alunos do dia. */
+export function registrarAula(dados: AulaRequest): Promise<Aula> {
+  return apiRequest<Aula>(AULAS, { method: 'POST', body: JSON.stringify(dados) })
+}
+
+/** Corrige o conteúdo e a chamada; turma, disciplina e data não mudam. */
+export function atualizarAula(id: string, dados: DadosAula): Promise<Aula> {
+  return apiRequest<Aula>(`${AULAS}/${id}`, { method: 'PUT', body: JSON.stringify(dados) })
+}
+
+/** Apaga a aula e a chamada dela: é como se desfaz uma data errada. */
+export function excluirAula(id: string): Promise<void> {
+  return apiRequest<void>(`${AULAS}/${id}`, { method: 'DELETE' })
 }

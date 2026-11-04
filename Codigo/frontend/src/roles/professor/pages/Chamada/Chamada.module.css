@@ -1,0 +1,169 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dia {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rotuloDia {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sucesso {
+  margin: 0;
+  padding: 14px 20px;
+  border: var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(145deg, rgba(220, 242, 228, 0.95), rgba(220, 242, 228, 0.7));
+  box-shadow: var(--glass-shadow-sm);
+  color: var(--color-success);
+  font-size: 14.5px;
+  font-weight: 500;
+  animation: var(--animacao-surgir);
+}
+
+.mensagem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 36px 20px 30px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.mensagem strong {
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.historico {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 20px 22px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+}
+
+.tituloHistorico {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: -0.2px;
+}
+
+.semAulas {
+  margin: 0;
+  padding: 18px 0;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.erroHistorico {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-text-muted);
+}
+
+.rolagem {
+  overflow-x: auto;
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabela th {
+  padding: 10px 12px;
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tabela td {
+  padding: 10px 12px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-size: 14.5px;
+  vertical-align: middle;
+}
+
+.tabela .numero {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.tabela .acao {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.data {
+  white-space: nowrap;
+}
+
+/* Conteúdo longo fica em duas linhas; o texto inteiro está na aula aberta. */
+.conteudo {
+  display: -webkit-box;
+  min-width: 180px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.aberta {
+  background: var(--color-primary-soft);
+}
+
+.somenteLeitor {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.avisoSaida {
+  color: var(--color-text-muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+@media (max-width: 520px) {
+  .historico {
+    padding: 16px 14px;
+  }
+}

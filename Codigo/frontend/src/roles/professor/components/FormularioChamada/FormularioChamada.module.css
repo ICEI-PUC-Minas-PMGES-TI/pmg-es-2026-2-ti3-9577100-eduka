@@ -1,0 +1,200 @@
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* A aula do dia e o resumo da chamada, lado a lado. */
+.cabecalho {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.aula {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  padding: 18px 22px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  backdrop-filter: var(--glass-blur);
+}
+
+.titulo {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.4px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 22px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+}
+
+.topoLista {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.subtitulo {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: -0.2px;
+}
+
+.lista {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.linhaFalta {
+  background: rgba(242, 235, 251, 0.6);
+}
+
+.aluno {
+  min-width: 0;
+  flex: 1 1 200px;
+}
+
+.nome {
+  font-family: var(--font-display);
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.numero {
+  display: block;
+  color: var(--color-text-subtle);
+  font-size: 12.5px;
+}
+
+.presenca {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.opcao {
+  min-height: 38px;
+  padding: 6px 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.opcao:hover:not(:disabled) {
+  border-color: var(--color-mauve);
+  color: var(--color-text);
+}
+
+.opcao:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.opcaoPresente,
+.opcaoPresente:hover:not(:disabled) {
+  border-color: var(--color-success);
+  background: rgba(220, 242, 228, 0.95);
+  color: var(--color-success);
+}
+
+.opcaoFalta,
+.opcaoFalta:hover:not(:disabled) {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.rodape {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(212, 187, 252, 0.45);
+}
+
+.acoesAula,
+.botoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.botoes {
+  margin-left: auto;
+  justify-content: flex-end;
+}
+
+.erroEnvio {
+  color: var(--color-danger);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+@media (max-width: 860px) {
+  .cabecalho {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .card {
+    padding: 16px 14px;
+  }
+
+  .presenca,
+  .opcao {
+    flex: 1;
+  }
+
+  .presenca {
+    flex-basis: 100%;
+  }
+
+  .botoes,
+  .botoes > button,
+  .acoesAula,
+  .acoesAula > button {
+    width: 100%;
+  }
+}

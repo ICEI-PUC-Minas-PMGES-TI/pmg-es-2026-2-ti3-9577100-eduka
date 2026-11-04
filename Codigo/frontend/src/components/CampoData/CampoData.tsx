@@ -15,6 +15,8 @@ type CampoDataProps = {
   onChange?: (valor: string) => void
   /** Primeira data permitida, em ISO. */
   min?: string
+  /** Última data permitida, em ISO. */
+  max?: string
   /** Só exibe a data, sem abrir o calendário (ex.: início da vigência). */
   somenteLeitura?: boolean
   placeholder?: string
@@ -58,6 +60,7 @@ export function CampoData({
   valor,
   onChange,
   min,
+  max,
   somenteLeitura = false,
   placeholder = 'dd/mm/aaaa',
   className,
@@ -77,12 +80,13 @@ export function CampoData({
 
   const selecionada = paraData(valor)
   const minima = min ? paraData(min) : undefined
+  const maxima = max ? paraData(max) : undefined
   // Faixa da seleção de ano: da data mínima (ou 10 anos antes) até 10 anos
   // depois da data escolhida ou de hoje, o que for mais tarde.
   const hoje = new Date()
   const referencia = selecionada && selecionada > hoje ? selecionada : hoje
   const primeiroMes = minima ?? new Date(referencia.getFullYear() - ANOS_NA_LISTA, 0, 1)
-  const ultimoMes = new Date(referencia.getFullYear() + ANOS_NA_LISTA, 11, 1)
+  const ultimoMes = maxima ?? new Date(referencia.getFullYear() + ANOS_NA_LISTA, 11, 1)
 
   // Fecha ao sair do calendário com Tab.
   useEffect(() => {
@@ -164,7 +168,7 @@ export function CampoData({
             autoFocus
             selected={selecionada}
             defaultMonth={selecionada ?? minima}
-            disabled={minima ? { before: minima } : undefined}
+            disabled={[...(minima ? [{ before: minima }] : []), ...(maxima ? [{ after: maxima }] : [])]}
             captionLayout="dropdown"
             startMonth={primeiroMes}
             endMonth={ultimoMes}

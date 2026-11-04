@@ -60,6 +60,8 @@ export const paths = {
     avaliacoes: '/professor/avaliacoes',
     /** Avaliações e notas de uma turma/disciplina (?turma=&disciplina=&avaliacao=). */
     notas: '/professor/notas',
+    /** Aula do dia e histórico de uma turma/disciplina (?turma=&disciplina=&data=&aula=). */
+    chamada: '/professor/chamada',
   },
   aluno: {
     raiz: '/aluno',

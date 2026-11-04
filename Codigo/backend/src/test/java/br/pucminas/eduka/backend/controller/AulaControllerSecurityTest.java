@@ -408,4 +408,46 @@ class AulaControllerSecurityTest {
                 .andExpect(status().isBadRequest());
         verify(aulaRepository, never()).save(any());
     }
+
+    // ---- chamada do dia ----
+
+    @Test
+    void chamadaDoDiaSoParaOProfessor() throws Exception {
+        mockMvc.perform(get(URL + "/chamada").param("turmaId", "1").param("disciplinaId", "10"))
+                .andExpect(status().isUnauthorized());
+        for (String perfil : List.of("MASTER", "SECRETARIA", "FINANCEIRO", "ALUNO")) {
+            String token = jwtService.generateAccessToken(UUID.randomUUID(), perfil, ESCOLA);
+            mockMvc.perform(com(get(URL + "/chamada").param("turmaId", "1").param("disciplinaId", "10"), token))
+                    .andExpect(status().isForbidden());
+        }
+    }
+
+    @Test
+    void chamadaDoDiaTrazOsAlunosEBarraDataFuturaOuInvalidaEDisciplinaNaoAlocada() throws Exception {
+        UUID usuarioId = UUID.randomUUID();
+        professorLogado(usuarioId, true);
+        turmaComUmAluno();
+        String token = tokenProfessor(usuarioId);
+
+        mockMvc.perform(com(get(URL + "/chamada").param("turmaId", "1").param("disciplinaId", "10")
+                .param("data", ontem()), token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").value(ontem()))
+                .andExpect(jsonPath("$.alunos[0].alunoNome").value("Ana"))
+                .andExpect(jsonPath("$.alunos[0].alunoId").value(ALUNO.toString()))
+                .andExpect(jsonPath("$.aulas").isEmpty());
+        // A rota fixa nao pode cair em /{id}, que so aceita UUID.
+        mockMvc.perform(com(get(URL + "/chamada").param("turmaId", "1").param("disciplinaId", "10")
+                .param("data", LocalDate.now().plusDays(2).toString()), token))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(com(get(URL + "/chamada").param("turmaId", "1").param("disciplinaId", "10")
+                .param("data", "ontem"), token))
+                .andExpect(status().isBadRequest());
+
+        UUID outroUsuario = UUID.randomUUID();
+        professorLogado(outroUsuario, false);
+        mockMvc.perform(com(get(URL + "/chamada").param("turmaId", "1").param("disciplinaId", "10"),
+                tokenProfessor(outroUsuario)))
+                .andExpect(status().isNotFound());
+    }
 }

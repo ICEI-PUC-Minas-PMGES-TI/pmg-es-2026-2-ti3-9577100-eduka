@@ -32,6 +32,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Sort.Direction;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -49,6 +50,7 @@ import br.pucminas.eduka.backend.dto.AtualizarAulaRequest;
 import br.pucminas.eduka.backend.dto.AulaRequest;
 import br.pucminas.eduka.backend.dto.AulaResponse;
 import br.pucminas.eduka.backend.dto.AulaResumoResponse;
+import br.pucminas.eduka.backend.dto.ChamadaDoDiaResponse;
 import br.pucminas.eduka.backend.dto.ChamadaItem;
 import br.pucminas.eduka.backend.dto.PaginaResponse;
 import br.pucminas.eduka.backend.dto.Paginacao;
@@ -641,6 +643,81 @@ class AulaServiceTest {
 
         assertThat(resposta.conteudo()).isEmpty();
         assertThat(pagina.getValue().getSort().getOrderFor("data").getDirection()).isEqualTo(Direction.ASC);
+        verify(frequenciaRepository, never()).contarPorAula(any(), any());
+    }
+
+    // ---- chamada do dia ----
+
+    @Test
+    void chamadaDoDiaEmDisciplinaNaoAlocadaRespondeNaoEncontrado() {
+        alocado(false);
+
+        assertThatThrownBy(() -> servico().chamadaDoDia(1L, 10L, HOJE))
+                .isInstanceOf(RecursoNaoEncontradoException.class);
+        verify(matriculaRepository, never()).findAllByEscolaIdAndTurmaId(any(), any());
+    }
+
+    @Test
+    void chamadaDeDiaFuturoRespondeErro() {
+        alocado(true);
+
+        assertThatThrownBy(() -> servico().chamadaDoDia(1L, 10L, HOJE.plusDays(1)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void chamadaDoDiaTrazQuemEstavaNaTurmaPeloNomeEAsAulasComOsTotais() {
+        alocado(true);
+        LocalDate dia = HOJE.minusDays(5);
+        Aluno bia = aluno();
+        Aluno ana = aluno();
+        Aluno depois = aluno();
+        Aluno trancada = aluno();
+        turmaComMatriculas(matricula(bia, StatusMatricula.ATIVA), matricula(ana, StatusMatricula.ATIVA),
+                matricula(depois, StatusMatricula.ATIVA, dia.plusDays(1)), matricula(trancada, StatusMatricula.TRANCADA));
+        nomes(pessoa(bia, "Bia"), pessoa(ana, "Ana"));
+        Aula aula = aula(dia);
+        ArgumentCaptor<Sort> ordem = ArgumentCaptor.forClass(Sort.class);
+        when(aulaRepository.findAllByEscolaIdAndTurmaIdAndDisciplinaIdAndData(eq(ESCOLA), eq(1L), eq(10L), eq(dia),
+                ordem.capture())).thenReturn(List.of(aula));
+        FrequenciaRepository.TotaisDaAula totais = new FrequenciaRepository.TotaisDaAula() {
+            public UUID getAulaId() {
+                return aula.getId();
+            }
+
+            public long getPresentes() {
+                return 1;
+            }
+
+            public long getFaltas() {
+                return 1;
+            }
+        };
+        when(frequenciaRepository.contarPorAula(eq(ESCOLA), anyCollection())).thenReturn(List.of(totais));
+
+        ChamadaDoDiaResponse resposta = servico().chamadaDoDia(1L, 10L, dia);
+
+        assertThat(resposta.data()).isEqualTo(dia);
+        assertThat(resposta.alunos()).extracting("alunoNome").containsExactly("Ana", "Bia");
+        assertThat(resposta.alunos()).extracting("alunoId").containsExactly(ana.getId(), bia.getId());
+        assertThat(resposta.aulas()).extracting("id").containsExactly(aula.getId());
+        assertThat(resposta.aulas().get(0).presentes()).isEqualTo(1);
+        assertThat(resposta.aulas().get(0).faltas()).isEqualTo(1);
+        assertThat(ordem.getValue().getOrderFor("criadoEm").getDirection()).isEqualTo(Direction.ASC);
+    }
+
+    @Test
+    void chamadaSemDataValeHojeEDiaSemAulaNaoContaTotais() {
+        alocado(true);
+        turmaComMatriculas();
+        when(aulaRepository.findAllByEscolaIdAndTurmaIdAndDisciplinaIdAndData(eq(ESCOLA), eq(1L), eq(10L), eq(HOJE),
+                any(Sort.class))).thenReturn(List.of());
+
+        ChamadaDoDiaResponse resposta = servico().chamadaDoDia(1L, 10L, null);
+
+        assertThat(resposta.data()).isEqualTo(HOJE);
+        assertThat(resposta.alunos()).isEmpty();
+        assertThat(resposta.aulas()).isEmpty();
         verify(frequenciaRepository, never()).contarPorAula(any(), any());
     }
 }
