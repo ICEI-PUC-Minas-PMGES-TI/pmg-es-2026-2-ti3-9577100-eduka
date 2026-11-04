@@ -6,7 +6,7 @@ import { Paginacao } from '../../../../components/Paginacao/Paginacao'
 import { Select, type OpcaoSelect } from '../../../../components/Select/Select'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { usePaginacao } from '../../../../hooks/usePaginacao'
-import { paths } from '../../../../routes/paths'
+import { paths, type EstadoNovaAvaliacao } from '../../../../routes/paths'
 import type { TurmaDoProfessor } from '../../../../types/turmaProfessor'
 import { GradeSemanal } from '../../components/GradeSemanal/GradeSemanal'
 import { ModalAlunosDaTurma } from '../../components/ModalAlunosDaTurma/ModalAlunosDaTurma'
@@ -37,6 +37,13 @@ function opcoesDePeriodo(turmas: TurmaDoProfessor[]): OpcaoSelect<string>[] {
     { valor: TODOS_PERIODOS, rotulo: 'Todos os períodos' },
     ...[...periodos].map(([valor, rotulo]) => ({ valor, rotulo })),
   ]
+}
+
+/** Tela de avaliações já na turma, na primeira disciplina do professor nela. */
+function avaliacoesDaTurma(turma: TurmaDoProfessor): string {
+  const params = new URLSearchParams({ turma: String(turma.id) })
+  if (turma.disciplinas[0]) params.set('disciplina', String(turma.disciplinas[0].id))
+  return `${paths.professor.avaliacoes}?${params}`
 }
 
 export function MinhasTurmas() {
@@ -132,11 +139,12 @@ export function MinhasTurmas() {
                 key={turma.id}
                 turma={turma}
                 onVerAlunos={setVendoAlunos}
-                onLancarNotas={(t) => {
-                  const params = new URLSearchParams({ turma: String(t.id) })
-                  if (t.disciplinas[0]) params.set('disciplina', String(t.disciplinas[0].id))
-                  navigate(`${paths.professor.notas}?${params}`)
-                }}
+                onLancarNotas={(t) => navigate(avaliacoesDaTurma(t))}
+                onCriarAvaliacao={(t) =>
+                  navigate(avaliacoesDaTurma(t), {
+                    state: { abrirCadastro: true, turmaId: t.id } satisfies EstadoNovaAvaliacao,
+                  })
+                }
               />
             ))}
           </section>

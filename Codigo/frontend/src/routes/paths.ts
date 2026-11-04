@@ -72,9 +72,9 @@ export const paths = {
     /** Dashboard: turmas, alunos, próximas avaliações e notas a lançar. */
     inicio: '/professor/inicio',
     turmas: '/professor/turmas',
-    /** Endereço antigo: redireciona para `notas`, que juntou as duas telas. */
-    avaliacoes: '/professor/avaliacoes',
     /** Avaliações e notas de uma turma/disciplina (?turma=&disciplina=&avaliacao=). */
+    avaliacoes: '/professor/avaliacoes',
+    /** Endereço antigo: redireciona para `avaliacoes`, com os mesmos parâmetros. */
     notas: '/professor/notas',
     /** Aula do dia e histórico de uma turma/disciplina (?turma=&disciplina=&data=&aula=). */
     chamada: '/professor/chamada',
@@ -95,6 +95,9 @@ export const paths = {
  * Professores) já abre com o modal de cadastro aberto.
  */
 export type EstadoAbrirCadastro = { abrirCadastro: true }
+
+/** Abre o cadastro de avaliação; com `turmaId`, o modal já vem com essa turma escolhida. */
+export type EstadoNovaAvaliacao = EstadoAbrirCadastro & { turmaId?: number }
 
 /** Volta de Nova cobrança para Cobranças com a confirmação do que foi criado. */
 export type EstadoCobrancaCriada = { cobrancaCriada: string }
