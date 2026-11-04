@@ -25,6 +25,9 @@ public interface FaturaPlataformaRepository extends JpaRepository<FaturaPlatafor
 
     List<FaturaPlataforma> findAllByEscolaIdOrderByCompetenciaDesc(UUID escolaId);
 
+    /** Faturas de todas as escolas (IU24), do vencimento mais recente para o mais antigo. */
+    List<FaturaPlataforma> findAllByOrderByDataVencimentoDescCompetenciaDesc();
+
     Page<FaturaPlataforma> findAllByEscolaId(UUID escolaId, Pageable pagina);
 
     Page<FaturaPlataforma> findAllByEscolaIdAndStatus(UUID escolaId, StatusCobranca status, Pageable pagina);

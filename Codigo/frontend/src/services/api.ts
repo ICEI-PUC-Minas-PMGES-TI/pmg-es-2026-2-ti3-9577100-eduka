@@ -105,3 +105,8 @@ export async function apiBaixarArquivo(caminho: string, accept: string, signal?:
   const resposta = await enviar(caminho, { signal }, accept)
   return resposta.blob()
 }
+
+/** Login certo de escola suspensa pelo SUPER_ADMIN (RF24): a tela vai para o aviso (IU04). */
+export function ehEscolaSuspensa(erro: unknown): boolean {
+  return erro instanceof ApiError && erro.codigo === 'ESCOLA_SUSPENSA'
+}

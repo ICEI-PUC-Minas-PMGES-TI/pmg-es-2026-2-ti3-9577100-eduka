@@ -18,6 +18,7 @@ import { ROTULOS_TURNO } from '../../../../types/alocacao'
 import type { DashboardSecretaria, OcupacaoTurma } from '../../../../types/dashboard'
 import { ROTULOS_STATUS_MATRICULA, type StatusMatricula } from '../../../../types/matricula'
 import { plural } from '../../../../utils/formatters'
+import { PedidosCorrecao } from '../../components/PedidosCorrecao/PedidosCorrecao'
 import { SecretariaLayout } from '../../layouts/SecretariaLayout'
 import styles from './Inicio.module.css'
 
@@ -36,6 +37,7 @@ function matriculasPorCurso(turmas: OcupacaoTurma[]): { rotulo: string; valor: n
 
 /** Início da SECRETARIA: resumo de matrículas, ocupação das turmas e atalhos do dia. */
 export function Inicio() {
+  const navigate = useNavigate()
   const { dados, carregando, erro, recarregar } = useCarregamento<DashboardSecretaria | null>(
     obterDashboardSecretaria,
     null,
@@ -46,6 +48,7 @@ export function Inicio() {
     <SecretariaLayout titulo="Início" subtitulo="O resumo das matrículas e das vagas nas turmas.">
       <EstadoDashboard carregando={carregando} erro={erro} onTentarDeNovo={recarregar} />
       {dados && <Resumo dados={dados} />}
+      <PedidosCorrecao onVerAlunos={() => navigate(paths.secretaria.alunos)} />
     </SecretariaLayout>
   )
 }

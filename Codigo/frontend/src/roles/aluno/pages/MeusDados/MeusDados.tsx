@@ -5,12 +5,15 @@ import { Icon } from '../../../../components/Icon/Icon'
 import { buscarMeusDados } from '../../../../services/alunoService'
 import { obterUsuarioLogado } from '../../../../services/authService'
 import { listarMinhasTurmas } from '../../../../services/portalAlunoService'
+import { buscarMinhaCorrecaoAberta } from '../../../../services/solicitacaoCorrecaoService'
 import { ROTULOS_TURNO } from '../../../../types/alocacao'
 import type { Aluno, Endereco } from '../../../../types/aluno'
 import { ROTULOS_STATUS_MATRICULA } from '../../../../types/matricula'
 import type { TurmaDoAluno } from '../../../../types/portalAluno'
+import type { SolicitacaoCorrecao } from '../../../../types/solicitacaoCorrecao'
 import { formatarCnpjCpf, iniciais, mascararCep, mascararTelefone } from '../../../../utils/formatters'
 import { formatarData } from '../../../secretaria/components/PainelSecretaria/formatacao'
+import { ModalCorrecaoDados } from '../../components/ModalCorrecaoDados/ModalCorrecaoDados'
 import { useDadosDoAluno } from '../../hooks/useDadosDoAluno'
 import { AlunoLayout } from '../../layouts/AlunoLayout'
 import styles from './MeusDados.module.css'
@@ -40,6 +43,11 @@ export function MeusDados() {
   const { dados: aluno, carregando, erro, recarregar } = useDadosDoAluno(buscarAlunoOuNulo, null)
   const { dados: turmas } = useDadosDoAluno(listarMinhasTurmas, SEM_TURMAS)
   const [abaAtiva, setAbaAtiva] = useState<AbaPerfil>('pessoais')
+  // IU15: um pedido de correção aberto por vez; o enviado agora vale até a próxima leitura.
+  const { dados: correcaoAberta } = useDadosDoAluno<SolicitacaoCorrecao | null>(buscarMinhaCorrecaoAberta, null)
+  const [correcaoEnviada, setCorrecaoEnviada] = useState<SolicitacaoCorrecao | null>(null)
+  const [pedindoCorrecao, setPedindoCorrecao] = useState(false)
+  const pedido = correcaoEnviada ?? correcaoAberta
 
   // A turma do resumo é a que o aluno está cursando; sem ela, a mais recente.
   const turma = turmas.find((t) => t.situacaoMatricula === 'ATIVA') ?? turmas[0]
@@ -86,6 +94,17 @@ export function MeusDados() {
                 <LinhaInfo rotulo="Turno" valor={ROTULOS_TURNO[turma.turno]} />
               </div>
             )}
+
+            {pedido ? (
+              <p className={styles.pedidoCorrecao} role="status">
+                <Icon name="clock" size={14} />
+                Pedido de correção enviado em {formatarData(pedido.criadoEm.slice(0, 10))}. Aguardando a secretaria.
+              </p>
+            ) : (
+              <Button size="sm" icon="edit" onClick={() => setPedindoCorrecao(true)}>
+                Pedir correção de dados
+              </Button>
+            )}
           </aside>
 
           <section className={styles.painelDireito} aria-label="Detalhes cadastrais">
@@ -122,6 +141,15 @@ export function MeusDados() {
             </div>
           </section>
         </div>
+      )}
+      {pedindoCorrecao && (
+        <ModalCorrecaoDados
+          onFechar={() => setPedindoCorrecao(false)}
+          onEnviado={(enviado) => {
+            setCorrecaoEnviada(enviado)
+            setPedindoCorrecao(false)
+          }}
+        />
       )}
     </AlunoLayout>
   )

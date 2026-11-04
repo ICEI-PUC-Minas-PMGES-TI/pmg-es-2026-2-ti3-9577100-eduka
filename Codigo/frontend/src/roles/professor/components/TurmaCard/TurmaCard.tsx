@@ -1,14 +1,20 @@
 import { Badge } from '../../../../components/Badge/Badge'
+import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
+import { descreverHorarios } from '../../../../types/horario'
 import { ROTULOS_TURNO, type TurmaDoProfessor } from '../../../../types/turmaProfessor'
 import styles from './TurmaCard.module.css'
 
 type TurmaCardProps = {
   turma: TurmaDoProfessor
+  /** Lançar notas (IU14) já na turma; vai para a primeira disciplina dele nela. */
+  onLancarNotas: (turma: TurmaDoProfessor) => void
+  /** Ver alunos (IU13). */
+  onVerAlunos: (turma: TurmaDoProfessor) => void
 }
 
-/** Uma turma do professor, com as disciplinas que ele leciona nela. */
-export function TurmaCard({ turma }: TurmaCardProps) {
+/** Uma turma do professor, com as disciplinas que ele leciona nela e o horário de cada uma. */
+export function TurmaCard({ turma, onLancarNotas, onVerAlunos }: TurmaCardProps) {
   const quantidade = turma.disciplinas.length
 
   return (
@@ -49,11 +55,21 @@ export function TurmaCard({ turma }: TurmaCardProps) {
               <span className={styles.disciplinaNome}>
                 {disciplina.nome}
                 {disciplina.codigo && <small> · {disciplina.codigo}</small>}
+                <small className={styles.horario}>{descreverHorarios(disciplina.horarios) ?? 'Horário a definir'}</small>
               </span>
               <span className={styles.carga}>{disciplina.cargaHoraria} h</span>
             </li>
           ))}
         </ul>
+      </div>
+
+      <div className={styles.acoes}>
+        <Button size="sm" variant="primary" icon="edit" onClick={() => onLancarNotas(turma)}>
+          Lançar notas
+        </Button>
+        <Button size="sm" icon="users" onClick={() => onVerAlunos(turma)}>
+          Ver alunos
+        </Button>
       </div>
     </article>
   )

@@ -7,13 +7,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.pucminas.eduka.backend.domain.Escola;
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.LoginResponse;
 import br.pucminas.eduka.backend.dto.VerificacaoLoginResponse;
 import br.pucminas.eduka.backend.exception.CredenciaisInvalidasException;
+import br.pucminas.eduka.backend.exception.EscolaSuspensaException;
 import br.pucminas.eduka.backend.exception.SenhaInvalidaException;
 import br.pucminas.eduka.backend.exception.SenhaProvisoriaExpiradaException;
 import br.pucminas.eduka.backend.exception.VerificacaoLoginEncerradaException;
+import br.pucminas.eduka.backend.repository.EscolaRepository;
 import br.pucminas.eduka.backend.repository.UsuarioRepository;
 import br.pucminas.eduka.backend.security.JwtService;
 
@@ -41,6 +44,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final VerificacaoLoginService verificacaoLoginService;
+    private final EscolaRepository escolaRepository;
     private final Clock clock;
 
     /**
@@ -52,11 +56,13 @@ public class AuthService {
     private final String hashSentinela;
 
     public AuthService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
-            JwtService jwtService, VerificacaoLoginService verificacaoLoginService, Clock clock) {
+            JwtService jwtService, VerificacaoLoginService verificacaoLoginService,
+            EscolaRepository escolaRepository, Clock clock) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.verificacaoLoginService = verificacaoLoginService;
+        this.escolaRepository = escolaRepository;
         this.clock = clock;
         this.hashSentinela = passwordEncoder.encode(UUID.randomUUID().toString());
     }
@@ -115,6 +121,8 @@ public class AuthService {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .filter(Usuario::isAtivo)
                 .orElseThrow(VerificacaoLoginEncerradaException::new);
+        // Suspensa entre a senha e o codigo: tambem nao entra.
+        exigirEscolaAtiva(usuario);
         return emitirTokens(usuario);
     }
 
@@ -134,7 +142,22 @@ public class AuthService {
         if (usuario == null || !senhaConfere || !usuario.isAtivo()) {
             throw new CredenciaisInvalidasException();
         }
+        exigirEscolaAtiva(usuario);
         return usuario;
+    }
+
+    /**
+     * Escola suspensa pelo SUPER_ADMIN (RF24): ninguem dela entra. O
+     * SUPER_ADMIN nao tem escola e passa direto.
+     */
+    private void exigirEscolaAtiva(Usuario usuario) {
+        if (usuario.getEscolaId() == null) {
+            return;
+        }
+        boolean ativa = escolaRepository.findById(usuario.getEscolaId()).map(Escola::isAtivo).orElse(false);
+        if (!ativa) {
+            throw new EscolaSuspensaException();
+        }
     }
 
     private void exigirSenhaProvisoriaValida(Usuario usuario) {

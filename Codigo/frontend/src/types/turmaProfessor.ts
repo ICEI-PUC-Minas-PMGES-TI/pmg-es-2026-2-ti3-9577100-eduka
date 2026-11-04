@@ -1,3 +1,6 @@
+import type { HorarioDaDisciplina } from './horario'
+import type { StatusMatricula } from './matricula'
+
 // Valores do enum Turno do backend.
 export type Turno = 'MATUTINO' | 'VESPERTINO' | 'NOTURNO' | 'INTEGRAL'
 
@@ -15,6 +18,8 @@ export type DisciplinaDoProfessor = {
   codigo: string | null
   /** Em horas. */
   cargaHoraria: number
+  /** Aulas da disciplina na grade da turma (IU13); vazia sem horário montado pela secretaria. */
+  horarios: HorarioDaDisciplina[]
 }
 
 // Espelha o TurmaDoProfessorResponse do backend: a turma vem só com as
@@ -30,4 +35,12 @@ export type TurmaDoProfessor = {
   cursoId: number
   cursoNome: string
   disciplinas: DisciplinaDoProfessor[]
+}
+
+/** Aluno da turma no Ver alunos do professor (IU13). Espelha o AlunoDaTurmaResponse. */
+export type AlunoDaTurma = {
+  alunoId: string
+  nome: string | null
+  numeroMatricula: string
+  situacao: StatusMatricula
 }

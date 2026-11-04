@@ -315,6 +315,22 @@ class AvaliacaoServiceTest {
     }
 
     @Test
+    void rascunhoGuardaSemPublicarELancarPublica() {
+        Avaliacao avaliacao = avaliacaoExistente("10");
+        Aluno ana = aluno();
+        when(matriculaRepository.findAllByEscolaIdAndTurmaId(ESCOLA, 1L))
+                .thenReturn(List.of(matricula(ana, StatusMatricula.ATIVA)));
+        List<NotaLancamento> notas = List.of(new NotaLancamento(ana.getId(), new BigDecimal("7"), null));
+
+        service.lancarNotas(avaliacao.getId(), new LancarNotasRequest(notas, true));
+        assertThat(avaliacao.isNotasPublicadas()).isFalse();
+
+        service.lancarNotas(avaliacao.getId(), new LancarNotasRequest(notas, false));
+        assertThat(avaliacao.isNotasPublicadas()).isTrue();
+        verify(avaliacaoRepository, org.mockito.Mockito.times(2)).save(avaliacao);
+    }
+
+    @Test
     void diarioTrazAtivosSemNotaEQuemTemNotaMasTrancou() {
         Avaliacao avaliacao = avaliacaoExistente("10");
         Aluno ana = aluno();

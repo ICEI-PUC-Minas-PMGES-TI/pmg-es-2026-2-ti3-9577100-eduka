@@ -442,3 +442,19 @@
   }
 }
 
+
+.linkCategorias {
+  align-self: center;
+  margin-top: 10px;
+  border: none;
+  background: none;
+  color: var(--color-primary, #7c4dff);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.linkCategorias:hover {
+  text-decoration: underline;
+}

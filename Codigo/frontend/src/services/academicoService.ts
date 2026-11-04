@@ -67,6 +67,16 @@ export function atualizarPeriodoLetivo(id: number, dados: PeriodoLetivoRequest):
   return atualizar('periodos-letivos', id, dados)
 }
 
+/** Encerra o período em andamento: deixa de receber matrícula nova (IU09). */
+export function encerrarPeriodoLetivo(id: number): Promise<PeriodoLetivo> {
+  return apiRequest<PeriodoLetivo>(`${BASE}/periodos-letivos/${id}/encerrar`, { method: 'PATCH' })
+}
+
+/** Libera as matrículas de um período planejado (IU09). */
+export function abrirMatriculasDoPeriodo(id: number): Promise<PeriodoLetivo> {
+  return apiRequest<PeriodoLetivo>(`${BASE}/periodos-letivos/${id}/abrir-matriculas`, { method: 'PATCH' })
+}
+
 export function excluirPeriodoLetivo(id: number): Promise<void> {
   return excluir('periodos-letivos', id)
 }

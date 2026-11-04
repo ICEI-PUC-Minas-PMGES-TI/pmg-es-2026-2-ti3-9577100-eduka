@@ -42,6 +42,10 @@ export function mensagemErroMatricula(erro: unknown): string {
   if (detalhe.includes('sem vagas')) return 'A turma não tem mais vagas.'
   if (detalhe.includes('ja possui matricula')) return 'O aluno já tem matrícula nesta turma.'
   if (detalhe.includes('turma inativa')) return 'A turma está inativa e não recebe matrícula.'
+  if (detalhe.includes('periodo letivo encerrado')) return 'O período letivo da turma foi encerrado e não recebe matrícula.'
+  if (detalhe.includes('ainda nao foram abertas')) {
+    return 'As matrículas deste período ainda não foram abertas. Abra em Acadêmico, na aba Períodos letivos.'
+  }
   if (detalhe.includes('transferida')) return 'Só matrícula ativa pode ser transferida de turma.'
   if (detalhe.includes('nao pode passar')) return 'Essa mudança de situação não é permitida.'
   if (erro.status === 404) return 'O aluno, a turma ou a matrícula não existe mais. Recarregue a página.'

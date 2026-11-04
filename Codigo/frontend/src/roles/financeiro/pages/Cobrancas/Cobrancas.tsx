@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
+import { ModalComprovante } from '../../../../components/Comprovante/ModalComprovante'
+import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/ConfirmarExclusao'
 import { Icon } from '../../../../components/Icon/Icon'
 import { Paginacao } from '../../../../components/Paginacao/Paginacao'
 import { paginacaoDoBackend, usePaginaDoBackend } from '../../../../hooks/usePaginacao'
-import { paths, type EstadoCobrancaCriada } from '../../../../routes/paths'
+import { useRotasFinanceiras } from '../../../../routes/areas'
+import { type EstadoCobrancaCriada } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
-import { listarCobrancas } from '../../../../services/cobrancaService'
+import { buscarComprovanteDaCobranca, cancelarCobranca, listarCobrancas } from '../../../../services/cobrancaService'
 import {
   atalhosSandboxHabilitados,
   mensagemErroSandbox,
@@ -15,17 +18,33 @@ import {
 import type { Cobranca, FiltroCobranca, PaginaCobrancas, StatusCobranca } from '../../../../types/cobranca'
 import { CobrancaCard } from '../../components/CobrancaCard/CobrancaCard'
 import { CobrancaDetalhe, type MensagemSandbox } from '../../components/CobrancaDetalhe/CobrancaDetalhe'
-import { ModalBoleto } from '../../components/ModalBoleto/ModalBoleto'
+import { ModalEditarCobranca } from '../../components/ModalEditarCobranca/ModalEditarCobranca'
 import { FinanceiroLayout } from '../../layouts/FinanceiroLayout'
 import styles from './Cobrancas.module.css'
 
-const FILTROS: FiltroCobranca[] = ['TODAS', 'PENDENTE', 'EM_ATRASO', 'PAGA']
+const FILTROS: FiltroCobranca[] = ['TODAS', 'PENDENTE', 'EM_ATRASO', 'PAGA', 'CANCELADA']
 
 const ROTULOS_FILTRO: Record<FiltroCobranca, string> = {
   TODAS: 'Todas',
-  PENDENTE: 'Pendentes',
-  EM_ATRASO: 'Atrasadas',
+  PENDENTE: 'A pagar',
+  EM_ATRASO: 'Em atraso',
   PAGA: 'Pagas',
+  CANCELADA: 'Canceladas',
+}
+
+/** Recusas do cancelamento, pelo `codigo` do backend. */
+function mensagemErroCancelar(erro: unknown): string {
+  if (erro instanceof ApiError) {
+    if (erro.codigo === 'COBRANCA_JA_PAGA') return 'A cobrança já foi paga e não pode ser cancelada.'
+    if (erro.codigo === 'PAGAMENTO_EM_PROCESSAMENTO') {
+      return 'O pagamento desta cobrança está sendo gerado agora. Tente de novo em instantes.'
+    }
+    if (erro.codigo === 'PROVEDOR_INDISPONIVEL' || erro.codigo === 'PROVEDOR_NAO_CONFIGURADO') {
+      return 'O Asaas não respondeu e a cobrança continua ativa. Tente de novo em instantes.'
+    }
+    return erro.detalhe ?? erro.message
+  }
+  return 'Erro inesperado ao cancelar a cobrança.'
 }
 
 /** Espera entre a última tecla da busca e a consulta ao backend. */
@@ -46,6 +65,7 @@ type Carregado = { chave: string; dados: PaginaCobrancas | null; erro: string | 
 
 export function Cobrancas() {
   const navigate = useNavigate()
+  const rotas = useRotasFinanceiras()
   const location = useLocation()
   const [searchParams] = useSearchParams()
   // Volta da Nova cobrança com a confirmação do que foi criado.
@@ -57,7 +77,10 @@ export function Cobrancas() {
   const [nomeBuscado, setNomeBuscado] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<FiltroCobranca>(() => filtroDaUrl(searchParams.get('status')))
   const { pagina, setPagina, porPagina, irPara, mudarPorPagina, topo } = usePaginaDoBackend()
-  const [boletoModalCobranca, setBoletoModalCobranca] = useState<Cobranca | null>(null)
+  const [editando, setEditando] = useState<Cobranca | null>(null)
+  const [cancelando, setCancelando] = useState<Cobranca | null>(null)
+  const [comprovanteDe, setComprovanteDe] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
   const [simulando, setSimulando] = useState(false)
   const [mensagemSandbox, setMensagemSandbox] = useState<MensagemSandbox | null>(null)
   // Cada incremento busca a página de novo, sem voltar ao "Carregando".
@@ -138,6 +161,14 @@ export function Cobrancas() {
     }
   }
 
+  const buscarComprovante = useCallback(() => buscarComprovanteDaCobranca(comprovanteDe ?? ''), [comprovanteDe])
+
+  /** Depois de editar ou cancelar: confirma e lê a página de novo. */
+  function concluir(mensagem: string) {
+    setAviso(mensagem)
+    setRecarga((n) => n + 1)
+  }
+
   /** A seta do card abre os detalhes; clicar de novo fecha. Só um aberto por vez. */
   function alternar(id: string) {
     setIdAberto((atual) => (atual === id ? null : id))
@@ -164,6 +195,7 @@ export function Cobrancas() {
     PENDENTE: quantidade('PENDENTE'),
     EM_ATRASO: quantidade('EM_ATRASO'),
     PAGA: quantidade('PAGA'),
+    CANCELADA: quantidade('CANCELADA'),
   }
 
   return (
@@ -174,7 +206,7 @@ export function Cobrancas() {
         <Button
           variant="primary"
           icon="plus"
-          onClick={() => navigate(paths.financeiro.novaCobranca)}
+          onClick={() => navigate(rotas.novaCobranca)}
         >
           Nova cobrança
         </Button>
@@ -212,9 +244,9 @@ export function Cobrancas() {
         </div>
       </div>
 
-      {sucesso && (
+      {(aviso ?? sucesso) && (
         <p className={styles.sucesso} role="status">
-          {sucesso}
+          {aviso ?? sucesso}
         </p>
       )}
 
@@ -238,7 +270,9 @@ export function Cobrancas() {
             <CobrancaCard key={c.id} cobranca={c} aberta={idAberto === c.id} onAlternar={() => alternar(c.id)}>
               <CobrancaDetalhe
                 cobranca={c}
-                onVerBoleto={(cobranca) => setBoletoModalCobranca(cobranca)}
+                onEditar={setEditando}
+                onCancelar={setCancelando}
+                onVerComprovante={(cobranca) => setComprovanteDe(cobranca.id)}
                 onSimularPagamento={atalhosSandboxHabilitados ? simularPagamento : undefined}
                 simulandoPagamento={simulando}
                 mensagemSandbox={mensagemSandbox}
@@ -256,11 +290,34 @@ export function Cobrancas() {
         />
       )}
 
-      {/* Modais */}
-      <ModalBoleto
-        cobranca={boletoModalCobranca}
-        onFechar={() => setBoletoModalCobranca(null)}
-      />
+      {editando && (
+        <ModalEditarCobranca
+          cobranca={editando}
+          onFechar={() => setEditando(null)}
+          onSalva={(cobranca) => {
+            setEditando(null)
+            concluir(`Cobrança "${cobranca.descricao}" atualizada.`)
+          }}
+        />
+      )}
+      {cancelando && (
+        <ConfirmarExclusao
+          titulo="Cancelar cobrança"
+          nome={cancelando.descricao}
+          rotuloConfirmar="Cancelar cobrança"
+          onFechar={() => setCancelando(null)}
+          traduzirErro={mensagemErroCancelar}
+          onConfirmar={async () => {
+            await cancelarCobranca(cancelando.id)
+            setCancelando(null)
+            concluir(`Cobrança "${cancelando.descricao}" cancelada.`)
+          }}
+        >
+          Cancelar a cobrança <strong>{cancelando.descricao}</strong> de {cancelando.alunoNome ?? 'aluno'}? Se ela já
+          foi enviada ao Asaas, é removida lá primeiro. A cobrança continua no histórico como cancelada.
+        </ConfirmarExclusao>
+      )}
+      {comprovanteDe && <ModalComprovante buscar={buscarComprovante} onFechar={() => setComprovanteDe(null)} />}
     </FinanceiroLayout>
   )
 }

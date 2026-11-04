@@ -22,6 +22,8 @@ public record AvaliacaoResponse(
         BigDecimal valor,
         /** Quantos alunos ja tem nota lancada nesta avaliacao. */
         long notasLancadas,
+        /** Falso enquanto as notas estao em rascunho: o aluno ainda nao as ve. */
+        boolean notasPublicadas,
         Instant criadoEm,
         Instant atualizadoEm) {
 
@@ -29,6 +31,6 @@ public record AvaliacaoResponse(
         return new AvaliacaoResponse(avaliacao.getId(), avaliacao.getTurma().getId(), avaliacao.getTurma().getNome(),
                 avaliacao.getDisciplina().getId(), avaliacao.getDisciplina().getNome(), avaliacao.getTipo(),
                 avaliacao.getTitulo(), avaliacao.getDescricao(), avaliacao.getData(), avaliacao.getValor(),
-                notasLancadas, avaliacao.getCriadoEm(), avaliacao.getAtualizadoEm());
+                notasLancadas, avaliacao.isNotasPublicadas(), avaliacao.getCriadoEm(), avaliacao.getAtualizadoEm());
     }
 }
