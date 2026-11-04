@@ -1,6 +1,6 @@
 @startuml 02-acesso-e-usuarios
 !include _estilo.puml
-title Eduka — Casos de Uso: Acesso, Usuários e Dashboards (UC03, UC04, UC16)
+title Eduka — Casos de Uso: Acesso, Usuários e Dashboards (UC03, UC04, UC16, UC37, UC38)
 
 left to right direction
 
@@ -19,9 +19,13 @@ rectangle "Eduka — Acesso e dashboards" {
   usecase "Definir Senha no\nPrimeiro Acesso" as UC03P
   usecase "Verificar Código\nEnviado por E-mail" as UC03V
   usecase "Reenviar Código" as UC03R
+  usecase "Avisar Escola\nSuspensa" as UC03S
+  usecase "UC38\nAceitar Aviso de\nPrivacidade" as UC38 <<planejado>>
   usecase "UC04\nGerenciar Usuários\nda Escola" as UC04 <<parcial>>
   usecase "Editar, Inativar ou\nReativar Usuário" as UC04A <<parcial>>
   usecase "UC16\nVisualizar Dashboard" as UC16
+  usecase "Início do Aluno" as UC16A <<planejado>>
+  usecase "UC37\nConsultar Registro\nde Atividades" as UC37 <<parcial>>
 }
 
 USUARIO <|-- SUPERADMIN
@@ -33,14 +37,21 @@ USUARIO <|-- PROFESSOR
 USUARIO --> UC03
 USUARIO --> UC03E
 MASTER -[#A0A8B4]-> UC04 : API
+MASTER -[#A0A8B4]-> UC37 : API
 MASTER --> UC16
 SECRETARIA --> UC16
 FINANCEIRO --> UC16
 PROFESSOR --> UC16
+ALUNO --> UC16A
 UC03 ..> UC03V : <<include>>
 UC03P ..> UC03 : <<extend>>
 UC03R ..> UC03V : <<extend>>
+UC03S ..> UC03 : <<extend>>
+UC38 ..> UC03 : <<extend>>
 UC04A ..> UC04 : <<extend>>
+UC16A ..> UC16 : <<extend>>
 UC03V --> BREVO
+
+note "UC37: a consulta paginada da auditoria já existe na API\n(/auditoria/pagina); a tela Registro de atividades (IU28)\né da Sprint 4. UC38 e o Início do aluno (IU27, IU29)\ntambém são da Sprint 4." as N1
 
 @enduml

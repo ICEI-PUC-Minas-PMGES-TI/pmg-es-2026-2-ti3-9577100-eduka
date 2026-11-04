@@ -19,6 +19,10 @@ skinparam usecase {
   BorderThickness 1
   BackgroundColor<<parcial>> #FFF4D6
   BorderColor<<parcial>> #B8922E
+  BackgroundColor<<planejado>> #F1F1F1
+  BorderColor<<planejado>> #8C8C8C
+  FontColor<<planejado>> #5A5A5A
+  BorderStyle<<planejado>> dashed
 }
 
 skinparam rectangle {

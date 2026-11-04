@@ -1,6 +1,6 @@
 @startuml 05-portal-do-professor
 !include _estilo.puml
-title Eduka — Casos de Uso: Portal do Professor (UC19 a UC21)
+title Eduka — Casos de Uso: Portal do Professor (UC19 a UC21, UC35)
 
 left to right direction
 
@@ -8,18 +8,28 @@ actor "PROFESSOR" as PROFESSOR
 
 rectangle "Eduka — Portal do professor" {
   usecase "UC19\nConsultar Turmas e\nDisciplinas Alocadas" as UC19
+  usecase "Ver Alunos e\nHorário da Turma" as UC19A
   usecase "UC20\nCadastrar Avaliações" as UC20
   usecase "UC21\nLançar Notas dos Alunos" as UC21
+  usecase "UC35\nRegistrar Aula\ne Chamada" as UC35
   usecase "Editar ou Excluir Avaliação" as UC20A
+  usecase "Salvar Rascunho\ndas Notas" as UC21R
   usecase "Corrigir ou Apagar Nota" as UC21A
+  usecase "Consultar Histórico\nde Aulas" as UC35H
+  usecase "Editar ou Excluir Aula" as UC35A
 }
 
 PROFESSOR --> UC19
 PROFESSOR --> UC20
 PROFESSOR --> UC21
+PROFESSOR --> UC35
+UC19A ..> UC19 : <<extend>>
 UC20A ..> UC20 : <<extend>>
+UC21R ..> UC21 : <<extend>>
 UC21A ..> UC21 : <<extend>>
+UC35H ..> UC35 : <<extend>>
+UC35A ..> UC35H : <<extend>>
 
-note "Pré-condição (descrita em UC19 a UC21): o professor só acessa\nturmas e disciplinas alocadas a ele pela secretaria (UC18).\nO lançamento de notas depende de uma avaliação (UC20)." as N1
+note "Pré-condição (descrita em UC19 a UC21 e UC35): o professor só acessa\nturmas e disciplinas alocadas a ele pela secretaria (UC18).\nO lançamento de notas depende de uma avaliação (UC20).\nA chamada lista só os alunos matriculados na data da aula." as N1
 
 @enduml

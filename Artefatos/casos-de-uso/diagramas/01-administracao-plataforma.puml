@@ -12,7 +12,8 @@ rectangle "Eduka — Administração da plataforma" {
   usecase "UC01\nCadastrar Escola" as UC01 <<parcial>>
   usecase "UC02\nGerenciar Escolas\nCadastradas" as UC02 <<parcial>>
   usecase "Editar Dados da Escola" as UC02A
-  usecase "Suspender ou\nReativar Escola" as UC02B <<parcial>>
+  usecase "Suspender ou\nReativar Escola" as UC02B
+  usecase "Consultar Uso\nda Escola" as UC02U <<planejado>>
   usecase "UC27\nGerenciar Faturas\nda Plataforma" as UC27
   usecase "Cancelar Fatura" as UC27A
   usecase "Ver Comprovante\nda Fatura" as UC27C
@@ -25,10 +26,13 @@ SUPERADMIN --> UC27
 MASTER --> UC28
 UC02A ..> UC02 : <<extend>>
 UC02B ..> UC02 : <<extend>>
+UC02U ..> UC02 : <<extend>>
 UC27A ..> UC27 : <<extend>>
 UC27C ..> UC27 : <<extend>>
 UC27C ..> UC28 : <<extend>>
 UC27 --> ASAAS
 UC28 --> ASAAS
+
+note "Sprint 4: o uso de cada escola (alunos, usuários ativos,\ncobranças no mês e última atividade) entra no Painel de\nEscolas (RF02.1). A suspensão já bloqueia o login (IU04)." as N1
 
 @enduml
