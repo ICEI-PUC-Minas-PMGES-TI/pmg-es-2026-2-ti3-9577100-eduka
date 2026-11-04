@@ -1,5 +1,7 @@
 package br.pucminas.eduka.backend.service;
 
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +62,7 @@ public class AcademicoSecretariaService {
     private final MatriculaTurmaRepository matriculaRepository;
     private final AlocacaoProfessorRepository alocacaoRepository;
     private final AvaliacaoRepository avaliacaoRepository;
+    private final Clock clock;
 
     public AcademicoSecretariaService(PeriodoLetivoRepository periodoLetivoRepository,
                                       CursoRepository cursoRepository,
@@ -68,7 +71,8 @@ public class AcademicoSecretariaService {
                                       EscolaRepository escolaRepository,
                                       MatriculaTurmaRepository matriculaRepository,
                                       AlocacaoProfessorRepository alocacaoRepository,
-                                      AvaliacaoRepository avaliacaoRepository) {
+                                      AvaliacaoRepository avaliacaoRepository,
+                                      Clock clock) {
         this.periodoLetivoRepository = periodoLetivoRepository;
         this.cursoRepository = cursoRepository;
         this.disciplinaRepository = disciplinaRepository;
@@ -77,6 +81,7 @@ public class AcademicoSecretariaService {
         this.matriculaRepository = matriculaRepository;
         this.alocacaoRepository = alocacaoRepository;
         this.avaliacaoRepository = avaliacaoRepository;
+        this.clock = clock;
     }
 
     @Transactional
@@ -87,6 +92,8 @@ public class AcademicoSecretariaService {
                 .nome(request.getNome().trim())
                 .dataInicio(request.getDataInicio())
                 .dataFim(request.getDataFim())
+                // Periodo que ainda nao comecou (planejado) so recebe matricula depois de Abrir matriculas.
+                .matriculasAbertas(!request.getDataInicio().isAfter(hoje()))
                 .build();
         return toResponse(periodoLetivoRepository.save(periodo), escolaId);
     }
@@ -131,6 +138,43 @@ public class AcademicoSecretariaService {
                 .disciplinas(disciplinasDaEscola(request.getDisciplinaIds(), escolaId))
                 .build();
         return toResponse(turmaRepository.save(turma), escolaId, 0);
+    }
+
+    // ----- Encerrar e abrir matriculas (IU09) -----
+
+    /**
+     * Encerra o periodo em andamento antes do fim: ele deixa de receber
+     * matricula nova. As matriculas e notas ja feitas ficam como estao.
+     *
+     * @throws IllegalArgumentException se o periodo nao esta em andamento
+     */
+    @Transactional
+    public PeriodoLetivoResponse encerrarPeriodoLetivo(UUID escolaId, Long id) {
+        LocalDate hoje = hoje();
+        PeriodoLetivo periodo = periodoDaEscola(id, escolaId);
+        boolean emAndamento = periodo.getEncerradoEm() == null && !hoje.isBefore(periodo.getDataInicio())
+                && !hoje.isAfter(periodo.getDataFim());
+        if (!emAndamento) {
+            throw new IllegalArgumentException("So o periodo em andamento pode ser encerrado");
+        }
+        periodo.setEncerradoEm(hoje);
+        return toResponse(periodoLetivoRepository.save(periodo), escolaId);
+    }
+
+    /**
+     * Libera as matriculas de um periodo planejado (que ainda nao comecou).
+     *
+     * @throws IllegalArgumentException se o periodo ja comecou ou foi encerrado
+     */
+    @Transactional
+    public PeriodoLetivoResponse abrirMatriculas(UUID escolaId, Long id) {
+        LocalDate hoje = hoje();
+        PeriodoLetivo periodo = periodoDaEscola(id, escolaId);
+        if (periodo.getEncerradoEm() != null || !hoje.isBefore(periodo.getDataInicio())) {
+            throw new IllegalArgumentException("So o periodo planejado tem as matriculas abertas pela secretaria");
+        }
+        periodo.setMatriculasAbertas(true);
+        return toResponse(periodoLetivoRepository.save(periodo), escolaId);
     }
 
     // ----- Edicao -----
@@ -261,6 +305,11 @@ public class AcademicoSecretariaService {
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Curso nao encontrado"));
     }
 
+    /** Data de hoje no fuso da escola, como na matricula. */
+    private LocalDate hoje() {
+        return LocalDate.now(clock.withZone(MatriculaTurmaService.FUSO_ESCOLA));
+    }
+
     private PeriodoLetivo periodoDaEscola(Long id, UUID escolaId) {
         return periodoLetivoRepository.findByIdAndEscolaId(id, escolaId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Periodo letivo nao encontrado"));
@@ -334,6 +383,8 @@ public class AcademicoSecretariaService {
                 .dataInicio(p.getDataInicio())
                 .dataFim(p.getDataFim())
                 .ativo(p.getAtivo())
+                .matriculasAbertas(p.isMatriculasAbertas())
+                .encerradoEm(p.getEncerradoEm())
                 .build();
     }
 

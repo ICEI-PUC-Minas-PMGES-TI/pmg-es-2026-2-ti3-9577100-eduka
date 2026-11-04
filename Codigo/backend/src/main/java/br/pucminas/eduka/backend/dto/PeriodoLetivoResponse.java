@@ -15,4 +15,8 @@ public class PeriodoLetivoResponse {
     private LocalDate dataInicio;
     private LocalDate dataFim;
     private Boolean ativo;
+    /** Periodo planejado so recebe matricula com isto verdadeiro (IU09). */
+    private boolean matriculasAbertas;
+    /** Preenchido quando a secretaria encerrou o periodo (IU09). */
+    private LocalDate encerradoEm;
 }

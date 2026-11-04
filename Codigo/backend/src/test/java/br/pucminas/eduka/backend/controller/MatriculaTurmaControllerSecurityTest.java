@@ -87,7 +87,9 @@ class MatriculaTurmaControllerSecurityTest {
         pessoaAna = Pessoa.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).nome("Ana").ativo(true).build();
         ana = Aluno.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).pessoaId(pessoaAna.getId())
                 .matricula("2026001").build();
-        PeriodoLetivo periodo = PeriodoLetivo.builder().id(5L).nome("2026").build();
+        // Em andamento: periodo planejado ou encerrado nao recebe matricula (IU09).
+        PeriodoLetivo periodo = PeriodoLetivo.builder().id(5L).nome("2026").dataInicio(LocalDate.now().minusMonths(1))
+                .dataFim(LocalDate.now().plusMonths(5)).build();
         Curso curso = Curso.builder().id(2L).nome("Fundamental II").build();
         turma1A = Turma.builder().id(1L).nome("6A").turno(Turno.MATUTINO).vagas(30).ativa(true)
                 .periodoLetivo(periodo).curso(curso).build();

@@ -8,6 +8,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -74,6 +75,26 @@ public class AcademicoSecretariaController {
             @Parameter(hidden = true) @AuthenticationPrincipal UsuarioAutenticado usuario,
             @PathVariable Long id, @Valid @RequestBody PeriodoLetivoRequest request) {
         return academicoSecretariaService.atualizarPeriodoLetivo(usuario.escolaId(), id, request);
+    }
+
+    @PatchMapping("/periodos-letivos/{id}/encerrar")
+    @PreAuthorize(Perfis.CADASTRO_ACADEMICO)
+    @Operation(summary = "Encerra o periodo letivo em andamento", description = "Deixa de receber matricula nova; "
+            + "matriculas e notas ja feitas ficam. 400 se o periodo nao esta em andamento.")
+    public PeriodoLetivoResponse encerrarPeriodoLetivo(
+            @Parameter(hidden = true) @AuthenticationPrincipal UsuarioAutenticado usuario,
+            @PathVariable Long id) {
+        return academicoSecretariaService.encerrarPeriodoLetivo(usuario.escolaId(), id);
+    }
+
+    @PatchMapping("/periodos-letivos/{id}/abrir-matriculas")
+    @PreAuthorize(Perfis.CADASTRO_ACADEMICO)
+    @Operation(summary = "Abre as matriculas de um periodo planejado", description = "400 se o periodo ja "
+            + "comecou ou foi encerrado.")
+    public PeriodoLetivoResponse abrirMatriculas(
+            @Parameter(hidden = true) @AuthenticationPrincipal UsuarioAutenticado usuario,
+            @PathVariable Long id) {
+        return academicoSecretariaService.abrirMatriculas(usuario.escolaId(), id);
     }
 
     @DeleteMapping("/periodos-letivos/{id}")

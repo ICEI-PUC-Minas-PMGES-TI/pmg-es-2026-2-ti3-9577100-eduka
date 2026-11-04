@@ -11,6 +11,10 @@ export type PeriodoLetivo = {
   dataInicio: string
   dataFim: string
   ativo: boolean
+  /** Período planejado só recebe matrícula com isto verdadeiro (IU09). */
+  matriculasAbertas: boolean
+  /** ISO (AAAA-MM-DD); preenchido quando a secretaria encerrou o período. */
+  encerradoEm: string | null
 }
 
 export type PeriodoLetivoRequest = {
