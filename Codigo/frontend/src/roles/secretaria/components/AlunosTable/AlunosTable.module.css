@@ -6,7 +6,6 @@
   background: var(--glass-bg);
   box-shadow: var(--glass-shadow);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 /* Em telas estreitas a tabela rola dentro do card, sem rolar a página. */

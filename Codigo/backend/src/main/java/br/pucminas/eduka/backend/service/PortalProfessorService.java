@@ -12,18 +12,19 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.pucminas.eduka.backend.domain.AlocacaoProfessor;
+import br.pucminas.eduka.backend.domain.HorarioTurma;
 import br.pucminas.eduka.backend.domain.MatriculaTurma;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.Professor;
 import br.pucminas.eduka.backend.domain.StatusMatricula;
 import br.pucminas.eduka.backend.domain.Turma;
 import br.pucminas.eduka.backend.dto.AlunoDaTurmaResponse;
-import br.pucminas.eduka.backend.dto.HorarioAulaResponse;
 import br.pucminas.eduka.backend.dto.TurmaDoProfessorResponse;
 import br.pucminas.eduka.backend.dto.TurmaDoProfessorResponse.DisciplinaDoProfessor;
+import br.pucminas.eduka.backend.dto.TurmaDoProfessorResponse.HorarioDaDisciplina;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.AlocacaoProfessorRepository;
-import br.pucminas.eduka.backend.repository.HorarioAulaRepository;
+import br.pucminas.eduka.backend.repository.HorarioTurmaRepository;
 import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.repository.ProfessorRepository;
@@ -47,13 +48,13 @@ public class PortalProfessorService {
 
     private final ProfessorRepository professorRepository;
     private final AlocacaoProfessorRepository alocacaoRepository;
-    private final HorarioAulaRepository horarioRepository;
+    private final HorarioTurmaRepository horarioRepository;
     private final MatriculaTurmaRepository matriculaRepository;
     private final PessoaRepository pessoaRepository;
     private final IsolamentoEscola isolamentoEscola;
 
     public PortalProfessorService(ProfessorRepository professorRepository,
-            AlocacaoProfessorRepository alocacaoRepository, HorarioAulaRepository horarioRepository,
+            AlocacaoProfessorRepository alocacaoRepository, HorarioTurmaRepository horarioRepository,
             MatriculaTurmaRepository matriculaRepository, PessoaRepository pessoaRepository,
             IsolamentoEscola isolamentoEscola) {
         this.professorRepository = professorRepository;
@@ -80,12 +81,14 @@ public class PortalProfessorService {
         Map<Long, List<AlocacaoProfessor>> porTurma = alocacoes.stream()
                 .collect(Collectors.groupingBy(alocacao -> alocacao.getTurma().getId(), LinkedHashMap::new,
                         Collectors.toList()));
-        // Horarios das turmas, por turma e disciplina.
-        Map<String, List<HorarioAulaResponse>> horarios = porTurma.isEmpty() ? Map.of()
-                : horarioRepository.findAllByEscolaIdAndTurmaIdInOrderByDiaSemanaAscHoraInicioAsc(escolaId,
-                        porTurma.keySet()).stream()
-                        .collect(Collectors.groupingBy(h -> h.getTurmaId() + "|" + h.getDisciplinaId(),
-                                Collectors.mapping(HorarioAulaResponse::de, Collectors.toList())));
+        // Aulas da grade semanal (HORARIO_TURMA) das alocacoes dele, por alocacao, em ordem de dia e hora.
+        Map<UUID, List<HorarioDaDisciplina>> horarios = alocacoes.isEmpty() ? Map.of()
+                : horarioRepository.findAllByEscolaIdAndAlocacao_IdIn(escolaId,
+                        alocacoes.stream().map(AlocacaoProfessor::getId).toList()).stream()
+                        .sorted(Comparator.comparing(HorarioTurma::getDiaSemana)
+                                .thenComparing(HorarioTurma::getHoraInicio))
+                        .collect(Collectors.groupingBy(h -> h.getAlocacao().getId(),
+                                Collectors.mapping(HorarioDaDisciplina::de, Collectors.toList())));
 
         return porTurma.values().stream()
                 .map(daTurma -> paraResposta(daTurma, horarios))
@@ -128,11 +131,11 @@ public class PortalProfessorService {
     }
 
     private static TurmaDoProfessorResponse paraResposta(List<AlocacaoProfessor> alocacoesDaTurma,
-            Map<String, List<HorarioAulaResponse>> horarios) {
+            Map<UUID, List<HorarioDaDisciplina>> horarios) {
         Turma turma = alocacoesDaTurma.get(0).getTurma();
         List<DisciplinaDoProfessor> disciplinas = alocacoesDaTurma.stream()
                 .map(alocacao -> DisciplinaDoProfessor.de(alocacao.getDisciplina(),
-                        horarios.getOrDefault(turma.getId() + "|" + alocacao.getDisciplina().getId(), List.of())))
+                        horarios.getOrDefault(alocacao.getId(), List.of())))
                 .sorted(Comparator.comparing(DisciplinaDoProfessor::nome, String.CASE_INSENSITIVE_ORDER))
                 .toList();
         return TurmaDoProfessorResponse.de(turma, disciplinas);

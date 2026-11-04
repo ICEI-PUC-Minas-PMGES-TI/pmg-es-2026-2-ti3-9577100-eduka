@@ -2,13 +2,18 @@ package br.pucminas.eduka.backend.service;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.Sort.Direction;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +27,9 @@ import br.pucminas.eduka.backend.dto.CursoRequest;
 import br.pucminas.eduka.backend.dto.CursoResponse;
 import br.pucminas.eduka.backend.dto.DisciplinaRequest;
 import br.pucminas.eduka.backend.dto.DisciplinaResponse;
+import br.pucminas.eduka.backend.dto.Ordenacao;
+import br.pucminas.eduka.backend.dto.PaginaResponse;
+import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.dto.PeriodoLetivoRequest;
 import br.pucminas.eduka.backend.dto.PeriodoLetivoResponse;
 import br.pucminas.eduka.backend.dto.TurmaRequest;
@@ -29,6 +37,7 @@ import br.pucminas.eduka.backend.dto.TurmaResponse;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.exception.RegistroEmUsoException;
 import br.pucminas.eduka.backend.repository.AlocacaoProfessorRepository;
+import br.pucminas.eduka.backend.repository.AulaRepository;
 import br.pucminas.eduka.backend.repository.AvaliacaoRepository;
 import br.pucminas.eduka.backend.repository.CursoRepository;
 import br.pucminas.eduka.backend.repository.DisciplinaRepository;
@@ -36,6 +45,7 @@ import br.pucminas.eduka.backend.repository.EscolaRepository;
 import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.PeriodoLetivoRepository;
 import br.pucminas.eduka.backend.repository.TurmaRepository;
+import jakarta.persistence.criteria.Predicate;
 
 /**
  * Estrutura academica da escola: periodos letivos, cursos, disciplinas e
@@ -62,6 +72,7 @@ public class AcademicoSecretariaService {
     private final MatriculaTurmaRepository matriculaRepository;
     private final AlocacaoProfessorRepository alocacaoRepository;
     private final AvaliacaoRepository avaliacaoRepository;
+    private final AulaRepository aulaRepository;
     private final Clock clock;
 
     public AcademicoSecretariaService(PeriodoLetivoRepository periodoLetivoRepository,
@@ -72,6 +83,7 @@ public class AcademicoSecretariaService {
                                       MatriculaTurmaRepository matriculaRepository,
                                       AlocacaoProfessorRepository alocacaoRepository,
                                       AvaliacaoRepository avaliacaoRepository,
+                                      AulaRepository aulaRepository,
                                       Clock clock) {
         this.periodoLetivoRepository = periodoLetivoRepository;
         this.cursoRepository = cursoRepository;
@@ -81,6 +93,7 @@ public class AcademicoSecretariaService {
         this.matriculaRepository = matriculaRepository;
         this.alocacaoRepository = alocacaoRepository;
         this.avaliacaoRepository = avaliacaoRepository;
+        this.aulaRepository = aulaRepository;
         this.clock = clock;
     }
 
@@ -216,7 +229,7 @@ public class AcademicoSecretariaService {
      * @throws IllegalArgumentException se as vagas ficam abaixo das
      *                                  matriculas ativas
      * @throws RegistroEmUsoException   se sai da grade uma disciplina que ja
-     *                                  tem avaliacao nesta turma
+     *                                  tem avaliacao ou aula nesta turma
      */
     @Transactional
     public TurmaResponse atualizarTurma(UUID escolaId, Long id, TurmaRequest request) {
@@ -232,6 +245,11 @@ public class AcademicoSecretariaService {
             if (!idsDaGrade.contains(saindo.getId())
                     && avaliacaoRepository.existsByEscolaIdAndTurmaIdAndDisciplinaId(escolaId, id, saindo.getId())) {
                 throw new RegistroEmUsoException("A disciplina %s tem avaliacoes nesta turma e nao pode sair da grade"
+                        .formatted(saindo.getNome()));
+            }
+            if (!idsDaGrade.contains(saindo.getId())
+                    && aulaRepository.existsByEscolaIdAndTurmaIdAndDisciplinaId(escolaId, id, saindo.getId())) {
+                throw new RegistroEmUsoException("A disciplina %s tem aulas registradas nesta turma e nao pode sair da grade"
                         .formatted(saindo.getNome()));
             }
         }
@@ -287,6 +305,9 @@ public class AcademicoSecretariaService {
         }
         if (avaliacaoRepository.existsByEscolaIdAndTurmaId(escolaId, id)) {
             throw new RegistroEmUsoException("A turma tem avaliacoes cadastradas e nao pode ser excluida");
+        }
+        if (aulaRepository.existsByEscolaIdAndTurmaId(escolaId, id)) {
+            throw new RegistroEmUsoException("A turma tem aulas registradas e nao pode ser excluida");
         }
         if (alocacaoRepository.existsByEscolaIdAndTurmaId(escolaId, id)) {
             throw new RegistroEmUsoException("A turma tem professores alocados; desaloque-os antes");
@@ -373,6 +394,40 @@ public class AcademicoSecretariaService {
         return turmaRepository.findAllByEscolaId(escolaId).stream()
                 .map(t -> toResponse(t, escolaId, ativasPorTurma.getOrDefault(t.getId(), 0L)))
                 .toList();
+    }
+
+    /**
+     * Pagina das turmas da escola. Filtros opcionais: periodo letivo, curso,
+     * situacao e {@code busca}, parte do nome ou do codigo, sem diferenciar
+     * maiusculas.
+     */
+    public PaginaResponse<TurmaResponse> listarTurmas(UUID escolaId, Long periodoLetivoId, Long cursoId,
+            Boolean ativa, String busca, Paginacao paginacao, Ordenacao.Turmas ordenarPor, Direction direcao) {
+        Specification<Turma> filtro = (turma, query, cb) -> {
+            List<Predicate> condicoes = new ArrayList<>();
+            condicoes.add(cb.equal(turma.get("escola").get("id"), escolaId));
+            if (periodoLetivoId != null) {
+                condicoes.add(cb.equal(turma.get("periodoLetivo").get("id"), periodoLetivoId));
+            }
+            if (cursoId != null) {
+                condicoes.add(cb.equal(turma.get("curso").get("id"), cursoId));
+            }
+            if (ativa != null) {
+                condicoes.add(cb.equal(turma.get("ativa"), ativa));
+            }
+            if (busca != null && !busca.isBlank()) {
+                String trecho = "%" + busca.trim().toLowerCase(Locale.ROOT) + "%";
+                condicoes.add(cb.or(cb.like(cb.lower(turma.get("nome")), trecho),
+                        cb.like(cb.lower(turma.get("codigo")), trecho)));
+            }
+            return cb.and(condicoes.toArray(Predicate[]::new));
+        };
+        Sort ordem = Ordenacao.noBanco(Ordenacao.ou(direcao, Direction.ASC), ordenarPor.propriedade);
+        Map<Long, Long> ativasPorTurma = matriculaRepository.contarAtivasPorTurma(escolaId).stream()
+                .collect(Collectors.toMap(MatriculaTurmaRepository.AtivasNaTurma::getTurmaId,
+                        MatriculaTurmaRepository.AtivasNaTurma::getQuantidade));
+        return PaginaResponse.de(turmaRepository.findAll(filtro, paginacao.comOrdem(ordem)),
+                t -> toResponse(t, escolaId, ativasPorTurma.getOrDefault(t.getId(), 0L)));
     }
 
     private PeriodoLetivoResponse toResponse(PeriodoLetivo p, UUID escolaId) {

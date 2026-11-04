@@ -24,12 +24,15 @@ import br.pucminas.eduka.backend.domain.Turma;
 import br.pucminas.eduka.backend.dto.AvaliacaoDoAlunoResponse;
 import br.pucminas.eduka.backend.dto.BoletimTurmaResponse;
 import br.pucminas.eduka.backend.dto.BoletimTurmaResponse.BoletimDisciplina;
+import br.pucminas.eduka.backend.dto.BoletimTurmaResponse.Frequencia;
 import br.pucminas.eduka.backend.dto.TurmaDoAlunoResponse;
 import br.pucminas.eduka.backend.dto.TurmaDoAlunoResponse.DisciplinaDaTurma;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.AlocacaoProfessorRepository;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AvaliacaoRepository;
+import br.pucminas.eduka.backend.repository.FrequenciaRepository;
+import br.pucminas.eduka.backend.repository.FrequenciaRepository.FrequenciaDaDisciplina;
 import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.NotaRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
@@ -65,17 +68,20 @@ public class PortalAlunoService {
     private final AlocacaoProfessorRepository alocacaoRepository;
     private final AvaliacaoRepository avaliacaoRepository;
     private final NotaRepository notaRepository;
+    private final FrequenciaRepository frequenciaRepository;
     private final PessoaRepository pessoaRepository;
     private final IsolamentoEscola isolamentoEscola;
 
     public PortalAlunoService(AlunoRepository alunoRepository, MatriculaTurmaRepository matriculaRepository,
             AlocacaoProfessorRepository alocacaoRepository, AvaliacaoRepository avaliacaoRepository,
-            NotaRepository notaRepository, PessoaRepository pessoaRepository, IsolamentoEscola isolamentoEscola) {
+            NotaRepository notaRepository, FrequenciaRepository frequenciaRepository,
+            PessoaRepository pessoaRepository, IsolamentoEscola isolamentoEscola) {
         this.alunoRepository = alunoRepository;
         this.matriculaRepository = matriculaRepository;
         this.alocacaoRepository = alocacaoRepository;
         this.avaliacaoRepository = avaliacaoRepository;
         this.notaRepository = notaRepository;
+        this.frequenciaRepository = frequenciaRepository;
         this.pessoaRepository = pessoaRepository;
         this.isolamentoEscola = isolamentoEscola;
     }
@@ -104,7 +110,9 @@ public class PortalAlunoService {
 
     /**
      * Boletim por turma: cada disciplina da grade, com as avaliacoes (por
-     * data), a nota do aluno em cada uma e os totais de pontos.
+     * data), a nota do aluno em cada uma, os totais de pontos e a frequencia
+     * (aulas com chamada, faltas e alerta acima de 25%). Disciplina sem aula
+     * registrada vem com frequencia nula ("sem aulas"), nunca 0% ou 100%.
      */
     @Transactional(readOnly = true)
     public List<BoletimTurmaResponse> boletim() {
@@ -123,16 +131,25 @@ public class PortalAlunoService {
                 .sorted(ATIVAS_PRIMEIRO)
                 .map(m -> {
                     Turma turma = m.getTurma();
+                    Map<Long, FrequenciaDaDisciplina> frequencias = frequenciaRepository
+                            .resumirPorDisciplina(escolaId, aluno.getId(), turma.getId()).stream()
+                            .collect(Collectors.toMap(FrequenciaDaDisciplina::getDisciplinaId,
+                                    Function.identity()));
                     List<BoletimDisciplina> disciplinas = gradeOrdenada(turma).stream()
                             .map(d -> {
                                 String chave = chave(turma.getId(), d.getId());
+                                FrequenciaDaDisciplina resumo = frequencias.get(d.getId());
+                                Frequencia frequencia = resumo == null ? null
+                                        : Frequencia.de(resumo.getAulas(), resumo.getFaltas());
                                 return boletimDaDisciplina(d, professores.get(chave),
-                                        avaliacoesPorDisciplina.getOrDefault(chave, List.of()), notas);
+                                        avaliacoesPorDisciplina.getOrDefault(chave, List.of()), notas, frequencia);
                             })
                             .toList();
+                    Frequencia geral = Frequencia
+                            .somar(disciplinas.stream().map(BoletimDisciplina::frequencia).toList());
                     return new BoletimTurmaResponse(turma.getId(), turma.getNome(),
                             turma.getPeriodoLetivo().getNome(), turma.getCurso().getNome(), m.getStatus(),
-                            disciplinas);
+                            disciplinas, geral, BoletimTurmaResponse.LIMITE_FALTAS_PERCENTUAL);
                 })
                 .toList();
     }
@@ -156,7 +173,7 @@ public class PortalAlunoService {
     }
 
     private static BoletimDisciplina boletimDaDisciplina(Disciplina disciplina, String professorNome,
-            List<Avaliacao> avaliacoes, Map<UUID, Nota> notas) {
+            List<Avaliacao> avaliacoes, Map<UUID, Nota> notas, Frequencia frequencia) {
         BigDecimal obtidos = BigDecimal.ZERO;
         BigDecimal avaliados = BigDecimal.ZERO;
         BigDecimal distribuidos = BigDecimal.ZERO;
@@ -173,7 +190,7 @@ public class PortalAlunoService {
                 .map(a -> AvaliacaoDoAlunoResponse.de(a, notas.get(a.getId())))
                 .toList();
         return new BoletimDisciplina(disciplina.getId(), disciplina.getNome(), professorNome, itens, obtidos,
-                avaliados, distribuidos);
+                avaliados, distribuidos, frequencia);
     }
 
     /** Aluno dono do login. 404 se o login nao e de um aluno da escola. */

@@ -1,0 +1,32 @@
+@startuml 07-rotinas-e-integracoes
+!include _estilo.puml
+title Eduka — Casos de Uso: Rotinas e Integrações (UC30 a UC32)
+
+left to right direction
+
+actor "Gateway de Pagamento\n(Asaas)" as ASAAS <<sistema externo>>
+actor "Tempo" as TEMPO <<rotina agendada>>
+actor "Serviço de E-mail\n(Brevo)" as BREVO <<sistema externo>>
+
+rectangle "Eduka — Rotinas e integrações" {
+  usecase "UC30\nConfirmar Pagamento\npelo Gateway" as UC30
+  usecase "Reprocessar Avisos e\nReconciliar Emissões" as UC30R
+  usecase "UC31\nMarcar Cobranças e\nFaturas em Atraso" as UC31
+  usecase "Confirmar Pagamento\nde Fatura da Plataforma" as UC30F
+  usecase "Tratar Demais Avisos\ndo Gateway" as UC30O
+  usecase "Confirmar Pagamento\nde Cobrança" as UC30C
+  usecase "UC32\nEnviar Notificações\npor E-mail" as UC32
+}
+
+ASAAS --> UC30
+TEMPO --> UC30R
+TEMPO --> UC31
+TEMPO --> UC32
+UC30R ..> UC30 : <<extend>>
+UC30 <|-- UC30F
+UC30 <|-- UC30C
+UC30O ..> UC30 : <<extend>>
+UC30C ..> UC32 : <<include>>
+UC32 --> BREVO
+
+@enduml

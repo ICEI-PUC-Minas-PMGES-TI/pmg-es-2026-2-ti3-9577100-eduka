@@ -7,7 +7,6 @@
   background: var(--glass-bg);
   box-shadow: var(--glass-shadow);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 /* Faixa lavanda no topo: quem é a turma e quanto da grade já tem professor. */
@@ -190,7 +189,6 @@
   border-radius: 0 0 var(--radius-xl) var(--radius-xl);
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .situacao {

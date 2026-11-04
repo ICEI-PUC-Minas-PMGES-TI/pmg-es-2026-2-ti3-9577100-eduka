@@ -30,7 +30,7 @@ import br.pucminas.eduka.backend.domain.Turma;
 import br.pucminas.eduka.backend.domain.Turno;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
 import br.pucminas.eduka.backend.repository.AlocacaoProfessorRepository;
-import br.pucminas.eduka.backend.repository.HorarioAulaRepository;
+import br.pucminas.eduka.backend.repository.HorarioTurmaRepository;
 import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.repository.ProfessorRepository;
@@ -67,7 +67,7 @@ class PortalProfessorControllerSecurityTest {
     @MockitoBean
     private DashboardService dashboardService;
     @MockitoBean
-    private HorarioAulaRepository horarioRepository;
+    private HorarioTurmaRepository horarioRepository;
     @MockitoBean
     private MatriculaTurmaRepository matriculaRepository;
     @MockitoBean

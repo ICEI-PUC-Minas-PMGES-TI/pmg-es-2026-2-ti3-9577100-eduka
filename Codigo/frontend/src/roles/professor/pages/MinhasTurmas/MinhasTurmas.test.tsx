@@ -24,9 +24,9 @@ const TURMA: TurmaDoProfessor = {
       codigo: null,
       cargaHoraria: 80,
       horarios: [
-        { disciplinaId: 3, diaSemana: 5, horaInicio: '07:30:00' },
-        { disciplinaId: 3, diaSemana: 1, horaInicio: '07:30:00' },
-        { disciplinaId: 3, diaSemana: 3, horaInicio: '07:30:00' },
+        { diaSemana: 'SEXTA', horaInicio: '07:30:00', horaFim: '08:20:00' },
+        { diaSemana: 'SEGUNDA', horaInicio: '07:30:00', horaFim: '08:20:00' },
+        { diaSemana: 'QUARTA', horaInicio: '07:30:00', horaFim: '08:20:00' },
       ],
     },
   ],
@@ -66,8 +66,8 @@ describe('MinhasTurmas', () => {
     expect(descreverHorarios(TURMA.disciplinas[0].horarios)).toBe('Seg, Qua e Sex · 07h30')
     expect(
       descreverHorarios([
-        { disciplinaId: 1, diaSemana: 2, horaInicio: '09:20:00' },
-        { disciplinaId: 1, diaSemana: 4, horaInicio: '07:30:00' },
+        { diaSemana: 'TERCA', horaInicio: '09:20:00', horaFim: '10:10:00' },
+        { diaSemana: 'QUINTA', horaInicio: '07:30:00', horaFim: '08:20:00' },
       ]),
     ).toBe('Qui · 07h30 · Ter · 09h20')
     expect(descreverHorarios([])).toBeNull()

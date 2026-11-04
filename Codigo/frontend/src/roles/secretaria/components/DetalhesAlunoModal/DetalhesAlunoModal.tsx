@@ -60,6 +60,7 @@ export function DetalhesAlunoModal({ aluno, onFechar }: DetalhesAlunoModalProps)
                       { rotulo: 'Parentesco', valor: r.parentesco },
                       { rotulo: 'E-mail', valor: r.email },
                       { rotulo: 'Telefone', valor: r.telefone && mascararTelefone(r.telefone) },
+                      { rotulo: 'Responsável financeiro', valor: r.financeiro ? 'Sim, paga as cobranças' : 'Não' },
                     ],
                   }))),
             ]

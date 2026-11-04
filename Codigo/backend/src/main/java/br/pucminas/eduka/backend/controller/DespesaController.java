@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -24,6 +25,9 @@ import br.pucminas.eduka.backend.dto.AtualizarDespesaRequest;
 import br.pucminas.eduka.backend.dto.DespesaRequest;
 import br.pucminas.eduka.backend.dto.DespesaResponse;
 import br.pucminas.eduka.backend.dto.MudarSituacaoDespesaRequest;
+import br.pucminas.eduka.backend.dto.Ordenacao;
+import br.pucminas.eduka.backend.dto.PaginaResponse;
+import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.DespesaService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -58,6 +62,26 @@ public class DespesaController {
             @RequestParam(required = false) LocalDate vencimentoDe,
             @RequestParam(required = false) LocalDate vencimentoAte) {
         return despesaService.listar(situacao, categoriaId, vencimentoDe, vencimentoAte);
+    }
+
+    @GetMapping("/pagina")
+    @PreAuthorize(Perfis.FINANCEIRO)
+    @Operation(summary = "Lista as despesas em paginas",
+            description = "Mesmos filtros da listagem. `pagina` comeca em 0; `tamanho` vai de 1 a 100. "
+                    + "`ordenarPor`: VENCIMENTO (padrao), VALOR ou DESCRICAO; `direcao`: ASC (padrao) ou DESC.")
+    @ApiResponse(responseCode = "200", description = "A pagina de despesas.")
+    @ApiResponse(responseCode = "400", description = "Pagina, tamanho, ordenacao ou intervalo de vencimento "
+            + "invalidos.")
+    public PaginaResponse<DespesaResponse> listarPaginado(@RequestParam(required = false) SituacaoDespesa situacao,
+            @RequestParam(required = false) UUID categoriaId,
+            @RequestParam(required = false) LocalDate vencimentoDe,
+            @RequestParam(required = false) LocalDate vencimentoAte,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = Paginacao.TAMANHO_PADRAO) int tamanho,
+            @RequestParam(defaultValue = "VENCIMENTO") Ordenacao.Despesas ordenarPor,
+            @RequestParam(required = false) Direction direcao) {
+        return despesaService.listarPaginado(situacao, categoriaId, vencimentoDe, vencimentoAte,
+                new Paginacao(pagina, tamanho), ordenarPor, direcao);
     }
 
     @GetMapping("/{id}")

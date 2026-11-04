@@ -2,17 +2,31 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { problema, simularApi } from '../../../../test/api'
+import type { HorarioTurma } from '../../../../types/horario'
 import { ModalHorarioDisciplina } from './ModalHorarioDisciplina'
 
-function renderizar() {
+const SEGUNDA: HorarioTurma = {
+  id: 'h1',
+  alocacaoId: 'aloc-1',
+  turmaId: 7,
+  diaSemana: 'SEGUNDA',
+  horaInicio: '07:30:00',
+  horaFim: '08:20:00',
+  disciplinaId: 3,
+  disciplinaNome: 'Matemática',
+  professorId: 'p1',
+  professorNome: 'João Martins',
+}
+
+function renderizar(horarios: HorarioTurma[] = [SEGUNDA]) {
   const onSalvo = vi.fn()
   render(
     <ModalHorarioDisciplina
       turmaId={7}
       turmaNome="2º ano A"
-      disciplinaId={3}
       disciplinaNome="Matemática"
-      horarios={[{ disciplinaId: 3, diaSemana: 1, horaInicio: '07:30:00' }]}
+      alocacaoId="aloc-1"
+      horarios={horarios}
       onSalvo={onSalvo}
       onFechar={vi.fn()}
     />,
@@ -23,41 +37,54 @@ function renderizar() {
 describe('ModalHorarioDisciplina', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('adiciona uma aula e grava o horário da disciplina', async () => {
+  it('grava só o que mudou: cria a aula nova e não mexe na que ficou igual', async () => {
     const chamadas = simularApi(({ metodo, caminho }) =>
-      metodo === 'PUT' && caminho === '/turmas/7/disciplinas/3/horarios'
-        ? {
-            corpo: [
-              { disciplinaId: 3, diaSemana: 1, horaInicio: '07:30:00' },
-              { disciplinaId: 3, diaSemana: 3, horaInicio: '07:30:00' },
-            ],
-          }
-        : undefined,
+      metodo === 'POST' && caminho === '/turmas/7/horario' ? { status: 201, corpo: SEGUNDA } : undefined,
     )
     const onSalvo = renderizar()
 
-    expect(screen.getByLabelText('Hora da aula 1')).toHaveValue('07:30')
+    expect(screen.getByLabelText('Início da aula 1')).toHaveValue('07:30')
     await userEvent.click(screen.getByRole('button', { name: /adicionar aula/i }))
-    await userEvent.selectOptions(screen.getByLabelText('Dia da aula 2'), '3')
+    await userEvent.selectOptions(screen.getByLabelText('Dia da aula 2'), 'QUARTA')
     await userEvent.click(screen.getByRole('button', { name: /salvar horário/i }))
 
+    expect(chamadas).toHaveLength(1)
     expect(chamadas[0].corpo).toEqual({
-      horarios: [
-        { diaSemana: 1, horaInicio: '07:30' },
-        { diaSemana: 3, horaInicio: '07:30' },
-      ],
+      alocacaoId: 'aloc-1',
+      diaSemana: 'QUARTA',
+      horaInicio: '07:30',
+      horaFim: '08:20',
     })
-    expect(onSalvo).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ diaSemana: 3 })]))
+    expect(onSalvo).toHaveBeenCalled()
   })
 
-  it('mostra o conflito com outra aula da turma', async () => {
-    simularApi(({ metodo }) =>
-      metodo === 'PUT' ? problema(400, 'X', 'A turma ja tem outra aula nesse dia e horario') : undefined,
-    )
-    renderizar()
+  it('remove a aula tirada e altera a mexida', async () => {
+    const chamadas = simularApi(({ metodo }) => {
+      if (metodo === 'DELETE') return { status: 204 }
+      if (metodo === 'PUT') return { corpo: SEGUNDA }
+      return undefined
+    })
+    renderizar([SEGUNDA, { ...SEGUNDA, id: 'h2', diaSemana: 'SEXTA' }])
 
+    await userEvent.click(screen.getByRole('button', { name: 'Remover aula 1' }))
+    await userEvent.clear(screen.getByLabelText('Fim da aula 1'))
+    await userEvent.type(screen.getByLabelText('Fim da aula 1'), '09:10')
     await userEvent.click(screen.getByRole('button', { name: /salvar horário/i }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/já tem outra aula/i)
+    expect(chamadas.map((c) => `${c.metodo} ${c.caminho}`)).toEqual([
+      'DELETE /turmas/7/horario/h1',
+      'PUT /turmas/7/horario/h2',
+    ])
+    expect(chamadas[1].corpo).toEqual({ diaSemana: 'SEXTA', horaInicio: '07:30', horaFim: '09:10' })
+  })
+
+  it('mostra o conflito com o horário do professor', async () => {
+    simularApi(({ metodo }) => (metodo === 'POST' ? problema(409, 'HORARIO_PROFESSOR_CONFLITANTE') : undefined))
+    renderizar([])
+
+    await userEvent.click(screen.getByRole('button', { name: /adicionar aula/i }))
+    await userEvent.click(screen.getByRole('button', { name: /salvar horário/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/professor já tem aula/i)
   })
 })

@@ -298,7 +298,7 @@ class AlunoServiceTest {
         });
 
         AlunoResponse resultado = alunoService.cadastrar(request("Ana", "2026-001", null,
-                List.of(new ResponsavelRequest("Maria Silva", null, "maria@example.com", "31999998888", "MAE", true))));
+                List.of(new ResponsavelRequest("Maria Silva", "52998224725", "maria@example.com", "31999998888", "MAE", true))));
 
         assertThat(resultado.responsaveis()).hasSize(1);
         assertThat(resultado.responsaveis().get(0).nome()).isEqualTo("Maria Silva");

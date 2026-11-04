@@ -3,6 +3,7 @@ package br.pucminas.eduka.backend.controller;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -11,14 +12,19 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.dto.ComprovanteResponse;
 import br.pucminas.eduka.backend.dto.DadosPagamentoResponse;
 import br.pucminas.eduka.backend.dto.FaturaPlataformaResponse;
 import br.pucminas.eduka.backend.dto.LancarFaturaRequest;
+import br.pucminas.eduka.backend.dto.Ordenacao;
 import br.pucminas.eduka.backend.dto.PagarRequest;
+import br.pucminas.eduka.backend.dto.PaginaResponse;
+import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.pagamento.PaymentRoutingService;
 import br.pucminas.eduka.backend.security.Perfis;
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,6 +43,10 @@ import jakarta.validation.Valid;
 @Tag(name = "Faturas da plataforma", description = "O que a escola paga ao Eduka. Lancar e cancelar: SUPER_ADMIN. "
         + "Ver e pagar: MASTER da escola.")
 public class FaturaPlataformaController {
+
+    private static final String DESCRICAO_PAGINA = "Filtro opcional por `status` (PENDENTE, EM_ATRASO, PAGA, "
+            + "CANCELADA). `pagina` comeca em 0; `tamanho` vai de 1 a 100. `ordenarPor`: COMPETENCIA (padrao, da "
+            + "mais recente), VENCIMENTO ou VALOR; `direcao`: ASC ou DESC.";
 
     private final PaymentRoutingService paymentRoutingService;
 
@@ -78,6 +88,22 @@ public class FaturaPlataformaController {
         return paymentRoutingService.listarFaturas(escolaId);
     }
 
+    @GetMapping("/escolas/{escolaId}/faturas/pagina")
+    @PreAuthorize(Perfis.SUPER_ADMIN)
+    @Operation(summary = "Faturas da escola em paginas", description = "Perfil: SUPER_ADMIN. " + DESCRICAO_PAGINA)
+    @ApiResponse(responseCode = "200", description = "A pagina de faturas da escola.")
+    @ApiResponse(responseCode = "400", description = "Pagina, tamanho ou ordenacao invalidos.")
+    @ApiResponse(responseCode = "404", description = "Escola inexistente.")
+    public PaginaResponse<FaturaPlataformaResponse> listarPaginado(@PathVariable UUID escolaId,
+            @RequestParam(required = false) StatusCobranca status,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = Paginacao.TAMANHO_PADRAO) int tamanho,
+            @RequestParam(defaultValue = "COMPETENCIA") Ordenacao.Faturas ordenarPor,
+            @RequestParam(required = false) Direction direcao) {
+        return paymentRoutingService.listarFaturas(escolaId, status, new Paginacao(pagina, tamanho), ordenarPor,
+                direcao);
+    }
+
     @PatchMapping("/escolas/{escolaId}/faturas/{id}/cancelar")
     @PreAuthorize(Perfis.SUPER_ADMIN)
     @Operation(summary = "Cancelar fatura", description = "Perfil: SUPER_ADMIN. Ja emitida, remove antes no "
@@ -109,6 +135,22 @@ public class FaturaPlataformaController {
             + "as acoes (PAGAR, VER_COMPROVANTE).")
     public List<FaturaPlataformaResponse> minhas() {
         return paymentRoutingService.listarMinhasFaturas();
+    }
+
+    @GetMapping("/config-pagamento/faturas/pagina")
+    @PreAuthorize(Perfis.GESTAO)
+    @Operation(summary = "Faturas da minha escola em paginas", description = "Perfil: MASTER. So as da escola do "
+            + "token. " + DESCRICAO_PAGINA)
+    @ApiResponse(responseCode = "200", description = "A pagina de faturas da escola do token.")
+    @ApiResponse(responseCode = "400", description = "Pagina, tamanho ou ordenacao invalidos.")
+    public PaginaResponse<FaturaPlataformaResponse> minhasPaginado(
+            @RequestParam(required = false) StatusCobranca status,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = Paginacao.TAMANHO_PADRAO) int tamanho,
+            @RequestParam(defaultValue = "COMPETENCIA") Ordenacao.Faturas ordenarPor,
+            @RequestParam(required = false) Direction direcao) {
+        return paymentRoutingService.listarMinhasFaturas(status, new Paginacao(pagina, tamanho), ordenarPor,
+                direcao);
     }
 
     @PostMapping("/config-pagamento/faturas/{id}/pagar")

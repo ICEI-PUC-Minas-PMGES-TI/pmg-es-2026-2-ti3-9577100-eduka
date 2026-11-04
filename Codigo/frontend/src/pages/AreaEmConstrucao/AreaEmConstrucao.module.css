@@ -19,7 +19,6 @@
   background: var(--glass-bg);
   box-shadow: 0 24px 60px rgba(150, 103, 224, 0.16), inset 0 2px 0 rgba(255, 255, 255, 0.95);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   text-align: center;
   animation: var(--animacao-entrar);
 }

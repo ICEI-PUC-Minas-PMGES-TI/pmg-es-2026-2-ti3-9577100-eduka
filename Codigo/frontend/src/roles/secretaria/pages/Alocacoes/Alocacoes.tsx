@@ -6,9 +6,9 @@ import { Modal } from '../../../../components/Modal/Modal'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { obterToken } from '../../../../services/authService'
-import { listarHorariosDaTurma } from '../../../../services/horarioService'
+import { listarHorarioDaTurma } from '../../../../services/horarioService'
 import type { DisciplinaDaTurma, Turma } from '../../../../types/alocacao'
-import type { HorarioAula } from '../../../../types/horario'
+import type { HorarioTurma } from '../../../../types/horario'
 import { GradeAlocacao } from '../../components/GradeAlocacao/GradeAlocacao'
 import { ModalHorarioDisciplina } from '../../components/ModalHorarioDisciplina/ModalHorarioDisciplina'
 import type { OpcaoProfessor } from '../../components/SeletorProfessor/SeletorProfessor'
@@ -17,7 +17,7 @@ import { useAlocacoes, type EscolhasDaTurma } from '../../hooks/useAlocacoes'
 import { SecretariaLayout } from '../../layouts/SecretariaLayout'
 import styles from './Alocacoes.module.css'
 
-const SEM_HORARIOS: HorarioAula[] = []
+const SEM_HORARIOS: HorarioTurma[] = []
 
 export function Alocacoes() {
   const { turmas, professores, alocacoes, carregando, erro, recarregar, salvar } = useAlocacoes()
@@ -68,10 +68,15 @@ export function Alocacoes() {
   const turmaAbertaId = turma?.id ?? null
   const buscarHorarios = useCallback(
     (signal: AbortSignal) =>
-      turmaAbertaId === null ? Promise.resolve(SEM_HORARIOS) : listarHorariosDaTurma(turmaAbertaId, signal),
+      turmaAbertaId === null ? Promise.resolve(SEM_HORARIOS) : listarHorarioDaTurma(turmaAbertaId, signal),
     [turmaAbertaId],
   )
   const horariosDaTurma = useCarregamento(buscarHorarios, SEM_HORARIOS, 'Turma não encontrada.')
+
+  /** A aula da grade é da alocação gravada: sem professor salvo, não há horário. */
+  function alocacaoDa(disciplinaId: number): string | undefined {
+    return alocacoes.find((a) => a.turmaId === turma?.id && a.disciplinaId === disciplinaId)?.id
+  }
 
   const disciplinas = [...(turma?.disciplinas ?? [])].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
   const gravadas = new Map<number, OpcaoProfessor>(
@@ -260,12 +265,12 @@ export function Alocacoes() {
         <ModalHorarioDisciplina
           turmaId={turma.id}
           turmaNome={turma.nome}
-          disciplinaId={editandoHorario.id}
           disciplinaNome={editandoHorario.nome}
+          alocacaoId={alocacaoDa(editandoHorario.id) ?? ''}
           horarios={horariosDaTurma.dados.filter((h) => h.disciplinaId === editandoHorario.id)}
           onFechar={() => setEditandoHorario(null)}
-          onSalvo={(daTurma) => {
-            horariosDaTurma.atualizar(() => daTurma)
+          onSalvo={() => {
+            horariosDaTurma.recarregar()
             setSucesso(`Horário de ${editandoHorario.nome} salvo.`)
             setEditandoHorario(null)
           }}

@@ -3,7 +3,7 @@ import { Icon } from '../../../../components/Icon/Icon'
 import { ROTULOS_TURNO, type DisciplinaDaTurma, type Turma } from '../../../../types/alocacao'
 import type { EscolhasDaTurma } from '../../hooks/useAlocacoes'
 import { SeletorProfessor, type OpcaoProfessor } from '../SeletorProfessor/SeletorProfessor'
-import { descreverHorarios, type HorarioAula } from '../../../../types/horario'
+import { descreverHorarios, type HorarioTurma } from '../../../../types/horario'
 import styles from './GradeAlocacao.module.css'
 
 type GradeAlocacaoProps = {
@@ -20,7 +20,7 @@ type GradeAlocacaoProps = {
   mudancas: number
   salvando: boolean
   /** Horário das aulas da turma (IU13), de todas as disciplinas. */
-  horarios: HorarioAula[]
+  horarios: HorarioTurma[]
   onEditarHorario: (disciplina: DisciplinaDaTurma) => void
   onEscolher: (disciplinaId: number, professorId: string) => void
   onDesfazer: () => void
@@ -106,14 +106,19 @@ export function GradeAlocacao({
                 </span>
                 <span className={styles.horario}>
                   {descreverHorarios(horarios.filter((h) => h.disciplinaId === disciplina.id)) ?? 'Sem horário'}
-                  <button
-                    type="button"
-                    className={styles.editarHorario}
-                    aria-label={`Horário de ${disciplina.nome}`}
-                    onClick={() => onEditarHorario(disciplina)}
-                  >
-                    Definir horário
-                  </button>
+                  {/* A aula é da alocação: só com professor gravado dá para montar o horário. */}
+                  {gravada ? (
+                    <button
+                      type="button"
+                      className={styles.editarHorario}
+                      aria-label={`Horário de ${disciplina.nome}`}
+                      onClick={() => onEditarHorario(disciplina)}
+                    >
+                      Definir horário
+                    </button>
+                  ) : (
+                    <span>· salve um professor para montar o horário</span>
+                  )}
                 </span>
               </div>
               <div className={styles.seletor}>

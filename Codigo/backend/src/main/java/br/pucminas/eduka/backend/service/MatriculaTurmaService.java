@@ -11,6 +11,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,9 @@ import br.pucminas.eduka.backend.domain.Turma;
 import br.pucminas.eduka.backend.dto.AtualizarMatriculaRequest;
 import br.pucminas.eduka.backend.dto.MatriculaTurmaRequest;
 import br.pucminas.eduka.backend.dto.MatriculaTurmaResponse;
+import br.pucminas.eduka.backend.dto.Ordenacao;
+import br.pucminas.eduka.backend.dto.PaginaResponse;
+import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.exception.MatriculaJaExisteException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.exception.TurmaSemVagasException;
@@ -82,6 +86,26 @@ public class MatriculaTurmaService {
      * situacao. Filtro de turma ou aluno de outra escola devolve lista vazia.
      * Ordenado pelo nome do aluno.
      */
+    /**
+     * Pagina das matriculas, com os mesmos filtros de {@link #listar}. O nome
+     * do aluno e cifrado, entao a ordem por ele e feita em memoria, e so a
+     * pagina vai na resposta.
+     */
+    @Transactional(readOnly = true)
+    public PaginaResponse<MatriculaTurmaResponse> listarPaginado(Long turmaId, UUID alunoId, StatusMatricula status,
+            Paginacao paginacao, Ordenacao.Matriculas ordenarPor, Direction direcao) {
+        Comparator<MatriculaTurmaResponse> campo = switch (ordenarPor) {
+            case ALUNO -> Comparator.comparing(MatriculaTurmaResponse::alunoNome, Paginacao.ORDEM_DE_NOME);
+            case DATA_MATRICULA -> Comparator.comparing(MatriculaTurmaResponse::dataMatricula,
+                    Comparator.nullsLast(Comparator.naturalOrder()));
+        };
+        List<MatriculaTurmaResponse> ordenadas = listar(turmaId, alunoId, status).stream()
+                .sorted(Ordenacao.emMemoria(campo, Ordenacao.ou(direcao, Direction.ASC),
+                        Comparator.comparing(MatriculaTurmaResponse::id)))
+                .toList();
+        return PaginaResponse.recortar(ordenadas, paginacao);
+    }
+
     @Transactional(readOnly = true)
     public List<MatriculaTurmaResponse> listar(Long turmaId, UUID alunoId, StatusMatricula status) {
         UUID escolaId = isolamentoEscola.escolaIdAtual();

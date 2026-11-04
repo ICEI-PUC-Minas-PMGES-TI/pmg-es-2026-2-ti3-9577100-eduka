@@ -17,7 +17,6 @@
   background: var(--glass-bg);
   box-shadow: var(--glass-shadow);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .cabecalho {

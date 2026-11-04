@@ -1,0 +1,36 @@
+@startuml 06-portal-do-aluno
+!include _estilo.puml
+title Eduka — Casos de Uso: Portal do Aluno (UC13, UC22 a UC26)
+
+left to right direction
+
+actor "ALUNO" as ALUNO
+actor "Gateway de Pagamento\n(Asaas)" as ASAAS <<sistema externo>>
+
+rectangle "Eduka — Portal do aluno" {
+  usecase "UC22\nVisualizar Meu Perfil" as UC22
+  usecase "UC23\nConsultar Boletim\nAcadêmico" as UC23
+  usecase "UC24\nConsultar Disciplinas\ne Turmas" as UC24 <<parcial>>
+  usecase "UC25\nConsultar Agenda de\nProvas e Tarefas" as UC25
+  usecase "UC13\nConsultar Histórico\nFinanceiro do Aluno" as UC13 <<parcial>>
+  usecase "UC26\nPagar Cobrança Online" as UC26
+  usecase "Ver Comprovante\nde Pagamento" as UC13A
+  usecase "Pagar com PIX" as UC26P
+  usecase "Pagar com Boleto" as UC26B
+  usecase "Baixar PDF do Boleto" as UC26D
+}
+
+ALUNO --> UC22
+ALUNO --> UC23
+ALUNO --> UC24
+ALUNO --> UC25
+ALUNO --> UC13
+ALUNO --> UC26
+UC26 ..> UC13 : <<extend>>
+UC13A ..> UC13 : <<extend>>
+UC26 <|-- UC26P
+UC26 <|-- UC26B
+UC26D ..> UC26B : <<extend>>
+UC26 --> ASAAS
+
+@enduml

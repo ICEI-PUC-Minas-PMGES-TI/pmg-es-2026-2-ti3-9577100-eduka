@@ -14,13 +14,13 @@ function montarGrade(turmas: TurmaDoProfessor[]) {
       for (const horario of disciplina.horarios) {
         const hora = horaCurta(horario.horaInicio)
         horas.add(hora)
-        if (horario.diaSemana === 6) temSabado = true
+        if (horario.diaSemana === 'SABADO') temSabado = true
         const chave = `${hora}|${horario.diaSemana}`
         aulas.set(chave, [...(aulas.get(chave) ?? []), { turma: turma.nome, disciplina: disciplina.nome }])
       }
     }
   }
-  const dias = DIAS_SEMANA.filter((d) => d.dia <= 5 || temSabado)
+  const dias = DIAS_SEMANA.filter((d) => d.dia !== 'SABADO' || temSabado)
   return { horas: [...horas].sort(), dias, aulas }
 }
 

@@ -65,8 +65,36 @@ export type ResponsavelRequest = {
   financeiro?: boolean | null
 }
 
+// Espelha o VinculoResponsavelRequest do backend.
+export type VinculoResponsavelRequest = {
+  parentesco: string | null
+  financeiro: boolean
+}
+
+// Espelha o CadastroResponsavelResponse do backend (GET /responsaveis/{id}).
+export type CadastroResponsavel = {
+  id: string
+  pessoaId: string
+  nome: string
+  cpf: string | null
+  email: string | null
+  telefone: string | null
+  endereco: Endereco | null
+}
+
+// Espelha o CadastroResponsavelRequest do backend. O vínculo com o aluno vai à parte.
+export type CadastroResponsavelRequest = {
+  nome: string
+  /** Só os 11 dígitos. */
+  cpf: string
+  email: string | null
+  telefone: string | null
+  endereco: Endereco | null
+}
+
 // Espelha o AlunoRequest do backend. A escola vem do token, não do corpo.
-// Na edição (PUT) o registro é substituído inteiro e `responsaveis` é ignorado.
+// Na edição (PUT) o registro é substituído inteiro e `responsaveis` é ignorado:
+// os responsáveis mudam em /alunos/{id}/responsaveis.
 export type AlunoRequest = {
   nome: string
   matricula: string

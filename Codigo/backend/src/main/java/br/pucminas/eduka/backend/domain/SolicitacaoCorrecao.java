@@ -23,7 +23,7 @@ import lombok.Setter;
 
 /**
  * Pedido do aluno para a secretaria corrigir os dados cadastrais (IU15).
- * Mapeia {@code SOLICITACAO_CORRECAO} (V35): uma aberta por aluno de cada vez.
+ * Mapeia {@code SOLICITACAO_CORRECAO} (V37): uma aberta por aluno de cada vez.
  */
 @Entity
 @Table(name = "SOLICITACAO_CORRECAO")

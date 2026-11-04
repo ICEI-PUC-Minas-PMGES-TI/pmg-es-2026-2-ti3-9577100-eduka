@@ -6,7 +6,7 @@ import { pedirCorrecao } from '../../../../services/solicitacaoCorrecaoService'
 import type { SolicitacaoCorrecao } from '../../../../types/solicitacaoCorrecao'
 import styles from './ModalCorrecaoDados.module.css'
 
-// Limite da coluna MENSAGEM (V35).
+// Limite da coluna MENSAGEM (V37).
 const MAX_MENSAGEM = 500
 
 function mensagemErro(erro: unknown): string {

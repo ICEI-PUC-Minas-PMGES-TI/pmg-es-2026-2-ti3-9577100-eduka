@@ -1,4 +1,4 @@
-import type { HorarioAula } from './horario'
+import type { HorarioDaDisciplina } from './horario'
 import type { StatusMatricula } from './matricula'
 
 // Valores do enum Turno do backend.
@@ -18,8 +18,8 @@ export type DisciplinaDoProfessor = {
   codigo: string | null
   /** Em horas. */
   cargaHoraria: number
-  /** Aulas da disciplina na turma (IU13); vazia sem horário definido pela secretaria. */
-  horarios: HorarioAula[]
+  /** Aulas da disciplina na grade da turma (IU13); vazia sem horário montado pela secretaria. */
+  horarios: HorarioDaDisciplina[]
 }
 
 // Espelha o TurmaDoProfessorResponse do backend: a turma vem só com as
