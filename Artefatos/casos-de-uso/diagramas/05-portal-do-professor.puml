@@ -1,0 +1,25 @@
+@startuml 05-portal-do-professor
+!include _estilo.puml
+title Eduka — Casos de Uso: Portal do Professor (UC19 a UC21)
+
+left to right direction
+
+actor "PROFESSOR" as PROFESSOR
+
+rectangle "Eduka — Portal do professor" {
+  usecase "UC19\nConsultar Turmas e\nDisciplinas Alocadas" as UC19
+  usecase "UC20\nCadastrar Avaliações" as UC20
+  usecase "UC21\nLançar Notas dos Alunos" as UC21
+  usecase "Editar ou Excluir Avaliação" as UC20A
+  usecase "Corrigir ou Apagar Nota" as UC21A
+}
+
+PROFESSOR --> UC19
+PROFESSOR --> UC20
+PROFESSOR --> UC21
+UC20A ..> UC20 : <<extend>>
+UC21A ..> UC21 : <<extend>>
+
+note "Pré-condição (descrita em UC19 a UC21): o professor só acessa\nturmas e disciplinas alocadas a ele pela secretaria (UC18).\nO lançamento de notas depende de uma avaliação (UC20)." as N1
+
+@enduml
