@@ -173,6 +173,24 @@ class PortalAlunoServiceTest {
     }
 
     @Test
+    void notaDeAvaliacaoEmRascunhoNaoApareceParaOAluno() {
+        when(matriculaRepository.findAllByEscolaIdAndAlunoId(ESCOLA, aluno.getId()))
+                .thenReturn(List.of(matricula(turma, StatusMatricula.ATIVA)));
+        Avaliacao publicada = avaliacao(matematica, "Prova 1", LocalDate.of(2026, 3, 10), "10");
+        Avaliacao rascunho = avaliacao(matematica, "Prova 2", LocalDate.of(2026, 5, 10), "10");
+        rascunho.setNotasPublicadas(false);
+        when(avaliacaoRepository.findAllByEscolaIdAndTurmaIdIn(ESCOLA, List.of(1L)))
+                .thenReturn(List.of(publicada, rascunho));
+        when(notaRepository.findAllByEscolaIdAndAlunoId(ESCOLA, aluno.getId()))
+                .thenReturn(List.of(nota(publicada, "8"), nota(rascunho, "3")));
+
+        List<AvaliacaoDoAlunoResponse> agenda = service.agenda();
+
+        assertThat(agenda.get(0).nota()).isEqualByComparingTo("8");
+        assertThat(agenda.get(1).nota()).isNull();
+    }
+
+    @Test
     void matriculaCanceladaNaoEntraETrancadaVemDepoisDaAtiva() {
         Turma antiga = turma(2L, "0A", Set.of());
         Turma cancelada = turma(3L, "9Z", Set.of());

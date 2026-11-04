@@ -83,6 +83,11 @@ public class Avaliacao {
     @Column(name = "VALOR", nullable = false, precision = 5, scale = 2)
     private BigDecimal valor;
 
+    /** Falso enquanto as notas estao em rascunho (IU14): o aluno ainda nao as ve. */
+    @Builder.Default
+    @Column(name = "NOTAS_PUBLICADAS", nullable = false)
+    private boolean notasPublicadas = true;
+
     /** Preenchido pelo DEFAULT da coluna e relido apos o insert. */
     @Generated(event = EventType.INSERT)
     @Column(name = "CRIADO_EM", nullable = false, updatable = false)

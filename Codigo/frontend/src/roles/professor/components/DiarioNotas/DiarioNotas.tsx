@@ -22,7 +22,8 @@ type DiarioNotasProps = {
   notas: NotaDoAluno[]
   /** Avisa se há alteração não salva, para a página não deixar sair sem querer. */
   onPendente: (pendente: boolean) => void
-  onSalvo: (notas: NotaDoAluno[]) => void
+  /** `publicadas`: falso depois de Salvar rascunho, verdadeiro depois de Lançar notas. */
+  onSalvo: (notas: NotaDoAluno[], publicadas: boolean) => void
 }
 
 function linhaDe(nota: NotaDoAluno): Linha {
@@ -57,6 +58,8 @@ export function DiarioNotas({ avaliacao, notas, onPendente, onSalvo }: DiarioNot
   const [salvando, setSalvando] = useState(false)
   const [erroEnvio, setErroEnvio] = useState<string | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(null)
+  // Rascunho (IU14): as notas estão gravadas, mas o aluno só vê depois de Lançar notas.
+  const [publicadas, setPublicadas] = useState(avaliacao.notasPublicadas)
   const tabelaRef = useRef<HTMLTableElement>(null)
 
   const alterados = notas.filter((n) => {
@@ -102,7 +105,7 @@ export function DiarioNotas({ avaliacao, notas, onPendente, onSalvo }: DiarioNot
     return Object.keys(novos).length === 0
   }
 
-  async function salvar() {
+  async function salvar(rascunho: boolean) {
     setErroEnvio(null)
     setSucesso(null)
     if (!validar()) {
@@ -117,11 +120,16 @@ export function DiarioNotas({ avaliacao, notas, onPendente, onSalvo }: DiarioNot
     }))
     setSalvando(true)
     try {
-      const salvas = await lancarNotas(avaliacao.id, lote)
+      const salvas = await lancarNotas(avaliacao.id, lote, rascunho)
       // Reescreve os campos como o backend gravou ("8," vira "8").
       setLinhas(Object.fromEntries(salvas.map((n) => [n.alunoId, linhaDe(n)])))
-      onSalvo(salvas)
-      setSucesso(lote.length === 1 ? '1 nota salva.' : `${lote.length} notas salvas.`)
+      setPublicadas(!rascunho)
+      onSalvo(salvas, !rascunho)
+      setSucesso(
+        rascunho
+          ? 'Rascunho salvo. Os alunos ainda não veem as notas.'
+          : 'Notas lançadas: os alunos já veem no boletim.',
+      )
     } catch (e) {
       setErroEnvio(mensagemErroAvaliacao(e))
     } finally {
@@ -152,6 +160,9 @@ export function DiarioNotas({ avaliacao, notas, onPendente, onSalvo }: DiarioNot
           <span className={styles.subtexto}>
             {formatarData(avaliacao.data)} · vale {formatarPontos(avaliacao.valor)} pts
           </span>
+          {!publicadas && (
+            <Badge tone="warning">Rascunho: os alunos ainda não veem as notas</Badge>
+          )}
         </div>
         <StatCards rotulo="Resumo das notas">
           <StatCard
@@ -284,8 +295,17 @@ export function DiarioNotas({ avaliacao, notas, onPendente, onSalvo }: DiarioNot
               <Button disabled={!pendente || salvando} onClick={descartar}>
                 Descartar
               </Button>
-              <Button variant="accent" icon="check" disabled={!pendente || salvando} onClick={salvar}>
-                {salvando ? 'Salvando…' : 'Salvar notas'}
+              <Button disabled={!pendente || salvando} onClick={() => salvar(true)}>
+                Salvar rascunho
+              </Button>
+              {/* Sem alteração, ainda publica o que estava em rascunho. */}
+              <Button
+                variant="accent"
+                icon="check"
+                disabled={(!pendente && publicadas) || salvando}
+                onClick={() => salvar(false)}
+              >
+                {salvando ? 'Salvando…' : 'Lançar notas'}
               </Button>
             </div>
           </footer>

@@ -6,7 +6,7 @@ import type {
   NotaDoAluno,
 } from '../types/avaliacaoProfessor'
 import type { DashboardProfessor } from '../types/dashboard'
-import type { TurmaDoProfessor } from '../types/turmaProfessor'
+import type { AlunoDaTurma, TurmaDoProfessor } from '../types/turmaProfessor'
 import { apiRequest } from './api'
 
 const AVALIACOES = '/portal/professor/avaliacoes'
@@ -17,6 +17,11 @@ export function listarMinhasTurmas(signal?: AbortSignal): Promise<TurmaDoProfess
 }
 
 /** Turmas, alunos, próximas avaliações e notas pendentes. 404 se o login não é de um professor. */
+/** Alunos da turma, ativos e trancados (Ver alunos, IU13). 404 se o professor não leciona nela. */
+export function listarAlunosDaTurma(turmaId: number, signal?: AbortSignal): Promise<AlunoDaTurma[]> {
+  return apiRequest<AlunoDaTurma[]>(`/portal/professor/turmas/${turmaId}/alunos`, { signal })
+}
+
 export function obterDashboardProfessor(signal?: AbortSignal): Promise<DashboardProfessor> {
   return apiRequest<DashboardProfessor>('/portal/professor/dashboard', { signal })
 }
@@ -50,10 +55,13 @@ export function listarNotas(avaliacaoId: string, signal?: AbortSignal): Promise<
   return apiRequest<NotaDoAluno[]>(`${AVALIACOES}/${avaliacaoId}/notas`, { signal })
 }
 
-/** Lança em lote, tudo ou nada; só os alunos enviados mudam. */
-export function lancarNotas(avaliacaoId: string, notas: LancamentoNota[]): Promise<NotaDoAluno[]> {
+/**
+ * Lança em lote, tudo ou nada; só os alunos enviados mudam. Em rascunho as
+ * notas ficam gravadas sem aparecer para o aluno; sem ele, publica (IU14).
+ */
+export function lancarNotas(avaliacaoId: string, notas: LancamentoNota[], rascunho = false): Promise<NotaDoAluno[]> {
   return apiRequest<NotaDoAluno[]>(`${AVALIACOES}/${avaliacaoId}/notas`, {
     method: 'PUT',
-    body: JSON.stringify({ notas }),
+    body: JSON.stringify({ notas, rascunho }),
   })
 }
