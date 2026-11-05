@@ -56,23 +56,6 @@
   font-weight: 800;
 }
 
-.responsaveis {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 14.5px;
-}
-
-.contato {
-  display: block;
-  color: var(--color-text-muted);
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-
 @media (max-width: 520px) {
   .grid {
     grid-template-columns: minmax(0, 1fr);

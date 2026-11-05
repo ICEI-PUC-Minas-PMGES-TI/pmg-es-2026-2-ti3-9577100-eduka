@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import br.pucminas.eduka.backend.validation.Cpf;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -29,5 +30,5 @@ public record AlunoRequest(
         EnderecoRequest endereco,
         String matricula,
         String genero,
-        List<ResponsavelRequest> responsaveis) {
+        List<@Valid ResponsavelRequest> responsaveis) {
 }

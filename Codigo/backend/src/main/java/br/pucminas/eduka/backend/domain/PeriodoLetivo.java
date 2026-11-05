@@ -33,4 +33,13 @@ public class PeriodoLetivo {
     @Builder.Default
     @Column(nullable = false)
     private Boolean ativo = true;
+
+    /** Periodo planejado so recebe matricula depois de Abrir matriculas (IU09). */
+    @Builder.Default
+    @Column(name = "matriculas_abertas", nullable = false)
+    private boolean matriculasAbertas = true;
+
+    /** Encerrado pela secretaria antes do fim (IU09): nao recebe matricula nova. */
+    @Column(name = "encerrado_em")
+    private LocalDate encerradoEm;
 }

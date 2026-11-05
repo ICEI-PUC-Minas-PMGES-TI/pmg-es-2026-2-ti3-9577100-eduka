@@ -13,6 +13,7 @@ import {
   type VinculoProfessor,
 } from '../../../../types/professor'
 import { cpfValido, mascararCpf, mascararTelefone, somenteDigitos } from '../../../../utils/formatters'
+import { AlocacoesDoProfessor } from '../AlocacoesDoProfessor/AlocacoesDoProfessor'
 import styles from './CadastroProfessorModal.module.css'
 
 type Campos = {
@@ -126,12 +127,16 @@ export function CadastroProfessorModal({ professorId, onFechar, onSalvar, onCada
   // A listagem não traz o CPF: na edição, os campos vêm do detalhe.
   const [carregando, setCarregando] = useState(edicao)
   const [erroCarga, setErroCarga] = useState<string | null>(null)
+  const [professorAtivo, setProfessorAtivo] = useState(true)
 
   useEffect(() => {
     if (!professorId) return
     const controller = new AbortController()
     buscarProfessor(professorId, controller.signal)
-      .then((professor) => setCampos(camposDe(professor)))
+      .then((professor) => {
+        setCampos(camposDe(professor))
+        setProfessorAtivo(professor.ativo)
+      })
       .catch((e: unknown) => {
         if (controller.signal.aborted) return
         setErroCarga(e instanceof ApiError ? e.message : 'Erro inesperado ao carregar o professor.')
@@ -306,6 +311,9 @@ export function CadastroProfessorModal({ professorId, onFechar, onSalvar, onCada
       )}
 
       {erroEnvio && <ModalAlerta>{erroEnvio}</ModalAlerta>}
+
+      {/* Só na edição: a alocação precisa do professor já cadastrado. */}
+      {professorId && !bloqueado && <AlocacoesDoProfessor professorId={professorId} professorAtivo={professorAtivo} />}
     </Modal>
   )
 }

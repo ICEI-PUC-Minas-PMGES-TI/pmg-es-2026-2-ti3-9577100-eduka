@@ -1,5 +1,6 @@
 package br.pucminas.eduka.backend.controller;
 
+import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
@@ -8,11 +9,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.pucminas.eduka.backend.dto.ResponsavelRequest;
 import br.pucminas.eduka.backend.dto.ResponsavelResponse;
 import br.pucminas.eduka.backend.dto.VinculoResponsavelRequest;
 import br.pucminas.eduka.backend.security.Perfis;
@@ -44,9 +47,20 @@ public class AlunoResponsavelController {
         return responsavelService.listarDoAluno(alunoId);
     }
 
+    @PostMapping
+    @Operation(summary = "Cadastra um responsavel e o vincula ao aluno", description = "CPF ja cadastrado na escola "
+            + "reaproveita o responsavel (irmaos). `financeiro: true` exige CPF valido, porque ele e o pagador no "
+            + "Asaas, e tira a marca do anterior. Responde 409 se ele ja esta vinculado ao aluno.")
+    public ResponseEntity<ResponsavelResponse> incluir(@PathVariable UUID alunoId,
+            @Valid @RequestBody ResponsavelRequest request) {
+        ResponsavelResponse response = responsavelService.incluirNoAluno(alunoId, request);
+        return ResponseEntity.created(URI.create("/alunos/" + alunoId + "/responsaveis/" + response.responsavelId()))
+                .body(response);
+    }
+
     /** Idempotente: cria o vinculo ou atualiza parentesco/financeiro do existente. */
     @PutMapping("/{responsavelId}")
-    @Operation(summary = "Vincula um responsavel ao aluno", description = "Cria ou atualiza o vinculo. `financeiro: true` tira a marca do responsavel financeiro anterior do aluno.")
+    @Operation(summary = "Vincula um responsavel ao aluno", description = "Cria ou atualiza o vinculo. `financeiro: true` exige CPF valido, porque ele e o pagador no Asaas, e tira a marca do responsavel financeiro anterior do aluno.")
     public ResponsavelResponse vincular(@PathVariable UUID alunoId, @PathVariable UUID responsavelId,
             @Valid @RequestBody VinculoResponsavelRequest request) {
         return responsavelService.vincular(alunoId, responsavelId, request);

@@ -42,6 +42,30 @@ function situacao(valor: SituacaoCadastral | null): string {
   return valor ? ROTULOS_SITUACAO[valor] : '—'
 }
 
+/** Rótulo do botão que abre o cadastro: a primeira vez, ou de novo depois de uma recusa ou sem resposta. */
+function rotuloEnvio(status: StatusContaRecebimento): string {
+  if (status === 'NAO_INICIADA') return 'Ativar recebimentos'
+  if (status === 'ERRO_CRIACAO') return 'Corrigir e reenviar'
+  return 'Enviar de novo'
+}
+
+type Etapa = { titulo: string; feita: boolean }
+
+/** Etapas da ativação (IU23): dados enviados, em análise no Asaas e aprovada, com as datas. */
+function etapasDaAtivacao(conta: ContaRecebimento): Etapa[] {
+  const enviada = conta.solicitadaEm !== null
+  const emAnalise = conta.status === 'AGUARDANDO_APROVACAO' || conta.status === 'APROVADA'
+  const aprovada = conta.status === 'APROVADA'
+  return [
+    { titulo: enviada ? `Dados enviados · ${dataHora(conta.solicitadaEm)}` : 'Dados enviados', feita: enviada },
+    { titulo: 'Em análise no Asaas', feita: emAnalise },
+    {
+      titulo: aprovada ? `Aprovada · ${dataHora(conta.aprovadaEm)}` : 'Aprovada: a escola pode receber',
+      feita: aprovada,
+    },
+  ]
+}
+
 function dataHora(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—'
 }
@@ -74,12 +98,12 @@ export function PainelContaRecebimento({
       )}
       {conta.podeSincronizar && (
         <Button size="sm" variant="outline" icon="clock" onClick={onSincronizar} disabled={sincronizando}>
-          {sincronizando ? 'Sincronizando…' : 'Sincronizar'}
+          {sincronizando ? 'Sincronizando…' : 'Sincronizar agora'}
         </Button>
       )}
       {conta.podeAtivar && (
         <Button size="sm" variant="primary" icon="card" onClick={onAtivar}>
-          {conta.status === 'NAO_INICIADA' ? 'Ativar recebimentos' : 'Enviar de novo'}
+          {rotuloEnvio(conta.status)}
         </Button>
       )}
     </div>
@@ -92,15 +116,36 @@ export function PainelContaRecebimento({
       <p>
         <Badge tone={TOM_STATUS[conta.status]}>{ROTULOS_STATUS_CONTA[conta.status]}</Badge>
       </p>
-      {conta.ultimoErro && conta.status !== 'APROVADA' && (
-        <p className={styles.alerta} role="alert">
-          {conta.ultimoErro}
-        </p>
+      {conta.ultimoErro && conta.status === 'ERRO_CRIACAO' ? (
+        <div className={styles.recusa} role="alert">
+          <strong>O Asaas recusou o cadastro</strong>
+          <span>{conta.ultimoErro}</span>
+          <span>Use Corrigir e reenviar para ajustar os dados e enviar de novo.</span>
+        </div>
+      ) : (
+        conta.ultimoErro &&
+        conta.status !== 'APROVADA' && (
+          <p className={styles.alerta} role="alert">
+            {conta.ultimoErro}
+          </p>
+        )
       )}
       {erroSincronizar && (
         <p className={styles.alerta} role="alert">
           {erroSincronizar}
         </p>
+      )}
+      {criada && (
+        <ol className={styles.etapas} aria-label="Etapas da ativação">
+          {etapasDaAtivacao(conta).map((etapa, indice) => (
+            <li key={etapa.titulo} className={etapa.feita ? styles.feita : undefined}>
+              <span className={styles.marcador} aria-hidden="true">
+                {etapa.feita ? '✓' : indice + 1}
+              </span>
+              {etapa.titulo}
+            </li>
+          ))}
+        </ol>
       )}
       {criada && (
         <Linhas

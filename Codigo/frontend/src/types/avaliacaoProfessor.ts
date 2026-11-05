@@ -17,6 +17,8 @@ export type AvaliacaoDoProfessor = {
   valor: number
   /** Quantos alunos já têm nota lançada. */
   notasLancadas: number
+  /** Falso enquanto as notas estão em rascunho: o aluno ainda não as vê. */
+  notasPublicadas: boolean
   criadoEm: string
   atualizadoEm: string | null
 }

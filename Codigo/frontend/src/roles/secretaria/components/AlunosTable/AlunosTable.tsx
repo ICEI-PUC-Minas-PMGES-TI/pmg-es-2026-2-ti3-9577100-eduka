@@ -83,7 +83,7 @@ export function AlunosTable({
                   const badge = situacao && BADGE_SITUACAO[situacao.tipo]
                   return (
                     <tr key={aluno.id}>
-                      <td>
+                      <td className={styles.colPrincipal}>
                         <div className={styles.aluno}>
                           <span className={styles.avatar} aria-hidden="true">
                             {iniciais(aluno.nome)}
@@ -91,11 +91,11 @@ export function AlunosTable({
                           <strong className={styles.nome}>{aluno.nome}</strong>
                         </div>
                       </td>
-                      <td>{aluno.matricula}</td>
-                      <td className={situacao?.tipo === 'matriculado' ? undefined : styles.secundario}>
+                      <td data-rotulo="Matrícula">{aluno.matricula}</td>
+                      <td data-rotulo="Turma" className={situacao?.tipo === 'matriculado' ? undefined : styles.secundario}>
                         {situacao?.turma ?? SEM_DADO}
                       </td>
-                      <td>{badge ? <Badge tone={badge.tom}>{badge.rotulo}</Badge> : SEM_DADO}</td>
+                      <td data-rotulo="Situação">{badge ? <Badge tone={badge.tom}>{badge.rotulo}</Badge> : SEM_DADO}</td>
                       <td className={styles.colAcoes}>
                         <div className={styles.acoes}>
                           <Button size="sm" icon="eye" onClick={() => onVer(aluno)}>

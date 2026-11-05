@@ -4,7 +4,7 @@ import { Button } from '../../../../components/Button/Button'
 import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/ConfirmarExclusao'
 import { Modal } from '../../../../components/Modal/Modal'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
-import type { EstadoAbrirCadastro } from '../../../../routes/paths'
+import type { EstadoNovaAvaliacao } from '../../../../routes/paths'
 import { obterToken } from '../../../../services/authService'
 import {
   atualizarAvaliacao,
@@ -19,18 +19,18 @@ import { formatarPontos, hojeIso, plural } from '../../../../utils/formatters'
 import { formatarData } from '../../../secretaria/components/PainelSecretaria/formatacao'
 import { DiarioNotas } from '../../components/DiarioNotas/DiarioNotas'
 import { EstadoTurmas } from '../../components/EstadoTurmas/EstadoTurmas'
-import { FormularioAvaliacao } from '../../components/FormularioAvaliacao/FormularioAvaliacao'
+import { FormularioAvaliacao, type EscolhaInicial } from '../../components/FormularioAvaliacao/FormularioAvaliacao'
 import { SeletorTurmaDisciplina } from '../../components/SeletorTurmaDisciplina/SeletorTurmaDisciplina'
 import { useTurmaDisciplina } from '../../hooks/useTurmaDisciplina'
 import { ProfessorLayout } from '../../layouts/ProfessorLayout'
 import { mensagemErroAvaliacao } from '../../notas'
 import { Dica } from '../../../../components/Dica/Dica'
-import styles from './Notas.module.css'
+import styles from './Avaliacoes.module.css'
 
 const NENHUMA_AVALIACAO: AvaliacaoDoProfessor[] = []
 const NENHUMA_NOTA: NotaDoAluno[] = []
 
-const TITULO = 'Avaliações e notas'
+const TITULO = 'Avaliações'
 const SUBTITULO = 'Crie as avaliações da turma e lance as notas dos alunos.'
 
 /** Mesma ordem do backend: por data. */
@@ -44,15 +44,20 @@ function avaliacaoPadrao(avaliacoes: AvaliacaoDoProfessor[]): AvaliacaoDoProfess
   return avaliacoes.findLast((a) => a.data <= hoje) ?? avaliacoes[0] ?? null
 }
 
-/** Formulário aberto: cadastro (sem avaliação) ou edição. */
-type Formulario = { aberto: false } | { aberto: true; avaliacao?: AvaliacaoDoProfessor }
+/** Formulário aberto: cadastro (com a escolha que já chega feita) ou edição. */
+type Formulario = { aberto: false } | { aberto: true; inicial?: EscolhaInicial; avaliacao?: AvaliacaoDoProfessor }
+
+/** Atalhos do Início e de Minhas turmas chegam com o cadastro já aberto. */
+function formularioAoEntrar(estado: EstadoNovaAvaliacao | null): Formulario {
+  return estado?.abrirCadastro ? { aberto: true, inicial: { turmaId: estado.turmaId } } : { aberto: false }
+}
 
 /**
  * Avaliações e notas de uma turma/disciplina numa tela só: as avaliações à
  * esquerda (criar, editar, excluir) e o diário de notas da escolhida à direita.
  * Turma, disciplina e avaliação ficam na URL.
  */
-export function Notas() {
+export function Avaliacoes() {
   const navigate = useNavigate()
   const location = useLocation()
   const [params, setParams] = useSearchParams()
@@ -82,9 +87,8 @@ export function Notas() {
     'Esta avaliação não existe mais. Recarregue a página.',
   )
 
-  // O atalho "Criar uma avaliação" do Início chega com o formulário já aberto.
-  const [formulario, setFormulario] = useState<Formulario>(
-    (location.state as EstadoAbrirCadastro | null)?.abrirCadastro ? { aberto: true } : { aberto: false },
+  const [formulario, setFormulario] = useState<Formulario>(() =>
+    formularioAoEntrar(location.state as EstadoNovaAvaliacao | null),
   )
   const [excluindo, setExcluindo] = useState<AvaliacaoDoProfessor | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(null)
@@ -143,13 +147,20 @@ export function Notas() {
   const contexto = `${selecionada.turma.nome} · ${selecionada.disciplina.nome}`
   const editando = formulario.aberto ? formulario.avaliacao : undefined
 
-  function escolher(id: string) {
-    trocar(() => setParams({ ...turmaDisciplina, avaliacao: id }, { replace: true }))
+  function abrirNoDiario(a: AvaliacaoDoProfessor) {
+    trocar(() =>
+      setParams({ turma: String(a.turmaId), disciplina: String(a.disciplinaId), avaliacao: a.id }, { replace: true }),
+    )
   }
 
-  function abrirFormulario(avaliacaoDoForm?: AvaliacaoDoProfessor) {
+  function abrirCadastro() {
     setSucesso(null)
-    setFormulario({ aberto: true, avaliacao: avaliacaoDoForm })
+    setFormulario({ aberto: true, inicial: { turmaId, disciplinaId } })
+  }
+
+  function abrirEdicao(a: AvaliacaoDoProfessor) {
+    setSucesso(null)
+    setFormulario({ aberto: true, avaliacao: a })
   }
 
   return (
@@ -165,7 +176,7 @@ export function Notas() {
             })
           }
         />
-        <Button variant="accent" icon="plus" className={styles.nova} onClick={() => abrirFormulario()}>
+        <Button variant="accent" icon="plus" className={styles.nova} onClick={abrirCadastro}>
           Nova avaliação
         </Button>
       </div>
@@ -191,7 +202,7 @@ export function Notas() {
         <div className={styles.mensagem}>
           <strong>Nenhuma avaliação em {contexto}.</strong>
           <span>Cadastre a primeira prova, trabalho ou tarefa para lançar as notas da turma.</span>
-          <Button size="sm" icon="plus" onClick={() => abrirFormulario()}>
+          <Button size="sm" icon="plus" onClick={abrirCadastro}>
             Nova avaliação
           </Button>
         </div>
@@ -207,8 +218,8 @@ export function Notas() {
                   key={a.id}
                   avaliacao={a}
                   selecionada={a.id === avaliacao.id}
-                  onEscolher={() => escolher(a.id)}
-                  onEditar={() => abrirFormulario(a)}
+                  onEscolher={() => abrirNoDiario(a)}
+                  onEditar={() => abrirEdicao(a)}
                   onExcluir={() => {
                     setSucesso(null)
                     setExcluindo(a)
@@ -237,12 +248,14 @@ export function Notas() {
                 avaliacao={avaliacao}
                 notas={notas.dados}
                 onPendente={setPendente}
-                onSalvo={(salvas) => {
+                onSalvo={(salvas, publicadas) => {
                   notas.atualizar(() => salvas)
                   // Mantém o "N notas lançadas" da lista de avaliações em dia sem buscar de novo.
                   const lancadas = salvas.filter((n) => n.valor !== null).length
                   avaliacoes.atualizar((lista) =>
-                    lista.map((a) => (a.id === avaliacao.id ? { ...a, notasLancadas: lancadas } : a)),
+                    lista.map((a) =>
+                      a.id === avaliacao.id ? { ...a, notasLancadas: lancadas, notasPublicadas: publicadas } : a,
+                    ),
                   )
                 }}
               />
@@ -254,18 +267,26 @@ export function Notas() {
       {formulario.aberto && (
         <FormularioAvaliacao
           key={editando?.id ?? 'nova'}
-          contexto={contexto}
+          opcoes={opcoes}
+          inicial={formulario.inicial}
           avaliacao={editando}
           onFechar={() => setFormulario({ aberto: false })}
-          onSalvar={async (dados) => {
+          onSalvar={async (dados, destino) => {
             const salva = editando
               ? await atualizarAvaliacao(editando.id, dados)
-              : await cadastrarAvaliacao({ ...dados, turmaId: selecionada.turma.id, disciplinaId: selecionada.disciplina.id })
-            avaliacoes.atualizar((lista) => [...lista.filter((a) => a.id !== salva.id), salva].sort(porData))
+              : await cadastrarAvaliacao({ ...dados, ...destino })
+            // Cadastrada em outra turma/disciplina, a lista dela vem na troca logo abaixo.
+            if (salva.turmaId === turmaId && salva.disciplinaId === disciplinaId) {
+              avaliacoes.atualizar((lista) => [...lista.filter((a) => a.id !== salva.id), salva].sort(porData))
+            }
             setFormulario({ aberto: false })
-            setSucesso(editando ? `Avaliação "${salva.titulo}" atualizada.` : `Avaliação "${salva.titulo}" cadastrada.`)
+            setSucesso(
+              editando
+                ? `Avaliação "${salva.titulo}" atualizada.`
+                : `Avaliação "${salva.titulo}" cadastrada em ${salva.turmaNome} · ${salva.disciplinaNome}.`,
+            )
             // A nova já abre no diário, pronta para as notas.
-            if (!editando) escolher(salva.id)
+            if (!editando) abrirNoDiario(salva)
           }}
         />
       )}
@@ -332,6 +353,7 @@ function ItemAvaliacao({ avaliacao, selecionada, onEscolher, onEditar, onExcluir
           {temNotas
             ? `${avaliacao.notasLancadas} ${plural(avaliacao.notasLancadas, 'nota lançada', 'notas lançadas')}`
             : 'Sem notas'}
+          {!avaliacao.notasPublicadas && ' · rascunho'}
         </span>
       </button>
       <span className={styles.itemAcoes}>

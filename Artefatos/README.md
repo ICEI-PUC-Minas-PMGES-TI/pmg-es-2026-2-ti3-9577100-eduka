@@ -7,6 +7,8 @@ Este diretório mantém os artefatos do projeto.
 * `/atas-reuniões`
 	* **Ata-Reuniao.pdf**: Ata de reunião inicial com o cliente.
 	* **Ata-Reuniao-14-09-26.pdf**: Ata de reunião do dia 14 de setembro de 2026.
+* `/casos-de-uso`
+	* **Casos de uso atuais (Sprint 4)**: diagramas UML (PlantUML + PNG), descritivos (DOCX/PDF) e índice com a situação de cada caso de uso conferida com o código. Substitui as duas pastas abaixo. Ver `README.md` do diretório.
 * `/casos-de-uso-descritivo`
 	* **Casos_de_Uso_Descritivos_Eduka.docx / .pdf**: Casos de uso descritivos do sistema.
 * `/casos-de-uso-diagramas`

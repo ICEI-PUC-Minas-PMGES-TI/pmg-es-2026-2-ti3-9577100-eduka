@@ -6,7 +6,9 @@ import {
   atualizarTurma,
   cadastrarCurso,
   cadastrarDisciplina,
+  abrirMatriculasDoPeriodo,
   cadastrarPeriodoLetivo,
+  encerrarPeriodoLetivo,
   cadastrarTurma,
   excluirCurso,
   excluirDisciplina,
@@ -145,6 +147,25 @@ export function useEstruturaAcademica() {
     [sincronizar],
   )
 
+  /** Encerrar ou abrir matrículas (IU09): grava e relê, como a edição. */
+  const encerrarPeriodo = useCallback(
+    async (id: number) => {
+      const salvo = await encerrarPeriodoLetivo(id)
+      await sincronizar()
+      return salvo
+    },
+    [sincronizar],
+  )
+
+  const abrirMatriculas = useCallback(
+    async (id: number) => {
+      const salvo = await abrirMatriculasDoPeriodo(id)
+      await sincronizar()
+      return salvo
+    },
+    [sincronizar],
+  )
+
   const editarCurso = useCallback(
     async (id: number, dados: CursoRequest) => {
       const salvo = await atualizarCurso(id, dados)
@@ -205,6 +226,8 @@ export function useEstruturaAcademica() {
     cadastrarDisciplina: cadastrarNovaDisciplina,
     cadastrarTurma: cadastrarNovaTurma,
     editarPeriodo,
+    encerrarPeriodo,
+    abrirMatriculas,
     editarCurso,
     editarDisciplina,
     editarTurma,

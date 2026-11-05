@@ -1,8 +1,8 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { simularApi, type ChamadaApi } from '../../../../test/api'
+import { problema, simularApi, type ChamadaApi } from '../../../../test/api'
 import type { Cobranca, PaginaCobrancas, StatusCobranca } from '../../../../types/cobranca'
 import { Cobrancas } from './Cobrancas'
 
@@ -24,6 +24,9 @@ function cobranca(n: number, status: StatusCobranca = 'PENDENTE'): Cobranca {
     canceladaEm: null,
     pagaEm: null,
     pagaAposCancelamento: false,
+    formaPagamento: null,
+    pagamentoIniciadoEm: null,
+    editavel: true,
     pagamento: null,
     criadoEm: '2026-10-01T12:00:00Z',
     atualizadoEm: '2026-10-01T12:00:00Z',
@@ -186,4 +189,50 @@ describe('Cobrancas', () => {
     await userEvent.click(card('Aluno 02'))
     expect(screen.queryByText('Matrícula')).not.toBeInTheDocument()
   })
+
+  it('cancela a cobrança depois de confirmar e lê a lista de novo', async () => {
+    const cobrancas = [cobranca(1)]
+    const chamadas = simularApi(({ metodo, caminho }) => {
+      if (caminho.startsWith('/cobrancas/pagina?')) return { corpo: paginaDe(cobrancas, caminho) }
+      if (metodo === 'PATCH' && caminho === '/cobrancas/cob-1/cancelar') {
+        cobrancas[0] = { ...cobrancas[0], status: 'CANCELADA', editavel: false }
+        return { corpo: cobrancas[0] }
+      }
+      return undefined
+    })
+    render(
+      <MemoryRouter>
+        <Cobrancas />
+      </MemoryRouter>,
+    )
+
+    await userEvent.click(await screen.findByRole('button', { name: /Aluno 01/ }))
+    await userEvent.click(screen.getByRole('button', { name: /cancelar cobrança/i }))
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /cancelar cobrança/i }))
+
+    expect(await screen.findByText(/cobrança "mensalidade de outubro" cancelada/i)).toBeInTheDocument()
+    expect(chamadas.some((c) => c.metodo === 'PATCH' && c.caminho === '/cobrancas/cob-1/cancelar')).toBe(true)
+    expect(await screen.findByRole('button', { name: /^canceladas/i })).toHaveTextContent('1')
+  })
+
+  it('mostra o motivo quando o cancelamento é recusado por já estar paga', async () => {
+    simularApi(({ metodo, caminho }) => {
+      if (caminho.startsWith('/cobrancas/pagina?')) return { corpo: paginaDe([cobranca(1)], caminho) }
+      if (metodo === 'PATCH') return problema(409, 'COBRANCA_JA_PAGA')
+      return undefined
+    })
+    render(
+      <MemoryRouter>
+        <Cobrancas />
+      </MemoryRouter>,
+    )
+
+    await userEvent.click(await screen.findByRole('button', { name: /Aluno 01/ }))
+    await userEvent.click(screen.getByRole('button', { name: /cancelar cobrança/i }))
+    const dialogo = screen.getByRole('dialog')
+    await userEvent.click(within(dialogo).getByRole('button', { name: /cancelar cobrança/i }))
+
+    expect(await within(dialogo).findByText(/já foi paga/i)).toBeInTheDocument()
+  })
 })
+

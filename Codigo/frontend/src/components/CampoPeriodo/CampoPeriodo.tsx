@@ -21,6 +21,8 @@ type CampoPeriodoProps = {
   placeholder: string
   /** Última data que pode ser escolhida, em ISO. */
   max?: string
+  /** Mês que o calendário abre sem período aplicado, em ISO; sem ele, o da data máxima. */
+  mesInicial?: string
   /** Classe do botão: quem usa decide o visual (ex.: pílula de filtro). */
   className?: string
   'aria-pressed'?: boolean
@@ -39,6 +41,7 @@ export function CampoPeriodo({
   onChange,
   placeholder,
   max,
+  mesInicial,
   className,
   'aria-pressed': ariaPressed,
 }: CampoPeriodoProps) {
@@ -132,7 +135,7 @@ export function CampoPeriodo({
             autoFocus
             selected={rascunho}
             onSelect={setRascunho}
-            defaultMonth={rascunho?.from ?? ultimoMes}
+            defaultMonth={rascunho?.from ?? (mesInicial ? paraData(mesInicial) : undefined) ?? ultimoMes}
             disabled={maxima ? { after: maxima } : undefined}
             captionLayout="dropdown"
             startMonth={primeiroMes}

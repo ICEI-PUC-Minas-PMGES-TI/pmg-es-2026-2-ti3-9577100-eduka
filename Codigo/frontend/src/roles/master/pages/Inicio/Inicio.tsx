@@ -1,4 +1,14 @@
-import { Colunas, EstadoDashboard, Linhas, Medidor, Painel, PainelVazio } from '../../../../components/Dashboard/Dashboard'
+import { useNavigate } from 'react-router'
+import { Button } from '../../../../components/Button/Button'
+import {
+  Atalhos,
+  Colunas,
+  EstadoDashboard,
+  Linhas,
+  Medidor,
+  Painel,
+  PainelVazio,
+} from '../../../../components/Dashboard/Dashboard'
 import {
   EntrouESaiu,
   UltimasAcoes,
@@ -7,6 +17,7 @@ import {
 import { descricaoInadimplencia, quantasCobrancas } from '../../../../components/PainelFinanceiro/textos'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
+import { paths, type EstadoAbrirCadastro } from '../../../../routes/paths'
 import { obterDashboardEscola, obterDashboardFinanceiro } from '../../../../services/dashboardService'
 import type { DashboardEscola, DashboardFinanceiro } from '../../../../types/dashboard'
 import { formatarMoeda, plural } from '../../../../utils/formatters'
@@ -23,6 +34,7 @@ async function obterDadosInicio(signal: AbortSignal): Promise<DadosInicio> {
 
 /** Início do MASTER: resumo da escola (pessoas, dinheiro, estrutura, vagas e desempenho). */
 export function Inicio() {
+  const navigate = useNavigate()
   const { dados, carregando, erro, recarregar } = useCarregamento<DadosInicio | null>(
     obterDadosInicio,
     null,
@@ -30,7 +42,15 @@ export function Inicio() {
   )
 
   return (
-    <MasterLayout titulo="Início" subtitulo="O resumo da sua escola: alunos, dinheiro, turmas, vagas e desempenho.">
+    <MasterLayout
+      titulo="Início"
+      subtitulo="O resumo da sua escola: alunos, dinheiro, turmas, vagas e desempenho."
+      acao={
+        <Button variant="outline" icon="card" onClick={() => navigate(paths.master.planoEFaturas)}>
+          Plano e faturas
+        </Button>
+      }
+    >
       <EstadoDashboard carregando={carregando} erro={erro} onTentarDeNovo={recarregar} />
       {dados && <Resumo escola={dados.escola} financeiro={dados.financeiro} />}
     </MasterLayout>
@@ -38,6 +58,7 @@ export function Inicio() {
 }
 
 function Resumo({ escola, financeiro }: DadosInicio) {
+  const navigate = useNavigate()
   const { pessoas, estrutura, ocupacao, desempenho } = escola
   const { recebidoNoMes, faltaReceber, emAtraso } = financeiro
   const vagasLivres = Math.max(0, ocupacao.vagasOfertadas - ocupacao.matriculasAtivas)
@@ -71,7 +92,33 @@ function Resumo({ escola, financeiro }: DadosInicio) {
 
       <Colunas>
         <EntrouESaiu meses={financeiro.ultimosMeses} />
-        <VencemNaSemana cobrancas={financeiro.vencemNaSemana} />
+        {/* IU05: os atalhos levam às telas da secretaria e do financeiro dentro da gestão. */}
+        <Atalhos
+          titulo="O que você quer fazer?"
+          itens={[
+            { rotulo: 'Matricular um aluno', icon: 'check', onClick: () => navigate(paths.master.matriculas) },
+            { rotulo: 'Lançar uma cobrança', icon: 'card', onClick: () => navigate(paths.master.novaCobranca) },
+            {
+              rotulo: 'Cadastrar um professor',
+              icon: 'graduationCap',
+              onClick: () =>
+                navigate(paths.master.professores, { state: { abrirCadastro: true } satisfies EstadoAbrirCadastro }),
+            },
+            { rotulo: 'Lançar uma despesa', icon: 'dollarSign', onClick: () => navigate(paths.master.despesas) },
+          ]}
+        />
+      </Colunas>
+
+      <Colunas>
+        <VencemNaSemana
+          cobrancas={financeiro.vencemNaSemana}
+          acao={
+            <Button size="sm" icon="arrowRight" onClick={() => navigate(paths.master.cobrancas)}>
+              Ver cobranças
+            </Button>
+          }
+        />
+        <UltimasAcoes acoes={financeiro.ultimasAcoes} />
       </Colunas>
 
       <Painel
@@ -144,7 +191,6 @@ function Resumo({ escola, financeiro }: DadosInicio) {
         />
       </Painel>
 
-      <UltimasAcoes acoes={financeiro.ultimasAcoes} />
     </>
   )
 }

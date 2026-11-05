@@ -243,14 +243,14 @@ function CartaoDisciplina({ disciplina }: { disciplina: BoletimDisciplina }) {
             <tbody>
               {disciplina.avaliacoes.map((avaliacao) => (
                 <tr key={avaliacao.id}>
-                  <td className={styles.secundario}>{formatarData(avaliacao.data)}</td>
-                  <td>
+                  <td data-rotulo="Data" className={styles.secundario}>{formatarData(avaliacao.data)}</td>
+                  <td className={styles.colAvaliacao}>
                     <span className={styles.tipo}>{ROTULOS_TIPO_AVALIACAO[avaliacao.tipo]}</span>
                     {avaliacao.titulo}
                     {avaliacao.observacao && <span className={styles.observacao}>{avaliacao.observacao}</span>}
                   </td>
-                  <td className={`${styles.numero} ${styles.secundario}`}>{formatarPontos(avaliacao.valor)}</td>
-                  <td className={styles.numero}>
+                  <td data-rotulo="Valor" className={`${styles.numero} ${styles.secundario}`}>{formatarPontos(avaliacao.valor)}</td>
+                  <td data-rotulo="Nota" className={styles.numero}>
                     {avaliacao.nota === null ? (
                       <span className={styles.secundario}>—</span>
                     ) : (

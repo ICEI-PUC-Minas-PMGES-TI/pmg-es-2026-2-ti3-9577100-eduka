@@ -12,6 +12,8 @@ export const paths = {
   loginDev: '/login/dev',
   /** Só existe no build de apresentação (VITE_DEMO=true) e em dev. */
   loginDemo: '/login/demo',
+  /** Aviso para quem é de uma escola suspensa (IU04). */
+  acessoSuspenso: '/acesso-suspenso',
   superAdmin: {
     raiz: '/super-admin',
     /** Atalho antigo: redireciona para loginAdmin. */
@@ -21,13 +23,27 @@ export const paths = {
     editarEscola: '/super-admin/escolas/:id/editar',
     /** Faturas que a escola paga ao Eduka. Use com generatePath(paths.superAdmin.faturasEscola, { id }). */
     faturasEscola: '/super-admin/escolas/:id/faturas',
+    /** Faturas de todas as escolas (IU24, item Assinaturas do menu). */
+    assinaturas: '/super-admin/assinaturas',
   },
   master: {
     raiz: '/master',
     /** Dashboard da escola. */
     inicio: '/master/inicio',
-    /** Faturas do Eduka (pagar e comprovante); a ativação da conta entra na PO.5. */
+    /** Conta de recebimento da escola e faturas do Edúka (pagar e comprovante). */
     recebimentos: '/master/recebimentos',
+    /** Plano da escola e faturas do Edúka: pagar e ver o comprovante (IU24-A). */
+    planoEFaturas: '/master/plano-e-faturas',
+    // Telas da secretaria e do financeiro que o MASTER também usa (IU05,
+    // IU20, IU21): mesmas páginas, com o menu da gestão (ver routes/areas.ts).
+    alunos: '/master/alunos',
+    professores: '/master/professores',
+    academico: '/master/academico',
+    alocacoes: '/master/academico/alocacoes',
+    matriculas: '/master/matriculas',
+    cobrancas: '/master/cobrancas',
+    novaCobranca: '/master/cobrancas/nova',
+    despesas: '/master/despesas',
   },
   secretaria: {
     raiz: '/secretaria',
@@ -56,10 +72,12 @@ export const paths = {
     /** Dashboard: turmas, alunos, próximas avaliações e notas a lançar. */
     inicio: '/professor/inicio',
     turmas: '/professor/turmas',
-    /** Endereço antigo: redireciona para `notas`, que juntou as duas telas. */
-    avaliacoes: '/professor/avaliacoes',
     /** Avaliações e notas de uma turma/disciplina (?turma=&disciplina=&avaliacao=). */
+    avaliacoes: '/professor/avaliacoes',
+    /** Endereço antigo: redireciona para `avaliacoes`, com os mesmos parâmetros. */
     notas: '/professor/notas',
+    /** Aula do dia e histórico de uma turma/disciplina (?turma=&disciplina=&data=&aula=). */
+    chamada: '/professor/chamada',
   },
   aluno: {
     raiz: '/aluno',
@@ -77,6 +95,9 @@ export const paths = {
  * Professores) já abre com o modal de cadastro aberto.
  */
 export type EstadoAbrirCadastro = { abrirCadastro: true }
+
+/** Abre o cadastro de avaliação; com `turmaId`, o modal já vem com essa turma escolhida. */
+export type EstadoNovaAvaliacao = EstadoAbrirCadastro & { turmaId?: number }
 
 /** Volta de Nova cobrança para Cobranças com a confirmação do que foi criado. */
 export type EstadoCobrancaCriada = { cobrancaCriada: string }

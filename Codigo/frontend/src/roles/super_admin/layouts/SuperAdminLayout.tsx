@@ -7,7 +7,8 @@ const MENU: ItemMenu[] = [
   { label: 'Escolas', icon: 'home', to: paths.superAdmin.escolas },
   // Em breve: ainda sem página.
   { label: 'Usuários', icon: 'users' },
-  { label: 'Assinaturas', icon: 'card' },
+  { label: 'Assinaturas', icon: 'card', to: paths.superAdmin.assinaturas },
+  // Em breve: ainda sem página.
   { label: 'Configurações', icon: 'settings' },
 ]
 

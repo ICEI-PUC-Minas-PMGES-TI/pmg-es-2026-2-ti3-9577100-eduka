@@ -1,6 +1,7 @@
 package br.pucminas.eduka.backend.controller;
 
 import java.net.URI;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import org.springframework.data.domain.Sort.Direction;
@@ -20,6 +21,7 @@ import br.pucminas.eduka.backend.dto.AtualizarAulaRequest;
 import br.pucminas.eduka.backend.dto.AulaRequest;
 import br.pucminas.eduka.backend.dto.AulaResponse;
 import br.pucminas.eduka.backend.dto.AulaResumoResponse;
+import br.pucminas.eduka.backend.dto.ChamadaDoDiaResponse;
 import br.pucminas.eduka.backend.dto.PaginaResponse;
 import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.security.Perfis;
@@ -62,6 +64,20 @@ public class AulaController {
             @RequestParam(defaultValue = Paginacao.TAMANHO_PADRAO) int tamanho,
             @RequestParam(required = false) Direction direcao) {
         return aulaService.listar(turmaId, disciplinaId, new Paginacao(pagina, tamanho), direcao);
+    }
+
+    @GetMapping("/chamada")
+    @Operation(summary = "Prepara a chamada de um dia",
+            description = "Traz quem entra na chamada (matricula ativa na turma, feita ate o dia) e as aulas ja registradas nesse dia. "
+                    + "Sem `data`, vale hoje no fuso da escola. Nao grava nada.")
+    @ApiResponse(responseCode = "200", description = "Os alunos e as aulas do dia.")
+    @ApiResponse(responseCode = "400", description = "Data futura ou invalida.")
+    @ApiResponse(responseCode = "404", description = "Turma ou disciplina nao alocada ao professor.")
+    public ChamadaDoDiaResponse chamadaDoDia(
+            @Parameter(description = "Turma") @RequestParam Long turmaId,
+            @Parameter(description = "Disciplina") @RequestParam Long disciplinaId,
+            @Parameter(description = "Dia da aula, AAAA-MM-DD") @RequestParam(required = false) LocalDate data) {
+        return aulaService.chamadaDoDia(turmaId, disciplinaId, data);
     }
 
     @GetMapping("/{id}")

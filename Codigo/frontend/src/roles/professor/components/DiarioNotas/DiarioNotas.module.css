@@ -299,6 +299,21 @@
   }
 }
 
+/* No celular de 360 px, o nome longo não divide a linha com a etiqueta. */
+@container (max-width: 420px) {
+  .tabela tbody tr {
+    grid-template-areas:
+      'aluno aluno'
+      'situacao situacao'
+      'nota nota'
+      'observacao observacao';
+  }
+
+  .tabela tbody tr > .celSituacao {
+    justify-self: start;
+  }
+}
+
 @media (max-width: 860px) {
   .cabecalho {
     grid-template-columns: 1fr;

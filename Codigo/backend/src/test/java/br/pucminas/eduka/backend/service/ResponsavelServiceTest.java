@@ -33,6 +33,7 @@ import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.PessoaPapel;
 import br.pucminas.eduka.backend.domain.Responsavel;
 import br.pucminas.eduka.backend.dto.CadastroResponsavelRequest;
+import br.pucminas.eduka.backend.dto.ResponsavelRequest;
 import br.pucminas.eduka.backend.dto.CadastroResponsavelResponse;
 import br.pucminas.eduka.backend.dto.ResponsavelResponse;
 import br.pucminas.eduka.backend.dto.VinculoResponsavelRequest;
@@ -192,6 +193,123 @@ class ResponsavelServiceTest {
         ordem.verify(alunoResponsavelRepository).save(novo.capture());
         assertThat(novo.getValue().isFinanceiro()).isTrue();
         assertThat(novo.getValue().getParentesco()).isEqualTo("PAI");
+    }
+
+    @Test
+    void vincularComoFinanceiroSemCpfValidoRecusaSemTirarOAnterior() {
+        Aluno aluno = alunoDaEscola();
+        Pessoa pai = pessoa("Joao", null);
+        Responsavel responsavel = responsavelDe(pai);
+        when(responsavelRepository.findByIdAndEscolaId(responsavel.getId(), ESCOLA_A))
+                .thenReturn(Optional.of(responsavel));
+        when(pessoaRepository.findByIdAndEscolaId(pai.getId(), ESCOLA_A)).thenReturn(Optional.of(pai));
+
+        assertThatThrownBy(() -> service.vincular(aluno.getId(), responsavel.getId(),
+                new VinculoResponsavelRequest("PAI", true)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("CPF");
+        verify(alunoResponsavelRepository, never()).findById_AlunoIdAndFinanceiroTrue(any());
+        verify(alunoResponsavelRepository, never()).save(any());
+    }
+
+    @Test
+    void vincularSemSerFinanceiroNaoExigeCpf() {
+        Aluno aluno = alunoDaEscola();
+        Pessoa avo = pessoa("Lucia", null);
+        Responsavel responsavel = responsavelDe(avo);
+        when(responsavelRepository.findByIdAndEscolaId(responsavel.getId(), ESCOLA_A))
+                .thenReturn(Optional.of(responsavel));
+        when(pessoaRepository.findByIdAndEscolaId(avo.getId(), ESCOLA_A)).thenReturn(Optional.of(avo));
+        when(alunoResponsavelRepository.findById(any())).thenReturn(Optional.empty());
+
+        assertThat(service.vincular(aluno.getId(), responsavel.getId(), new VinculoResponsavelRequest("AVO", false))
+                .financeiro()).isFalse();
+    }
+
+    private Aluno alunoDaEscola() {
+        Aluno aluno = Aluno.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).pessoaId(UUID.randomUUID())
+                .matricula("2026-001").build();
+        when(alunoRepository.findByIdAndEscolaId(aluno.getId(), ESCOLA_A)).thenReturn(Optional.of(aluno));
+        return aluno;
+    }
+
+    /** As gravacoes devolvem o que receberam, com id. */
+    private void criacaoLiberada() {
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(inv -> {
+            Pessoa pessoa = inv.getArgument(0);
+            pessoa.setId(UUID.randomUUID());
+            return pessoa;
+        });
+        when(responsavelRepository.save(any(Responsavel.class))).thenAnswer(inv -> {
+            Responsavel responsavel = inv.getArgument(0);
+            responsavel.setId(UUID.randomUUID());
+            return responsavel;
+        });
+    }
+
+    @Test
+    void incluirNoAlunoCriaOResponsavelEMarcaOFinanceiro() {
+        Aluno aluno = alunoDaEscola();
+        criacaoLiberada();
+        AlunoResponsavel anterior = AlunoResponsavel.builder()
+                .id(new AlunoResponsavelId(aluno.getId(), UUID.randomUUID())).financeiro(true).build();
+        when(alunoResponsavelRepository.findById_AlunoIdAndFinanceiroTrue(aluno.getId()))
+                .thenReturn(Optional.of(anterior));
+
+        ResponsavelResponse resposta = service.incluirNoAluno(aluno.getId(),
+                new ResponsavelRequest(" Marta ", CPF, null, null, "MAE", true));
+
+        assertThat(resposta.nome()).isEqualTo("Marta");
+        assertThat(resposta.financeiro()).isTrue();
+        assertThat(anterior.isFinanceiro()).isFalse();
+        verify(alunoResponsavelRepository).saveAndFlush(anterior);
+    }
+
+    @Test
+    void incluirNoAlunoComCpfJaCadastradoReaproveitaOResponsavel() {
+        Aluno aluno = alunoDaEscola();
+        Pessoa mae = pessoa("Marta", CPF);
+        Responsavel existente = responsavelDe(mae);
+        when(responsavelRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of(existente));
+        when(pessoaRepository.findAllByIdInAndEscolaId(List.of(mae.getId()), ESCOLA_A)).thenReturn(List.of(mae));
+
+        ResponsavelResponse resposta = service.incluirNoAluno(aluno.getId(),
+                new ResponsavelRequest("Outro Nome", CPF, null, null, "MAE", false));
+
+        assertThat(resposta.responsavelId()).isEqualTo(existente.getId());
+        assertThat(resposta.nome()).isEqualTo("Marta");
+        verify(responsavelRepository, never()).save(any());
+    }
+
+    @Test
+    void incluirNoAlunoJaVinculadoRecusa() {
+        Aluno aluno = alunoDaEscola();
+        Pessoa mae = pessoa("Marta", CPF);
+        when(responsavelRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of(responsavelDe(mae)));
+        when(pessoaRepository.findAllByIdInAndEscolaId(List.of(mae.getId()), ESCOLA_A)).thenReturn(List.of(mae));
+        when(alunoResponsavelRepository.existsById(new AlunoResponsavelId(aluno.getId(), mae.getId())))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> service.incluirNoAluno(aluno.getId(),
+                new ResponsavelRequest("Marta", CPF, null, null, "MAE", true)))
+                .isInstanceOf(RegistroEmUsoException.class);
+        verify(alunoResponsavelRepository, never()).save(any());
+    }
+
+    @Test
+    void incluirNoAlunoRecusaFinanceiroSemCpfECpfInvalido() {
+        Aluno aluno = alunoDaEscola();
+        criacaoLiberada();
+
+        assertThatThrownBy(() -> service.incluirNoAluno(aluno.getId(),
+                new ResponsavelRequest("Marta", null, null, null, "MAE", true)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("financeiro");
+        assertThatThrownBy(() -> service.incluirNoAluno(aluno.getId(),
+                new ResponsavelRequest("Marta", "11111111111", null, null, "MAE", false)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("invalido");
+        verify(alunoResponsavelRepository, never()).save(any());
     }
 
     @Test

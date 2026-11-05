@@ -4,7 +4,8 @@ import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
 import { Select } from '../../../../components/Select/Select'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
-import { paths, type EstadoCobrancaCriada } from '../../../../routes/paths'
+import { useRotasFinanceiras } from '../../../../routes/areas'
+import { type EstadoCobrancaCriada } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
 import { criarCobranca } from '../../../../services/cobrancaService'
 import { listarAlunos, listarMatriculas } from '../../../../services/matriculaService'
@@ -57,6 +58,7 @@ function descricaoSugerida(tipo: TipoCobranca): string {
 
 export function NovaCobranca() {
   const navigate = useNavigate()
+  const rotas = useRotasFinanceiras()
 
   const [alunos, setAlunos] = useState<AlunoResumo[]>([])
   const [carregandoAlunos, setCarregandoAlunos] = useState(true)
@@ -207,7 +209,7 @@ export function NovaCobranca() {
       const estado: EstadoCobrancaCriada = {
         cobrancaCriada: `Cobrança "${descricao.trim()}" criada para ${alunoSelecionado.nome}.`,
       }
-      navigate(paths.financeiro.cobrancas, { state: estado })
+      navigate(rotas.cobrancas, { state: estado })
     } catch (e) {
       setErro(
         e instanceof ApiError
@@ -223,7 +225,7 @@ export function NovaCobranca() {
       titulo="Nova cobrança"
       subtitulo="Preencha os dados abaixo para gerar a cobrança do aluno."
       acao={
-        <Link to={paths.financeiro.cobrancas} className={styles.botaoVoltar}>
+        <Link to={rotas.cobrancas} className={styles.botaoVoltar}>
           <span aria-hidden="true">←</span>
           Voltar
         </Link>
@@ -449,7 +451,7 @@ export function NovaCobranca() {
           <button
             type="button"
             className={styles.botaoCancelar}
-            onClick={() => navigate(paths.financeiro.cobrancas)}
+            onClick={() => navigate(rotas.cobrancas)}
             disabled={isSubmitting}
           >
             Cancelar

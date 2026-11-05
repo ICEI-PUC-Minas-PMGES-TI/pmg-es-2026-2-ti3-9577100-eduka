@@ -99,6 +99,19 @@ class FaturaPlataformaControllerSecurityTest {
     }
 
     @Test
+    void soSuperAdminListaAsFaturasDeTodasAsEscolas() throws Exception {
+        for (String perfil : List.of("MASTER", "SECRETARIA", "FINANCEIRO", "PROFESSOR", "ALUNO")) {
+            mockMvc.perform(comToken(get("/escolas/faturas"), token(perfil, ESCOLA))).andExpect(status().isForbidden());
+        }
+        when(paymentRoutingService.listarFaturasDeTodasAsEscolas())
+                .thenReturn(List.of(resposta(List.of(FaturaPlataformaResponse.CANCELAR))));
+
+        mockMvc.perform(comToken(get("/escolas/faturas"), token("SUPER_ADMIN", null)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].escolaNome").value("Colegio Horizonte"));
+    }
+
+    @Test
     void lancarDevolve201ComAsAcoes() throws Exception {
         when(paymentRoutingService.lancarFatura(any(), any()))
                 .thenReturn(resposta(List.of(FaturaPlataformaResponse.CANCELAR)));

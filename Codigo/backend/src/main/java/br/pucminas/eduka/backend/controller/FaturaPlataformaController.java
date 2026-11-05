@@ -69,6 +69,15 @@ public class FaturaPlataformaController {
         return paymentRoutingService.lancarFatura(escolaId, request);
     }
 
+    @GetMapping("/escolas/faturas")
+    @PreAuthorize(Perfis.SUPER_ADMIN)
+    @Operation(summary = "Faturas de todas as escolas", description = "Perfil: SUPER_ADMIN. Do vencimento mais "
+            + "recente para o mais antigo, com o nome da escola e as acoes (CANCELAR, VER_COMPROVANTE).")
+    @ApiResponse(responseCode = "200", description = "As faturas da plataforma.")
+    public List<FaturaPlataformaResponse> listarTodas() {
+        return paymentRoutingService.listarFaturasDeTodasAsEscolas();
+    }
+
     @GetMapping("/escolas/{escolaId}/faturas")
     @PreAuthorize(Perfis.SUPER_ADMIN)
     @Operation(summary = "Faturas da escola", description = "Perfil: SUPER_ADMIN. Da competencia mais recente "

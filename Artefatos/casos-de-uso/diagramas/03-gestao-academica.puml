@@ -1,0 +1,58 @@
+@startuml 03-gestao-academica
+!include _estilo.puml
+title Eduka — Casos de Uso: Gestão Acadêmica (UC05 a UC08, UC18, UC29, UC34, UC39)
+
+actor "FINANCEIRO" as FINANCEIRO
+actor "SECRETARIA" as SECRETARIA
+actor "MASTER" as MASTER
+actor "Serviço de E-mail\n(Brevo)" as BREVO <<sistema externo>>
+
+rectangle "Eduka — Gestão acadêmica" {
+  usecase "UC05\nGerenciar Alunos" as UC05 <<parcial>>
+  usecase "UC29\nGerenciar Responsáveis" as UC29
+  usecase "UC06\nGerenciar Professores" as UC06 <<parcial>>
+  usecase "UC07\nGerenciar Estrutura\nAcadêmica" as UC07
+  usecase "UC18\nAlocar Professor em\nTurmas e Disciplinas" as UC18
+  usecase "UC34\nMontar Horário\ndas Turmas" as UC34
+  usecase "UC08\nRealizar Matrícula\nde Aluno" as UC08
+  usecase "UC39\nExportar e Anonimizar\nDados Pessoais" as UC39 <<planejado>>
+  usecase "Criar Acesso Inicial\n(login e senha provisória)" as ACESSO
+  usecase "Reenviar Acesso" as REENVIO
+  usecase "Atender Pedido\nde Correção" as CORRECAO
+  usecase "Inativar ou\nReativar Professor" as INATIVAR
+  usecase "Excluir Professor" as EXCLUIR
+  usecase "Encerrar Período e\nAbrir Matrículas" as PERIODO
+  usecase "Alterar Situação\nda Matrícula" as SITUACAO
+  usecase "Transferir de Turma" as TRANSF
+}
+
+SECRETARIA --> UC05
+SECRETARIA --> UC29
+SECRETARIA --> UC06
+SECRETARIA --> UC07
+SECRETARIA --> UC18
+SECRETARIA --> UC34
+SECRETARIA --> UC08
+UC05 <-- MASTER
+UC06 <-- MASTER
+UC07 <-- MASTER
+UC18 <-- MASTER
+UC34 <-- MASTER
+UC08 <-- MASTER
+UC39 <-- MASTER
+FINANCEIRO -[#A0A8B4]-> UC29 : API
+UC29 ..> UC05 : <<extend>>
+UC05 ..> ACESSO : <<include>>
+UC06 ..> ACESSO : <<include>>
+REENVIO ..> ACESSO : <<extend>>
+CORRECAO ..> UC05 : <<extend>>
+INATIVAR ..> UC06 : <<extend>>
+EXCLUIR ..> UC06 : <<extend>>
+UC18 ..> UC06 : <<extend>>
+PERIODO ..> UC07 : <<extend>>
+SITUACAO ..> UC08 : <<extend>>
+TRANSF ..> UC08 : <<extend>>
+ACESSO --> BREVO
+
+
+@enduml

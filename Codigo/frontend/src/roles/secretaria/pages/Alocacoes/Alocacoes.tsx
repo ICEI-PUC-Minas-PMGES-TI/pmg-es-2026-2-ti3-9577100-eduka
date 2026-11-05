@@ -1,17 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useBlocker } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { Medidor } from '../../../../components/Dashboard/Dashboard'
 import { Modal } from '../../../../components/Modal/Modal'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
+import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { obterToken } from '../../../../services/authService'
-import type { Turma } from '../../../../types/alocacao'
+import { listarHorarioDaTurma } from '../../../../services/horarioService'
+import type { DisciplinaDaTurma, Turma } from '../../../../types/alocacao'
+import type { HorarioTurma } from '../../../../types/horario'
 import { GradeAlocacao } from '../../components/GradeAlocacao/GradeAlocacao'
+import { ModalHorarioDisciplina } from '../../components/ModalHorarioDisciplina/ModalHorarioDisciplina'
 import type { OpcaoProfessor } from '../../components/SeletorProfessor/SeletorProfessor'
 import { TurmasAlocacao } from '../../components/TurmasAlocacao/TurmasAlocacao'
 import { useAlocacoes, type EscolhasDaTurma } from '../../hooks/useAlocacoes'
 import { SecretariaLayout } from '../../layouts/SecretariaLayout'
 import styles from './Alocacoes.module.css'
+
+const SEM_HORARIOS: HorarioTurma[] = []
 
 export function Alocacoes() {
   const { turmas, professores, alocacoes, carregando, erro, recarregar, salvar } = useAlocacoes()
@@ -21,6 +27,7 @@ export function Alocacoes() {
   const [salvando, setSalvando] = useState(false)
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
+  const [editandoHorario, setEditandoHorario] = useState<DisciplinaDaTurma | null>(null)
 
   // Sem escolha feita (ou com a turma escolhida fora da lista), abre na primeira.
   const turma = turmas.find((t) => t.id === turmaId) ?? turmas[0] ?? null
@@ -56,6 +63,20 @@ export function Alocacoes() {
   ).length
   const percentualGeral = totalDisciplinas > 0 ? Math.round((alocacoes.length / totalDisciplinas) * 100) : 0
   const semTurma = ativos.filter((p) => !cargaPorProfessor.has(p.id)).length
+
+  // Horário das aulas da turma aberta (IU13); a secretaria define por disciplina.
+  const turmaAbertaId = turma?.id ?? null
+  const buscarHorarios = useCallback(
+    (signal: AbortSignal) =>
+      turmaAbertaId === null ? Promise.resolve(SEM_HORARIOS) : listarHorarioDaTurma(turmaAbertaId, signal),
+    [turmaAbertaId],
+  )
+  const horariosDaTurma = useCarregamento(buscarHorarios, SEM_HORARIOS, 'Turma não encontrada.')
+
+  /** A aula da grade é da alocação gravada: sem professor salvo, não há horário. */
+  function alocacaoDa(disciplinaId: number): string | undefined {
+    return alocacoes.find((a) => a.turmaId === turma?.id && a.disciplinaId === disciplinaId)?.id
+  }
 
   const disciplinas = [...(turma?.disciplinas ?? [])].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
   const gravadas = new Map<number, OpcaoProfessor>(
@@ -226,6 +247,11 @@ export function Alocacoes() {
               escolhas={escolhas}
               mudancas={mudancas}
               salvando={salvando}
+              horarios={horariosDaTurma.dados}
+              onEditarHorario={(disciplina) => {
+                setSucesso(null)
+                setEditandoHorario(disciplina)
+              }}
               onEscolher={handleEscolher}
               onDesfazer={handleDesfazer}
               onSalvar={handleSalvar}
@@ -233,6 +259,22 @@ export function Alocacoes() {
           </div>
         </div>
         </>
+      )}
+
+      {editandoHorario && turma && (
+        <ModalHorarioDisciplina
+          turmaId={turma.id}
+          turmaNome={turma.nome}
+          disciplinaNome={editandoHorario.nome}
+          alocacaoId={alocacaoDa(editandoHorario.id) ?? ''}
+          horarios={horariosDaTurma.dados.filter((h) => h.disciplinaId === editandoHorario.id)}
+          onFechar={() => setEditandoHorario(null)}
+          onSalvo={() => {
+            horariosDaTurma.recarregar()
+            setSucesso(`Horário de ${editandoHorario.nome} salvo.`)
+            setEditandoHorario(null)
+          }}
+        />
       )}
 
       {blocker.state === 'blocked' && (
