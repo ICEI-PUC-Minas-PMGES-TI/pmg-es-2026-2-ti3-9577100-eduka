@@ -6,6 +6,7 @@ import {
   UltimosPagamentos,
   VencemNaSemana,
 } from '../../../../components/PainelFinanceiro/PainelFinanceiro'
+import { AlunosEmRisco } from '../../../../components/RiscoAtraso/RiscoAtraso'
 import { descricaoInadimplencia, quantasCobrancas } from '../../../../components/PainelFinanceiro/textos'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
@@ -97,6 +98,9 @@ function Resumo({ dados }: { dados: DashboardFinanceiro }) {
         />
         <UltimosPagamentos pagamentos={dados.ultimosPagamentos} />
       </Colunas>
+
+      {/* O atalho "Ver cobranças em atraso" já fica acima: o painel não repete o botão. */}
+      <AlunosEmRisco />
     </>
   )
 }

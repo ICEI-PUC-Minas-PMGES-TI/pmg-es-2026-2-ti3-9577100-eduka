@@ -14,6 +14,7 @@ import {
   UltimasAcoes,
   VencemNaSemana,
 } from '../../../../components/PainelFinanceiro/PainelFinanceiro'
+import { AlunosEmRisco } from '../../../../components/RiscoAtraso/RiscoAtraso'
 import { descricaoInadimplencia, quantasCobrancas } from '../../../../components/PainelFinanceiro/textos'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
@@ -120,6 +121,14 @@ function Resumo({ escola, financeiro }: DadosInicio) {
         />
         <UltimasAcoes acoes={financeiro.ultimasAcoes} />
       </Colunas>
+
+      <AlunosEmRisco
+        acao={
+          <Button size="sm" icon="arrowRight" onClick={() => navigate(`${paths.master.cobrancas}?status=EM_ATRASO`)}>
+            Ver cobranças em atraso
+          </Button>
+        }
+      />
 
       <Painel
         titulo="Ocupação das vagas"
