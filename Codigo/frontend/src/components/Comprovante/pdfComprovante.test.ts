@@ -11,6 +11,7 @@ const COMPROVANTE: Comprovante = {
   descricao: 'Mensalidade de setembro (2026)',
   vencimento: '2026-09-10',
   valorPago: 890,
+  valorEstornado: 0,
   dataPagamento: '2026-09-09',
   forma: 'PIX',
   codigoTransacao: 'pay_8f2k1x9q7m3d',
@@ -37,6 +38,15 @@ describe('pdfComprovante', () => {
     ])
     expect(linhas[3].valor).toBe('Cláudia Andrade · ***.456.789-**')
     expect(linhas[4].valor).toBe('Colégio Santo Agostinho · 61.093.123/0001-45')
+  })
+
+  it('com estorno, mostra o valor devolvido logo depois do valor pago', () => {
+    const comEstorno = { ...COMPROVANTE, valorEstornado: 300 }
+    const linhas = linhasDoComprovante(comEstorno)
+
+    expect(linhas.map((l) => l.rotulo).slice(0, 3)).toEqual(['Valor pago', 'Valor devolvido', 'Pago em'])
+    expect(linhas[1].valor).toBe('R$ 300,00')
+    expect(comoTexto(gerarPdfComprovante(comEstorno))).toContain('(Valor devolvido)')
   })
 
   it('gera um PDF válido, com os acentos em WinAnsi e os parênteses escapados', () => {
