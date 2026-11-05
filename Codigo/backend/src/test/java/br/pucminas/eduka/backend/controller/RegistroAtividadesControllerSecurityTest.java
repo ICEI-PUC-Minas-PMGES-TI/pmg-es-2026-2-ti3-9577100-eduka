@@ -57,8 +57,13 @@ class RegistroAtividadesControllerSecurityTest {
 
     @BeforeEach
     void semAtividades() {
-        when(logAuditoriaRepository.findAll(any(Specification.class), any(Pageable.class)))
+        when(logAuditoriaRepository.findAll(anySpecification(), any(Pageable.class)))
                 .thenAnswer(inv -> Page.<LogAuditoria>empty(inv.getArgument(1)));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Specification<LogAuditoria> anySpecification() {
+        return any(Specification.class);
     }
 
     private MockHttpServletRequestBuilder como(String perfil, MockHttpServletRequestBuilder request) {
@@ -83,7 +88,7 @@ class RegistroAtividadesControllerSecurityTest {
             mockMvc.perform(como(perfil, get(PAGINA))).andExpect(status().isForbidden());
         }
         mockMvc.perform(get(PAGINA)).andExpect(status().isUnauthorized());
-        verify(logAuditoriaRepository, never()).findAll(any(Specification.class), any(Pageable.class));
+        verify(logAuditoriaRepository, never()).findAll(anySpecification(), any(Pageable.class));
     }
 
     @Test
