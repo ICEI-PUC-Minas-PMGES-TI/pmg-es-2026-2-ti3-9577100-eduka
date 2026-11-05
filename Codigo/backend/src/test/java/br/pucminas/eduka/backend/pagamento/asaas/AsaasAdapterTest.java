@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,6 +48,7 @@ import br.pucminas.eduka.backend.pagamento.ProvedorIndisponivelException;
 import br.pucminas.eduka.backend.pagamento.ProvedorNaoConfiguradoException;
 import br.pucminas.eduka.backend.pagamento.ProvedorRecusouException;
 import br.pucminas.eduka.backend.pagamento.asaas.dto.CobrancaAsaas;
+import br.pucminas.eduka.backend.pagamento.asaas.dto.EventoAsaas;
 import br.pucminas.eduka.backend.pagamento.tipos.BoletoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.ContaProvedor;
@@ -427,7 +429,7 @@ class AsaasAdapterTest {
     })
     void mapeiaStatusDaCobranca(String status, boolean removida, StatusCobrancaProvedor esperado) {
         CobrancaAsaas cobranca = new CobrancaAsaas("pay_1", "EDK-B-1", status, "PIX", removida, BigDecimal.TEN,
-                BigDecimal.ONE, null, null, null, null, null, null, null);
+                BigDecimal.ONE, null, null, null, null, null, null, null, null);
 
         assertThat(AsaasAdapter.statusDaCobranca(cobranca)).isEqualTo(esperado);
     }
@@ -465,10 +467,45 @@ class AsaasAdapterTest {
                 "PAYMENT_CHARGEBACK_REQUESTED", "PAYMENT_CHARGEBACK_DISPUTE", "PAYMENT_AWAITING_CHARGEBACK_REVERSAL");
     }
 
+    private static EventoAsaas avisoDeEstorno(String evento, String refunds) throws Exception {
+        return JsonMapper.builder().build().readValue("""
+                {"id":"evt_1","event":"%s","dateCreated":"2026-10-19 10:15:00",
+                 "payment":{"id":"pay_1","status":"REFUNDED","billingType":"PIX","value":100.00,"refunds":%s}}
+                """.formatted(evento, refunds), EventoAsaas.class);
+    }
+
+    @Test
+    void estornoSomaOsRefundsConcluidos() throws Exception {
+        EventoAsaas evento = avisoDeEstorno("PAYMENT_PARTIALLY_REFUNDED", """
+                [{"status":"DONE","value":30.00},{"status":"DONE","value":20.00},
+                 {"status":"PENDING","value":5.00},{"status":"CANCELLED","value":7.00}]""");
+
+        assertThat(AsaasAdapter.valorEstornado(evento)).isEqualByComparingTo("50.00");
+    }
+
+    @Test
+    void estornoTotalSemRefundsValeOValorDaCobranca() throws Exception {
+        assertThat(AsaasAdapter.valorEstornado(avisoDeEstorno("PAYMENT_REFUNDED", "null")))
+                .isEqualByComparingTo("100.00");
+    }
+
+    @Test
+    void estornoParcialSemRefundConcluidoNaoDizOValor() throws Exception {
+        assertThat(AsaasAdapter.valorEstornado(avisoDeEstorno("PAYMENT_PARTIALLY_REFUNDED", "null"))).isNull();
+        assertThat(AsaasAdapter.valorEstornado(avisoDeEstorno("PAYMENT_PARTIALLY_REFUNDED",
+                "[{\"status\":\"PENDING\",\"value\":30.00}]"))).isNull();
+    }
+
+    @Test
+    void avisoQueNaoEEstornoNaoTemValorEstornado() throws Exception {
+        assertThat(AsaasAdapter.valorEstornado(avisoDeEstorno("PAYMENT_RECEIVED",
+                "[{\"status\":\"DONE\",\"value\":30.00}]"))).isNull();
+    }
+
     @Test
     void formaDePagamentoForaDePixEBoletoEErro() {
         CobrancaAsaas cartao = new CobrancaAsaas("pay_1", "EDK-B-1", "PENDING", "CREDIT_CARD", false, BigDecimal.TEN,
-                BigDecimal.ONE, null, null, null, null, null, null, null);
+                BigDecimal.ONE, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> AsaasAdapter.paraCobranca(cartao)).isInstanceOf(IllegalStateException.class);
     }

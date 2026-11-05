@@ -125,6 +125,7 @@ describe('CobrancaDetalhe', () => {
           pagamento: {
             origem: 'ONLINE',
             valorPago: 850,
+            valorEstornado: 0,
             dataPagamento: '2026-10-09',
             forma: 'PIX',
             comprovanteUrl: '/cobrancas/cob-1/comprovante',

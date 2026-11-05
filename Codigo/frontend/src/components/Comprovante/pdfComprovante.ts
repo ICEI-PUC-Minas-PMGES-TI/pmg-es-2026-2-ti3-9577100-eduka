@@ -19,6 +19,9 @@ export type LinhaComprovante = { rotulo: string; valor: string }
 export function linhasDoComprovante(comprovante: Comprovante): LinhaComprovante[] {
   const linhas: LinhaComprovante[] = [
     { rotulo: 'Valor pago', valor: formatarMoeda(comprovante.valorPago).replace(/\s/g, ' ') },
+    ...(comprovante.valorEstornado > 0
+      ? [{ rotulo: 'Valor devolvido', valor: formatarMoeda(comprovante.valorEstornado).replace(/\s/g, ' ') }]
+      : []),
     { rotulo: 'Pago em', valor: formatarData(comprovante.dataPagamento) },
     { rotulo: 'Forma de pagamento', valor: ROTULOS_FORMA_PAGAMENTO[comprovante.forma] },
     {

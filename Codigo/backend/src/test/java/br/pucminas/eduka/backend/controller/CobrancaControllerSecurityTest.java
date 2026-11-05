@@ -712,7 +712,7 @@ class CobrancaControllerSecurityTest {
         UUID id = UUID.randomUUID();
         when(paymentRoutingService.comprovanteCobranca(id)).thenReturn(new ComprovanteResponse(id, "Escola A",
                 "12.345.678/0001-90", "Marta", "***.982.247-**", "Mensalidade", NO_PRAZO, new BigDecimal("850.50"),
-                LocalDate.of(2026, 10, 20), FormaPagamento.PIX, "tr_1"));
+                LocalDate.of(2026, 10, 20), FormaPagamento.PIX, "tr_1", BigDecimal.ZERO));
 
         for (String perfil : List.of("MASTER", "FINANCEIRO")) {
             mockMvc.perform(com(get("/cobrancas/" + id + "/comprovante"), accessToken(perfil, ESCOLA_A)))

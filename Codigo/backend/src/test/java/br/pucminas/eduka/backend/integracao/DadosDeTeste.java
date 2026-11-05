@@ -16,6 +16,7 @@ import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.domain.StatusEventoProvedor;
 import br.pucminas.eduka.backend.domain.StatusMatricula;
+import br.pucminas.eduka.backend.domain.TipoCobranca;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 import br.pucminas.eduka.backend.security.PiiCryptoService;
 
@@ -124,6 +125,25 @@ public class DadosDeTeste {
                 escolaId, cobrancaId, valorPago, forma.name(), "pay_" + unico());
     }
 
+    /** Estorno ja aplicado, como o webhook grava: a linha e a soma no pagamento. */
+    public void estorno(UUID escolaId, UUID cobrancaId, BigDecimal valor, Instant estornadoEm) {
+        jdbc.update("INSERT INTO ESTORNO_COBRANCA (ESCOLA_ID, COBRANCA_ID, VALOR, ESTORNADO_EM) VALUES (?, ?, ?, ?)",
+                escolaId, cobrancaId, valor, Timestamp.from(estornadoEm));
+        jdbc.update("UPDATE PAGAMENTO_COBRANCA SET VALOR_ESTORNADO = VALOR_ESTORNADO + ? WHERE COBRANCA_ID = ?", valor,
+                cobrancaId);
+    }
+
+    public BigDecimal valorEstornado(UUID cobrancaId) {
+        return jdbc.queryForObject("SELECT VALOR_ESTORNADO FROM PAGAMENTO_COBRANCA WHERE COBRANCA_ID = ?",
+                BigDecimal.class, cobrancaId);
+    }
+
+    /** Valores dos estornos gravados, em ordem crescente. */
+    public List<BigDecimal> estornosDaCobranca(UUID cobrancaId) {
+        return jdbc.queryForList("SELECT VALOR FROM ESTORNO_COBRANCA WHERE COBRANCA_ID = ? ORDER BY VALOR",
+                BigDecimal.class, cobrancaId);
+    }
+
     /** Turma ativa da manha, com periodo letivo (em curso) e curso so dela. */
     public long turma(UUID escolaId, String nome, int vagas) {
         Long periodo = jdbc.queryForObject("INSERT INTO periodo_letivo (escola_id, nome, data_inicio, data_fim) "
@@ -156,6 +176,27 @@ public class DadosDeTeste {
                 paga ? valor : null, paga ? vencimento : null);
     }
 
+    /** Matricula ATIVA do aluno numa turma nova do curso {@code nomeDoCurso}, criado aqui. */
+    public UUID matriculaNoCurso(UUID escolaId, UUID alunoId, String nomeDoCurso) {
+        Long periodo = jdbc.queryForObject("INSERT INTO periodo_letivo (escola_id, nome, data_inicio, data_fim) "
+                + "VALUES (?, ?, CURRENT_DATE - 30, CURRENT_DATE + 150) RETURNING id", Long.class, escolaId,
+                "Periodo " + unico());
+        Long curso = jdbc.queryForObject("INSERT INTO curso (escola_id, nome) VALUES (?, ?) RETURNING id", Long.class,
+                escolaId, nomeDoCurso);
+        Long turma = jdbc.queryForObject("INSERT INTO turma (escola_id, periodo_letivo_id, curso_id, nome, vagas, "
+                + "turno) VALUES (?, ?, ?, ?, 30, 'MATUTINO') RETURNING id", Long.class, escolaId, periodo, curso,
+                "Turma " + unico());
+        return jdbc.queryForObject("INSERT INTO MATRICULA_TURMA (ESCOLA_ID, ALUNO_ID, TURMA_ID, STATUS, "
+                + "DATA_MATRICULA) VALUES (?, ?, ?, 'ATIVA', CURRENT_DATE) RETURNING ID_MATRICULA", UUID.class,
+                escolaId, alunoId, turma);
+    }
+
+    /** Liga a cobranca a matricula e define o tipo, que nos outros cenarios fica no padrao OUTRO. */
+    public void classificar(UUID cobrancaId, UUID matriculaId, TipoCobranca tipo) {
+        jdbc.update("UPDATE COBRANCA SET MATRICULA_ID = ?, TIPO = ? WHERE ID_COBRANCA = ?", matriculaId, tipo.name(),
+                cobrancaId);
+    }
+
     public void matricula(UUID escolaId, UUID alunoId, long turmaId, StatusMatricula status, LocalDate data) {
         jdbc.update("INSERT INTO MATRICULA_TURMA (ESCOLA_ID, ALUNO_ID, TURMA_ID, STATUS, DATA_MATRICULA) "
                 + "VALUES (?, ?, ?, ?, ?)", escolaId, alunoId, turmaId, status.name(), data);
@@ -182,8 +223,12 @@ public class DadosDeTeste {
     }
 
     public UUID categoriaDespesa(UUID escolaId) {
+        return categoriaDespesa(escolaId, "Categoria " + unico());
+    }
+
+    public UUID categoriaDespesa(UUID escolaId, String nome) {
         return jdbc.queryForObject("INSERT INTO CATEGORIA_DESPESA (ESCOLA_ID, NOME) VALUES (?, ?) "
-                + "RETURNING ID_CATEGORIA_DESPESA", UUID.class, escolaId, "Categoria " + unico());
+                + "RETURNING ID_CATEGORIA_DESPESA", UUID.class, escolaId, nome);
     }
 
     /** {@code pagaEm} so vale para a PAGA; nas outras situacoes, passe nulo. */

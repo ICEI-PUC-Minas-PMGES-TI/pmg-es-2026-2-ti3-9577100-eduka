@@ -282,6 +282,13 @@
   gap: 12px;
 }
 
+.campoMatricula {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .helperBoleto {
   margin: 6px 0 0 0;
   font-size: 13px;

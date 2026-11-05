@@ -58,9 +58,31 @@ public interface DespesaRepository extends JpaRepository<Despesa, UUID>, JpaSpec
     List<Movimento> pagasEntre(@Param("escolaId") UUID escolaId, @Param("desde") Instant desde,
             @Param("antes") Instant antes);
 
+    // ---- Relatorios financeiros ----
+
+    /** Soma e quantidade das nao canceladas que vencem de {@code de} a {@code ate} (inclusive), por vencimento. */
+    @Query("SELECT d.dataVencimento AS vencimento, SUM(d.valor) AS valor, COUNT(d) AS quantidade FROM Despesa d "
+            + "WHERE d.escolaId = :escolaId "
+            + "AND d.situacao <> br.pucminas.eduka.backend.domain.SituacaoDespesa.CANCELADA "
+            + "AND d.dataVencimento BETWEEN :de AND :ate GROUP BY d.dataVencimento")
+    List<SomaDoVencimento> lancadasPorVencimento(@Param("escolaId") UUID escolaId, @Param("de") LocalDate de,
+            @Param("ate") LocalDate ate);
+
+    /** As despesas de {@link #lancadasPorVencimento}, uma a uma, para a exportacao. */
+    @EntityGraph(attributePaths = "categoria")
+    @Query("SELECT d FROM Despesa d WHERE d.escolaId = :escolaId "
+            + "AND d.situacao <> br.pucminas.eduka.backend.domain.SituacaoDespesa.CANCELADA "
+            + "AND d.dataVencimento BETWEEN :de AND :ate ORDER BY d.dataVencimento, d.id")
+    List<Despesa> lancadasEntre(@Param("escolaId") UUID escolaId, @Param("de") LocalDate de,
+            @Param("ate") LocalDate ate);
+
     interface Soma {
         BigDecimal getValor();
 
         long getQuantidade();
+    }
+
+    interface SomaDoVencimento extends Soma {
+        LocalDate getVencimento();
     }
 }

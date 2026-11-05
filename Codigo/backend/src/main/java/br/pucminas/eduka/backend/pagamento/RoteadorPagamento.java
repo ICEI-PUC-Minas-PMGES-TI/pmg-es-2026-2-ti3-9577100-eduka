@@ -240,7 +240,7 @@ class RoteadorPagamento {
                     documentoDoBeneficiario(escola.getCnpjCpf()), pagador.map(Pessoa::getNome).orElse(null),
                     pagador.map(p -> RoteadorFatura.mascarar(p.getCpf())).orElse(null), cobranca.getDescricao(),
                     cobranca.getDataVencimento(), pagamento.getValorPago(), pagamento.getDataPagamento(),
-                    pagamento.getFormaPagamento(), pagamento.getIdTransacaoExterna());
+                    pagamento.getFormaPagamento(), pagamento.getIdTransacaoExterna(), pagamento.getValorEstornado());
         });
     }
 

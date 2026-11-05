@@ -53,6 +53,8 @@ export type Comprovante = {
   descricao: string
   vencimento: string
   valorPago: number
+  /** Quanto do pago foi devolvido. */
+  valorEstornado: number
   dataPagamento: string
   forma: FormaPagamento
   codigoTransacao: string | null

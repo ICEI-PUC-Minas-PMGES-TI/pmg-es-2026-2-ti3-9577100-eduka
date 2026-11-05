@@ -57,7 +57,7 @@ class CobrancaAlunoResponseTest {
         CobrancaAlunoResponse resposta = CobrancaAlunoResponse.de(cobranca(StatusCobranca.PAGA), pagamento, HOJE);
 
         assertThat(resposta.pagamento()).isEqualTo(new PagamentoResumoResponse(new BigDecimal("500.00"), HOJE,
-                FormaPagamento.BOLETO));
+                FormaPagamento.BOLETO, BigDecimal.ZERO));
         assertThat(resposta.acoes()).containsExactly(CobrancaAlunoResponse.VER_COMPROVANTE);
     }
 

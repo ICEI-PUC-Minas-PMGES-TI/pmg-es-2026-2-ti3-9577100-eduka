@@ -20,6 +20,7 @@ const ONLINE = cobranca('c-online', 'Setembro', '2026-09-10', 'PAGA', {
   pagamento: {
     origem: 'ONLINE',
     valorPago: 500,
+    valorEstornado: 0,
     dataPagamento: '2026-09-08',
     forma: 'PIX',
     comprovanteUrl: '/portal/aluno/cobrancas/c-online/comprovante',
@@ -27,7 +28,14 @@ const ONLINE = cobranca('c-online', 'Setembro', '2026-09-10', 'PAGA', {
 })
 
 const MANUAL = cobranca('c-manual', 'Agosto', '2026-08-10', 'PAGA', {
-  pagamento: { origem: 'MANUAL', valorPago: 500, dataPagamento: '2026-08-09', forma: null, comprovanteUrl: null },
+  pagamento: {
+    origem: 'MANUAL',
+    valorPago: 500,
+    valorEstornado: 0,
+    dataPagamento: '2026-08-09',
+    forma: null,
+    comprovanteUrl: null,
+  },
 })
 
 const COBRANCAS = [

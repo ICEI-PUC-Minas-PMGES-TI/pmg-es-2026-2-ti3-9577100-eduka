@@ -29,7 +29,7 @@ class ContratoFinanceiroOpenApiTest extends BancoRealTest {
     /** Rotas de cobrancas, pagamentos, boletos e despesas (issue #218). */
     private static final List<String> ROTAS_DO_FINANCEIRO = List.of("/cobrancas", "/alunos/{alunoId}/financeiro",
             "/portal/aluno/cobrancas", "/despesas", "/categorias-despesa", "/config-pagamento",
-            "/escolas/{escolaId}/faturas", "/dashboard/financeiro", "/webhooks/asaas");
+            "/escolas/{escolaId}/faturas", "/dashboard/financeiro", "/relatorios/financeiro", "/webhooks/asaas");
 
     private static final String ERRO = "#/components/schemas/" + OpenApiConfig.ERRO;
 
@@ -123,6 +123,14 @@ class ContratoFinanceiroOpenApiTest extends BancoRealTest {
 
         assertThat(String.valueOf(respostas.get("200").get("content"))).contains("application/pdf");
         assertThat(descricao("get", "/portal/aluno/cobrancas/{id}/boleto", "409")).contains("BOLETO_NAO_GERADO");
+    }
+
+    @Test
+    void exportarRelatorioEUmCsv() {
+        Map<String, Map<String, Object>> respostas = respostas("get", "/relatorios/financeiro/exportar");
+
+        assertThat(String.valueOf(respostas.get("200").get("content"))).contains("text/csv");
+        assertThat(respostas).containsKeys("400", "401", "403");
     }
 
     @Test

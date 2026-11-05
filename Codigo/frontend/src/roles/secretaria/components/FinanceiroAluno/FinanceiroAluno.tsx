@@ -23,7 +23,9 @@ const TOM_STATUS: Record<StatusCobrancaAluno, 'success' | 'danger' | 'neutral' |
 function descreverPagamento(c: CobrancaDoHistorico): string | null {
   if (c.pagamento) {
     const como = c.pagamento.forma ? ROTULOS_FORMA_PAGAMENTO[c.pagamento.forma] : 'Baixa manual'
-    return `${como} · ${formatarData(c.pagamento.dataPagamento)} · ${formatarMoeda(c.pagamento.valorPago)}`
+    const estornado =
+      c.pagamento.valorEstornado > 0 ? ` · ${formatarMoeda(c.pagamento.valorEstornado)} estornados` : ''
+    return `${como} · ${formatarData(c.pagamento.dataPagamento)} · ${formatarMoeda(c.pagamento.valorPago)}${estornado}`
   }
   if (c.pagaEm) {
     return `Baixa manual · ${new Date(c.pagaEm).toLocaleDateString('pt-BR')}`

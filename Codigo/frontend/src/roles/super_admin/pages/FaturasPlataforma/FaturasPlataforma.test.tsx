@@ -39,7 +39,7 @@ function fatura(id: string, escolaId: string, escolaNome: string, status: Fatura
     status,
     situacaoPagamento: paga ? 'PAGA' : 'AGUARDANDO_PAGAMENTO',
     formaPagamento: paga ? 'PIX' : null,
-    pagamento: paga ? { valorPago: 690, dataPagamento: hojeIso(), forma: 'PIX' } : null,
+    pagamento: paga ? { valorPago: 690, valorEstornado: 0, dataPagamento: hojeIso(), forma: 'PIX' } : null,
     acoes: paga ? ['VER_COMPROVANTE'] : ['CANCELAR'],
   }
 }

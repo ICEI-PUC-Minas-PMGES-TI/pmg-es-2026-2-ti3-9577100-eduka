@@ -19,7 +19,7 @@ function fatura(id: string, competencia: string, status: FaturaPlataforma['statu
     status,
     situacaoPagamento: paga ? 'PAGA' : 'AGUARDANDO_PAGAMENTO',
     formaPagamento: paga ? 'PIX' : null,
-    pagamento: paga ? { valorPago: 690, dataPagamento: vencimento, forma: 'PIX' } : null,
+    pagamento: paga ? { valorPago: 690, valorEstornado: 0, dataPagamento: vencimento, forma: 'PIX' } : null,
     acoes: paga ? ['VER_COMPROVANTE'] : ['PAGAR'],
   }
 }

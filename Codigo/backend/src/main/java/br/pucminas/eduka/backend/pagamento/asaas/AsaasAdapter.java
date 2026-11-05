@@ -1,5 +1,6 @@
 package br.pucminas.eduka.backend.pagamento.asaas;
 
+import java.math.BigDecimal;
 import java.util.Locale;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -451,7 +452,7 @@ public class AsaasAdapter implements PaymentProvider {
                     && evento.accountStatus() != null ? paraSituacao(evento.accountStatus()) : null;
             String idConta = evento.account() == null ? null : evento.account().id();
             return new EventoProvedor(evento.id(), tipo, evento.event(), idConta, cobranca, situacao,
-                    dataDoEvento(evento.dateCreated()), json.writeValueAsString(sanear(raiz)));
+                    dataDoEvento(evento.dateCreated()), json.writeValueAsString(sanear(raiz)), valorEstornado(evento));
         } catch (JacksonException e) {
             throw new IllegalArgumentException("Evento do provedor ilegivel");
         }
@@ -678,6 +679,28 @@ public class AsaasAdapter implements PaymentProvider {
     private static String idTransacao(CobrancaAsaas c, FormaPagamento forma) {
         String id = forma == FormaPagamento.PIX ? c.pixTransaction() : c.nossoNumero();
         return id != null ? id : c.id();
+    }
+
+    /**
+     * Total devolvido segundo o aviso de estorno: a soma dos {@code refunds}
+     * concluidos. Sem nenhum, o estorno total vale o valor da cobranca; o
+     * parcial nao diz quanto foi, e fica nulo.
+     */
+    static BigDecimal valorEstornado(EventoAsaas evento) {
+        if (tipoDoEvento(evento.event()) != TipoEventoProvedor.ESTORNO || evento.payment() == null) {
+            return null;
+        }
+        List<CobrancaAsaas.EstornoAsaas> estornos = evento.payment().refunds() == null ? List.of()
+                : evento.payment().refunds();
+        List<BigDecimal> concluidos = estornos.stream()
+                .filter(CobrancaAsaas.EstornoAsaas::concluido)
+                .map(CobrancaAsaas.EstornoAsaas::value)
+                .filter(Objects::nonNull)
+                .toList();
+        if (!concluidos.isEmpty()) {
+            return concluidos.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+        return "PAYMENT_REFUNDED".equals(evento.event()) ? evento.payment().value() : null;
     }
 
     static TipoEventoProvedor tipoDoEvento(String evento) {

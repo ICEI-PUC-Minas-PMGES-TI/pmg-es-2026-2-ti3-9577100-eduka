@@ -18,20 +18,25 @@ import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
  * @param comprovanteUrl caminho da API que devolve o comprovante (R28 a R30),
  *                       ja no perfil de quem pediu; nulo na baixa manual, que
  *                       nao tem comprovante
+ * @param valorEstornado quanto do pago foi devolvido; zero se nada, e sempre na
+ *                       baixa manual, que nao passa pelo provedor
  */
 public record PagamentoDaCobrancaResponse(
         OrigemPagamento origem,
         BigDecimal valorPago,
         LocalDate dataPagamento,
         FormaPagamento forma,
-        String comprovanteUrl) {
+        String comprovanteUrl,
+        BigDecimal valorEstornado) {
 
     public static PagamentoDaCobrancaResponse online(PagamentoCobranca pagamento, String comprovanteUrl) {
         return new PagamentoDaCobrancaResponse(pagamento.getOrigem(), pagamento.getValorPago(),
-                pagamento.getDataPagamento(), pagamento.getFormaPagamento(), comprovanteUrl);
+                pagamento.getDataPagamento(), pagamento.getFormaPagamento(), comprovanteUrl,
+                pagamento.getValorEstornado());
     }
 
     public static PagamentoDaCobrancaResponse manual(BigDecimal valor, LocalDate dataPagamento) {
-        return new PagamentoDaCobrancaResponse(OrigemPagamento.MANUAL, valor, dataPagamento, null, null);
+        return new PagamentoDaCobrancaResponse(OrigemPagamento.MANUAL, valor, dataPagamento, null, null,
+                BigDecimal.ZERO);
     }
 }

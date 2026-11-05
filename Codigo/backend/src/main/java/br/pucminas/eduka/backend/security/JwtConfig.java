@@ -112,6 +112,8 @@ public class JwtConfig {
 		config.setAllowedOrigins(allowedOrigins);
 		config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 		config.setAllowedHeaders(List.of(HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE));
+		// Traz o nome do arquivo baixado; sem isto, o browser o esconde da tela.
+		config.setExposedHeaders(List.of(HttpHeaders.CONTENT_DISPOSITION));
 		config.setMaxAge(3600L);
 
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

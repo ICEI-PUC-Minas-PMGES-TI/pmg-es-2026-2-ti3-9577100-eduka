@@ -426,7 +426,7 @@ class RoteadorFatura {
             return new ComprovanteResponse(fatura.getId(), BENEFICIARIO, null, escola.getNome(),
                     mascarar(escola.getCnpjCpf()), fatura.getDescricao(), fatura.getDataVencimento(),
                     fatura.getValorPago(), fatura.getDataPagamento(), fatura.getFormaPagamento(),
-                    fatura.getIdTransacaoExterna());
+                    fatura.getIdTransacaoExterna(), BigDecimal.ZERO);
         });
     }
 

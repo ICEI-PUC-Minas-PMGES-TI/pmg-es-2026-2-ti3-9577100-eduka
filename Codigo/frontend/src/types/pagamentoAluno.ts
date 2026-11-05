@@ -29,6 +29,8 @@ export const ROTULOS_FORMA_PAGAMENTO: Record<FormaPagamento, string> = {
 /** Pagamento registrado (online). */
 export type PagamentoResumo = {
   valorPago: number
+  /** Quanto do pago foi devolvido. */
+  valorEstornado: number
   /** ISO (yyyy-MM-dd). */
   dataPagamento: string
   forma: FormaPagamento
@@ -42,6 +44,8 @@ export type PagamentoDaCobranca = {
   origem: OrigemPagamento
   /** Na baixa manual, o valor da cobrança. */
   valorPago: number
+  /** Quanto do pago foi devolvido; a cobrança continua PAGA. */
+  valorEstornado: number
   /** ISO (yyyy-MM-dd). */
   dataPagamento: string
   /** Nula na baixa manual. */

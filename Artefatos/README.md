@@ -25,3 +25,4 @@ Este diretório mantém os artefatos do projeto.
 * `/visão-requisitos`
 	* **documento_de_visao.pdf**: Documento de visão do produto.
 	* **Documento_Interface_de_Usuario_EDUKA.pdf**: Documento de interface de usuário.
+	* **revisoes-pendentes-documentos.md**: Decisões do grupo e mudanças do sistema que ainda faltam refletir nos documentos em PDF.

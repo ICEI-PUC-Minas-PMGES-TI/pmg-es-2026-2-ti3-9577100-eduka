@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -156,7 +157,9 @@ class DashboardControllerSecurityTest {
                 .thenThrow(new IllegalArgumentException("de nao pode ser depois de ate"));
         mockMvc.perform(como("/dashboard/financeiro/movimento?de=2026-10-20&ate=2026-08-15", "FINANCEIRO"))
                 .andExpect(status().isBadRequest());
-        mockMvc.perform(como("/dashboard/financeiro/movimento?de=15/08/2026&ate=2026-10-20", "FINANCEIRO"))
+        // Sem o formato fixo, o Spring leria a data pelo idioma do navegador.
+        mockMvc.perform(como("/dashboard/financeiro/movimento?de=15/08/2026&ate=2026-10-20", "FINANCEIRO")
+                .locale(Locale.of("pt", "BR")))
                 .andExpect(status().isBadRequest());
         mockMvc.perform(como("/dashboard/financeiro/movimento?de=2026-08-15", "FINANCEIRO"))
                 .andExpect(status().isBadRequest());

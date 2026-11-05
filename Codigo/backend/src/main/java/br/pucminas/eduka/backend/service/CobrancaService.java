@@ -34,6 +34,8 @@ import br.pucminas.eduka.backend.domain.MatriculaTurma;
 import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
+import br.pucminas.eduka.backend.domain.StatusMatricula;
+import br.pucminas.eduka.backend.domain.TipoCobranca;
 import br.pucminas.eduka.backend.dto.AtualizarCobrancaRequest;
 import br.pucminas.eduka.backend.dto.CobrancaAlunoResponse;
 import br.pucminas.eduka.backend.dto.CobrancaRequest;
@@ -263,9 +265,10 @@ public class CobrancaService {
         Cobranca cobranca = Cobranca.builder()
                 .escolaId(escolaId)
                 .aluno(aluno)
-                .matricula(buscarMatriculaDoAluno(request.matriculaId(), aluno, escolaId))
+                .matricula(matriculaDaNovaCobranca(request.matriculaId(), aluno, escolaId))
                 .responsavelId(exigirResponsavelDoAluno(request.responsavelId(), aluno, escolaId))
                 .descricao(request.descricao().trim())
+                .tipo(request.tipo() != null ? request.tipo() : TipoCobranca.OUTRO)
                 .valor(request.valor())
                 .dataVencimento(request.dataVencimento())
                 .status(StatusCobranca.PENDENTE)
@@ -525,6 +528,20 @@ public class CobrancaService {
             throw new IllegalArgumentException(
                     "Cobranca %s nao pode ser %s".formatted(cobranca.getStatus(), acao));
         }
+    }
+
+    /**
+     * A matricula informada; sem ela, a unica ATIVA do aluno, para a cobranca
+     * contar no curso dele nos relatorios. Com nenhuma ou com mais de uma, nao ha
+     * como saber o curso e a cobranca fica avulsa.
+     */
+    private MatriculaTurma matriculaDaNovaCobranca(UUID matriculaId, Aluno aluno, UUID escolaId) {
+        if (matriculaId != null) {
+            return buscarMatriculaDoAluno(matriculaId, aluno, escolaId);
+        }
+        List<MatriculaTurma> ativas = matriculaRepository.findAllByEscolaIdAndAlunoIdAndStatus(escolaId, aluno.getId(),
+                StatusMatricula.ATIVA);
+        return ativas.size() == 1 ? ativas.getFirst() : null;
     }
 
     private MatriculaTurma buscarMatriculaDoAluno(UUID matriculaId, Aluno aluno, UUID escolaId) {

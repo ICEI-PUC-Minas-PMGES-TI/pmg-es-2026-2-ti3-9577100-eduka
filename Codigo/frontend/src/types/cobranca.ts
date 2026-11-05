@@ -5,6 +5,8 @@ export type StatusCobranca = 'PENDENTE' | 'EM_ATRASO' | 'PAGA' | 'CANCELADA'
 export type PagamentoDaCobranca = {
   origem: 'ONLINE' | 'MANUAL'
   valorPago: number
+  /** Quanto do pago foi devolvido; a cobrança continua PAGA. */
+  valorEstornado: number
   dataPagamento: string
   forma: string | null
   comprovanteUrl: string | null
@@ -54,6 +56,9 @@ export type PaginaCobrancas = {
   totaisPorStatus: { status: StatusCobranca; quantidade: number; valor: number }[]
 }
 
+// Espelha o TipoCobranca do backend.
+export type TipoCobranca = 'MENSALIDADE' | 'MATRICULA' | 'MATERIAL' | 'OUTRO'
+
 /** Corpo do POST /cobrancas. A escola vem do token. */
 export type NovaCobrancaRequest = {
   alunoId: string
@@ -62,6 +67,14 @@ export type NovaCobrancaRequest = {
   descricao: string
   valor: number
   dataVencimento: string
+  tipo: TipoCobranca
+}
+
+export const ROTULOS_TIPO_COBRANCA: Record<TipoCobranca, string> = {
+  MENSALIDADE: 'Mensalidade',
+  MATRICULA: 'Matrícula',
+  MATERIAL: 'Material',
+  OUTRO: 'Outro',
 }
 
 export const ROTULOS_STATUS_COBRANCA: Record<StatusCobranca, string> = {
