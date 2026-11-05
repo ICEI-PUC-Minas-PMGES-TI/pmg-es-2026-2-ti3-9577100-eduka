@@ -185,7 +185,7 @@ class DespesaControllerSecurityTest {
 
     @Test
     void paginaRespeitaOsPerfisEPassaPaginaEOrdemAoBanco() throws Exception {
-        when(despesaRepository.findAll(any(Specification.class), any(Pageable.class)))
+        when(despesaRepository.findAll(anySpecification(), any(Pageable.class)))
                 .thenAnswer(inv -> new PageImpl<>(List.of(despesa(SituacaoDespesa.A_PAGAR)), inv.getArgument(1), 41));
 
         mockMvc.perform(com(get("/despesas/pagina"), accessToken("SECRETARIA", ESCOLA_A)))
@@ -200,7 +200,7 @@ class DespesaControllerSecurityTest {
                 .andExpect(jsonPath("$.totalPaginas").value(3));
 
         ArgumentCaptor<Pageable> pedido = ArgumentCaptor.forClass(Pageable.class);
-        verify(despesaRepository).findAll(any(Specification.class), pedido.capture());
+        verify(despesaRepository).findAll(anySpecification(), pedido.capture());
         assertThat(pedido.getValue().getPageNumber()).isEqualTo(2);
         assertThat(pedido.getValue().getSort())
                 .isEqualTo(Sort.by(Sort.Direction.DESC, "valor").and(Sort.by("id")));
@@ -213,7 +213,7 @@ class DespesaControllerSecurityTest {
                 .andExpect(status().isBadRequest());
         mockMvc.perform(com(get("/despesas/pagina").param("ordenarPor", "ESCOLA_ID"), token))
                 .andExpect(status().isBadRequest());
-        verify(despesaRepository, never()).findAll(any(Specification.class), any(Pageable.class));
+        verify(despesaRepository, never()).findAll(anySpecification(), any(Pageable.class));
     }
 
     // ---------- Criar ----------

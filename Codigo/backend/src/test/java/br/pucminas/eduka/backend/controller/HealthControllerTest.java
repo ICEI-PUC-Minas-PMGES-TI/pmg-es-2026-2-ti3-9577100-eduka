@@ -25,6 +25,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
 
 import br.pucminas.eduka.backend.security.JwtConfig;
@@ -62,7 +63,7 @@ class HealthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"))
                 .andExpect(jsonPath("$.banco").value("UP"))
-                .andExpect(content().json("{\"status\":\"UP\",\"banco\":\"UP\"}", true));
+                .andExpect(content().json("{\"status\":\"UP\",\"banco\":\"UP\"}", JsonCompareMode.STRICT));
 
         verify(consulta).setQueryTimeout(anyInt());
         verify(consulta).execute("SELECT 1");
