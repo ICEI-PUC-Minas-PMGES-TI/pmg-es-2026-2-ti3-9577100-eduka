@@ -282,7 +282,7 @@ que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o e
 |---|---|---|
 | `GET` | `/cobrancas?alunoId&status&vencimentoDe&vencimentoAte` · `/cobrancas/{id}` | `MASTER`, `FINANCEIRO` |
 | `GET` | `/cobrancas/pagina?alunoId&periodoLetivoId&status&vencimentoDe&vencimentoAte&pagina&tamanho` (paginada pelo vencimento, `tamanho` até 100; `totaisPorStatus` traz quantidade e valor de cada situação com os mesmos filtros, menos o de situação) | `MASTER`, `FINANCEIRO` |
-| `POST` | `/cobrancas` (aluno, descrição, valor e vencimento; matrícula e responsável opcionais, mas têm de ser do aluno) | `MASTER`, `FINANCEIRO` |
+| `POST` | `/cobrancas` (aluno, descrição, valor e vencimento; `tipo` opcional, `OUTRO` por padrão; matrícula e responsável opcionais, mas têm de ser do aluno; sem matrícula, vale a única `ATIVA` do aluno, se houver só uma) | `MASTER`, `FINANCEIRO` |
 | `PUT` | `/cobrancas/{id}` (400 se a cobrança já foi paga ou cancelada; 409 `COBRANCA_NAO_EDITAVEL` depois que alguém clicou em Pagar, porque a cobrança já está no Asaas: aí só cancelando e lançando outra; a situação acompanha o novo vencimento) | `MASTER`, `FINANCEIRO` |
 | `PATCH` | `/cobrancas/{id}/cancelar` (a cobrança fica no histórico como `CANCELADA`; se já foi emitida, é removida antes no Asaas, fora de transação; 409 `COBRANCA_JA_PAGA` se já foi paga, aqui ou no Asaas, e nesse caso o pagamento achado fica registrado; 409 `PAGAMENTO_EM_PROCESSAMENTO` enquanto o pagamento está sendo gerado) | `MASTER`, `FINANCEIRO` |
 | `GET` | `/cobrancas/{id}/comprovante` (comprovante do pagamento online montado pelo Edúka: a escola como beneficiária, o pagador com CPF mascarado, valor, data, forma e código da transação; 404 `COMPROVANTE_INDISPONIVEL` enquanto não há pagamento online registrado, inclusive na baixa manual) | `MASTER`, `FINANCEIRO` |
@@ -304,8 +304,8 @@ completa a data de crédito e o valor líquido. Pagamento de cobrança `CANCELAD
 resposta de criação se perdeu; a remoção no provedor (`PAYMENT_DELETED`) leva a cobrança em
 `EMITINDO` para `FALHA_EMISSAO` e cancela a emitida em aberto. Aviso sem id ou sem tipo responde 400.
 Se a aplicação falhar, o aviso fica em `ERRO` para nova tentativa e o webhook continua respondendo 200.
-Estorno e contestação feitos no Asaas ficam registrados na auditoria, sem mudar a cobrança (ver
-Auditoria, abaixo).
+Estorno e contestação feitos no Asaas ficam registrados na auditoria, sem mudar a situação da cobrança; o
+estorno também desconta o valor devolvido do recebido (ver Auditoria, abaixo).
 
 Duas rotinas cobrem o que o webhook não resolveu. Rodam sem usuário e chamam o Asaas fora de
 transação, pelo `PaymentRoutingService`. Uma falha num item não para os outros.
@@ -367,9 +367,16 @@ autor (restrição no banco, V32). O que entra no log (V32, V33 e V34):
 | Asaas | `COBRANCA`, `FATURA_PLATAFORMA` | `ESTORNAR` | estorno total ou parcial (`PAYMENT_REFUNDED`, `PAYMENT_PARTIALLY_REFUNDED`) |
 | Asaas | `COBRANCA`, `FATURA_PLATAFORMA` | `CONTESTAR` | contestação em qualquer etapa (`PAYMENT_CHARGEBACK_REQUESTED`, `PAYMENT_CHARGEBACK_DISPUTE`, `PAYMENT_AWAITING_CHARGEBACK_REVERSAL`) |
 
-Estorno e contestação **só são auditados**: a situação da cobrança ou da fatura não muda (o que o
-estorno faz com uma cobrança `PAGA` ainda não foi decidido). Estorno em andamento ou negado não é
-estorno e chega como aviso sem efeito.
+A situação da cobrança ou da fatura não muda com estorno ou contestação. Contestação e estorno de fatura da
+plataforma **só são auditados**. O estorno de cobrança também registra o valor devolvido (decisão do grupo, 05/11):
+uma linha em `ESTORNO_COBRANCA`, com a data do aviso, e a soma em `PAGAMENTO_COBRANCA.VALOR_ESTORNADO`. A cobrança
+fica encerrada em `PAGA`; para cobrar de novo, a escola lança outra.
+
+O aviso traz o total já devolvido (`payment.refunds`, só os `DONE`; no `PAYMENT_REFUNDED` sem nenhum, o valor da
+cobrança), e o Edúka grava só a diferença para o que já registrou, com o pagamento travado. Assim, aviso repetido, fora
+de ordem ou simultâneo não desconta em dobro, e o total nunca passa do valor pago. Se o aviso não diz o valor ou a
+cobrança não tem pagamento registrado, o estorno fica só na auditoria. Estorno em andamento ou negado não é estorno e
+chega como aviso sem efeito.
 
 O webhook da conta filha assina esses eventos ao ser criado junto com a conta
 (`AsaasAdapter.EVENTOS_WEBHOOK`). Conta filha criada antes da inclusão de estorno e contestação, e o
@@ -402,6 +409,8 @@ sem isso, esses avisos não chegam.
 | `GET` | `/dashboard/escola` (pessoas, estrutura, ocupação de vagas e aproveitamento) | `MASTER` |
 | `GET` | `/dashboard/secretaria` (matrículas por situação, vagas e ocupação por turma) | `MASTER`, `SECRETARIA` |
 | `GET` | `/dashboard/financeiro` (recebido no mês, falta receber, alunos em atraso e inadimplência, despesas a pagar, entradas e saídas dos 6 últimos meses, cobranças que vencem na semana, últimos pagamentos e últimas ações do `LOG_AUDITORIA`; serve o Início do financeiro e o do `MASTER`) | `MASTER`, `FINANCEIRO` |
+| `GET` | `/relatorios/financeiro?de&ate` (relatório do período, no máximo 24 meses. Pelo dia em que o dinheiro se moveu: recebido sem os estornos do período, estornado, despesas pagas, saldo, formas de pagamento e receitas e despesas por mês. Pelo vencimento, sem as canceladas: despesas lançadas, inadimplência e resumo por curso, tipo e mês) | `MASTER`, `FINANCEIRO` |
+| `GET` | `/relatorios/financeiro/exportar?de&ate&conjuntos&separador` (CSV com uma seção para cada conjunto em `conjuntos`: `COBRANCAS`, `PAGAMENTOS`, com os estornos em valor negativo, e `DESPESAS`; `separador` `PONTO_E_VIRGULA`, o padrão, ou `VIRGULA`; o nome do arquivo traz o período) | `MASTER`, `FINANCEIRO` |
 
 Qualquer rota não listada como pública exige `Authorization: Bearer <access token>` e responde
 `401` sem ele. Perfil sem permissão recebe `403`.
@@ -576,6 +585,8 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | `V20__criar_cobranca.sql` | `COBRANCA`: cobrança de um aluno, com matrícula e responsável opcionais, valor, vencimento e situação (pendente, paga, cancelada) |
 | `V21__cobranca_em_atraso.sql` | `COBRANCA.STATUS` passa a aceitar `EM_ATRASO`; marca as pendentes já vencidas e cria o índice da rotina diária |
 | `V22__criar_log_auditoria.sql` | `LOG_AUDITORIA`: quem criou, editou, cancelou ou estornou cobrança, pagamento ou despesa, com escola, registro afetado e data/hora |
+| `V40__tipo_da_cobranca.sql` | `COBRANCA.TIPO`: mensalidade, matrícula, material ou outro; agrupa o resumo por tipo dos relatórios. As cobranças existentes recebem o tipo pelo início da descrição |
+| `V41__estorno_de_cobranca.sql` | `ESTORNO_COBRANCA`: uma linha por estorno, com valor e data; `PAGAMENTO_COBRANCA.VALOR_ESTORNADO`: a soma |
 
 ---
 
@@ -596,6 +607,8 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | 11 | **Dados pessoais cifrados na aplicação (AES-256-GCM)** | Atende à LGPD mesmo com acesso indevido ao banco ou a um backup: sem a `PII_ENCRYPTION_KEY`, que nunca sai da JVM, os dados pessoais são ilegíveis. Custo: não dá para filtrar por esses campos no SQL. |
 | 12 | **Isolamento também no Hibernate (`@TenantId`)** | O filtro por escola deixa de depender de cada service lembrar dele; sem escola no contexto, a consulta volta vazia. |
 | 13 | **Autorização por módulo (`RotasPorPerfil`) antes do controller** | Um endpoint novo dentro de um prefixo existente já nasce protegido pelo perfil do módulo. |
+| 14 | **Relatórios financeiros contam o dinheiro pelo dia em que ele se moveu** | Saldo e gráfico usam recebido e despesas pagas, como o Início, para os dois não divergirem; as despesas lançadas ficam só no card delas (decisão do grupo, 05/11). |
+| 15 | **Estorno não muda a situação da cobrança** | A cobrança estornada fica encerrada em `PAGA` e o valor sai do recebido no período do estorno. Evita reemitir no provedor e funciona igual para estorno parcial; cobrar de novo é uma cobrança nova (decisão do grupo, 05/11). |
 
 ---
 
@@ -622,8 +635,8 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
   o alvo em produção é `verify-full`.
 * **Refresh token.** O backend emite e sabe validar refresh tokens, mas ainda não há endpoint
   HTTP de renovação. Quando o access token expira, o usuário precisa fazer login de novo.
-* **Módulo financeiro.** Cobranças (`/cobrancas`) e despesas (`/despesas`) têm API; boletos,
-  pagamentos e relatórios ainda não existem, e nada marca uma cobrança como paga (a regra de mudança para
+* **Módulo financeiro.** Cobranças (`/cobrancas`) e despesas (`/despesas`) têm API; boletos e
+  pagamentos ainda não existem, e nada marca uma cobrança como paga (a regra de mudança para
   `PAGA` já está em `StatusCobranca`). Pagamentos e despesas, quando existirem, devem chamar
   `AuditoriaService.registrar` em criar, editar, cancelar e estornar. Ainda não há tela nem
   endpoint para consultar o `LOG_AUDITORIA` (a rota `/auditoria` já está reservada para

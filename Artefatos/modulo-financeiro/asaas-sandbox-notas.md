@@ -57,6 +57,11 @@ emite esse evento para PIX/boleto, ver A3). Os achados da §4 mudam contratos da
   já assinam (`AsaasAdapter.EVENTOS_WEBHOOK`); o webhook da conta-pai e o das contas filhas já existentes precisam
   ser atualizados (`PUT /v3/webhooks/{id}` com a chave da conta dona, ou pelo painel). Nomes conferidos na
   documentação de webhooks de cobranças do Asaas; ainda não vistos chegando no Sandbox.
+- **Valor do estorno:** o Edúka lê `payment.refunds` do aviso (`status` e `value`) e soma só os `DONE`, conforme a
+  [documentação da cobrança](https://docs.asaas.com/reference/retrieve-a-single-payment). Nos exemplos capturados no
+  Sandbox o campo só apareceu nulo, em cobranças sem estorno. **A conferir no Sandbox:** se o `PAYMENT_PARTIALLY_REFUNDED`
+  já chega com o estorno em `DONE`. Se chegar `PENDING`, o valor não é descontado e o estorno fica só na auditoria até
+  outro aviso trazer o `DONE`.
 - **`email` é obrigatório** (A2).
 - O token chega no header **`Asaas-Access-Token`** (o valor exato de `authToken`).
 - Antes de derrubar o túnel, remover ou desligar o webhook (`DELETE /v3/webhooks/{id}` com a chave da conta dona).

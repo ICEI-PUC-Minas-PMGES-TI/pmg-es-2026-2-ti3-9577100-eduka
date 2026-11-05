@@ -57,6 +57,11 @@ public class PagamentoCobranca {
     @Column(name = "VALOR_PAGO", nullable = false, precision = 10, scale = 2)
     private BigDecimal valorPago;
 
+    /** Soma dos estornos ({@link EstornoCobranca}, V41). So o roteador de pagamentos muda. */
+    @Builder.Default
+    @Column(name = "VALOR_ESTORNADO", nullable = false, precision = 10, scale = 2)
+    private BigDecimal valorEstornado = BigDecimal.ZERO;
+
     /** Valor que entra na conta da escola, ja sem a taxa do provedor. */
     @Column(name = "VALOR_LIQUIDO", precision = 10, scale = 2)
     private BigDecimal valorLiquido;

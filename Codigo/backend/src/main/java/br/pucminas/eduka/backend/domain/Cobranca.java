@@ -71,6 +71,12 @@ public class Cobranca {
     @Column(name = "DESCRICAO", nullable = false, length = 255)
     private String descricao;
 
+    /** Agrupa os relatorios financeiros (V40). Nao muda na edicao. */
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "TIPO", nullable = false, length = 12)
+    private TipoCobranca tipo = TipoCobranca.OUTRO;
+
     @Column(name = "VALOR", nullable = false, precision = 10, scale = 2)
     private BigDecimal valor;
 

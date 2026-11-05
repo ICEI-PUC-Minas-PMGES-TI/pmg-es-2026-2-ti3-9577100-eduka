@@ -74,7 +74,7 @@ public record FaturaPlataformaResponse(
         StatusCobranca status = StatusCobranca.efetivo(fatura.getStatus(), fatura.getDataVencimento(), hoje);
         PagamentoResumoResponse pagamento = fatura.getStatus() == StatusCobranca.PAGA
                 ? new PagamentoResumoResponse(fatura.getValorPago(), fatura.getDataPagamento(),
-                        fatura.getFormaPagamento())
+                        fatura.getFormaPagamento(), BigDecimal.ZERO)
                 : null;
         return new FaturaPlataformaResponse(fatura.getId(), fatura.getEscolaId(), escolaNome,
                 fatura.getCompetencia().format(COMPETENCIA), fatura.getDescricao(), fatura.getValor(),

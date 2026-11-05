@@ -42,7 +42,9 @@ function prazo(vencimento: string): string {
 function descreverPagamento(c: CobrancaDoHistorico): string | null {
   if (c.pagamento) {
     const como = c.pagamento.forma ? ROTULOS_FORMA_PAGAMENTO[c.pagamento.forma] : 'Baixa pela escola'
-    return `${como} em ${formatarData(c.pagamento.dataPagamento)}`
+    const devolvido =
+      c.pagamento.valorEstornado > 0 ? ` · ${formatarMoeda(c.pagamento.valorEstornado)} devolvidos` : ''
+    return `${como} em ${formatarData(c.pagamento.dataPagamento)}${devolvido}`
   }
   if (c.pagaEm) return `Baixa pela escola em ${new Date(c.pagaEm).toLocaleDateString('pt-BR')}`
   return null

@@ -30,6 +30,9 @@ public interface MatriculaTurmaRepository extends JpaRepository<MatriculaTurma, 
     List<MatriculaTurma> findAllByEscolaIdAndAlunoId(UUID escolaId, UUID alunoId);
 
     @EntityGraph(attributePaths = { "aluno", "turma", "turma.periodoLetivo", "turma.curso" })
+    List<MatriculaTurma> findAllByEscolaIdAndAlunoIdAndStatus(UUID escolaId, UUID alunoId, StatusMatricula status);
+
+    @EntityGraph(attributePaths = { "aluno", "turma", "turma.periodoLetivo", "turma.curso" })
     Optional<MatriculaTurma> findByIdAndEscolaId(UUID id, UUID escolaId);
 
     /** A turma tem alguma matricula, em qualquer situacao? */

@@ -343,7 +343,7 @@ class PagamentoAlunoControllerSecurityTest {
     void alunoVeOComprovanteSemNadaDoProvedor() throws Exception {
         when(paymentRoutingService.comprovanteCobranca(COBRANCA)).thenReturn(new ComprovanteResponse(COBRANCA,
                 "Escola Aurora", "12.345.678/0001-90", "Ana Aluna", "***.982.247-**", "Mensalidade outubro",
-                VENCIMENTO, VALOR, LocalDate.of(2026, 10, 20), FormaPagamento.PIX, "tr_1"));
+                VENCIMENTO, VALOR, LocalDate.of(2026, 10, 20), FormaPagamento.PIX, "tr_1", BigDecimal.ZERO));
 
         mockMvc.perform(get(urlComprovante()).header(HttpHeaders.AUTHORIZATION, "Bearer " + token("ALUNO", ESCOLA)))
                 .andExpect(status().isOk())

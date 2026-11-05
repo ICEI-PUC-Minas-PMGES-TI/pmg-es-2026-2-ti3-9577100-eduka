@@ -3,6 +3,7 @@ package br.pucminas.eduka.backend.integracao;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -64,6 +65,19 @@ class WebhookBancoRealTest extends BancoRealTest {
                 idEvento);
     }
 
+    /** Aviso de estorno de {@code idNoAsaas}, com os {@code refunds} do Asaas (JSON). */
+    private String avisoDeEstorno(String idEvento, String tipo, String refunds) {
+        return """
+                {"id":"%s","event":"%s","dateCreated":"2026-10-20 10:15:00","account":{"id":"%s"},
+                 "payment":{"id":"%s","externalReference":"EDK-B-%s","status":"REFUNDED","billingType":"PIX",
+                            "value":100.00,"refunds":%s}}
+                """.formatted(idEvento, tipo, contaDaEscola, idNoAsaas, cobranca, refunds);
+    }
+
+    private static String refund(String valor) {
+        return "{\"status\":\"DONE\",\"value\":" + valor + "}";
+    }
+
     private int enviar(String token, String corpo) throws Exception {
         var requisicao = post("/webhooks/asaas").contentType(MediaType.APPLICATION_JSON).content(corpo);
         if (token != null) {
@@ -89,6 +103,79 @@ class WebhookBancoRealTest extends BancoRealTest {
         assertThat(dados.eventosGravados(idEvento)).isZero();
         assertThat(dados.pagamentosDaCobranca(cobranca)).isZero();
         assertThat(dados.statusGravado(cobranca)).isEqualTo(StatusCobranca.PENDENTE);
+    }
+
+    // ---------- Estorno ----------
+
+    @Test
+    void estornosParciaisDescontamSoADiferencaEACobrancaContinuaPaga() throws Exception {
+        enviar(TOKEN, aviso(idDeEvento(), "PAYMENT_RECEIVED", contaDaEscola));
+
+        String primeiro = avisoDeEstorno(idDeEvento(), "PAYMENT_PARTIALLY_REFUNDED", "[" + refund("30.00") + "]");
+        assertThat(enviar(TOKEN, primeiro)).isEqualTo(200);
+        assertThat(enviar(TOKEN, primeiro)).isEqualTo(200);
+        // O segundo aviso traz os dois estornos: so os 20 sao novos.
+        assertThat(enviar(TOKEN, avisoDeEstorno(idDeEvento(), "PAYMENT_PARTIALLY_REFUNDED",
+                "[" + refund("30.00") + "," + refund("20.00") + "]"))).isEqualTo(200);
+
+        assertThat(dados.valorEstornado(cobranca)).isEqualByComparingTo("50.00");
+        assertThat(dados.estornosDaCobranca(cobranca)).usingElementComparator(BigDecimal::compareTo)
+                .containsExactly(new BigDecimal("20.00"), new BigDecimal("30.00"));
+        assertThat(dados.statusGravado(cobranca)).isEqualTo(StatusCobranca.PAGA);
+    }
+
+    @Test
+    void estornoTotalSemRefundsDevolveOPagoSemPassarDele() throws Exception {
+        enviar(TOKEN, aviso(idDeEvento(), "PAYMENT_RECEIVED", contaDaEscola));
+
+        assertThat(enviar(TOKEN, avisoDeEstorno(idDeEvento(), "PAYMENT_REFUNDED", "null"))).isEqualTo(200);
+        // Valor acima do pago nao passa do pago: a constraint do banco recusaria.
+        assertThat(enviar(TOKEN, avisoDeEstorno(idDeEvento(), "PAYMENT_REFUNDED", "[" + refund("500.00") + "]")))
+                .isEqualTo(200);
+
+        assertThat(dados.valorEstornado(cobranca)).isEqualByComparingTo("100.00");
+        assertThat(dados.estornosDaCobranca(cobranca)).hasSize(1);
+        assertThat(dados.statusGravado(cobranca)).isEqualTo(StatusCobranca.PAGA);
+    }
+
+    @Test
+    void estornoDeCobrancaSemPagamentoFicaSoNaAuditoria() throws Exception {
+        String idEvento = idDeEvento();
+
+        assertThat(enviar(TOKEN, avisoDeEstorno(idEvento, "PAYMENT_REFUNDED", "[" + refund("100.00") + "]")))
+                .isEqualTo(200);
+
+        assertThat(dados.pagamentosDaCobranca(cobranca)).isZero();
+        assertThat(dados.estornosDaCobranca(cobranca)).isEmpty();
+        assertThat(dados.statusDoEvento(idEvento)).isEqualTo(StatusEventoProvedor.PROCESSADO);
+        assertThat(dados.operacoesNoLog(cobranca)).containsExactly(OperacaoAuditoria.ESTORNAR);
+    }
+
+    @Test
+    void doisAvisosDeEstornoAoMesmoTempoNaoDescontamEmDobro() throws Exception {
+        enviar(TOKEN, aviso(idDeEvento(), "PAYMENT_RECEIVED", contaDaEscola));
+        String refunds = "[" + refund("40.00") + "]";
+        CyclicBarrier largada = new CyclicBarrier(2);
+
+        ExecutorService asaas = Executors.newFixedThreadPool(2);
+        try {
+            List<Future<Integer>> envios = new ArrayList<>();
+            for (int i = 0; i < 2; i++) {
+                String corpo = avisoDeEstorno(idDeEvento(), "PAYMENT_PARTIALLY_REFUNDED", refunds);
+                envios.add(asaas.submit(() -> {
+                    largada.await(10, TimeUnit.SECONDS);
+                    return enviar(TOKEN, corpo);
+                }));
+            }
+            for (Future<Integer> envio : envios) {
+                assertThat(envio.get(30, TimeUnit.SECONDS)).isEqualTo(200);
+            }
+        } finally {
+            asaas.shutdownNow();
+        }
+
+        assertThat(dados.valorEstornado(cobranca)).isEqualByComparingTo("40.00");
+        assertThat(dados.estornosDaCobranca(cobranca)).hasSize(1);
     }
 
     // ---------- Aviso repetido ----------

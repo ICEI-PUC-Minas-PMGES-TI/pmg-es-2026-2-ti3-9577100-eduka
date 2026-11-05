@@ -43,6 +43,7 @@ import br.pucminas.eduka.backend.repository.CobrancaFiltro;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
 import br.pucminas.eduka.backend.repository.CobrancaTotaisRepository;
 import br.pucminas.eduka.backend.repository.DespesaRepository;
+import br.pucminas.eduka.backend.repository.EstornoCobrancaRepository;
 import br.pucminas.eduka.backend.repository.LogAuditoriaRepository;
 import br.pucminas.eduka.backend.repository.Movimento;
 import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
@@ -66,7 +67,7 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
  * Recebido e a cobranca PAGA, pela data em que foi dada como paga
  * ({@code PAGA_EM}): pelo aviso do Asaas ou pela baixa manual. O valor e o
  * pago no provedor quando ha {@code PAGAMENTO_COBRANCA}; na baixa manual, o
- * da cobranca.
+ * da cobranca. O estorno sai do recebido no mes em que aconteceu.
  * </p>
  */
 @Service
@@ -83,9 +84,6 @@ public class DashboardFinanceiroService {
      * filtra 3, 6 ou 12 deles sem pedir de novo.
      */
     static final int MESES_NO_GRAFICO = 12;
-
-    /** Maior periodo do filtro com calendario: mais que isso, as barras nao cabem na tela. */
-    static final int MAXIMO_DE_MESES = 24;
 
     /** "Vencem esta semana": de hoje ate hoje + 6 dias. */
     private static final int DIAS_DA_SEMANA = 6;
@@ -104,6 +102,7 @@ public class DashboardFinanceiroService {
     private final CobrancaRepository cobrancaRepository;
     private final PagamentoCobrancaRepository pagamentoRepository;
     private final DespesaRepository despesaRepository;
+    private final EstornoCobrancaRepository estornoRepository;
     private final LogAuditoriaRepository logAuditoriaRepository;
     private final UsuarioRepository usuarioRepository;
     private final PessoaRepository pessoaRepository;
@@ -112,11 +111,12 @@ public class DashboardFinanceiroService {
 
     public DashboardFinanceiroService(CobrancaRepository cobrancaRepository,
             PagamentoCobrancaRepository pagamentoRepository, DespesaRepository despesaRepository,
-            LogAuditoriaRepository logAuditoriaRepository, UsuarioRepository usuarioRepository,
+            EstornoCobrancaRepository estornoRepository, LogAuditoriaRepository logAuditoriaRepository, UsuarioRepository usuarioRepository,
             PessoaRepository pessoaRepository, IsolamentoEscola isolamentoEscola, Clock clock) {
         this.cobrancaRepository = cobrancaRepository;
         this.pagamentoRepository = pagamentoRepository;
         this.despesaRepository = despesaRepository;
+        this.estornoRepository = estornoRepository;
         this.logAuditoriaRepository = logAuditoriaRepository;
         this.usuarioRepository = usuarioRepository;
         this.pessoaRepository = pessoaRepository;
@@ -134,7 +134,9 @@ public class DashboardFinanceiroService {
         Instant inicioDoGrafico = inicioDe(primeiroDoGrafico.atDay(1));
         Instant fimDoGrafico = inicioDe(mesAtual.plusMonths(1).atDay(1));
         List<Movimento> recebidos = cobrancaRepository.recebidosEntre(escolaId, inicioDoGrafico, fimDoGrafico);
-        List<Movimento> recebidosNoMes = recebidos.stream()
+        List<Movimento> entradas = comEstornos(recebidos, escolaId, inicioDoGrafico, fimDoGrafico);
+        long pagamentosNoMes = recebidos.stream().filter(r -> mesDe(r.getPagaEm()).equals(mesAtual)).count();
+        List<Movimento> entradasNoMes = entradas.stream()
                 .filter(r -> mesDe(r.getPagaEm()).equals(mesAtual))
                 .toList();
 
@@ -181,12 +183,12 @@ public class DashboardFinanceiroService {
                 : cobrancaRepository.contarAlunos(ATRASADAS.daEscola(escolaId, hoje));
 
         return new DashboardFinanceiroResponse(
-                new Total(somar(recebidosNoMes.stream().map(Movimento::getValor)), recebidosNoMes.size()),
+                new Total(somar(entradasNoMes.stream().map(Movimento::getValor)), pagamentosNoMes),
                 new Total(pendentes.valor().add(emAtraso.valor()), pendentes.quantidade() + emAtraso.quantidade()),
                 new Atraso(alunosEmAtraso, emAtraso.quantidade(), emAtraso.valor(),
                         percentual(emAtraso.valor(), emAtraso.valor().add(pagoJaVencido))),
                 despesasAPagar(escolaId, hoje),
-                porMes(recebidos, despesaRepository.pagasEntre(escolaId, inicioDoGrafico, fimDoGrafico),
+                porMes(entradas, despesaRepository.pagasEntre(escolaId, inicioDoGrafico, fimDoGrafico),
                         primeiroDoGrafico, mesAtual),
                 daSemana.stream()
                         .map(c -> new CobrancaDaSemana(c.getId(), c.getAluno().getId(), nomeDoAluno.apply(c),
@@ -247,23 +249,21 @@ public class DashboardFinanceiroService {
      * dia em que foi pago, no fuso da escola: o filtro com calendario do
      * grafico. Os meses das pontas contam so os dias do periodo.
      *
-     * @throws IllegalArgumentException se o periodo esta invertido ou passa de
-     *                                  {@link #MAXIMO_DE_MESES} meses
+     * @throws IllegalArgumentException se o periodo for invalido (ver {@link PeriodoFinanceiro})
      */
     public List<Mes> movimento(LocalDate de, LocalDate ate) {
-        if (de.isAfter(ate)) {
-            throw new IllegalArgumentException("de nao pode ser depois de ate");
-        }
-        YearMonth primeiro = YearMonth.from(de);
-        YearMonth ultimo = YearMonth.from(ate);
-        if (primeiro.plusMonths(MAXIMO_DE_MESES).isBefore(ultimo.plusMonths(1))) {
-            throw new IllegalArgumentException("O periodo pode ter no maximo " + MAXIMO_DE_MESES + " meses");
-        }
+        PeriodoFinanceiro periodo = new PeriodoFinanceiro(de, ate);
         UUID escolaId = isolamentoEscola.escolaIdAtual();
-        Instant desde = inicioDe(de);
-        Instant antes = inicioDe(ate.plusDays(1));
-        return porMes(cobrancaRepository.recebidosEntre(escolaId, desde, antes),
-                despesaRepository.pagasEntre(escolaId, desde, antes), primeiro, ultimo);
+        return porMes(comEstornos(cobrancaRepository.recebidosEntre(escolaId, periodo.inicio(), periodo.fim()), escolaId,
+                periodo.inicio(), periodo.fim()),
+                despesaRepository.pagasEntre(escolaId, periodo.inicio(), periodo.fim()), periodo.primeiroMes(),
+                periodo.ultimoMes());
+    }
+
+    /** Os recebidos e, com valor negativo, os estornos do mesmo intervalo. */
+    private List<Movimento> comEstornos(List<Movimento> recebidos, UUID escolaId, Instant desde, Instant antes) {
+        return Stream.concat(recebidos.stream(), estornoRepository.estornosEntre(escolaId, desde, antes).stream())
+                .toList();
     }
 
     /** Um {@link Mes} para cada mes de {@code primeiro} a {@code ultimo}, mesmo os sem movimento. */

@@ -46,6 +46,7 @@ import br.pucminas.eduka.backend.pagamento.tipos.TipoEventoProvedor;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
 import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
 import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository.ContaPorIdExterno;
+import br.pucminas.eduka.backend.repository.EstornoCobrancaRepository;
 import br.pucminas.eduka.backend.repository.EventoProvedorRepository;
 import br.pucminas.eduka.backend.repository.FaturaPlataformaRepository;
 import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
@@ -77,6 +78,8 @@ class RoteadorEventosTest {
     @Mock
     private PagamentoCobrancaRepository pagamentoRepository;
     @Mock
+    private EstornoCobrancaRepository estornoRepository;
+    @Mock
     private FaturaPlataformaRepository faturaRepository;
     @Mock
     private AvisoCobrancaService avisoCobrancaService;
@@ -89,7 +92,7 @@ class RoteadorEventosTest {
     @BeforeEach
     void setUp() {
         roteador = new RoteadorEventos(eventoRepository, cobrancaRepository, contaRepository, pagamentoRepository,
-                faturaRepository, avisoCobrancaService, auditoriaService,
+                estornoRepository, faturaRepository, avisoCobrancaService, auditoriaService,
                 new GravadorSituacaoConta(contaRepository, auditoriaService), Clock.fixed(AGORA, ZoneOffset.UTC));
         registro = br.pucminas.eduka.backend.domain.EventoProvedor.builder()
                 .id(EVENTO)

@@ -6,7 +6,12 @@ import java.util.UUID;
 
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 
-/** Comprovante de pagamento emitido pelo Eduka (R30). Sem URL do provedor e com o CPF mascarado. */
+/**
+ * Comprovante de pagamento emitido pelo Eduka (R30). Sem URL do provedor e com o
+ * CPF mascarado.
+ *
+ * @param valorEstornado quanto do pago foi devolvido; zero se nada
+ */
 public record ComprovanteResponse(
         UUID numero,
         String beneficiarioNome,
@@ -18,5 +23,6 @@ public record ComprovanteResponse(
         BigDecimal valorPago,
         LocalDate dataPagamento,
         FormaPagamento forma,
-        String codigoTransacao) {
+        String codigoTransacao,
+        BigDecimal valorEstornado) {
 }

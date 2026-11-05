@@ -3,6 +3,8 @@ package br.pucminas.eduka.backend.controller;
 import java.time.LocalDate;
 import java.util.List;
 
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.format.annotation.DateTimeFormat.ISO;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -69,7 +71,8 @@ public class DashboardController {
                     + "meses. Perfis: MASTER, FINANCEIRO.")
     @ApiResponse(responseCode = "200", description = "Um item por mes do periodo, mesmo os sem movimento.")
     @ApiResponse(responseCode = "400", description = "Periodo invertido, com mais de 24 meses ou data invalida.")
-    public List<DashboardFinanceiroResponse.Mes> movimento(@RequestParam LocalDate de, @RequestParam LocalDate ate) {
+    public List<DashboardFinanceiroResponse.Mes> movimento(@RequestParam @DateTimeFormat(iso = ISO.DATE) LocalDate de,
+            @RequestParam @DateTimeFormat(iso = ISO.DATE) LocalDate ate) {
         return dashboardFinanceiroService.movimento(de, ate);
     }
 }

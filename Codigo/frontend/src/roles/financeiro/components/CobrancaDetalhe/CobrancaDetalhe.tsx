@@ -86,6 +86,7 @@ export function CobrancaDetalhe({
             Pago em {formatarDataBr(pagamento.dataPagamento)} · {formatarMoeda(pagamento.valorPago)}
             {pagamento.forma && ` · ${ROTULOS_FORMA[pagamento.forma] ?? pagamento.forma}`}
             {pagamento.origem === 'MANUAL' ? ' · baixa manual da escola' : ' · online'}
+            {pagamento.valorEstornado > 0 && ` · ${formatarMoeda(pagamento.valorEstornado)} estornados`}
           </span>
         </div>
       )}

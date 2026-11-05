@@ -1,28 +1,31 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
+import { Select } from '../../../../components/Select/Select'
+import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { paths, type EstadoCobrancaCriada } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
 import { criarCobranca } from '../../../../services/cobrancaService'
-import { listarAlunos } from '../../../../services/matriculaService'
+import { listarAlunos, listarMatriculas } from '../../../../services/matriculaService'
 import type { AlunoResumo } from '../../../../types/aluno'
+import { ROTULOS_TIPO_COBRANCA, type TipoCobranca } from '../../../../types/cobranca'
+import type { Matricula } from '../../../../types/matricula'
 import { hojeIso } from '../../../../utils/formatters'
 import { FinanceiroLayout } from '../../layouts/FinanceiroLayout'
 import styles from './NovaCobranca.module.css'
 
-type TipoCobranca = 'Mensalidade' | 'Matrícula' | 'Material' | 'Outro'
-
-const TIPOS_COBRANCA: TipoCobranca[] = ['Mensalidade', 'Matrícula', 'Material', 'Outro']
+const TIPOS_COBRANCA: TipoCobranca[] = ['MENSALIDADE', 'MATRICULA', 'MATERIAL', 'OUTRO']
 
 /** Cartões de aluno exibidos de uma vez; os demais aparecem pela busca. */
 const LIMITE_ALUNOS = 12
 
 /** Campo que a validação recusou, com o id do controle que recebe o foco. */
-type CampoCobranca = 'aluno' | 'valor' | 'vencimento' | 'descricao'
+type CampoCobranca = 'aluno' | 'matricula' | 'valor' | 'vencimento' | 'descricao'
 
 const IDS: Record<CampoCobranca, string> = {
   aluno: 'buscaAlunoInput',
+  matricula: 'matriculaInput',
   valor: 'valorInput',
   vencimento: 'vencimentoInput',
   descricao: 'descricaoInput',
@@ -30,19 +33,24 @@ const IDS: Record<CampoCobranca, string> = {
 
 const ERRO_ID = 'erroNovaCobranca'
 
+const SEM_MATRICULAS: Matricula[] = []
+
+/** Escolha de quem tem mais de uma matrícula e cobra algo que não é de nenhuma delas. */
+const AVULSA = 'AVULSA'
+
 /** Descrição sugerida para o tipo, com o mês e o ano de hoje. */
 function descricaoSugerida(tipo: TipoCobranca): string {
   const [ano, mes] = hojeIso().split('-').map(Number)
   switch (tipo) {
-    case 'Mensalidade': {
+    case 'MENSALIDADE': {
       const nomeMes = new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long' })
       return `Mensalidade de ${nomeMes} de ${ano}`
     }
-    case 'Matrícula':
+    case 'MATRICULA':
       return `Taxa de matrícula ${ano}`
-    case 'Material':
+    case 'MATERIAL':
       return `Material didático ${ano}`
-    case 'Outro':
+    case 'OUTRO':
       return 'Outras taxas e serviços escolares'
   }
 }
@@ -57,10 +65,11 @@ export function NovaCobranca() {
   const [tentativaAlunos, setTentativaAlunos] = useState(0)
   const [buscaAluno, setBuscaAluno] = useState('')
   const [alunoSelecionadoId, setAlunoSelecionadoId] = useState<string | null>(null)
-  const [tipoCobranca, setTipoCobranca] = useState<TipoCobranca>('Mensalidade')
+  const [matriculaEscolhida, setMatriculaEscolhida] = useState('')
+  const [tipoCobranca, setTipoCobranca] = useState<TipoCobranca>('MENSALIDADE')
   const [valor, setValor] = useState('')
   const [dataVencimento, setDataVencimento] = useState('')
-  const [descricao, setDescricao] = useState(() => descricaoSugerida('Mensalidade'))
+  const [descricao, setDescricao] = useState(() => descricaoSugerida('MENSALIDADE'))
   // Depois que o usuário escreve a própria descrição, trocar o tipo não a apaga.
   const [descricaoPersonalizada, setDescricaoPersonalizada] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -96,6 +105,24 @@ export function NovaCobranca() {
     [alunos, alunoSelecionadoId],
   )
 
+  const buscarMatriculas = useCallback(
+    (signal: AbortSignal) => listarMatriculas({ alunoId: alunoSelecionadoId ?? '' }, signal),
+    [alunoSelecionadoId],
+  )
+  const {
+    dados: matriculasDoAluno,
+    carregando: carregandoMatriculas,
+    erro: erroMatriculas,
+    recarregar: recarregarMatriculas,
+  } = useCarregamento<Matricula[]>(
+    alunoSelecionadoId ? buscarMatriculas : null,
+    SEM_MATRICULAS,
+    'Não foi possível carregar as matrículas do aluno.',
+  )
+  // Com uma matrícula só, o backend já liga a cobrança a ela; com mais de uma, quem cobra escolhe.
+  const matriculasAtivas = matriculasDoAluno.filter((m) => m.status === 'ATIVA')
+  const precisaEscolherMatricula = matriculasAtivas.length > 1
+
   /** Mostra o erro, marca o campo e leva o foco até ele. */
   function recusar(campo: CampoCobranca, mensagem: string) {
     setErro(mensagem)
@@ -118,7 +145,9 @@ export function NovaCobranca() {
 
   function handleSelecionarAluno(id: string) {
     setAlunoSelecionadoId(id)
+    setMatriculaEscolhida('')
     corrigiu('aluno')
+    corrigiu('matricula')
   }
 
   function handleSelecionarTipo(tipo: TipoCobranca) {
@@ -133,6 +162,16 @@ export function NovaCobranca() {
 
     if (!alunoSelecionado) {
       recusar('aluno', 'Selecione o aluno que vai receber a cobrança.')
+      return
+    }
+
+    if (carregandoMatriculas || erroMatriculas) {
+      recusar('aluno', 'Aguarde carregar as matrículas do aluno.')
+      return
+    }
+
+    if (precisaEscolherMatricula && !matriculaEscolhida) {
+      recusar('matricula', 'Este aluno tem mais de uma matrícula: escolha a que recebe a cobrança.')
       return
     }
 
@@ -158,9 +197,11 @@ export function NovaCobranca() {
     try {
       await criarCobranca({
         alunoId: alunoSelecionado.id,
+        matriculaId: matriculaEscolhida && matriculaEscolhida !== AVULSA ? matriculaEscolhida : undefined,
         valor: valorNumerico,
         dataVencimento,
         descricao: descricao.trim(),
+        tipo: tipoCobranca,
       })
 
       const estado: EstadoCobrancaCriada = {
@@ -260,6 +301,39 @@ export function NovaCobranca() {
               )}
             </>
           )}
+
+          {erroMatriculas && (
+            <div className={styles.helperBoleto} role="alert">
+              <span>{erroMatriculas} </span>
+              <Button size="sm" onClick={recarregarMatriculas}>
+                Tentar novamente
+              </Button>
+            </div>
+          )}
+
+          {precisaEscolherMatricula && (
+            <div className={styles.campoMatricula}>
+              <label htmlFor={IDS.matricula} className={styles.secaoTitulo}>
+                Matrícula que recebe a cobrança
+              </label>
+              <Select
+                id={IDS.matricula}
+                className={styles.inputPadrao}
+                aria-label="Matrícula que recebe a cobrança"
+                placeholder="Selecione a matrícula"
+                valor={matriculaEscolhida}
+                onChange={(escolhida) => {
+                  setMatriculaEscolhida(escolhida)
+                  corrigiu('matricula')
+                }}
+                opcoes={[
+                  ...matriculasAtivas.map((m) => ({ valor: m.id, rotulo: `${m.cursoNome} · ${m.turmaNome}` })),
+                  { valor: AVULSA, rotulo: 'Cobrança avulsa (sem curso)' },
+                ]}
+                {...invalidez('matricula')}
+              />
+            </div>
+          )}
         </section>
 
         {/* Seção 2: Tipo de cobrança */}
@@ -278,7 +352,7 @@ export function NovaCobranca() {
                   className={`${styles.tipoBotao} ${ativo ? styles.tipoBotaoAtivo : ''}`}
                   onClick={() => handleSelecionarTipo(tipo)}
                 >
-                  {tipo}
+                  {ROTULOS_TIPO_COBRANCA[tipo]}
                 </button>
               )
             })}

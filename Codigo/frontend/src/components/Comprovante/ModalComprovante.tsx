@@ -78,6 +78,12 @@ export function ModalComprovante({ buscar, onFechar }: ModalComprovanteProps) {
           <dd>{formatarData(comprovante.vencimento)}</dd>
           <dt>Valor pago</dt>
           <dd className={styles.valor}>{formatarMoeda(comprovante.valorPago)}</dd>
+          {comprovante.valorEstornado > 0 && (
+            <>
+              <dt>Valor devolvido</dt>
+              <dd>{formatarMoeda(comprovante.valorEstornado)}</dd>
+            </>
+          )}
           <dt>Data do pagamento</dt>
           <dd>{formatarData(comprovante.dataPagamento)}</dd>
           <dt>Forma</dt>
