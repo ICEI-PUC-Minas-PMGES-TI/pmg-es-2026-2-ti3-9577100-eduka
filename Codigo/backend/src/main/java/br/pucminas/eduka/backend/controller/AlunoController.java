@@ -35,8 +35,9 @@ import jakarta.validation.Valid;
  * na URL: o tenant e sempre o do token (ver {@link AlunoService}).
  *
  * <p>
- * Leitura: perfis administrativos e professor. Escrita: gestao e secretaria.
- * O perfil ALUNO nao acessa esta listagem.
+ * Leitura: perfis administrativos. Escrita: gestao e secretaria. O professor
+ * ve so os alunos das proprias turmas, pelo portal; o perfil ALUNO, os proprios
+ * dados, tambem pelo portal.
  * </p>
  */
 @RestController
@@ -52,17 +53,17 @@ public class AlunoController {
 
     /** {@code nome}: filtro parcial (enturmacao), decifrado em memoria pelo servico. */
     @GetMapping
-    @PreAuthorize(Perfis.LEITURA_ACADEMICA)
-    @Operation(summary = "Lista os alunos", description = "Perfis: MASTER, SECRETARIA, FINANCEIRO, PROFESSOR.")
+    @PreAuthorize(Perfis.LEITURA_ALUNOS)
+    @Operation(summary = "Lista os alunos", description = "Perfis: MASTER, SECRETARIA, FINANCEIRO.")
     public List<AlunoResponse> listar(
             @Parameter(description = "Filtro parcial pelo nome") @RequestParam(required = false) String nome) {
         return alunoService.listar(nome);
     }
 
     @GetMapping("/pagina")
-    @PreAuthorize(Perfis.LEITURA_ACADEMICA)
-    @Operation(summary = "Lista os alunos em paginas", description = "Perfis: MASTER, SECRETARIA, FINANCEIRO, "
-            + "PROFESSOR. Filtros opcionais por parte do nome e por situacao (MATRICULADO, TRANCADO, SEM_TURMA). "
+    @PreAuthorize(Perfis.LEITURA_ALUNOS)
+    @Operation(summary = "Lista os alunos em paginas", description = "Perfis: MASTER, SECRETARIA, FINANCEIRO. "
+            + "Filtros opcionais por parte do nome e por situacao (MATRICULADO, TRANCADO, SEM_TURMA). "
             + "`pagina` comeca em 0; `tamanho` vai de 1 a 100. `ordenarPor`: NOME (padrao) ou MATRICULA; "
             + "`direcao`: ASC (padrao) ou DESC.")
     @ApiResponse(responseCode = "200", description = "A pagina de alunos.")
@@ -78,8 +79,8 @@ public class AlunoController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(Perfis.LEITURA_ACADEMICA)
-    @Operation(summary = "Busca um aluno pelo id", description = "Perfis: MASTER, SECRETARIA, FINANCEIRO, PROFESSOR.")
+    @PreAuthorize(Perfis.LEITURA_ALUNOS)
+    @Operation(summary = "Busca um aluno pelo id", description = "Perfis: MASTER, SECRETARIA, FINANCEIRO.")
     public AlunoResponse buscarPorId(@PathVariable UUID id) {
         return alunoService.buscarPorId(id);
     }

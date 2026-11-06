@@ -156,11 +156,15 @@ class MatriculaTurmaControllerSecurityTest {
     }
 
     @Test
-    void professorConsultaMasAlunoNao() throws Exception {
-        mockMvc.perform(com(get("/matriculas"), accessToken("PROFESSOR", ESCOLA_A)))
+    void financeiroConsultaMasProfessorEAlunoNao() throws Exception {
+        mockMvc.perform(com(get("/matriculas"), accessToken("FINANCEIRO", ESCOLA_A)))
                 .andExpect(status().isOk());
-        mockMvc.perform(com(get("/matriculas"), accessToken("ALUNO", ESCOLA_A)))
-                .andExpect(status().isForbidden());
+        for (String perfil : List.of("PROFESSOR", "ALUNO")) {
+            String token = accessToken(perfil, ESCOLA_A);
+            mockMvc.perform(com(get("/matriculas"), token)).andExpect(status().isForbidden());
+            mockMvc.perform(com(get("/matriculas/pagina"), token)).andExpect(status().isForbidden());
+            mockMvc.perform(com(get("/matriculas/" + UUID.randomUUID()), token)).andExpect(status().isForbidden());
+        }
     }
 
     // ---------- Realizar matricula ----------

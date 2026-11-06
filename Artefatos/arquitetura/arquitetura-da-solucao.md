@@ -245,7 +245,7 @@ que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o e
 
 | Método | Rota | Perfis autorizados |
 |---|---|---|
-| `GET` | `/alunos` · `/alunos/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO`, `PROFESSOR` |
+| `GET` | `/alunos` · `/alunos/{id}` (o professor vê só os alunos das próprias turmas, em `/portal/professor`) | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
 | `POST` | `/alunos` | `MASTER`, `SECRETARIA` |
 | `PUT` | `/alunos/{id}` (responsáveis não mudam; 409 se a matrícula ou o e-mail já estão em uso) | `MASTER`, `SECRETARIA` |
 | `POST` | `/alunos/{id}/primeiro-acesso` (reenvia o e-mail) | `MASTER`, `SECRETARIA` |
@@ -272,7 +272,7 @@ que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o e
 | `POST` | `/turmas/{turmaId}/horario` (alocação da própria turma, dia e horas; 400 se a alocação é de outra turma ou o início não vem antes do fim; 409 `HORARIO_TURMA_CONFLITANTE` ou `HORARIO_PROFESSOR_CONFLITANTE` se sobrepõe outra aula da turma ou do professor no dia, e aulas que só se encostam não conflitam) | `MASTER`, `SECRETARIA` |
 | `PUT` | `/turmas/{turmaId}/horario/{horarioId}` (muda dia e horas; mesmas regras e 409) | `MASTER`, `SECRETARIA` |
 | `DELETE` | `/turmas/{turmaId}/horario/{horarioId}` | `MASTER`, `SECRETARIA` |
-| `GET` | `/matriculas?turmaId` · `/matriculas/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO`, `PROFESSOR` |
+| `GET` | `/matriculas?turmaId` · `/matriculas/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
 | `POST` | `/matriculas` (409 se a turma está sem vagas ou o aluno já está nela) | `MASTER`, `SECRETARIA` |
 | `PATCH` | `/matriculas/{id}` (trancar, reativar, transferir, concluir, cancelar ou editar a observação) | `MASTER`, `SECRETARIA` |
 
@@ -419,7 +419,10 @@ A autorização tem duas camadas. `RotasPorPerfil`, aplicada no filter chain, de
 entram em cada módulo pelo prefixo da rota (`/escolas`, `/alunos`, `/cobrancas`...). Módulos que
 ainda não têm controller já estão na lista, de modo que o endpoint nasce protegido. Dentro do
 módulo, o controller refina por ação com `@PreAuthorize` e as constantes de `Perfis`
-(ex.: `/alunos` é lido por quatro perfis, mas só `MASTER` e `SECRETARIA` cadastram).
+(ex.: `/alunos` é lido por três perfis, mas só `MASTER` e `SECRETARIA` cadastram).
+
+O teste `MatrizDeAcessoTest` guarda o contrato: lista cada endpoint com os perfis autorizados e falha se
+um endpoint novo não entrar na lista ou se o que o código libera for diferente dela.
 
 ---
 
