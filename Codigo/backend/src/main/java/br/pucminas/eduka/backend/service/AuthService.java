@@ -177,7 +177,9 @@ public class AuthService {
                 .orElseGet(() -> emitirTokens(usuario));
     }
 
+    /** Tokens emitidos: e o acesso que conta como atividade da escola no Painel de Escolas. */
     private LoginResponse emitirTokens(Usuario usuario) {
+        usuarioRepository.registrarAcesso(usuario.getId(), clock.instant());
         return LoginResponse.autenticado(
                 jwtService.generateAccessToken(usuario.getId(), usuario.getPerfil().name(), usuario.getEscolaId()),
                 jwtService.generateRefreshToken(usuario.getId()),
