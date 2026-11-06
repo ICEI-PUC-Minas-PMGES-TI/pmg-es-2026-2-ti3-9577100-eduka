@@ -59,7 +59,7 @@ public class ApiExceptionHandler {
     @ExceptionHandler(EscolaSuspensaException.class)
     public ResponseEntity<ProblemDetail> escolaSuspensa(EscolaSuspensaException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(problema(HttpStatus.FORBIDDEN, ex.getMessage(), "ESCOLA_SUSPENSA"));
+                .body(comMotivo(problema(HttpStatus.FORBIDDEN, ex.getMessage(), "ESCOLA_SUSPENSA"), ex));
     }
 
     @ExceptionHandler(SenhaProvisoriaExpiradaException.class)
@@ -301,6 +301,14 @@ public class ApiExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatus(status);
         problem.setTitle(status.getReasonPhrase());
         problem.setDetail(detalhe);
+        return problem;
+    }
+
+    /** O front explica a suspensao pelo {@code motivo} (MANUAL ou FATURA_EM_ATRASO). */
+    private static ProblemDetail comMotivo(ProblemDetail problem, EscolaSuspensaException ex) {
+        if (ex.getMotivo() != null) {
+            problem.setProperty("motivo", ex.getMotivo().name());
+        }
         return problem;
     }
 
