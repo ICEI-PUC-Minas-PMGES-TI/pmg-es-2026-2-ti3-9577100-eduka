@@ -15,6 +15,7 @@ import type {
   DadosPix,
   FormaPagamento,
 } from '../../../../types/pagamentoAluno'
+import { salvarArquivo } from '../../../../utils/arquivos'
 import { formatarMoeda } from '../../../../utils/formatters'
 import { formatarData } from '../../../secretaria/components/PainelSecretaria/formatacao'
 import { formatarLinhaDigitavel } from '../../formatacao'
@@ -78,19 +79,6 @@ function formatarValidade(iso: string): string {
     hour: '2-digit',
     minute: '2-digit',
   })
-}
-
-/** Dispara o download do PDF no navegador sem abrir nova aba. */
-function salvarArquivo(conteudo: Blob, nome: string) {
-  const url = URL.createObjectURL(conteudo)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = nome
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  // Dá tempo de o navegador começar o download antes de liberar a memória.
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 /** Nome do arquivo a partir da descrição: "Mensalidade de março" -> boleto-mensalidade-de-marco.pdf. */

@@ -10,7 +10,13 @@ export function ehAreaMaster(pathname: string): boolean {
   return pathname === paths.master.raiz || pathname.startsWith(`${paths.master.raiz}/`)
 }
 
-export type RotasFinanceiras = { inicio: string; cobrancas: string; novaCobranca: string; despesas: string }
+export type RotasFinanceiras = {
+  inicio: string
+  cobrancas: string
+  novaCobranca: string
+  despesas: string
+  relatorios: string
+}
 
 export type RotasAcademicas = {
   inicio: string
@@ -26,6 +32,7 @@ const FINANCEIRAS_MASTER: RotasFinanceiras = {
   cobrancas: paths.master.cobrancas,
   novaCobranca: paths.master.novaCobranca,
   despesas: paths.master.despesas,
+  relatorios: paths.master.relatorios,
 }
 
 const ACADEMICAS_MASTER: RotasAcademicas = {

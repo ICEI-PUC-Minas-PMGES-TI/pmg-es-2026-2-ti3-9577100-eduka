@@ -245,8 +245,9 @@
     width: 100%;
   }
 
+  /* A base é o conteúdo: o que não couber desce de linha, em vez de sobrepor. */
   .acoes > * {
-    flex: 1;
+    flex: 1 1 auto;
     justify-content: center;
   }
 }

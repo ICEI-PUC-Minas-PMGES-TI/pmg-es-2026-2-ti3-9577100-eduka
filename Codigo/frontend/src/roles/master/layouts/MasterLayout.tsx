@@ -9,6 +9,7 @@ const MENU: ItemMenu[] = [
   { label: 'Alunos e turmas', icon: 'graduationCap', to: paths.master.alunos },
   { label: 'Cobranças', icon: 'card', to: paths.master.cobrancas },
   { label: 'Despesas', icon: 'dollarSign', to: paths.master.despesas },
+  { label: 'Relatórios', icon: 'barChart', to: paths.master.relatorios },
   // Em breve: a gestão dos usuários da escola (RF07) ainda não tem tela nem API.
   { label: 'Equipe', icon: 'users' },
   { label: 'Recebimentos', icon: 'settings', to: paths.master.recebimentos },

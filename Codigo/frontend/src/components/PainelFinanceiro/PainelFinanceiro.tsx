@@ -17,26 +17,11 @@ import { Button } from '../Button/Button'
 import { formatarIso } from '../CampoData/datas'
 import { CampoPeriodo, type Periodo } from '../CampoPeriodo/CampoPeriodo'
 import { GraficoComparativo, Painel, PainelVazio } from '../Dashboard/Dashboard'
+import { erroDoPeriodo, MESES, rotuladorDeMeses } from './textos'
 import styles from './PainelFinanceiro.module.css'
 
 // Blocos do resumo financeiro (GET /dashboard/financeiro), comuns ao Início do
 // FINANCEIRO e ao do MASTER.
-
-const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
-const MESES_POR_EXTENSO = [
-  'janeiro',
-  'fevereiro',
-  'março',
-  'abril',
-  'maio',
-  'junho',
-  'julho',
-  'agosto',
-  'setembro',
-  'outubro',
-  'novembro',
-  'dezembro',
-]
 
 // Os instantes do backend mostrados no fuso da escola, como o "hoje" dele.
 const DIA_E_HORA = new Intl.DateTimeFormat('pt-BR', {
@@ -85,12 +70,6 @@ function descreverAcao(acao: AcaoRecente): string {
   return contracao ? `${verbo.slice(0, -3)} d${objeto}` : `${verbo} ${objeto}`
 }
 
-/** "2026-10" -> rótulo curto ("out") e por extenso ("outubro de 2026"). */
-function nomeDoMes(mes: string): { curto: string; extenso: string } {
-  const [ano, numero] = mes.split('-').map(Number)
-  return { curto: MESES[numero - 1], extenso: `${MESES_POR_EXTENSO[numero - 1]} de ${ano}` }
-}
-
 /** "27/10 às 14:32", no fuso da escola. */
 function diaEHora(instante: string): string {
   return DIA_E_HORA.format(new Date(instante)).replace(', ', ' às ')
@@ -100,20 +79,44 @@ function diaEHora(instante: string): string {
 const PERIODOS = [3, 6, 12]
 const PERIODO_INICIAL = 6
 
-/** Maior período do calendário, como o backend aceita. */
-const MAXIMO_DE_MESES = 24
-
 // Estável: o useCarregamento pede o valor inicial sempre igual.
 const SEM_MESES: MesFinanceiro[] = []
 
 /** Os últimos meses (atalho) ou um período escolhido no calendário. */
 type FiltroDoGrafico = { tipo: 'meses'; meses: number } | { tipo: 'periodo'; periodo: Periodo }
 
-/** Quantos meses de calendário o período toca, contando os das pontas. */
-function mesesNoPeriodo({ de, ate }: Periodo): number {
-  const [anoDe, mesDe] = de.split('-').map(Number)
-  const [anoAte, mesAte] = ate.split('-').map(Number)
-  return (anoAte - anoDe) * 12 + (mesAte - mesDe) + 1
+type PilulasProps<T extends string | number> = {
+  /** Lido pelo leitor de tela, ex.: "Período do gráfico". */
+  rotulo: string
+  opcoes: { valor: T; rotulo: string }[]
+  /** Opção ativa; null quando nenhuma está (ex.: período escolhido à mão). */
+  valor: T | null
+  onChange: (valor: T) => void
+  /** Pílula a mais no fim do grupo (ex.: o calendário do período). */
+  children?: ReactNode
+}
+
+/** Botões de escolha única em forma de pílula, para filtros e agrupamentos. */
+export function Pilulas<T extends string | number>({ rotulo, opcoes, valor, onChange, children }: PilulasProps<T>) {
+  return (
+    <div className={styles.periodos} role="group" aria-label={rotulo}>
+      {opcoes.map((opcao) => {
+        const ativa = opcao.valor === valor
+        return (
+          <button
+            key={opcao.valor}
+            type="button"
+            aria-pressed={ativa}
+            className={`${styles.periodo} ${ativa ? styles.periodoAtivo : ''}`}
+            onClick={() => onChange(opcao.valor)}
+          >
+            {opcao.rotulo}
+          </button>
+        )
+      })}
+      {children}
+    </div>
+  )
 }
 
 /**
@@ -136,8 +139,7 @@ export function EntrouESaiu({ meses }: { meses: MesFinanceiro[] }) {
   const entrou = doPeriodo.reduce((soma, mes) => soma + mes.entrou, 0)
   const saiu = doPeriodo.reduce((soma, mes) => soma + mes.saiu, 0)
   const saldo = entrou - saiu
-  // Com mais de um ano na tela, o mês curto leva o ano junto ("out/25").
-  const variosAnos = new Set(doPeriodo.map((mes) => mes.mes.slice(0, 4))).size > 1
+  const rotularMes = rotuladorDeMeses(doPeriodo.map((mes) => mes.mes))
 
   const quando =
     filtro.tipo === 'meses'
@@ -147,12 +149,9 @@ export function EntrouESaiu({ meses }: { meses: MesFinanceiro[] }) {
         : `de ${formatarIso(filtro.periodo.de)} a ${formatarIso(filtro.periodo.ate)}`
 
   function escolherPeriodo(escolhido: Periodo) {
-    if (mesesNoPeriodo(escolhido) > MAXIMO_DE_MESES) {
-      setErroPeriodo(`Escolha um período de até ${MAXIMO_DE_MESES} meses.`)
-      return
-    }
-    setErroPeriodo(null)
-    setFiltro({ tipo: 'periodo', periodo: escolhido })
+    const erro = erroDoPeriodo(escolhido)
+    setErroPeriodo(erro)
+    if (!erro) setFiltro({ tipo: 'periodo', periodo: escolhido })
   }
 
   function escolherMeses(quantidade: number) {
@@ -189,14 +188,7 @@ export function EntrouESaiu({ meses }: { meses: MesFinanceiro[] }) {
             Saldo {saldo < 0 ? '−' : '+'} {formatarMoeda(Math.abs(saldo))}
           </Badge>
         }
-        grupos={doPeriodo.map((mes) => {
-          const nome = nomeDoMes(mes.mes)
-          return {
-            rotulo: variosAnos ? `${nome.curto}/${mes.mes.slice(2, 4)}` : nome.curto,
-            titulo: nome.extenso,
-            valores: [mes.entrou, mes.saiu],
-          }
-        })}
+        grupos={doPeriodo.map((mes) => ({ ...rotularMes(mes.mes), valores: [mes.entrou, mes.saiu] }))}
       />
     )
   }
@@ -206,21 +198,12 @@ export function EntrouESaiu({ meses }: { meses: MesFinanceiro[] }) {
       titulo="Dinheiro que entrou e saiu"
       descricao={`Cobranças recebidas e despesas pagas ${quando}.`}
       acao={
-        <div className={styles.periodos} role="group" aria-label="Período do gráfico">
-          {PERIODOS.map((opcao) => {
-            const ativo = filtro.tipo === 'meses' && filtro.meses === opcao
-            return (
-              <button
-                key={opcao}
-                type="button"
-                aria-pressed={ativo}
-                className={`${styles.periodo} ${ativo ? styles.periodoAtivo : ''}`}
-                onClick={() => escolherMeses(opcao)}
-              >
-                {opcao} meses
-              </button>
-            )
-          })}
+        <Pilulas
+          rotulo="Período do gráfico"
+          opcoes={PERIODOS.map((meses) => ({ valor: meses, rotulo: `${meses} meses` }))}
+          valor={filtro.tipo === 'meses' ? filtro.meses : null}
+          onChange={escolherMeses}
+        >
           <CampoPeriodo
             valor={periodo}
             onChange={escolherPeriodo}
@@ -229,7 +212,7 @@ export function EntrouESaiu({ meses }: { meses: MesFinanceiro[] }) {
             aria-pressed={periodo !== null}
             className={`${styles.periodo} ${periodo ? styles.periodoAtivo : ''}`}
           />
-        </div>
+        </Pilulas>
       }
     >
       {erroPeriodo && (

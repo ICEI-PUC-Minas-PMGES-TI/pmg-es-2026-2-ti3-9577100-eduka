@@ -44,6 +44,7 @@ export const paths = {
     cobrancas: '/master/cobrancas',
     novaCobranca: '/master/cobrancas/nova',
     despesas: '/master/despesas',
+    relatorios: '/master/relatorios',
   },
   secretaria: {
     raiz: '/secretaria',
@@ -66,6 +67,8 @@ export const paths = {
     cobrancas: '/financeiro/cobrancas',
     novaCobranca: '/financeiro/cobrancas/nova',
     despesas: '/financeiro/despesas',
+    /** Relatórios por período e exportação em CSV (IU19). */
+    relatorios: '/financeiro/relatorios',
   },
   professor: {
     raiz: '/professor',
