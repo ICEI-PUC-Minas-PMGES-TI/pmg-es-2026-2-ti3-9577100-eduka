@@ -1,0 +1,29 @@
+/* Linha de números do uso, abaixo do nome da escola. */
+.uso {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 6px 0 0;
+}
+
+.item {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 13px;
+}
+
+.item dt {
+  color: var(--color-text-muted);
+}
+
+.item dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.parada {
+  color: var(--color-danger);
+}
