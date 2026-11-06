@@ -35,9 +35,16 @@ public final class Perfis {
     /** Escrita no cadastro academico: alunos, turmas, matriculas... */
     public static final String CADASTRO_ACADEMICO = "hasAnyRole('MASTER', 'SECRETARIA')";
 
-    /** Leitura do cadastro academico por quem trabalha na escola. */
+    /** Leitura da estrutura academica (periodos, cursos, disciplinas, turmas) por quem trabalha na escola. */
     public static final String LEITURA_ACADEMICA =
             "hasAnyRole('MASTER', 'SECRETARIA', 'FINANCEIRO', 'PROFESSOR')";
+
+    /**
+     * Leitura de alunos e matriculas da escola inteira. Professor fica de fora:
+     * o cadastro traz CPF, endereco e responsaveis, e ele ve so os alunos das
+     * proprias turmas, pelo portal ({@code /portal/professor}).
+     */
+    public static final String LEITURA_ALUNOS = "hasAnyRole('MASTER', 'SECRETARIA', 'FINANCEIRO')";
 
     /**
      * Responsaveis dos alunos (cadastro e vinculo): secretaria cadastra junto

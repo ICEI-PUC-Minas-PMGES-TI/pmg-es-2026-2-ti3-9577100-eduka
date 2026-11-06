@@ -31,13 +31,14 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 /**
- * Matricula de alunos nas turmas da escola do usuario autenticado. Quem
- * trabalha na escola consulta; so gestao e secretaria matriculam e alteram.
+ * Matricula de alunos nas turmas da escola do usuario autenticado. Perfis
+ * administrativos consultam; so gestao e secretaria matriculam e alteram. O
+ * professor ve os alunos das proprias turmas pelo portal.
  */
 @RestController
 @RequestMapping("/matriculas")
 @Tag(name = "Matriculas",
-        description = "Alunos nas turmas. Leitura: MASTER, SECRETARIA, FINANCEIRO, PROFESSOR. "
+        description = "Alunos nas turmas. Leitura: MASTER, SECRETARIA, FINANCEIRO. "
                 + "Cadastro e alteracao: MASTER, SECRETARIA.")
 public class MatriculaTurmaController {
 
@@ -48,7 +49,7 @@ public class MatriculaTurmaController {
     }
 
     @GetMapping
-    @PreAuthorize(Perfis.LEITURA_ACADEMICA)
+    @PreAuthorize(Perfis.LEITURA_ALUNOS)
     @Operation(summary = "Lista as matriculas", description = "Filtros opcionais por turma, aluno e situacao.")
     public List<MatriculaTurmaResponse> listar(@RequestParam(required = false) Long turmaId,
             @RequestParam(required = false) UUID alunoId,
@@ -57,7 +58,7 @@ public class MatriculaTurmaController {
     }
 
     @GetMapping("/pagina")
-    @PreAuthorize(Perfis.LEITURA_ACADEMICA)
+    @PreAuthorize(Perfis.LEITURA_ALUNOS)
     @Operation(summary = "Lista as matriculas em paginas",
             description = "Mesmos filtros da listagem. `pagina` comeca em 0; `tamanho` vai de 1 a 100. "
                     + "`ordenarPor`: ALUNO (padrao, pelo nome) ou DATA_MATRICULA; `direcao`: ASC (padrao) ou DESC.")
@@ -75,7 +76,7 @@ public class MatriculaTurmaController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(Perfis.LEITURA_ACADEMICA)
+    @PreAuthorize(Perfis.LEITURA_ALUNOS)
     @Operation(summary = "Busca uma matricula")
     public MatriculaTurmaResponse buscar(@PathVariable UUID id) {
         return matriculaService.buscar(id);

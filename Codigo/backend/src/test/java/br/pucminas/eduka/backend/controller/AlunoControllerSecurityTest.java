@@ -162,16 +162,26 @@ class AlunoControllerSecurityTest {
         }
 
         @Test
-        void professorListaMasNaoCadastra() throws Exception {
+        void professorNaoLeOCadastroNemCadastra() throws Exception {
+            // O cadastro traz CPF, endereco e responsaveis; ele ve os alunos das proprias turmas pelo portal.
+            String token = accessToken("PROFESSOR", ESCOLA_A);
+
+            mockMvc.perform(getCom("/alunos", token)).andExpect(status().isForbidden());
+            mockMvc.perform(getCom("/alunos/pagina", token)).andExpect(status().isForbidden());
+            mockMvc.perform(getCom("/alunos/" + UUID.randomUUID(), token)).andExpect(status().isForbidden());
+            mockMvc.perform(postCom("/alunos", token, CORPO_VALIDO)).andExpect(status().isForbidden());
+
+            verify(alunoRepository, never()).findAllByEscolaId(any());
+            verify(alunoRepository, never()).findByIdAndEscolaId(any(), any());
+            verify(alunoRepository, never()).save(any());
+        }
+
+        @Test
+        void financeiroLeOCadastroParaCobrar() throws Exception {
             when(alunoRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of());
 
-            mockMvc.perform(getCom("/alunos", accessToken("PROFESSOR", ESCOLA_A)))
+            mockMvc.perform(getCom("/alunos", accessToken("FINANCEIRO", ESCOLA_A)))
                     .andExpect(status().isOk());
-
-            mockMvc.perform(postCom("/alunos", accessToken("PROFESSOR", ESCOLA_A),
-                    CORPO_VALIDO))
-                    .andExpect(status().isForbidden());
-            verify(alunoRepository, never()).save(any());
         }
 
         @Test
