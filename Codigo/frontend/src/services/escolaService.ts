@@ -1,8 +1,13 @@
-import type { Escola, EscolaRequest, EscolaUpdateRequest } from '../types/escola'
+import type { Escola, EscolaRequest, EscolaUpdateRequest, UsoEscola } from '../types/escola'
 import { apiRequest } from './api'
 
 export function listarEscolas(signal?: AbortSignal): Promise<Escola[]> {
   return apiRequest<Escola[]>('/escolas', { signal })
+}
+
+/** Alunos, usuários ativos, cobranças do mês e última atividade de cada escola. Perfil: SUPER_ADMIN. */
+export function listarUsoDasEscolas(signal?: AbortSignal): Promise<UsoEscola[]> {
+  return apiRequest<UsoEscola[]>('/escolas/uso', { signal })
 }
 
 export function buscarEscola(id: string, signal?: AbortSignal): Promise<Escola> {

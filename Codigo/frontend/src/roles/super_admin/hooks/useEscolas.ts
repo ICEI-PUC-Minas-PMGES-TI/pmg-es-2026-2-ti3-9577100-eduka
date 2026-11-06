@@ -4,9 +4,10 @@ import {
   ativarEscola,
   cadastrarEscola,
   listarEscolas,
+  listarUsoDasEscolas,
   suspenderEscola,
 } from '../../../services/escolaService'
-import type { Escola, EscolaRequest } from '../../../types/escola'
+import type { Escola, EscolaRequest, UsoEscola } from '../../../types/escola'
 
 function mensagemDeErro(erro: unknown): string {
   return erro instanceof ApiError ? erro.message : 'Erro inesperado ao carregar as escolas.'
@@ -17,6 +18,24 @@ export function useEscolas() {
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
   const [versao, setVersao] = useState(0)
+  // O uso vem à parte: a lista de escolas não espera por ele, e se ele falhar a lista aparece igual.
+  const [uso, setUso] = useState<Record<string, UsoEscola>>({})
+  const [erroUso, setErroUso] = useState<string | null>(null)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    listarUsoDasEscolas(controller.signal)
+      .then((itens) => {
+        setUso(Object.fromEntries(itens.map((item) => [item.escolaId, item])))
+        setErroUso(null)
+      })
+      .catch((e: unknown) => {
+        if (controller.signal.aborted) return
+        setUso({})
+        setErroUso(e instanceof ApiError ? e.message : 'Erro inesperado ao carregar o uso das escolas.')
+      })
+    return () => controller.abort()
+  }, [versao])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -56,5 +75,5 @@ export function useEscolas() {
     return criada
   }, [])
 
-  return { escolas, carregando, erro, recarregar, alternarSituacao, cadastrar }
+  return { escolas, uso, erroUso, carregando, erro, recarregar, alternarSituacao, cadastrar }
 }

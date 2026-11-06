@@ -15,7 +15,7 @@ import type { EstadoPainelEscolas } from '../EditarEscola/EditarEscola'
 import styles from './PainelEscolas.module.css'
 
 export function PainelEscolas() {
-  const { escolas, carregando, erro, recarregar, alternarSituacao, cadastrar } = useEscolas()
+  const { escolas, uso, erroUso, carregando, erro, recarregar, alternarSituacao, cadastrar } = useEscolas()
   const navigate = useNavigate()
   const location = useLocation()
   // Mensagem de sucesso vinda da tela de edição.
@@ -91,6 +91,12 @@ export function PainelEscolas() {
         </p>
       )}
 
+      {erroUso && !erro && (
+        <p className={styles.alerta} role="alert">
+          Não foi possível carregar o uso das escolas. {erroUso}
+        </p>
+      )}
+
       {erroAcao && (
         <p className={styles.alerta} role="alert">
           {erroAcao}
@@ -99,6 +105,7 @@ export function PainelEscolas() {
 
       <EscolasTable
         escolas={escolas}
+        uso={uso}
         carregando={carregando}
         erro={erro}
         alternandoId={alternandoId}

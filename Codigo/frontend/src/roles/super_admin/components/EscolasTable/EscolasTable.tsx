@@ -5,9 +5,10 @@ import { Icon } from '../../../../components/Icon/Icon'
 import { Paginacao } from '../../../../components/Paginacao/Paginacao'
 import type { OpcaoSelect } from '../../../../components/Select/Select'
 import { usePaginacao } from '../../../../hooks/usePaginacao'
-import { OPCOES_PLANO, ROTULOS_PLANO, type Escola, type PlanoEscola } from '../../../../types/escola'
+import { OPCOES_PLANO, ROTULOS_PLANO, type Escola, type PlanoEscola, type UsoEscola as Uso } from '../../../../types/escola'
 import { formatarCnpjCpf, iniciais, somenteDigitos } from '../../../../utils/formatters'
 import { FiltroDropdown } from '../FiltroDropdown/FiltroDropdown'
+import { UsoEscola } from '../UsoEscola/UsoEscola'
 import styles from './EscolasTable.module.css'
 
 type FiltroSituacao = 'todas' | 'ativas' | 'suspensas'
@@ -41,6 +42,8 @@ function correspondePlano(escola: Escola, filtro: FiltroPlano): boolean {
 
 type EscolasTableProps = {
   escolas: Escola[]
+  /** Uso de cada escola, pelo id. Escola sem entrada fica sem a linha de uso. */
+  uso?: Record<string, Uso>
   carregando: boolean
   erro: string | null
   /** Escola com PATCH em andamento, para travar os botões da linha. */
@@ -55,6 +58,7 @@ type EscolasTableProps = {
 /** Lista de escolas em cards de vidro, com busca e filtros por situação e plano. */
 export function EscolasTable({
   escolas,
+  uso = {},
   carregando,
   erro,
   alternandoId,
@@ -154,6 +158,7 @@ export function EscolasTable({
                   {escola.plano ? `Plano ${ROTULOS_PLANO[escola.plano]}` : 'Sem plano'}
                   {escola.email && ` · ${escola.email}`}
                 </span>
+                <UsoEscola uso={uso[escola.id]} />
               </div>
               {escola.ativo ? (
                 <Badge tone="success" icon="check">

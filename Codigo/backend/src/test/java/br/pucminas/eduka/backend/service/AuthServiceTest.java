@@ -120,6 +120,8 @@ class AuthServiceTest {
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
         assertThat(response.usuarioId()).isEqualTo(usuario.getId());
         assertThat(response.perfil()).isEqualTo(PerfilUsuario.FINANCEIRO);
+        // O acesso conta como atividade da escola no Painel de Escolas.
+        verify(usuarioRepository).registrarAcesso(usuario.getId(), AGORA);
     }
 
     @Test
@@ -292,6 +294,8 @@ class AuthServiceTest {
         assertThat(response.refreshToken()).isNull();
         assertThat(response.trocaSenhaObrigatoria()).isFalse();
         verify(jwtService, never()).generateAccessToken(any(), any(), any());
+        // So conta como acesso quando o codigo e confirmado.
+        verify(usuarioRepository, never()).registrarAcesso(any(), any());
     }
 
     @Test
@@ -313,6 +317,7 @@ class AuthServiceTest {
         authService.login("maria", SENHA);
 
         verify(verificacaoLoginService, never()).iniciar(any());
+        verify(usuarioRepository, never()).registrarAcesso(any(), any());
     }
 
     @Test
@@ -329,6 +334,7 @@ class AuthServiceTest {
         assertThat(response.accessToken()).isEqualTo("access-token");
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
         assertThat(response.verificacao()).isNull();
+        verify(usuarioRepository).registrarAcesso(usuario.getId(), AGORA);
     }
 
     @Test
