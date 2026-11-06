@@ -37,6 +37,12 @@
     box-shadow 0.15s;
 }
 
+/* Texto longo cresce só para baixo: de lado, a alça levaria o campo para fora do card. */
+textarea.control {
+  max-width: 100%;
+  resize: vertical;
+}
+
 .control::placeholder {
   color: var(--color-text-subtle);
 }
