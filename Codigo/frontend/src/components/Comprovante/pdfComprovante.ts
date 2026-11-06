@@ -1,6 +1,7 @@
 import { formatarData } from '../../roles/secretaria/components/PainelSecretaria/formatacao'
 import type { Comprovante } from '../../types/faturaPlataforma'
 import { ROTULOS_FORMA_PAGAMENTO } from '../../types/pagamentoAluno'
+import { salvarArquivo } from '../../utils/arquivos'
 import { formatarMoeda } from '../../utils/formatters'
 
 // PDF do comprovante (IU17-D), montado pelo próprio Edúka com os dados que o
@@ -126,12 +127,5 @@ export function gerarPdfComprovante(comprovante: Comprovante): Uint8Array<ArrayB
 /** Gera o PDF e dispara o download no navegador. */
 export function baixarPdfComprovante(comprovante: Comprovante): void {
   const blob = new Blob([gerarPdfComprovante(comprovante)], { type: 'application/pdf' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `comprovante-${comprovante.numero}.pdf`
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
+  salvarArquivo(blob, `comprovante-${comprovante.numero}.pdf`)
 }

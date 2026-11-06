@@ -304,6 +304,11 @@
   gap: 10px;
 }
 
+/* Espaço para o saldo da barra que chega ao topo do eixo. */
+.areaComSaldos {
+  padding-top: 22px;
+}
+
 /* Marcas do eixo, do topo ao zero, centradas nas linhas da grade. */
 .eixo {
   display: flex;
@@ -350,6 +355,38 @@
 
 .comparativo .colunaGrafico {
   gap: 0;
+}
+
+.comparativo .trilho {
+  position: relative;
+}
+
+/* Saldo do mês, logo acima da barra mais alta dele. */
+.saldoGrupo {
+  position: absolute;
+  left: 50%;
+  margin-bottom: 4px;
+  color: var(--color-success);
+  font-size: 11.5px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.saldoNegativo {
+  color: var(--color-danger);
+}
+
+/* A coluna é o container: em coluna estreita, o saldo fica só no tooltip. */
+.areaComSaldos .colunaGrafico {
+  container-type: inline-size;
+}
+
+@container (max-width: 54px) {
+  .saldoGrupo {
+    display: none;
+  }
 }
 
 /* O mês sob o mouse ganha um fundo, para ler as duas barras juntas. */

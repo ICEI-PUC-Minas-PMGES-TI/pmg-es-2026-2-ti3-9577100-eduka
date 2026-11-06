@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { formatarSaldoCompacto } from '../../utils/formatters'
 import { Button } from '../Button/Button'
 import { Dica } from '../Dica/Dica'
 import { Icon, type IconName } from '../Icon/Icon'
@@ -42,10 +43,12 @@ type MedidorProps = {
   rotulo: string
   /** Vermelho para o que pede atenção (ex.: turma lotada). */
   alerta?: boolean
+  /** O que o leitor de tela lê como valor; o padrão é "valor de máximo". */
+  textoDoValor?: string
 }
 
 /** Barra horizontal de proporção (ocupação de vagas, parte de um total). */
-export function Medidor({ valor, maximo, rotulo, alerta = false }: MedidorProps) {
+export function Medidor({ valor, maximo, rotulo, alerta = false, textoDoValor }: MedidorProps) {
   // Acima do máximo (ou com máximo 0) a barra enche; o meter não aceita valor maior que o teto.
   const teto = Math.max(maximo, valor)
   const percentual = teto > 0 ? (valor / teto) * 100 : 0
@@ -57,7 +60,7 @@ export function Medidor({ valor, maximo, rotulo, alerta = false }: MedidorProps)
       aria-valuemin={0}
       aria-valuemax={teto}
       aria-valuenow={valor}
-      aria-valuetext={`${valor} de ${maximo}`}
+      aria-valuetext={textoDoValor ?? `${valor} de ${maximo}`}
     >
       <div
         className={`${styles.preenchimento} ${alerta ? styles.preenchimentoAlerta : ''}`}
@@ -141,6 +144,8 @@ export type GrupoBarras = {
   valores: number[]
   /** Rótulo completo no tooltip (ex.: "outubro de 2026"); o padrão é o rótulo. */
   titulo?: string
+  /** Saldo do grupo: aparece acima das barras, se couber na coluna, e sempre no tooltip. */
+  saldo?: number
 }
 
 type GraficoComparativoProps = {
@@ -186,6 +191,7 @@ export function GraficoComparativo({
   const topo = topoDoEixo(Math.max(1, ...grupos.flatMap((grupo) => grupo.valores)))
   // Do topo para o zero, na ordem em que aparecem no eixo.
   const marcas = Array.from({ length: FAIXAS_DO_EIXO + 1 }, (_, i) => (topo * (FAIXAS_DO_EIXO - i)) / FAIXAS_DO_EIXO)
+  const mostrarSaldos = grupos.some((grupo) => grupo.saldo !== undefined)
   return (
     <div className={styles.comparativo}>
       <div className={styles.cabecalhoGrafico}>
@@ -200,7 +206,7 @@ export function GraficoComparativo({
         </ul>
         {aoLadoDaLegenda}
       </div>
-      <div className={styles.areaGrafico}>
+      <div className={`${styles.areaGrafico} ${mostrarSaldos ? styles.areaComSaldos : ''}`}>
         <div className={styles.eixo} aria-hidden="true">
           {marcas.map((marca) => (
             <span key={marca}>{formatarEixo(marca)}</span>
@@ -230,17 +236,34 @@ export function GraficoComparativo({
                           <strong>{formatar(valor)}</strong>
                         </span>
                       ))}
+                      {grupo.saldo !== undefined && (
+                        <span className={styles.dicaLinha}>
+                          Saldo
+                          <strong>{formatar(grupo.saldo)}</strong>
+                        </span>
+                      )}
                     </span>
                   }
                 >
                   <div className={`${styles.trilho} ${styles.trilhoAgrupado}`}>
+                    {mostrarSaldos && grupo.saldo !== undefined && (
+                      <span
+                        role="img"
+                        aria-label={`Saldo em ${grupo.titulo ?? grupo.rotulo}: ${formatar(grupo.saldo)}`}
+                        className={`${styles.saldoGrupo} ${grupo.saldo < 0 ? styles.saldoNegativo : ''}`}
+                        style={{ bottom: `${(Math.max(0, ...grupo.valores) / topo) * 100}%` }}
+                      >
+                        {formatarSaldoCompacto(grupo.saldo)}
+                      </span>
+                    )}
                     {grupo.valores.map((valor, indice) => (
                       <div
                         key={series[indice]}
                         role="img"
                         aria-label={`${series[indice]} em ${grupo.titulo ?? grupo.rotulo}: ${formatar(valor)}`}
                         className={`${styles.barraAgrupada} ${CORES_SERIE[indice]}`}
-                        style={{ height: `${(valor / topo) * 100}%` }}
+                        // Um mês só com estornos tem receita negativa: a barra fica no zero.
+                        style={{ height: `${(Math.max(0, valor) / topo) * 100}%` }}
                       />
                     ))}
                   </div>

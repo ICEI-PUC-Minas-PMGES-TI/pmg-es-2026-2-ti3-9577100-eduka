@@ -8,8 +8,8 @@ const MENU: ItemMenu[] = [
   { label: 'Início', icon: 'home', to: paths.financeiro.inicio },
   { label: 'Cobranças', icon: 'card', to: paths.financeiro.cobrancas },
   { label: 'Despesas', icon: 'dollarSign', to: paths.financeiro.despesas },
+  { label: 'Relatórios', icon: 'barChart', to: paths.financeiro.relatorios },
   // Em breve: ainda sem página.
-  { label: 'Relatórios', icon: 'barChart' },
   { label: 'Alunos', icon: 'users' },
 ]
 
@@ -46,6 +46,9 @@ export function FinanceiroLayout({ titulo, subtitulo, acao, children }: Financei
           </p>
           <p style={{ marginTop: '8px' }}>
             Utilize a tela de <strong>Despesas</strong> para lançar contas, salários, materiais e consertos da escola.
+          </p>
+          <p style={{ marginTop: '8px' }}>
+            Em <strong>Relatórios</strong>, escolha o período, confira os números e exporte em CSV.
           </p>
         </div>
       }

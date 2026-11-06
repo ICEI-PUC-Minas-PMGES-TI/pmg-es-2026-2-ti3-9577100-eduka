@@ -4,6 +4,7 @@ import { RotaProtegida } from '../../routes/RotaProtegida'
 import { Cobrancas } from '../financeiro/pages/Cobrancas/Cobrancas'
 import { Despesas } from '../financeiro/pages/Despesas/Despesas'
 import { NovaCobranca } from '../financeiro/pages/NovaCobranca/NovaCobranca'
+import { Relatorios } from '../financeiro/pages/Relatorios/Relatorios'
 import { SecretariaDashboard } from '../secretaria/components/PainelSecretaria/SecretariaDashboard'
 import { Alocacoes } from '../secretaria/pages/Alocacoes/Alocacoes'
 import { Alunos } from '../secretaria/pages/Alunos/Alunos'
@@ -32,5 +33,6 @@ export const masterRoutes: RouteObject = {
     { path: paths.master.cobrancas, element: <Cobrancas /> },
     { path: paths.master.novaCobranca, element: <NovaCobranca /> },
     { path: paths.master.despesas, element: <Despesas /> },
+    { path: paths.master.relatorios, element: <Relatorios /> },
   ],
 }
