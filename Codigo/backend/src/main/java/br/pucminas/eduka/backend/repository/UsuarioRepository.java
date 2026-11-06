@@ -27,7 +27,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
     Optional<Usuario> findByPessoaId(UUID pessoaId);
 
     /**
-     * Grava o login concluido em {@code ULTIMO_ACESSO_EM} (V40). Nativo e fora
+     * Grava o login concluido em {@code ULTIMO_ACESSO_EM} (V42). Nativo e fora
      * da entidade de proposito: um {@code save} de um {@link Usuario} lido
      * antes nao volta a coluna para o valor antigo.
      */
