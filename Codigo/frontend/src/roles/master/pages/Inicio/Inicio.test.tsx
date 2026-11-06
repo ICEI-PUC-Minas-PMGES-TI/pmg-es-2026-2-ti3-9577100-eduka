@@ -73,6 +73,7 @@ const FINANCEIRO: DashboardFinanceiro = {
 function abrir(financeiro: RespostaApi) {
   simularApi(({ caminho }) => {
     if (caminho === '/dashboard/escola') return { corpo: ESCOLA }
+    if (caminho === '/cobrancas/risco-atraso?nivelMinimo=MEDIO') return { corpo: [] }
     if (caminho === '/dashboard/financeiro') return financeiro
     return undefined
   })
@@ -118,6 +119,7 @@ describe('Início do master', () => {
   it('os atalhos levam às telas da secretaria e do financeiro dentro da gestão', async () => {
     simularApi(({ caminho }) => {
       if (caminho === '/dashboard/escola') return { corpo: ESCOLA }
+    if (caminho === '/cobrancas/risco-atraso?nivelMinimo=MEDIO') return { corpo: [] }
       if (caminho === '/dashboard/financeiro') return { corpo: FINANCEIRO }
       return undefined
     })

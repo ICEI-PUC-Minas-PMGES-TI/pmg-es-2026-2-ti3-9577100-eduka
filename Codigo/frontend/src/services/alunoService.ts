@@ -1,5 +1,6 @@
 import type { Aluno, AlunoRequest } from '../types/aluno'
 import type { HistoricoFinanceiro } from '../types/pagamentoAluno'
+import type { RiscoAtraso } from '../types/riscoAtraso'
 import { apiRequest } from './api'
 
 // O backend já limita os alunos à escola de quem está logado. A listagem
@@ -27,6 +28,11 @@ export function reenviarAcessoAluno(id: string): Promise<void> {
 /** Resumo, cobranças e pagamentos de um aluno. Só MASTER e FINANCEIRO; os demais recebem 403. */
 export function buscarHistoricoFinanceiroDoAluno(id: string, signal?: AbortSignal): Promise<HistoricoFinanceiro> {
   return apiRequest<HistoricoFinanceiro>(`/alunos/${id}/financeiro`, { signal })
+}
+
+/** Risco de atraso do aluno (baixo, médio ou alto) e o motivo. Só MASTER e FINANCEIRO. */
+export function buscarRiscoAtrasoDoAluno(id: string, signal?: AbortSignal): Promise<RiscoAtraso> {
+  return apiRequest<RiscoAtraso>(`/alunos/${id}/financeiro/risco`, { signal })
 }
 
 /** Portal do aluno: os dados do próprio aluno logado. */

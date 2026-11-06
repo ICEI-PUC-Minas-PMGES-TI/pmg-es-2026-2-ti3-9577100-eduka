@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { paths } from '../../../../routes/paths'
 import { problema, simularApi, type RespostaApi } from '../../../../test/api'
 import type { DashboardFinanceiro } from '../../../../types/dashboard'
+import type { RiscoAtraso } from '../../../../types/riscoAtraso'
 import { formatarMoeda, hojeIso } from '../../../../utils/formatters'
 import { Cobrancas } from '../Cobrancas/Cobrancas'
 import { Inicio } from './Inicio'
@@ -86,11 +87,34 @@ const PAINEL: DashboardFinanceiro = {
   ultimasAcoes: [],
 }
 
+const RISCO_DA_ANA: RiscoAtraso = {
+  alunoId: 'aluno-ana',
+  alunoNome: 'Ana Souza',
+  alunoNumeroMatricula: '2026001',
+  nivel: 'ALTO',
+  pontos: 5,
+  motivo: 'Atraso médio de 40 dias; R$ 300,00 vencidos em aberto',
+  indicadores: {
+    desde: '2025-11-05',
+    cobrancasVencidas: 4,
+    atrasos: 3,
+    atrasosPagos: 2,
+    atrasosEmAberto: 1,
+    diasMediosAtraso: 40,
+    valorEmAtraso: 300,
+    valorEmAberto: 300,
+  },
+  fatores: [],
+}
+
+const RISCOS = '/cobrancas/risco-atraso?nivelMinimo=MEDIO'
+
 const PAGINA_VAZIA = { conteudo: [], pagina: 0, tamanho: 10, totalElementos: 0, totalPaginas: 0, totaisPorStatus: [] }
 
-function abrir(painel: RespostaApi) {
+function abrir(painel: RespostaApi, riscos: RespostaApi = { corpo: [] }) {
   const chamadas = simularApi(({ caminho }) => {
     if (caminho === '/dashboard/financeiro') return painel
+    if (caminho === RISCOS) return riscos
     if (caminho.startsWith('/cobrancas/pagina?')) return { corpo: PAGINA_VAZIA }
     // O período do calendário: de 5 a 20 de outubro de 2026.
     if (caminho === '/dashboard/financeiro/movimento?de=2026-10-05&ate=2026-10-20') {
@@ -224,6 +248,7 @@ describe('Início do financeiro', () => {
   it('mostra o erro e busca de novo no Tentar novamente', async () => {
     let falhar = true
     const chamadas = simularApi(({ caminho }) => {
+      if (caminho === RISCOS) return { corpo: [] }
       if (caminho !== '/dashboard/financeiro') return undefined
       return falhar ? problema(500, 'ERRO_INTERNO') : { corpo: PAINEL }
     })
@@ -237,6 +262,32 @@ describe('Início do financeiro', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
 
     expect(await screen.findByRole('region', { name: 'Resumo financeiro' })).toBeInTheDocument()
-    expect(chamadas).toHaveLength(2)
+    expect(chamadas.filter((c) => c.caminho === '/dashboard/financeiro')).toHaveLength(2)
+  })
+
+  it('lista os alunos com risco médio ou alto, com o nível e o motivo', async () => {
+    const chamadas = abrir({ corpo: PAINEL }, { corpo: [RISCO_DA_ANA] })
+
+    const painel = await screen.findByRole('region', { name: 'Risco de atraso' })
+    expect(await within(painel).findByText('Ana Souza')).toBeInTheDocument()
+    expect(within(painel).getByText('Risco alto')).toBeInTheDocument()
+    expect(within(painel).getByText('Atraso médio de 40 dias; R$ 300,00 vencidos em aberto')).toBeInTheDocument()
+    expect(within(painel).getByText(reais(300))).toBeInTheDocument()
+    expect(chamadas.map((c) => c.caminho)).toContain(RISCOS)
+  })
+
+  it('avisa quando nenhum aluno tem risco médio ou alto', async () => {
+    abrir({ corpo: PAINEL })
+
+    const painel = await screen.findByRole('region', { name: 'Risco de atraso' })
+    expect(await within(painel).findByText('Nenhum aluno com risco médio ou alto de atraso.')).toBeInTheDocument()
+  })
+
+  it('o erro do risco fica no painel dele, sem derrubar o Início', async () => {
+    abrir({ corpo: PAINEL }, problema(500, 'ERRO_INTERNO'))
+
+    const painel = await screen.findByRole('region', { name: 'Risco de atraso' })
+    expect(await within(painel).findByRole('alert')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Resumo financeiro' })).toBeInTheDocument()
   })
 })

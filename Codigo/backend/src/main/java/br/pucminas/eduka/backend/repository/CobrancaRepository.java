@@ -238,4 +238,45 @@ public interface CobrancaRepository
 
         byte[] getCredencialCifrada();
     }
+    /**
+     * Cobrancas da escola para o risco de atraso: as nao canceladas com
+     * vencimento a partir de {@code desde} e as em aberto de qualquer data. So
+     * as colunas das regras, com a data do pagamento online quando ha.
+     */
+    @Query(SELECT_PARA_RISCO + "WHERE c.escolaId = :escolaId " + FILTRO_PARA_RISCO)
+    List<CobrancaParaRisco> buscarParaRisco(@Param("escolaId") UUID escolaId, @Param("desde") LocalDate desde);
+
+    /** {@link #buscarParaRisco} de um aluno. */
+    @Query(SELECT_PARA_RISCO + "WHERE c.escolaId = :escolaId AND c.aluno.id = :alunoId " + FILTRO_PARA_RISCO)
+    List<CobrancaParaRisco> buscarParaRiscoDoAluno(@Param("escolaId") UUID escolaId,
+            @Param("alunoId") UUID alunoId, @Param("desde") LocalDate desde);
+
+    String SELECT_PARA_RISCO = "SELECT c.aluno.id AS alunoId, c.valor AS valor, "
+            + "c.dataVencimento AS dataVencimento, c.status AS status, c.pagaEm AS pagaEm, "
+            + "p.dataPagamento AS dataPagamento FROM Cobranca c "
+            + "LEFT JOIN PagamentoCobranca p ON p.cobrancaId = c.id AND p.escolaId = c.escolaId ";
+
+    String FILTRO_PARA_RISCO = "AND c.status <> br.pucminas.eduka.backend.domain.StatusCobranca.CANCELADA "
+            + "AND (c.dataVencimento >= :desde OR c.status IN (br.pucminas.eduka.backend.domain.StatusCobranca.PENDENTE, "
+            + "br.pucminas.eduka.backend.domain.StatusCobranca.EM_ATRASO))";
+
+    /**
+     * Cobranca vista pelo risco de atraso.
+     *
+     * {@code dataPagamento} vem do pagamento online; na baixa manual e nula e
+     * vale {@code pagaEm}.
+     */
+    interface CobrancaParaRisco {
+        UUID getAlunoId();
+
+        BigDecimal getValor();
+
+        LocalDate getDataVencimento();
+
+        StatusCobranca getStatus();
+
+        Instant getPagaEm();
+
+        LocalDate getDataPagamento();
+    }
 }

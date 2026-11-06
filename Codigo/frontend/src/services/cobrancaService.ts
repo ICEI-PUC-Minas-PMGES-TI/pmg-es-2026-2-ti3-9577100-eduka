@@ -6,6 +6,7 @@ import type {
   PaginaCobrancas,
   StatusCobranca,
 } from '../types/cobranca'
+import type { NivelRiscoAtraso, RiscoAtraso } from '../types/riscoAtraso'
 import { apiRequest } from './api'
 
 // O backend já limita as cobranças à escola de quem está logado.
@@ -45,4 +46,13 @@ export function cancelarCobranca(id: string): Promise<Cobranca> {
 /** Comprovante do pagamento online, montado pelo Edúka (IU17-D). */
 export function buscarComprovanteDaCobranca(id: string): Promise<Comprovante> {
   return apiRequest<Comprovante>(`/cobrancas/${id}/comprovante`)
+}
+
+/**
+ * Risco de atraso de cada aluno, do maior para o menor, com o motivo.
+ * `nivelMinimo` traz só os desse nível para cima. Perfis: MASTER e FINANCEIRO.
+ */
+export function listarRiscoAtraso(nivelMinimo?: NivelRiscoAtraso, signal?: AbortSignal): Promise<RiscoAtraso[]> {
+  const params = nivelMinimo ? `?${new URLSearchParams({ nivelMinimo })}` : ''
+  return apiRequest<RiscoAtraso[]>(`/cobrancas/risco-atraso${params}`, { signal })
 }
