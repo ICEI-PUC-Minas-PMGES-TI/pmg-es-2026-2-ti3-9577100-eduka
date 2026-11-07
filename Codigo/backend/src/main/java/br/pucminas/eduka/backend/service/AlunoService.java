@@ -1,7 +1,10 @@
 // Codigo/backend/src/main/java/br/pucminas/eduka/backend/service/AlunoService.java
 package br.pucminas.eduka.backend.service;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -61,6 +64,8 @@ import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 @Service
 public class AlunoService {
 
+    private static final ZoneId FUSO_ESCOLA = ZoneId.of("America/Sao_Paulo");
+
     private final AlunoRepository alunoRepository;
     private final PessoaRepository pessoaRepository;
     private final PessoaPapelRepository pessoaPapelRepository;
@@ -68,11 +73,12 @@ public class AlunoService {
     private final IsolamentoEscola isolamentoEscola;
     private final AcessoService acessoService;
     private final MatriculaTurmaRepository matriculaRepository;
+    private final Clock clock;
 
     public AlunoService(AlunoRepository alunoRepository, PessoaRepository pessoaRepository,
             PessoaPapelRepository pessoaPapelRepository, ResponsavelService responsavelService,
             IsolamentoEscola isolamentoEscola, AcessoService acessoService,
-            MatriculaTurmaRepository matriculaRepository) {
+            MatriculaTurmaRepository matriculaRepository, Clock clock) {
         this.alunoRepository = alunoRepository;
         this.pessoaRepository = pessoaRepository;
         this.pessoaPapelRepository = pessoaPapelRepository;
@@ -80,6 +86,7 @@ public class AlunoService {
         this.isolamentoEscola = isolamentoEscola;
         this.acessoService = acessoService;
         this.matriculaRepository = matriculaRepository;
+        this.clock = clock;
     }
 
     /**
@@ -267,12 +274,17 @@ public class AlunoService {
                 .build());
     }
 
-    private static void validar(AlunoRequest request) {
+    private void validar(AlunoRequest request) {
         if (request.nome() == null || request.nome().isBlank()) {
             throw new IllegalArgumentException("Nome do aluno e obrigatorio");
         }
         if (request.matricula() == null || request.matricula().isBlank()) {
             throw new IllegalArgumentException("Matricula do aluno e obrigatoria");
+        }
+        // Qualquer data passada vale; "hoje" e o dia na escola, nao em UTC.
+        if (request.dataNascimento() != null
+                && request.dataNascimento().isAfter(LocalDate.now(clock.withZone(FUSO_ESCOLA)))) {
+            throw new IllegalArgumentException("Data de nascimento nao pode ser futura");
         }
     }
 
