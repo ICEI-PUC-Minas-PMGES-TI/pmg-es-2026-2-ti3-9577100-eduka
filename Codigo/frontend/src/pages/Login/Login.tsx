@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router'
 import logoEduka from '../../assets/eduka-logo-branca.svg'
 import { Icon } from '../../components/Icon/Icon'
 import { VerificacaoCodigo } from '../../components/VerificacaoCodigo/VerificacaoCodigo'
-import { paths, rotaInicialPorPerfil } from '../../routes/paths'
-import { ApiError, ehEscolaSuspensa } from '../../services/api'
+import { rotaInicialPorPerfil } from '../../routes/paths'
+import { ApiError, ehEscolaSuspensa, motivoDaSuspensao, rotaAcessoSuspenso } from '../../services/api'
 import {
   autenticar,
   definirSenhaDefinitiva,
@@ -98,7 +98,7 @@ export function Login() {
       concluir(resposta)
     } catch (err) {
       if (ehEscolaSuspensa(err)) {
-        navigate(paths.acessoSuspenso, { replace: true })
+        navigate(rotaAcessoSuspenso(motivoDaSuspensao(err)), { replace: true })
         return
       }
       setErro(mensagemDeErro(err))
@@ -129,7 +129,7 @@ export function Login() {
       concluir(await definirSenhaDefinitiva(login, senha, novaSenha))
     } catch (err) {
       if (ehEscolaSuspensa(err)) {
-        navigate(paths.acessoSuspenso, { replace: true })
+        navigate(rotaAcessoSuspenso(motivoDaSuspensao(err)), { replace: true })
         return
       }
       setErro(mensagemDeErro(err))
