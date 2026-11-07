@@ -1,0 +1,50 @@
+/* Faixa de alerta acima do conteúdo das telas do MASTER. */
+.aviso {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-lg);
+  background: var(--color-danger-bg);
+  color: var(--color-text);
+}
+
+.icone {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  color: var(--color-danger);
+}
+
+.texto {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 220px;
+  font-size: 14px;
+}
+
+.texto strong {
+  color: var(--color-danger);
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 800;
+}
+
+.acao {
+  flex-shrink: 0;
+  padding: 9px 18px;
+  border-radius: var(--radius-pill);
+  background: var(--button-primary-bg);
+  box-shadow: var(--button-primary-shadow);
+  color: var(--color-on-primary);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}

@@ -89,6 +89,7 @@ public class EscolaService {
         if (request.ativo() != null) {
             if (request.ativo()) {
                 escola.ativar();
+                escolaRepository.reiniciarAvisosDeSuspensao(escola.getId());
             } else {
                 escola.suspender();
             }
@@ -96,12 +97,16 @@ public class EscolaService {
         return EscolaResponse.from(escolaRepository.save(escola));
     }
 
+    @Transactional
     public EscolaResponse ativar(UUID id) {
         Escola escola = buscarOuFalhar(id);
         escola.ativar();
+        // Fatura ainda em aberto volta a ter aviso e prazo antes de suspender de novo.
+        escolaRepository.reiniciarAvisosDeSuspensao(id);
         return EscolaResponse.from(escolaRepository.save(escola));
     }
 
+    @Transactional
     public EscolaResponse suspender(UUID id) {
         Escola escola = buscarOuFalhar(id);
         escola.suspender();

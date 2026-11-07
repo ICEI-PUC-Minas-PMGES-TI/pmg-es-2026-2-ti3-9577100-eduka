@@ -1,8 +1,10 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router'
 import iconeEduka from '../../assets/eduka-icone.svg'
 import { paths } from '../../routes/paths'
-import { limparSessao } from '../../services/authService'
+import { EVENTO_ESCOLA_SUSPENSA, rotaAcessoSuspenso } from '../../services/api'
+import { limparSessao, obterUsuarioLogado } from '../../services/authService'
+import { AvisoSuspensao } from '../AvisoSuspensao/AvisoSuspensao'
 import { iniciais } from '../../utils/formatters'
 import { Button } from '../Button/Button'
 import { Icon, type IconName } from '../Icon/Icon'
@@ -63,6 +65,18 @@ export function PainelLayout({
   const navigate = useNavigate()
   const [ajudaAberta, setAjudaAberta] = useState(false)
   const temMenu = menu.length > 0
+  const ehMaster = obterUsuarioLogado()?.perfil === 'MASTER'
+
+  // A escola foi suspensa com a tela aberta: qualquer requisição volta
+  // ESCOLA_SUSPENSA. Encerra a sessão e mostra o aviso (IU04).
+  useEffect(() => {
+    function aoSuspender(evento: Event) {
+      limparSessao()
+      navigate(rotaAcessoSuspenso((evento as CustomEvent<string | null>).detail), { replace: true })
+    }
+    window.addEventListener(EVENTO_ESCOLA_SUSPENSA, aoSuspender)
+    return () => window.removeEventListener(EVENTO_ESCOLA_SUSPENSA, aoSuspender)
+  }, [navigate])
 
   // JWT e stateless: basta descartar o token local. replace impede que o
   // "voltar" reabra o painel.
@@ -112,7 +126,10 @@ export function PainelLayout({
         </div>
       </header>
 
-      <main className={styles.main}>{children}</main>
+      <main className={styles.main}>
+        {ehMaster && <AvisoSuspensao />}
+        {children}
+      </main>
 
       {temMenu && (
         <nav className={styles.nav} aria-label={menuRotulo}>

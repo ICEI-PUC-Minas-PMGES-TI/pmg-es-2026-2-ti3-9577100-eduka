@@ -7,6 +7,7 @@ import java.util.List;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -38,6 +39,7 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 
 import br.pucminas.eduka.backend.logging.EscolaLogFilter;
+import br.pucminas.eduka.backend.repository.EscolaRepository;
 
 @Configuration
 @EnableWebSecurity
@@ -154,7 +156,8 @@ public class JwtConfig {
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http, SecretKey jwtSecretKey,
 			AuthenticationEntryPoint authenticationEntryPoint,
-			AccessDeniedHandler accessDeniedHandler) throws Exception {
+			AccessDeniedHandler accessDeniedHandler, ObjectProvider<EscolaRepository> escolaRepository,
+			@Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver) throws Exception {
 		return http
 				.csrf(csrf -> csrf.disable())
 				.cors(Customizer.withDefaults())
@@ -186,6 +189,8 @@ public class JwtConfig {
 						.accessDeniedHandler(accessDeniedHandler))
 				// Logo depois do JWT validado: o escolaId do usuario passa a sair em todo log da requisicao.
 				.addFilterAfter(new EscolaLogFilter(), BearerTokenAuthenticationFilter.class)
+				// Escola suspensa depois do login: o token ainda vale, a escola nao (RF24).
+				.addFilterAfter(new EscolaSuspensaFilter(escolaRepository, resolver), EscolaLogFilter.class)
 				.build();
 	}
 }

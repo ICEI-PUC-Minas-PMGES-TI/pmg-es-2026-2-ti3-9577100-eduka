@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import iconeEduka from '../../assets/eduka-icone.svg'
 import { Icon, type IconName } from '../../components/Icon/Icon'
 import { rotaInicialPorPerfil } from '../../routes/paths'
-import { ApiError } from '../../services/api'
+import { ApiError, ehEscolaSuspensa, motivoDaSuspensao, rotaAcessoSuspenso } from '../../services/api'
 import { autenticar, type PerfilUsuario } from '../../services/authService'
 import styles from './LoginDev.module.css'
 
@@ -67,6 +67,11 @@ export function LoginDev() {
       }
       navigate(rotaInicialPorPerfil[perfil], { replace: true })
     } catch (e) {
+      // Escola suspensa: o mesmo aviso (IU04) do login normal.
+      if (ehEscolaSuspensa(e)) {
+        navigate(rotaAcessoSuspenso(motivoDaSuspensao(e)), { replace: true })
+        return
+      }
       if (e instanceof ApiError && e.status === 401) {
         setErro(`A conta de ${conta.rotulo} não existe. ${seFaltar}`)
       } else {

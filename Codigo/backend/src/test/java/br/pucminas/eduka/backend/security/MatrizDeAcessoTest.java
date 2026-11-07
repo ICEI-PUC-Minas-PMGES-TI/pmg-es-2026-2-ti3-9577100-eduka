@@ -100,6 +100,7 @@ class MatrizDeAcessoTest {
                 "GET /auditoria/pagina",
                 "GET /dashboard/escola",
                 "GET /config-pagamento/assinatura",
+                "GET /config-pagamento/assinatura/suspensao",
                 "GET /config-pagamento/conta",
                 "POST /config-pagamento/conta/ativar",
                 "POST /config-pagamento/conta/sincronizar",

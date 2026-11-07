@@ -7,8 +7,7 @@ import {
   type KeyboardEvent,
 } from 'react'
 import { useNavigate } from 'react-router'
-import { paths } from '../../routes/paths'
-import { ApiError, ehEscolaSuspensa } from '../../services/api'
+import { ApiError, ehEscolaSuspensa, motivoDaSuspensao, rotaAcessoSuspenso } from '../../services/api'
 import {
   confirmarCodigo,
   reenviarCodigo,
@@ -146,7 +145,7 @@ export function VerificacaoCodigo({
   function tratarErro(err: unknown, mensagem401: string) {
     if (ehEscolaSuspensa(err)) {
       // A escola foi suspensa entre a senha e o código.
-      navigate(paths.acessoSuspenso, { replace: true })
+      navigate(rotaAcessoSuspenso(motivoDaSuspensao(err)), { replace: true })
     } else if (!(err instanceof ApiError)) {
       setErro('Ocorreu um erro inesperado. Tente novamente.')
     } else if (err.status === 0) {
