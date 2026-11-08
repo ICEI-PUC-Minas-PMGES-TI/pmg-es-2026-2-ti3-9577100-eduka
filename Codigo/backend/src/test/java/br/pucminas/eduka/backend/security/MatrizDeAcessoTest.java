@@ -110,12 +110,13 @@ class MatrizDeAcessoTest {
                 "POST /config-pagamento/faturas/{id}/pagar",
                 "GET /config-pagamento/faturas/{id}/comprovante",
                 "POST /config-pagamento/faturas/{id}/sandbox/pagar",
-                "GET /usuarios/secretarias",
-                "POST /usuarios/secretarias",
-                "GET /usuarios/secretarias/{id}",
-                "PUT /usuarios/secretarias/{id}",
-                "DELETE /usuarios/secretarias/{id}",
-                "PATCH /usuarios/secretarias/{id}/ativar");
+                "GET /usuarios/equipe",
+                "POST /usuarios/equipe",
+                "GET /usuarios/equipe/{id}",
+                "PUT /usuarios/equipe/{id}",
+                "POST /usuarios/equipe/{id}/primeiro-acesso",
+                "PATCH /usuarios/equipe/{id}/inativar",
+                "PATCH /usuarios/equipe/{id}/ativar");
 
         // Estrutura da escola, sem dado pessoal: quem trabalha nela le.
         libera(matriz, EQUIPE,

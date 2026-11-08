@@ -1,6 +1,7 @@
 package br.pucminas.eduka.backend.repository;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,6 +24,10 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
     List<Usuario> findAllByEscolaIdAndPerfil(UUID escolaId, PerfilUsuario perfil);
 
     Optional<Usuario> findByIdAndEscolaIdAndPerfil(UUID id, UUID escolaId, PerfilUsuario perfil);
+
+    List<Usuario> findAllByEscolaIdAndPerfilIn(UUID escolaId, Collection<PerfilUsuario> perfis);
+
+    Optional<Usuario> findByIdAndEscolaIdAndPerfilIn(UUID id, UUID escolaId, Collection<PerfilUsuario> perfis);
 
     Optional<Usuario> findByPessoaId(UUID pessoaId);
 
