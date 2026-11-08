@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import type { EstadoPaginacao } from '../../hooks/usePaginacao'
 import { formatarSaldoCompacto } from '../../utils/formatters'
 import { Button } from '../Button/Button'
 import { Dica } from '../Dica/Dica'
@@ -7,9 +8,23 @@ import styles from './Dashboard.module.css'
 
 // Peças comuns das telas de "Início" (dashboard) de cada perfil.
 
+type ColunasProps = {
+  children: ReactNode
+  /**
+   * Os dois lados com a mesma altura, para não sobrar buraco embaixo do mais
+   * curto. Sem ela, cada painel fica com a altura do próprio conteúdo.
+   */
+  esticar?: boolean
+}
+
 /** Painéis lado a lado; empilham em tela estreita. */
-export function Colunas({ children }: { children: ReactNode }) {
-  return <div className={styles.colunas}>{children}</div>
+export function Colunas({ children, esticar = false }: ColunasProps) {
+  return <div className={`${styles.colunas} ${esticar ? styles.colunasEsticadas : ''}`}>{children}</div>
+}
+
+/** Blocos empilhados numa das Colunas; o último cresce até a altura do lado vizinho. */
+export function Pilha({ children }: { children: ReactNode }) {
+  return <div className={styles.pilha}>{children}</div>
 }
 
 type PainelProps = {
@@ -289,6 +304,69 @@ export function Linhas({ itens }: { itens: { rotulo: string; valor: ReactNode }[
         </div>
       ))}
     </dl>
+  )
+}
+
+type Numero = {
+  rotulo: string
+  valor: ReactNode
+  /** Linha pequena embaixo do valor, ex.: "de 5 turmas". */
+  detalhe?: string
+}
+
+/** Números pequenos em grade, para resumir muita coisa num painel só. */
+export function Numeros({ itens }: { itens: Numero[] }) {
+  return (
+    <dl className={styles.numeros}>
+      {itens.map((item) => (
+        <div key={item.rotulo} className={styles.numero}>
+          <dt>{item.rotulo}</dt>
+          <dd>{item.valor}</dd>
+          {item.detalhe && <span className={styles.numeroDetalhe}>{item.detalhe}</span>}
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+type PaginasDoPainelProps = {
+  paginacao: EstadoPaginacao<unknown>
+  /** Rótulo acessível da navegação, ex.: "Páginas das últimas ações". */
+  rotulo: string
+}
+
+/**
+ * Paginação curta, no pé de um Painel: "1–5 de 12" e as setas. Some quando
+ * a lista cabe numa página.
+ */
+export function PaginasDoPainel({ paginacao, rotulo }: PaginasDoPainelProps) {
+  const { pagina, totalPaginas, inicio, itensDaPagina, total, irPara } = paginacao
+  if (totalPaginas <= 1) return null
+  return (
+    <nav className={styles.paginas} aria-label={rotulo}>
+      <span className={styles.paginasResumo}>
+        {inicio + 1}–{inicio + itensDaPagina.length} de {total}
+      </span>
+      <div className={styles.paginasBotoes}>
+        <Button
+          size="sm"
+          icon="chevronLeft"
+          aria-label="Página anterior"
+          disabled={pagina === 1}
+          onClick={() => irPara(pagina - 1)}
+        />
+        <span className={styles.paginasAtual} aria-live="polite">
+          {pagina} de {totalPaginas}
+        </span>
+        <Button
+          size="sm"
+          icon="chevronRight"
+          aria-label="Próxima página"
+          disabled={pagina === totalPaginas}
+          onClick={() => irPara(pagina + 1)}
+        />
+      </div>
+    </nav>
   )
 }
 
