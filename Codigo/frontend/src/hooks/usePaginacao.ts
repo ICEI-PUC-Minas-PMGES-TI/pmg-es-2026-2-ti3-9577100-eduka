@@ -86,6 +86,17 @@ export function usePaginacao<T, E extends HTMLElement = HTMLDivElement>(
   return { paginacao, topo }
 }
 
+/** Itens por página das listas dos painéis do Início. */
+export const POR_PAGINA_PAINEL = 5
+
+/**
+ * Paginação de uma lista curta dentro de um painel do Início: 5 por página,
+ * sem escolha de quantidade e sem rolar a tela ao trocar de página.
+ */
+export function usePaginasDoPainel<T>(itens: T[], reiniciarCom?: unknown): EstadoPaginacao<T> {
+  return usePaginacao(itens, { porPagina: POR_PAGINA_PAINEL, reiniciarCom }).paginacao
+}
+
 /**
  * Página pedida ao backend (a partir de 0) e quantos itens por página.
  * `irPara` recebe a página como a Paginacao mostra, a partir de 1, e rola até

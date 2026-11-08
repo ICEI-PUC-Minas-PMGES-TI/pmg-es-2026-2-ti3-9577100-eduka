@@ -1,5 +1,6 @@
 import { useCallback, type ReactNode } from 'react'
 import { useCarregamento } from '../../hooks/useCarregamento'
+import { usePaginasDoPainel } from '../../hooks/usePaginacao'
 import { listarRiscoAtraso } from '../../services/cobrancaService'
 import {
   ROTULOS_NIVEL_RISCO,
@@ -9,7 +10,7 @@ import {
 } from '../../types/riscoAtraso'
 import { formatarMoeda } from '../../utils/formatters'
 import { Badge } from '../Badge/Badge'
-import { Painel, PainelVazio } from '../Dashboard/Dashboard'
+import { PaginasDoPainel, Painel, PainelVazio } from '../Dashboard/Dashboard'
 import styles from './RiscoAtraso.module.css'
 
 // Risco de atraso dos alunos (GET /cobrancas/risco-atraso e
@@ -21,9 +22,6 @@ const TOM_NIVEL: Record<NivelRiscoAtraso, 'success' | 'warning' | 'danger'> = {
   MEDIO: 'warning',
   ALTO: 'danger',
 }
-
-/** Itens do painel do Início; o resto vira "e mais N". */
-const LIMITE_LISTA = 8
 
 // Estável: o useCarregamento pede o valor inicial sempre igual.
 const NENHUM: RiscoAtraso[] = []
@@ -38,12 +36,13 @@ export function NivelRisco({ nivel }: { nivel: NivelRiscoAtraso }) {
 
 /**
  * Painel do Início com os alunos de risco médio e alto, do maior para o
- * menor, cada um com o motivo. Busca sozinho, para o resto do Início não
- * esperar por ele.
+ * menor, cada um com o motivo, 5 por página. Busca sozinho, para o resto do
+ * Início não esperar por ele.
  */
 export function AlunosEmRisco({ acao }: { acao?: ReactNode }) {
   const buscar = useCallback((signal: AbortSignal) => listarRiscoAtraso('MEDIO', signal), [])
   const { dados, carregando, erro } = useCarregamento(buscar, NENHUM, 'Não foi possível calcular o risco.')
+  const paginacao = usePaginasDoPainel(dados)
 
   function conteudo() {
     if (carregando) return <PainelVazio>Calculando o risco dos alunos…</PainelVazio>
@@ -51,15 +50,16 @@ export function AlunosEmRisco({ acao }: { acao?: ReactNode }) {
     if (dados.length === 0) {
       return <PainelVazio>Nenhum aluno com risco médio ou alto de atraso.</PainelVazio>
     }
-    const restantes = dados.length - LIMITE_LISTA
     return (
       <>
         <ul className={styles.lista}>
-          {dados.slice(0, LIMITE_LISTA).map((risco) => (
+          {paginacao.itensDaPagina.map((risco) => (
             <li key={risco.alunoId} className={styles.item}>
               <div className={styles.corpo}>
                 <strong className={styles.titulo}>{risco.alunoNome ?? 'Aluno sem nome'}</strong>
-                <span className={styles.contexto}>{risco.motivo}</span>
+                <span className={`${styles.contexto} ${styles.motivoCurto}`} title={risco.motivo}>
+                  {risco.motivo}
+                </span>
               </div>
               <div className={styles.lado}>
                 {risco.indicadores.valorEmAtraso > 0 && (
@@ -70,11 +70,7 @@ export function AlunosEmRisco({ acao }: { acao?: ReactNode }) {
             </li>
           ))}
         </ul>
-        {restantes > 0 && (
-          <p className={styles.mais}>
-            E mais {restantes} {restantes === 1 ? 'aluno' : 'alunos'} com risco médio ou alto.
-          </p>
-        )}
+        <PaginasDoPainel paginacao={paginacao} rotulo="Páginas dos alunos em risco" />
       </>
     )
   }

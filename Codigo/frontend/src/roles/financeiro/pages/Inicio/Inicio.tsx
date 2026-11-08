@@ -87,14 +87,19 @@ function Resumo({ dados }: { dados: DashboardFinanceiro }) {
 
       <EntrouESaiu meses={dados.ultimosMeses} />
 
-      <Colunas>
+      <Colunas esticar>
         <VencemNaSemana
           cobrancas={dados.vencemNaSemana}
-          acao={
-            <Button size="sm" icon="arrowRight" onClick={() => navigate(paths.financeiro.cobrancas)}>
+          totalEmAtraso={emAtraso.cobrancas}
+          acao={(aba) => (
+            <Button
+              size="sm"
+              icon="arrowRight"
+              onClick={() => navigate(aba === 'EM_ATRASO' ? COBRANCAS_EM_ATRASO : paths.financeiro.cobrancas)}
+            >
               Ver cobranças
             </Button>
-          }
+          )}
         />
         <UltimosPagamentos pagamentos={dados.ultimosPagamentos} />
       </Colunas>

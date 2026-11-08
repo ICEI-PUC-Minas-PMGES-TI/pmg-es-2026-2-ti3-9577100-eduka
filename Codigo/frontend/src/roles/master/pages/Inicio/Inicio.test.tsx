@@ -95,7 +95,26 @@ describe('Início do master', () => {
     expect(within(resumo).getByText('Alunos · 18% de inadimplência')).toBeInTheDocument()
 
     expect(screen.getByRole('region', { name: 'Dinheiro que entrou e saiu' })).toBeInTheDocument()
-    expect(screen.getByText('8 ativos de 9')).toBeInTheDocument()
+    const numeros = screen.getByRole('region', { name: 'A escola em números' })
+    expect(within(numeros).getByText('1 inativo')).toBeInTheDocument()
+  })
+
+  it('pagina as últimas ações de 5 em 5', async () => {
+    const acoes = Array.from({ length: 7 }, (_, i) => ({
+      ...FINANCEIRO.ultimasAcoes[0],
+      usuarioNome: `Pessoa ${i + 1}`,
+      registroId: `cob-${i}`,
+    }))
+    abrir({ corpo: { ...FINANCEIRO, ultimasAcoes: acoes } })
+
+    const painel = await screen.findByRole('region', { name: 'Últimas ações' })
+    expect(within(painel).getByText('Pessoa 5')).toBeInTheDocument()
+    expect(within(painel).queryByText('Pessoa 6')).not.toBeInTheDocument()
+    expect(within(painel).getByRole('button', { name: 'Página anterior' })).toBeDisabled()
+
+    await userEvent.click(within(painel).getByRole('button', { name: 'Próxima página' }))
+    expect(within(painel).getByText('Pessoa 7')).toBeInTheDocument()
+    expect(within(painel).getByText('6–7 de 7')).toBeInTheDocument()
   })
 
   it('conta quem fez cada ação, inclusive as que vêm do Asaas', async () => {

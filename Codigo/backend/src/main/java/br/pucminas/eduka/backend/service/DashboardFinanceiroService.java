@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
@@ -92,9 +93,6 @@ public class DashboardFinanceiroService {
     private static final CobrancaFiltro PAGAS = new CobrancaFiltro(null, null, StatusCobranca.PAGA, null, null);
     private static final CobrancaFiltro ATRASADAS = new CobrancaFiltro(null, null, StatusCobranca.EM_ATRASO, null,
             null);
-    // Em aberto e a situacao gravada: a efetiva so troca PENDENTE por EM_ATRASO, e as duas estao em aberto.
-    private static final Specification<Cobranca> EM_ABERTO = (cobranca, query, cb) -> cobranca.get("status")
-            .in(StatusCobranca.PENDENTE, StatusCobranca.EM_ATRASO);
     private static final Specification<Cobranca> COM_DATA_DE_PAGAMENTO = (cobranca, query, cb) -> cb
             .isNotNull(cobranca.get("pagaEm"));
     private static final Total NADA = new Total(BigDecimal.ZERO, 0);
@@ -155,11 +153,13 @@ public class DashboardFinanceiroService {
         Total pendentes = porStatus.getOrDefault(StatusCobranca.PENDENTE, NADA);
         Total emAtraso = porStatus.getOrDefault(StatusCobranca.EM_ATRASO, NADA);
 
-        // Em aberto (em atraso ou nao) que vence ate o fim da semana, o vencimento mais antigo primeiro.
-        Specification<Cobranca> daSemanaEmAberto = new CobrancaFiltro(null, null, null, null,
-                hoje.plusDays(DIAS_DA_SEMANA)).daEscola(escolaId, hoje).and(EM_ABERTO);
-        List<Cobranca> daSemana = cobrancaRepository.findAll(daSemanaEmAberto,
-                PageRequest.of(0, LIMITE_LISTA, Sort.by("dataVencimento", "id"))).getContent();
+        // As em atraso e as que vencem na semana, ate LIMITE_LISTA de cada, o vencimento mais antigo primeiro.
+        // Separadas: numa lista so, atrasos antigos ocupariam todas as vagas e a semana sumiria da tela.
+        PageRequest porVencimento = PageRequest.of(0, LIMITE_LISTA, Sort.by("dataVencimento", "id"));
+        List<Cobranca> daSemana = new ArrayList<>(
+                cobrancaRepository.findAll(ATRASADAS.daEscola(escolaId, hoje), porVencimento).getContent());
+        daSemana.addAll(cobrancaRepository.findAll(new CobrancaFiltro(null, null, StatusCobranca.PENDENTE, hoje,
+                hoje.plusDays(DIAS_DA_SEMANA)).daEscola(escolaId, hoje), porVencimento).getContent());
         List<Recebido> ultimosRecebidos = recebidos(cobrancaRepository.findAll(
                 PAGAS.daEscola(escolaId, hoje).and(COM_DATA_DE_PAGAMENTO),
                 PageRequest.of(0, LIMITE_LISTA, Sort.by(Sort.Direction.DESC, "pagaEm", "id"))).getContent(),
