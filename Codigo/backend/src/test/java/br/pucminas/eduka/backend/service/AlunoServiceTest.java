@@ -11,6 +11,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -92,7 +96,7 @@ class AlunoServiceTest {
                 alunoResponsavelRepository, alunoRepository, pessoaRepository, pessoaPapelRepository,
                 cobrancaRepository, isolamentoEscola);
         alunoService = new AlunoService(alunoRepository, pessoaRepository, pessoaPapelRepository,
-                responsavelService, isolamentoEscola, acessoService, matriculaRepository);
+                responsavelService, isolamentoEscola, acessoService, matriculaRepository, RELOGIO);
     }
 
     @AfterEach
@@ -113,6 +117,15 @@ class AlunoServiceTest {
 
     private static Pessoa pessoa(String nome) {
         return Pessoa.builder().id(UUID.randomUUID()).nome(nome).cpf("12345678900").ativo(true).build();
+    }
+
+    /** 22h de 07/11/2026 em Brasilia: em UTC ja e dia 08. */
+    private static final Clock RELOGIO = Clock.fixed(Instant.parse("2026-11-08T01:00:00Z"), ZoneOffset.UTC);
+    private static final LocalDate HOJE_NA_ESCOLA = LocalDate.of(2026, 11, 7);
+
+    private static AlunoRequest comNascimento(LocalDate dataNascimento) {
+        return new AlunoRequest("Ana", "12345678900", "ana@example.com", dataNascimento, null, "2026-001", null,
+                null);
     }
 
     private static AlunoRequest request(String nome, String matricula, EnderecoRequest endereco,
@@ -420,6 +433,42 @@ class AlunoServiceTest {
         verify(alunoRepository, never()).save(any());
         verify(pessoaRepository, never()).save(any());
         verify(acessoService, never()).enviarAcessoInicial(any(), any());
+    }
+
+    @Test
+    void cadastrarComNascimentoFuturoNoFusoDaEscolaEhRejeitado() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+
+        // Dia 08 ja chegou em UTC, mas ainda e futuro na escola.
+        assertThatThrownBy(() -> alunoService.cadastrar(comNascimento(HOJE_NA_ESCOLA.plusDays(1))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("futura");
+        verify(alunoRepository, never()).save(any());
+        verify(pessoaRepository, never()).save(any());
+        verify(acessoService, never()).enviarAcessoInicial(any(), any());
+    }
+
+    @Test
+    void cadastrarAceitaNascimentoHojeOuAntesDe2016() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(alunoRepository.save(any(Aluno.class))).thenAnswer(inv -> inv.getArgument(0));
+        stubAcessoCriado(UUID.randomUUID());
+
+        assertThat(alunoService.cadastrar(comNascimento(HOJE_NA_ESCOLA)).dataNascimento())
+                .isEqualTo(HOJE_NA_ESCOLA);
+        assertThat(alunoService.cadastrar(comNascimento(LocalDate.of(1985, 5, 20))).dataNascimento())
+                .isEqualTo(LocalDate.of(1985, 5, 20));
+    }
+
+    @Test
+    void atualizarComNascimentoFuturoEhRejeitado() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+
+        assertThatThrownBy(() -> alunoService.atualizar(UUID.randomUUID(),
+                comNascimento(HOJE_NA_ESCOLA.plusDays(1))))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(pessoaRepository, never()).save(any());
     }
 
     @Test

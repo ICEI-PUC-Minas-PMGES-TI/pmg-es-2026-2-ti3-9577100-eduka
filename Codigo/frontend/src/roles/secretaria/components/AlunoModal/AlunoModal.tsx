@@ -12,7 +12,7 @@ import {
   type AlunoRequest,
   type Endereco,
 } from '../../../../types/aluno'
-import { cpfValido, mascararCep, mascararCpf, somenteDigitos } from '../../../../utils/formatters'
+import { cpfValido, hojeIso, mascararCep, mascararCpf, somenteDigitos } from '../../../../utils/formatters'
 import { CamposDoResponsavel } from '../ResponsaveisDoAluno/CamposDoResponsavel'
 import {
   RESPONSAVEL_VAZIO,
@@ -41,6 +41,9 @@ type Campos = {
 }
 
 type Erros = Partial<Record<keyof Campos, string>>
+
+/** Início da seleção de ano da data de nascimento; o fim é hoje. */
+const DATA_NASCIMENTO_MINIMA = '1900-01-01'
 
 const CAMPOS_INICIAIS: Campos = {
   nome: '',
@@ -95,6 +98,11 @@ function validar(campos: Campos): Erros {
 
   if (!campos.email.trim()) erros.email = 'Informe o e-mail do aluno.'
   else if (!EMAIL_REGEX.test(campos.email.trim())) erros.email = 'E-mail inválido.'
+
+  // ISO compara como texto. O backend recusa a mesma data futura.
+  if (campos.dataNascimento && campos.dataNascimento > hojeIso()) {
+    erros.dataNascimento = 'A data de nascimento não pode ser futura.'
+  }
 
   // Endereço é opcional: só valida o que foi digitado.
   const cep = somenteDigitos(campos.cep)
@@ -354,6 +362,9 @@ export function AlunoModal({ alunoId, onFechar, onSalvar, onSalvo, turmas = [] }
                   <CampoData
                     {...props}
                     name="dataNascimento"
+                    min={DATA_NASCIMENTO_MINIMA}
+                    max={hojeIso()}
+                    mesInicial={hojeIso()}
                     valor={campos.dataNascimento}
                     onChange={(data) => alterar('dataNascimento', data)}
                   />
