@@ -28,8 +28,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.Avaliacao;
 import br.pucminas.eduka.backend.domain.Disciplina;
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.MatriculaTurma;
 import br.pucminas.eduka.backend.domain.Nota;
+import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.Professor;
 import br.pucminas.eduka.backend.domain.StatusMatricula;
@@ -68,6 +70,8 @@ class AvaliacaoServiceTest {
     @Mock
     private AvaliacaoRepository avaliacaoRepository;
     @Mock
+    private AuditoriaService auditoriaService;
+    @Mock
     private NotaRepository notaRepository;
     @Mock
     private ProfessorRepository professorRepository;
@@ -92,7 +96,7 @@ class AvaliacaoServiceTest {
     void setUp() {
         service = new AvaliacaoService(avaliacaoRepository, notaRepository, professorRepository, alocacaoRepository,
                 turmaRepository, disciplinaRepository, matriculaRepository, pessoaRepository,
-                new IsolamentoEscola());
+                new IsolamentoEscola(), auditoriaService);
         SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
                 new UsuarioAutenticado(USUARIO, "PROFESSOR", ESCOLA), null, "ROLE_PROFESSOR"));
 
@@ -312,6 +316,27 @@ class AvaliacaoServiceTest {
         assertThat(notaBruno.getValor()).isEqualByComparingTo("6");
         assertThat(notaBruno.getAtualizadoEm()).isNotNull();
         verify(notaRepository).delete(notaCarla);
+        // Uma linha por nota que mudou, com o id da nota.
+        verify(auditoriaService).registrar(OperacaoAuditoria.CRIAR, EntidadeAuditada.NOTA, nova.getId());
+        verify(auditoriaService).registrar(OperacaoAuditoria.EDITAR, EntidadeAuditada.NOTA, notaBruno.getId());
+        verify(auditoriaService).registrar(OperacaoAuditoria.EXCLUIR, EntidadeAuditada.NOTA, notaCarla.getId());
+    }
+
+    @Test
+    void reenviarODiarioIgualNaoEntraNoLog() {
+        Avaliacao avaliacao = avaliacaoExistente("10");
+        Aluno ana = aluno();
+        when(matriculaRepository.findAllByEscolaIdAndTurmaId(ESCOLA, 1L))
+                .thenReturn(List.of(matricula(ana, StatusMatricula.ATIVA)));
+        when(notaRepository.findAllByEscolaIdAndAvaliacaoId(ESCOLA, avaliacao.getId())).thenReturn(List.of(
+                Nota.builder().id(UUID.randomUUID()).avaliacao(avaliacao).aluno(ana).valor(new BigDecimal("8.0"))
+                        .observacao("Boa").build()));
+
+        service.lancarNotas(avaliacao.getId(), new LancarNotasRequest(
+                List.of(new NotaLancamento(ana.getId(), new BigDecimal("8"), " Boa "))));
+
+        verify(notaRepository, never()).save(any());
+        verify(auditoriaService, never()).registrar(any(), any(), any());
     }
 
     @Test
@@ -328,6 +353,9 @@ class AvaliacaoServiceTest {
         service.lancarNotas(avaliacao.getId(), new LancarNotasRequest(notas, false));
         assertThat(avaliacao.isNotasPublicadas()).isTrue();
         verify(avaliacaoRepository, org.mockito.Mockito.times(2)).save(avaliacao);
+        // Publicar entra no log uma vez, quando o rascunho vira boletim.
+        verify(auditoriaService).registrar(OperacaoAuditoria.PUBLICAR_NOTAS, EntidadeAuditada.AVALIACAO,
+                avaliacao.getId());
     }
 
     @Test

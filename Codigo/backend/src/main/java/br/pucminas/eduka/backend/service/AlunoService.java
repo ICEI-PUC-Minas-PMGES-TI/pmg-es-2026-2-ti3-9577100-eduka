@@ -18,6 +18,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.pucminas.eduka.backend.domain.Aluno;
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.PapelPessoa;
 import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Pessoa;
@@ -74,11 +76,12 @@ public class AlunoService {
     private final AcessoService acessoService;
     private final MatriculaTurmaRepository matriculaRepository;
     private final Clock clock;
+    private final AuditoriaService auditoriaService;
 
     public AlunoService(AlunoRepository alunoRepository, PessoaRepository pessoaRepository,
             PessoaPapelRepository pessoaPapelRepository, ResponsavelService responsavelService,
             IsolamentoEscola isolamentoEscola, AcessoService acessoService,
-            MatriculaTurmaRepository matriculaRepository, Clock clock) {
+            MatriculaTurmaRepository matriculaRepository, Clock clock, AuditoriaService auditoriaService) {
         this.alunoRepository = alunoRepository;
         this.pessoaRepository = pessoaRepository;
         this.pessoaPapelRepository = pessoaPapelRepository;
@@ -87,6 +90,7 @@ public class AlunoService {
         this.acessoService = acessoService;
         this.matriculaRepository = matriculaRepository;
         this.clock = clock;
+        this.auditoriaService = auditoriaService;
     }
 
     /**
@@ -195,6 +199,7 @@ public class AlunoService {
                 .build());
 
         List<ResponsavelResponse> responsaveis = responsavelService.vincularAoNovoAluno(aluno, request.responsaveis());
+        auditoriaService.registrar(OperacaoAuditoria.CRIAR, EntidadeAuditada.ALUNO, aluno.getId());
         return AlunoResponse.de(aluno, pessoaAluno, responsaveis);
     }
 
@@ -233,6 +238,7 @@ public class AlunoService {
 
         acessoService.sincronizarLogin(pessoa);
         Pessoa pessoaSalva = pessoaRepository.save(pessoa);
+        auditoriaService.registrar(OperacaoAuditoria.EDITAR, EntidadeAuditada.ALUNO, aluno.getId());
         return AlunoResponse.de(alunoRepository.save(aluno), pessoaSalva, responsavelService.responsaveisDoAluno(aluno.getId(), escolaId));
     }
 
@@ -253,6 +259,7 @@ public class AlunoService {
             aluno.setUsuarioId(usuario.getId());
             alunoRepository.save(aluno);
         }
+        auditoriaService.registrar(OperacaoAuditoria.REENVIAR_ACESSO, EntidadeAuditada.ALUNO, aluno.getId());
     }
 
     private Pessoa criarPessoa(UUID escolaId, String nome, String cpf, java.time.LocalDate dataNascimento,

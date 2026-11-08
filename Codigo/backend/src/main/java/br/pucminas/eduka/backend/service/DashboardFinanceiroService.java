@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.pucminas.eduka.backend.domain.Cobranca;
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.LogAuditoria;
 import br.pucminas.eduka.backend.domain.OrigemPagamento;
 import br.pucminas.eduka.backend.domain.PagamentoCobranca;
@@ -99,6 +101,14 @@ public class DashboardFinanceiroService {
             .isNotNull(cobranca.get("pagaEm"));
     private static final Total NADA = new Total(BigDecimal.ZERO, 0);
 
+    /**
+     * "Ultimas acoes" e o painel do financeiro: o log tem tambem alunos, notas
+     * e equipe, que ficam no registro de atividades.
+     */
+    static final Set<EntidadeAuditada> ENTIDADES_FINANCEIRAS = EnumSet.of(EntidadeAuditada.COBRANCA,
+            EntidadeAuditada.PAGAMENTO, EntidadeAuditada.DESPESA, EntidadeAuditada.CONTA_RECEBIMENTO,
+            EntidadeAuditada.FATURA_PLATAFORMA);
+
     private final CobrancaRepository cobrancaRepository;
     private final PagamentoCobrancaRepository pagamentoRepository;
     private final DespesaRepository despesaRepository;
@@ -164,7 +174,8 @@ public class DashboardFinanceiroService {
                 PAGAS.daEscola(escolaId, hoje).and(COM_DATA_DE_PAGAMENTO),
                 PageRequest.of(0, LIMITE_LISTA, Sort.by(Sort.Direction.DESC, "pagaEm", "id"))).getContent(),
                 escolaId);
-        List<LogAuditoria> acoes = logAuditoriaRepository.findTop10ByEscolaIdOrderByDataHoraDesc(escolaId);
+        List<LogAuditoria> acoes = logAuditoriaRepository.findTop10ByEscolaIdAndEntidadeInOrderByDataHoraDesc(escolaId,
+                ENTIDADES_FINANCEIRAS);
         Map<UUID, Usuario> autores = usuarioRepository
                 .findAllById(acoes.stream().map(LogAuditoria::getUsuarioId).collect(Collectors.toSet())).stream()
                 .collect(Collectors.toMap(Usuario::getId, Function.identity()));

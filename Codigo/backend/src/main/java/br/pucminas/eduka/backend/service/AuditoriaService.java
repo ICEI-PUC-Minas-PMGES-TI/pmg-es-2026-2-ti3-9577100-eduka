@@ -16,7 +16,9 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 
 /**
- * Grava no {@code LOG_AUDITORIA} quem fez cada operacao financeira (RNF05).
+ * Grava no {@code LOG_AUDITORIA} quem fez cada operacao (RNF05): o
+ * financeiro, a equipe, alunos, professores, matriculas, avaliacoes, notas e
+ * a propria escola.
  *
  * <p>
  * Chamado pelos services depois de salvar o registro, dentro da mesma
@@ -64,6 +66,44 @@ public class AuditoriaService {
                 .escolaId(usuario.escolaId())
                 .usuarioId(usuario.id())
                 .origem(OrigemAuditoria.USUARIO)
+                .operacao(operacao)
+                .entidade(entidade)
+                .registroId(registroId)
+                .dataHora(clock.instant())
+                .build());
+    }
+
+    /**
+     * Registra que o usuario autenticado fez {@code operacao} num registro de
+     * outra escola que nao a do token: o SUPER_ADMIN, que nao tem escola,
+     * mexendo numa escola. A linha fica com a escola afetada, para o MASTER
+     * dela ver no registro de atividades.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void registrarNaEscola(OperacaoAuditoria operacao, EntidadeAuditada entidade, UUID registroId,
+            UUID escolaId) {
+        UsuarioAutenticado usuario = isolamentoEscola.usuarioAtual();
+        logAuditoriaRepository.save(LogAuditoria.builder()
+                .escolaId(escolaId)
+                .usuarioId(usuario.id())
+                .origem(OrigemAuditoria.USUARIO)
+                .operacao(operacao)
+                .entidade(entidade)
+                .registroId(registroId)
+                .dataHora(clock.instant())
+                .build());
+    }
+
+    /**
+     * Registra uma operacao que uma rotina do proprio Eduka fez, sem usuario
+     * (ex.: suspender a escola por fatura em atraso).
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void registrarDoSistema(OperacaoAuditoria operacao, EntidadeAuditada entidade, UUID registroId,
+            UUID escolaId) {
+        logAuditoriaRepository.save(LogAuditoria.builder()
+                .escolaId(escolaId)
+                .origem(OrigemAuditoria.SISTEMA)
                 .operacao(operacao)
                 .entidade(entidade)
                 .registroId(registroId)

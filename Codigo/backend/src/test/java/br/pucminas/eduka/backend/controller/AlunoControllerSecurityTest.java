@@ -49,6 +49,7 @@ import br.pucminas.eduka.backend.security.PasswordEncoderConfig;
 import br.pucminas.eduka.backend.service.AcessoService;
 import br.pucminas.eduka.backend.service.AlunoService;
 import br.pucminas.eduka.backend.service.ResponsavelService;
+import br.pucminas.eduka.backend.service.AuditoriaService;
 
 /**
  * Contrato de seguranca do primeiro recurso de negocio, ponta a ponta: filter
@@ -74,6 +75,8 @@ class AlunoControllerSecurityTest {
 
     @MockitoBean
     private AlunoRepository alunoRepository;
+    @MockitoBean
+    private AuditoriaService auditoriaService;
     @MockitoBean
     private PessoaRepository pessoaRepository;
     @MockitoBean

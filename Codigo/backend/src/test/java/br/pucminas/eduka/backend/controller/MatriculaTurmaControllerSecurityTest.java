@@ -49,6 +49,7 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.MatriculaTurmaService;
+import br.pucminas.eduka.backend.service.AuditoriaService;
 
 /**
  * Contrato das matriculas, ponta a ponta: filter chain, tokens,
@@ -70,6 +71,8 @@ class MatriculaTurmaControllerSecurityTest {
 
     @MockitoBean
     private MatriculaTurmaRepository matriculaRepository;
+    @MockitoBean
+    private AuditoriaService auditoriaService;
     @MockitoBean
     private AlunoRepository alunoRepository;
     @MockitoBean
