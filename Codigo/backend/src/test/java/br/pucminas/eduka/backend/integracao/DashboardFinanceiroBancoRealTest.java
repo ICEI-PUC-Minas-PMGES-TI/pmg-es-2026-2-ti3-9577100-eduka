@@ -218,6 +218,27 @@ class DashboardFinanceiroBancoRealTest extends BancoRealTest {
     }
 
     @Test
+    void atrasosAntigosNaoEscondemOQueVenceNaSemana() {
+        UUID escola = dados.escola();
+        UUID ana = dados.aluno(escola, "Ana Souza");
+        for (int dias = 30; dias < 42; dias++) {
+            dados.cobranca(escola, ana, StatusCobranca.PENDENTE, hoje.minusDays(dias), reais("100.00"));
+        }
+        UUID naSemana = dados.cobranca(escola, ana, StatusCobranca.PENDENTE, hoje.plusDays(2), reais("150.00"));
+        dados.cobranca(escola, ana, StatusCobranca.PENDENTE, hoje.plusDays(7), reais("150.00"));
+
+        autenticarComo("FINANCEIRO", escola);
+        List<CobrancaDaSemana> lista = dashboardFinanceiroService.painel().vencemNaSemana();
+
+        // 10 das 12 em atraso, as mais antigas primeiro, e depois a da semana; a de daqui a 7 dias fica fora.
+        assertThat(lista).hasSize(11);
+        assertThat(lista.subList(0, 10)).allMatch(c -> c.status() == StatusCobranca.EM_ATRASO);
+        assertThat(lista.getFirst().dataVencimento()).isEqualTo(hoje.minusDays(41));
+        assertThat(lista.getLast().id()).isEqualTo(naSemana);
+        assertThat(lista.getLast().status()).isEqualTo(StatusCobranca.PENDENTE);
+    }
+
+    @Test
     void escolaSemMovimentoTemPainelZerado() {
         autenticarComo("MASTER", dados.escola());
 
