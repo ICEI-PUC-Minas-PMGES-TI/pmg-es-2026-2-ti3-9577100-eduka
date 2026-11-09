@@ -5,9 +5,13 @@ import { Icon } from '../../../../components/Icon/Icon'
 import { Paginacao } from '../../../../components/Paginacao/Paginacao'
 import { Select, type OpcaoSelect } from '../../../../components/Select/Select'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
+import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { usePaginacao } from '../../../../hooks/usePaginacao'
 import { paths, type EstadoNovaAvaliacao } from '../../../../routes/paths'
+import { obterDashboardProfessor } from '../../../../services/portalProfessorService'
+import type { AvaliacaoResumo } from '../../../../types/dashboard'
 import type { TurmaDoProfessor } from '../../../../types/turmaProfessor'
+import { plural } from '../../../../utils/formatters'
 import { GradeSemanal } from '../../components/GradeSemanal/GradeSemanal'
 import { ModalAlunosDaTurma } from '../../components/ModalAlunosDaTurma/ModalAlunosDaTurma'
 import { TurmaCard } from '../../components/TurmaCard/TurmaCard'
@@ -46,9 +50,31 @@ function avaliacoesDaTurma(turma: TurmaDoProfessor): string {
   return `${paths.professor.avaliacoes}?${params}`
 }
 
+/** Lançar notas: na avaliação mais antiga com nota faltando, ou na turma quando está tudo em dia. */
+function lancarNotasDaTurma(turma: TurmaDoProfessor, pendentes: AvaliacaoResumo[]): string {
+  const primeira = pendentes[0]
+  if (!primeira) return avaliacoesDaTurma(turma)
+  const params = new URLSearchParams({
+    turma: String(primeira.turmaId),
+    disciplina: String(primeira.disciplinaId),
+    avaliacao: primeira.id,
+  })
+  return `${paths.professor.avaliacoes}?${params}`
+}
+
+const SEM_PENDENCIAS: AvaliacaoResumo[] = []
+
+// Só as notas a lançar do resumo do professor; se ele falhar, a tela segue sem elas.
+function buscarPendentes(signal: AbortSignal): Promise<AvaliacaoResumo[]> {
+  return obterDashboardProfessor(signal).then((dashboard) => dashboard.avaliacoesPendentes)
+}
+
 export function MinhasTurmas() {
   const navigate = useNavigate()
   const { turmas, carregando, erro, recarregar } = useMinhasTurmas()
+  // Avaliações já realizadas com aluno sem nota, da mais antiga para a mais recente.
+  const { dados: pendentes } = useCarregamento(buscarPendentes, SEM_PENDENCIAS, '')
+  const pendentesDa = (turma: TurmaDoProfessor) => pendentes.filter((p) => p.turmaId === turma.id)
   const [vendoAlunos, setVendoAlunos] = useState<TurmaDoProfessor | null>(null)
   const [busca, setBusca] = useState('')
   const [periodo, setPeriodo] = useState(TODOS_PERIODOS)
@@ -82,6 +108,16 @@ export function MinhasTurmas() {
             />
             <StatCard label="Disciplinas" value={disciplinas} descricao="Que você leciona" />
             <StatCard label="Carga horária" value={`${cargaHoraria} h`} descricao="Somando todas as turmas" />
+            <StatCard
+              label="Notas a lançar"
+              value={pendentes.length}
+              descricao={
+                pendentes.length > 0
+                  ? plural(pendentes.length, 'Avaliação com nota faltando', 'Avaliações com nota faltando')
+                  : 'Tudo em dia'
+              }
+              alerta={pendentes.length > 0}
+            />
           </StatCards>
 
           <div className={styles.toolbar}>
@@ -138,8 +174,9 @@ export function MinhasTurmas() {
               <TurmaCard
                 key={turma.id}
                 turma={turma}
+                pendentes={pendentesDa(turma)}
                 onVerAlunos={setVendoAlunos}
-                onLancarNotas={(t) => navigate(avaliacoesDaTurma(t))}
+                onLancarNotas={(t) => navigate(lancarNotasDaTurma(t, pendentesDa(t)))}
                 onCriarAvaliacao={(t) =>
                   navigate(avaliacoesDaTurma(t), {
                     state: { abrirCadastro: true, turmaId: t.id } satisfies EstadoNovaAvaliacao,
