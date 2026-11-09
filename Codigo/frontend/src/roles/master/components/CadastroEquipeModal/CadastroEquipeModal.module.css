@@ -1,0 +1,90 @@
+/* Escolha da função: dois cartões lado a lado, com o que cada uma faz. */
+.perfis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 0;
+  border: 0;
+}
+
+.legenda {
+  grid-column: 1 / -1;
+  margin-bottom: 8px;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.perfil {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+}
+
+.perfil:has(input:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.perfil:has(input:focus-visible) {
+  box-shadow: 0 0 0 4px rgba(212, 187, 252, 0.5);
+}
+
+.perfil input {
+  flex-shrink: 0;
+  margin-top: 3px;
+  accent-color: var(--color-primary);
+}
+
+.perfilTexto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13.5px;
+}
+
+.perfilTexto strong {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.perfilTexto span {
+  color: var(--color-text-muted);
+}
+
+/* Grid de 6: nome + CPF, e-mail + telefone. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.span2 {
+  grid-column: span 2;
+}
+
+.span4 {
+  grid-column: span 4;
+}
+
+@media (max-width: 520px) {
+  .perfis,
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .span2,
+  .span4 {
+    grid-column: auto;
+  }
+}

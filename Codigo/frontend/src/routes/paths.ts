@@ -34,6 +34,8 @@ export const paths = {
     recebimentos: '/master/recebimentos',
     /** Plano da escola e faturas do Edúka: pagar e ver o comprovante (IU24-A). */
     planoEFaturas: '/master/plano-e-faturas',
+    /** Secretaria e financeiro da escola: cadastrar, editar, inativar e reenviar o acesso. */
+    equipe: '/master/equipe',
     // Telas da secretaria e do financeiro que o MASTER também usa (IU05,
     // IU20, IU21): mesmas páginas, com o menu da gestão (ver routes/areas.ts).
     alunos: '/master/alunos',

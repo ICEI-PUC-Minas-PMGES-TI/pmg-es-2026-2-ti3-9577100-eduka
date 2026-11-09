@@ -10,6 +10,7 @@ import { Alocacoes } from '../secretaria/pages/Alocacoes/Alocacoes'
 import { Alunos } from '../secretaria/pages/Alunos/Alunos'
 import { Matriculas } from '../secretaria/pages/Matriculas/Matriculas'
 import { Professores } from '../secretaria/pages/Professores/Professores'
+import { Equipe } from './pages/Equipe/Equipe'
 import { Inicio } from './pages/Inicio/Inicio'
 import { PlanoEFaturas } from './pages/PlanoEFaturas/PlanoEFaturas'
 import { Recebimentos } from './pages/Recebimentos/Recebimentos'
@@ -25,6 +26,7 @@ export const masterRoutes: RouteObject = {
     { path: paths.master.inicio, element: <Inicio /> },
     { path: paths.master.recebimentos, element: <Recebimentos /> },
     { path: paths.master.planoEFaturas, element: <PlanoEFaturas /> },
+    { path: paths.master.equipe, element: <Equipe /> },
     { path: paths.master.alunos, element: <Alunos /> },
     { path: paths.master.professores, element: <Professores /> },
     { path: paths.master.academico, element: <SecretariaDashboard /> },

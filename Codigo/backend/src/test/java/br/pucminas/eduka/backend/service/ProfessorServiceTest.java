@@ -60,6 +60,8 @@ class ProfessorServiceTest {
     @Mock
     private ProfessorRepository professorRepository;
     @Mock
+    private AuditoriaService auditoriaService;
+    @Mock
     private PessoaRepository pessoaRepository;
     @Mock
     private PessoaPapelRepository pessoaPapelRepository;
@@ -71,7 +73,7 @@ class ProfessorServiceTest {
     @BeforeEach
     void setUp() {
         professorService = new ProfessorService(professorRepository, pessoaRepository, pessoaPapelRepository,
-                new IsolamentoEscola(), acessoService);
+                new IsolamentoEscola(), acessoService, auditoriaService);
     }
 
     @AfterEach

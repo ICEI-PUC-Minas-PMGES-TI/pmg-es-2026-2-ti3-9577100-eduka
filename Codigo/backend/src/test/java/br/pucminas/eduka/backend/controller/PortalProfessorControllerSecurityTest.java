@@ -168,7 +168,7 @@ class PortalProfessorControllerSecurityTest {
     @Test
     void dashboardSoParaProfessor() throws Exception {
         when(dashboardService.professor())
-                .thenReturn(new DashboardProfessorResponse(2, 1, 30, 4, List.of(), List.of()));
+                .thenReturn(new DashboardProfessorResponse(2, 1, 30, 4, List.of(), List.of(), List.of()));
 
         mockMvc.perform(com(get("/portal/professor/dashboard"), accessToken(UUID.randomUUID(), "PROFESSOR", ESCOLA_A)))
                 .andExpect(status().isOk())

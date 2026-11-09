@@ -154,9 +154,9 @@ public class AuthService {
         if (usuario.getEscolaId() == null) {
             return;
         }
-        boolean ativa = escolaRepository.findById(usuario.getEscolaId()).map(Escola::isAtivo).orElse(false);
-        if (!ativa) {
-            throw new EscolaSuspensaException();
+        Escola escola = escolaRepository.findById(usuario.getEscolaId()).orElse(null);
+        if (escola == null || !escola.isAtivo()) {
+            throw new EscolaSuspensaException(escola == null ? null : escola.getMotivoSuspensao());
         }
     }
 

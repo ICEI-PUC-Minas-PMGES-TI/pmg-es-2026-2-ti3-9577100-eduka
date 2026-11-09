@@ -189,7 +189,8 @@ class PaginacaoBancoRealTest extends BancoRealTest {
         assertThat(semTurmaComA.resumo()).isEqualTo(new ResumoAlunosResponse(3, Map.of(
                 AlunoResponse.Situacao.MATRICULADO, 1L,
                 AlunoResponse.Situacao.TRANCADO, 0L,
-                AlunoResponse.Situacao.SEM_TURMA, 2L)));
+                AlunoResponse.Situacao.SEM_TURMA, 2L,
+                AlunoResponse.Situacao.ANONIMIZADO, 0L)));
     }
 
     @Test

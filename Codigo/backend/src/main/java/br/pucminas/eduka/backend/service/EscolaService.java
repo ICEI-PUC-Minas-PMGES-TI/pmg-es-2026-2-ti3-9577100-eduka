@@ -9,7 +9,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import br.pucminas.eduka.backend.domain.Endereco;
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.Escola;
+import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.dto.AssinaturaResponse;
 import br.pucminas.eduka.backend.dto.EnderecoDto;
 import br.pucminas.eduka.backend.dto.EscolaRequest;
@@ -22,9 +24,11 @@ import br.pucminas.eduka.backend.repository.EscolaRepository;
 public class EscolaService {
 
     private final EscolaRepository escolaRepository;
+    private final AuditoriaService auditoriaService;
 
-    public EscolaService(EscolaRepository escolaRepository) {
+    public EscolaService(EscolaRepository escolaRepository, AuditoriaService auditoriaService) {
         this.escolaRepository = escolaRepository;
+        this.auditoriaService = auditoriaService;
     }
 
     public List<EscolaResponse> listar() {
@@ -69,7 +73,9 @@ public class EscolaService {
                 vazioParaNulo(request.telefone()),
                 request.plano(),
                 request.ativo() == null || request.ativo());
-        return escolaRepository.save(escola);
+        Escola salva = escolaRepository.save(escola);
+        auditar(OperacaoAuditoria.CRIAR, salva.getId());
+        return salva;
     }
 
     /** Edicao de escola (IU03). CNPJ nao pode colidir com o de outra escola. */
@@ -86,26 +92,51 @@ public class EscolaService {
                 request.endereco() == null ? null : request.endereco().paraDominio(),
                 request.email(), request.telefone(), request.plano());
         escola.atualizarAssinatura(request.fimVigencia(), request.limiteUsuarios(), request.modulos());
+        auditar(OperacaoAuditoria.EDITAR, id);
         if (request.ativo() != null) {
+            // So entra no log quando a situacao muda de fato.
+            boolean mudou = request.ativo() != escola.isAtivo();
             if (request.ativo()) {
                 escola.ativar();
+                escolaRepository.reiniciarAvisosDeSuspensao(escola.getId());
             } else {
                 escola.suspender();
+            }
+            if (mudou) {
+                auditar(request.ativo() ? OperacaoAuditoria.ATIVAR : OperacaoAuditoria.SUSPENDER, id);
             }
         }
         return EscolaResponse.from(escolaRepository.save(escola));
     }
 
+    @Transactional
     public EscolaResponse ativar(UUID id) {
         Escola escola = buscarOuFalhar(id);
+        if (!escola.isAtivo()) {
+            auditar(OperacaoAuditoria.ATIVAR, id);
+        }
         escola.ativar();
+        // Fatura ainda em aberto volta a ter aviso e prazo antes de suspender de novo.
+        escolaRepository.reiniciarAvisosDeSuspensao(id);
         return EscolaResponse.from(escolaRepository.save(escola));
     }
 
+    @Transactional
     public EscolaResponse suspender(UUID id) {
         Escola escola = buscarOuFalhar(id);
+        if (escola.isAtivo()) {
+            auditar(OperacaoAuditoria.SUSPENDER, id);
+        }
         escola.suspender();
         return EscolaResponse.from(escolaRepository.save(escola));
+    }
+
+    /**
+     * Quem mexe na escola e o SUPER_ADMIN, que nao tem escola: a linha vai
+     * para a escola afetada, e o MASTER dela ve no registro de atividades.
+     */
+    private void auditar(OperacaoAuditoria operacao, UUID escolaId) {
+        auditoriaService.registrarNaEscola(operacao, EntidadeAuditada.ESCOLA, escolaId, escolaId);
     }
 
     private static Endereco paraEndereco(EnderecoDto dto) {

@@ -152,3 +152,11 @@
   gap: 8px;
   margin-top: 16px;
 }
+
+.disciplinaNome small.pendente {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-danger);
+  font-size: 12.5px;
+  font-weight: 700;
+}

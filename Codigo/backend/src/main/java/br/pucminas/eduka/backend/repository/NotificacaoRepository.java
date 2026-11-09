@@ -1,6 +1,7 @@
 package br.pucminas.eduka.backend.repository;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -8,6 +9,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
@@ -37,4 +39,12 @@ public interface NotificacaoRepository extends JpaRepository<Notificacao, UUID> 
     @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "-2"))
     @Query("SELECT n FROM Notificacao n WHERE n.id = :id")
     Optional<Notificacao> travarParaEnvio(@Param("id") UUID id);
+
+    /**
+     * Apaga os e-mails ligados a esses registros (o login e as cobrancas de um
+     * aluno anonimizado): a copia guardada traz nome e e-mail dele.
+     */
+    @Modifying
+    @Query("DELETE FROM Notificacao n WHERE n.referenciaId IN :referencias")
+    int apagarDasReferencias(@Param("referencias") Collection<UUID> referencias);
 }

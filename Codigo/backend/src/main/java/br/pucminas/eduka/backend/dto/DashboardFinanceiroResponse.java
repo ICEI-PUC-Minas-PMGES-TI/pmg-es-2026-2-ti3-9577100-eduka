@@ -22,8 +22,9 @@ import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
  * @param recebidoNoMes     cobrancas pagas neste mes, online ou com baixa manual
  * @param faltaReceber      cobrancas em aberto (pendentes e em atraso)
  * @param ultimosMeses      os 12 ultimos meses, do mais antigo ao atual
- * @param vencemNaSemana    em atraso e as que vencem ate daqui a 6 dias, pelo
- *                          vencimento; no maximo 10
+ * @param vencemNaSemana    primeiro as em atraso, depois as que vencem de hoje
+ *                          ate daqui a 6 dias, cada grupo pelo vencimento e
+ *                          com no maximo 10
  * @param ultimosPagamentos mais recentes primeiro; no maximo 10
  * @param ultimasAcoes      do LOG_AUDITORIA, mais recentes primeiro; no maximo 10
  */

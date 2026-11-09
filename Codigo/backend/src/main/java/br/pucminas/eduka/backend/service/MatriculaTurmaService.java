@@ -16,7 +16,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.pucminas.eduka.backend.domain.Aluno;
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.MatriculaTurma;
+import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.PeriodoLetivo;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.StatusMatricula;
@@ -69,16 +71,18 @@ public class MatriculaTurmaService {
     private final PessoaRepository pessoaRepository;
     private final IsolamentoEscola isolamentoEscola;
     private final Clock clock;
+    private final AuditoriaService auditoriaService;
 
     public MatriculaTurmaService(MatriculaTurmaRepository matriculaRepository, AlunoRepository alunoRepository,
             TurmaRepository turmaRepository, PessoaRepository pessoaRepository, IsolamentoEscola isolamentoEscola,
-            Clock clock) {
+            Clock clock, AuditoriaService auditoriaService) {
         this.matriculaRepository = matriculaRepository;
         this.alunoRepository = alunoRepository;
         this.turmaRepository = turmaRepository;
         this.pessoaRepository = pessoaRepository;
         this.isolamentoEscola = isolamentoEscola;
         this.clock = clock;
+        this.auditoriaService = auditoriaService;
     }
 
     /**
@@ -153,6 +157,7 @@ public class MatriculaTurmaService {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         Aluno aluno = alunoRepository.findByIdAndEscolaId(request.alunoId(), escolaId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Aluno nao encontrado"));
+        AlunoService.exigirNaoAnonimizado(aluno);
         Turma turma = buscarTurmaParaOcupar(request.turmaId(), escolaId);
         if (matriculaRepository.existsByEscolaIdAndAlunoIdAndTurmaId(escolaId, aluno.getId(), turma.getId())) {
             throw new MatriculaJaExisteException();
@@ -167,7 +172,9 @@ public class MatriculaTurmaService {
                 .dataMatricula(request.dataMatricula() != null ? request.dataMatricula() : hoje())
                 .observacao(opcional(request.observacao()))
                 .build();
-        return paraResposta(salvar(matricula), escolaId);
+        MatriculaTurma salva = salvar(matricula);
+        auditoriaService.registrar(OperacaoAuditoria.CRIAR, EntidadeAuditada.MATRICULA, salva.getId());
+        return paraResposta(salva, escolaId);
     }
 
     /**
@@ -213,7 +220,12 @@ public class MatriculaTurmaService {
             matricula.setObservacao(opcional(request.observacao()));
         }
         matricula.setAtualizadoEm(clock.instant());
-        return paraResposta(salvar(matricula), escolaId);
+        MatriculaTurma salva = salvar(matricula);
+        // Cancelar fica como CANCELAR; trancar, concluir, reativar e transferir sao edicoes.
+        boolean cancelou = novo == StatusMatricula.CANCELADA && atual != StatusMatricula.CANCELADA;
+        auditoriaService.registrar(cancelou ? OperacaoAuditoria.CANCELAR : OperacaoAuditoria.EDITAR,
+                EntidadeAuditada.MATRICULA, salva.getId());
+        return paraResposta(salva, escolaId);
     }
 
     private MatriculaTurma buscarMatricula(UUID id, UUID escolaId) {

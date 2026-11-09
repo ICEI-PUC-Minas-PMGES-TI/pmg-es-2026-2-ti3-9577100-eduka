@@ -1,12 +1,9 @@
 import { useCallback, useMemo, useState } from 'react'
-import { Button } from '../../../../components/Button/Button'
 import { ModalComprovante } from '../../../../components/Comprovante/ModalComprovante'
 import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/ConfirmarExclusao'
 import { EstadoDashboard } from '../../../../components/Dashboard/Dashboard'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
-import { TabelaFaturas } from '../../../../components/TabelaFaturas/TabelaFaturas'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
-import { usePaginacao } from '../../../../hooks/usePaginacao'
 import { ApiError } from '../../../../services/api'
 import { listarEscolas } from '../../../../services/escolaService'
 import {
@@ -18,7 +15,9 @@ import {
 import type { Escola } from '../../../../types/escola'
 import type { FaturaPlataforma, StatusFatura } from '../../../../types/faturaPlataforma'
 import { formatarMoeda, hojeIso, plural } from '../../../../utils/formatters'
-import { ModalLancarFatura } from '../../components/ModalLancarFatura/ModalLancarFatura'
+import { FormLancarFatura } from '../../components/FormLancarFatura/FormLancarFatura'
+import { nomeDoMes } from '../../components/FormLancarFatura/regrasFatura'
+import { TabelaFaturasPlataforma } from '../../components/TabelaFaturasPlataforma/TabelaFaturasPlataforma'
 import { SuperAdminLayout } from '../../layouts/SuperAdminLayout'
 import estilosPainel from '../PainelEscolas/PainelEscolas.module.css'
 import styles from './FaturasPlataforma.module.css'
@@ -77,7 +76,7 @@ export function FaturasPlataforma() {
   )
   const { dados: escolas } = useCarregamento(listarEscolas, SEM_ESCOLAS, 'Não foi possível carregar as escolas.')
   const [filtro, setFiltro] = useState<Filtro>('TODAS')
-  const [lancando, setLancando] = useState(false)
+  const [selecionadaId, setSelecionadaId] = useState<string | null>(null)
   const [cancelando, setCancelando] = useState<FaturaPlataforma | null>(null)
   const [comprovanteDe, setComprovanteDe] = useState<FaturaPlataforma | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(null)
@@ -90,25 +89,13 @@ export function FaturasPlataforma() {
   const resumo = useMemo(() => indicadores(faturas), [faturas])
   const contagem = (f: Filtro) => (f === 'TODAS' ? faturas.length : faturas.filter((x) => x.status === f).length)
   const visiveis = filtro === 'TODAS' ? faturas : faturas.filter((f) => f.status === filtro)
-  // Trocar de filtro volta para a primeira página.
-  const { paginacao, topo } = usePaginacao<FaturaPlataforma, HTMLElement>(visiveis, { reiniciarCom: filtro })
+  // Derivada da lista: some sozinha se o filtro a esconder ou se ela deixar de ser cancelável.
+  const selecionada = visiveis.find((f) => f.id === selecionadaId && f.acoes.includes('CANCELAR')) ?? null
 
   return (
     <SuperAdminLayout
       titulo="Faturas da plataforma"
       subtitulo="O que cada escola paga ao Edúka. A escola paga pelo próprio painel, por PIX ou boleto."
-      acao={
-        <Button
-          variant="primary"
-          icon="plus"
-          onClick={() => {
-            setSucesso(null)
-            setLancando(true)
-          }}
-        >
-          Lançar fatura
-        </Button>
-      }
     >
       {sucesso && (
         <p role="status" className={estilosPainel.sucesso}>
@@ -117,70 +104,69 @@ export function FaturasPlataforma() {
       )}
       <EstadoDashboard carregando={carregando} erro={erro} onTentarDeNovo={recarregar} />
       {!carregando && !erro && (
-        <>
-          <StatCards rotulo="Resumo das faturas">
-            <StatCard
-              label="Recebido este mês"
-              value={formatarMoeda(resumo.recebido)}
-              descricao={`${resumo.pagas} ${plural(resumo.pagas, 'fatura paga', 'faturas pagas')}`}
-              destaque
-            />
-            <StatCard
-              label="Em atraso"
-              value={formatarMoeda(resumo.emAtraso)}
-              descricao={`${resumo.escolasEmAtraso} ${plural(resumo.escolasEmAtraso, 'escola', 'escolas')}`}
-              alerta={resumo.emAtraso > 0}
-            />
-          </StatCards>
+        <div className={styles.grade}>
+          <div className={styles.principal}>
+            <div className={styles.filtros} role="group" aria-label="Filtrar por situação">
+              {FILTROS.map(({ filtro: f, rotulo }) => (
+                <button
+                  key={f}
+                  type="button"
+                  aria-pressed={filtro === f}
+                  className={`${styles.pilula} ${filtro === f ? styles.pilulaAtiva : ''}`}
+                  onClick={() => setFiltro(f)}
+                >
+                  {rotulo} ({contagem(f)})
+                </button>
+              ))}
+            </div>
 
-          <div className={styles.filtros} role="group" aria-label="Filtrar por situação">
-            {FILTROS.map(({ filtro: f, rotulo }) => (
-              <button
-                key={f}
-                type="button"
-                aria-pressed={filtro === f}
-                className={`${styles.pilula} ${filtro === f ? styles.pilulaAtiva : ''}`}
-                onClick={() => setFiltro(f)}
-              >
-                {rotulo} ({contagem(f)})
-              </button>
-            ))}
+            <StatCards rotulo="Resumo das faturas">
+              <StatCard
+                label={`Recebido em ${nomeDoMes(hojeIso())}`}
+                value={formatarMoeda(resumo.recebido)}
+                descricao={`${resumo.pagas} ${plural(resumo.pagas, 'fatura paga', 'faturas pagas')}`}
+                destaque
+              />
+              <StatCard
+                label="Em atraso"
+                value={formatarMoeda(resumo.emAtraso)}
+                descricao={`${resumo.escolasEmAtraso} ${plural(resumo.escolasEmAtraso, 'escola', 'escolas')}`}
+                alerta={resumo.emAtraso > 0}
+              />
+            </StatCards>
+
+            <TabelaFaturasPlataforma
+              faturas={visiveis}
+              reiniciarCom={filtro}
+              selecionadaId={selecionada?.id ?? null}
+              onSelecionar={setSelecionadaId}
+              onVerComprovante={setComprovanteDe}
+            />
           </div>
 
-          <TabelaFaturas
-            paginacao={paginacao}
-            topo={topo}
-            mostrarEscola
-            vazio="Nenhuma fatura nesta situação."
-            acoes={(f) => (
-              <>
-                {f.acoes.includes('VER_COMPROVANTE') && (
-                  <Button size="sm" variant="outline" icon="eye" onClick={() => setComprovanteDe(f)}>
-                    Comprovante
-                  </Button>
-                )}
-                {f.acoes.includes('CANCELAR') && (
-                  <Button size="sm" variant="dangerOutline" icon="close" onClick={() => setCancelando(f)}>
-                    Cancelar
-                  </Button>
-                )}
-              </>
-            )}
-          />
-        </>
-      )}
-
-      {lancando && (
-        <ModalLancarFatura
-          escolas={escolas}
-          onFechar={() => setLancando(false)}
-          onLancar={async (dados, escolaId) => {
-            const lancada = await lancarFatura(escolaId ?? '', dados)
-            setLancando(false)
-            setSucesso(`Fatura de ${lancada.competencia} lançada para ${lancada.escolaNome}.`)
-            recarregar()
-          }}
-        />
+          <FormLancarFatura
+            escolas={escolas}
+            faturas={faturas}
+            onLancar={async (escolaId, dados) => {
+              setSucesso(null)
+              const lancada = await lancarFatura(escolaId, dados)
+              setSucesso(`Fatura de ${lancada.competencia} lançada para ${lancada.escolaNome}.`)
+              recarregar()
+            }}
+          >
+            <button
+              type="button"
+              className={styles.cancelar}
+              disabled={!selecionada}
+              onClick={() => {
+                setSucesso(null)
+                setCancelando(selecionada)
+              }}
+            >
+              Cancelar fatura selecionada
+            </button>
+          </FormLancarFatura>
+        </div>
       )}
 
       {cancelando && (

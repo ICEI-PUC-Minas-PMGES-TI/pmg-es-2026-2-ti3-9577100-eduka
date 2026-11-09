@@ -61,6 +61,22 @@ export type Comprovante = {
 }
 
 /** Assinatura da escola do token (GET /config-pagamento/assinatura, IU24-A). */
+/**
+ * Aviso de suspensão por fatura em atraso (GET /config-pagamento/assinatura/suspensao).
+ * Espelha o SuspensaoPrevistaResponse do backend.
+ */
+export type SuspensaoPrevista = {
+  /** ISO (yyyy-MM-dd): o dia em que a escola será suspensa se a fatura continuar em aberto. */
+  suspensaoEm: string
+  /** De hoje até `suspensaoEm`; 0 quando é hoje. */
+  diasRestantes: number
+  faturaId: string
+  faturaDescricao: string
+  faturaValor: number
+  /** ISO (yyyy-MM-dd). */
+  faturaVencimento: string
+}
+
 export type Assinatura = {
   escolaNome: string
   plano: PlanoEscola | null

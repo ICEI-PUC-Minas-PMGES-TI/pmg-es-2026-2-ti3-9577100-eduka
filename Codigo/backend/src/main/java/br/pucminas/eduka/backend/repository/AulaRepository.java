@@ -1,6 +1,7 @@
 package br.pucminas.eduka.backend.repository;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,6 +30,11 @@ public interface AulaRepository extends JpaRepository<Aula, UUID> {
 
     @EntityGraph(attributePaths = { "turma", "disciplina" })
     Optional<Aula> findByIdAndEscolaId(UUID id, UUID escolaId);
+
+    /** As aulas registradas nas turmas entre duas datas (inclusive), para a semana do professor. */
+    @EntityGraph(attributePaths = { "turma", "disciplina" })
+    List<Aula> findAllByEscolaIdAndTurmaIdInAndDataBetween(UUID escolaId, Collection<Long> turmaIds, LocalDate de,
+            LocalDate ate);
 
     /** A turma tem aula registrada (a FK da V35 impede apagar a turma). */
     boolean existsByEscolaIdAndTurmaId(UUID escolaId, Long turmaId);

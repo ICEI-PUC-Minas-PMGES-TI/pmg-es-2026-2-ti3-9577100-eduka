@@ -7,5 +7,7 @@ public enum OrigemAuditoria {
     /** Usuario autenticado; a linha sempre tem autor. */
     USUARIO,
     /** Aviso ou consulta do provedor de pagamento; a linha nao tem autor. */
-    PROVEDOR
+    PROVEDOR,
+    /** Rotina do proprio Eduka (ex.: suspensao por fatura em atraso); sem autor (V44). */
+    SISTEMA
 }

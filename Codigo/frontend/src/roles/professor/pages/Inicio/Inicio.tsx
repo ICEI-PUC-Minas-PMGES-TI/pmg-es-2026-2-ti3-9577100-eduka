@@ -6,9 +6,10 @@ import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { paths, type EstadoNovaAvaliacao } from '../../../../routes/paths'
 import { obterDashboardProfessor } from '../../../../services/portalProfessorService'
-import type { AvaliacaoResumo, DashboardProfessor } from '../../../../types/dashboard'
+import type { AulaDaSemana, AvaliacaoResumo, DashboardProfessor } from '../../../../types/dashboard'
 import { ROTULOS_TIPO_AVALIACAO } from '../../../../types/portalAluno'
 import { formatarPontos, hojeIso, plural } from '../../../../utils/formatters'
+import { AulasDaSemana, chamadaPendente } from '../../components/AulasDaSemana/AulasDaSemana'
 import { ProfessorLayout } from '../../layouts/ProfessorLayout'
 import { Dica } from '../../../../components/Dica/Dica'
 import styles from './Inicio.module.css'
@@ -34,8 +35,19 @@ export function Inicio() {
 
 function Resumo({ dados }: { dados: DashboardProfessor }) {
   const navigate = useNavigate()
-  const { proximasAvaliacoes, avaliacoesPendentes } = dados
+  const { proximasAvaliacoes, avaliacoesPendentes, aulasDaSemana } = dados
   const hoje = hojeIso()
+  const aulasHoje = aulasDaSemana.filter((a) => a.data === hoje).length
+  const chamadasPendentes = aulasDaSemana.filter((a) => chamadaPendente(a, hoje)).length
+
+  function fazerChamada(aula: AulaDaSemana) {
+    const params = new URLSearchParams({
+      turma: String(aula.turmaId),
+      disciplina: String(aula.disciplinaId),
+      data: aula.data,
+    })
+    navigate(`${paths.professor.chamada}?${params}`)
+  }
 
   function abrirAvaliacoes(avaliacao: AvaliacaoResumo) {
     const params = new URLSearchParams({
@@ -101,6 +113,36 @@ function Resumo({ dados }: { dados: DashboardProfessor }) {
             { rotulo: 'Ver minhas turmas', icon: 'users', onClick: () => navigate(paths.professor.turmas) },
           ]}
         />
+      )}
+
+      {dados.turmas > 0 && (
+        <Painel
+          titulo="Aulas da semana"
+          descricao={
+            aulasDaSemana.length === 0
+              ? 'Seu horário ainda não foi definido.'
+              : [
+                  aulasHoje === 0 ? 'Nenhuma aula hoje' : `${aulasHoje} ${plural(aulasHoje, 'aula hoje', 'aulas hoje')}`,
+                  chamadasPendentes > 0 &&
+                    `${chamadasPendentes} ${plural(chamadasPendentes, 'chamada pendente', 'chamadas pendentes')}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')
+          }
+          acao={
+            <Button size="sm" icon="calendar" onClick={() => navigate(paths.professor.turmas)}>
+              Meu horário
+            </Button>
+          }
+        >
+          {aulasDaSemana.length === 0 ? (
+            <PainelVazio>
+              A secretaria ainda não definiu o horário das suas aulas. Quando definir, a semana aparece aqui.
+            </PainelVazio>
+          ) : (
+            <AulasDaSemana aulas={aulasDaSemana} hoje={hoje} onFazerChamada={fazerChamada} />
+          )}
+        </Painel>
       )}
 
       {dados.turmas > 0 && (

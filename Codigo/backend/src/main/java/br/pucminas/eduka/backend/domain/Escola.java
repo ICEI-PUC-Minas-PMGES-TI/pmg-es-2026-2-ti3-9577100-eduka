@@ -67,6 +67,11 @@ public class Escola {
     @Column(name = "ATIVO", nullable = false)
     private boolean ativo;
 
+    /** Nulo enquanto ativa (V43). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "MOTIVO_SUSPENSAO", length = 20)
+    private MotivoSuspensao motivoSuspensao;
+
     @Column(name = "INICIO_VIGENCIA")
     private LocalDate inicioVigencia;
 
@@ -100,8 +105,8 @@ public class Escola {
     /** A vigencia comeca na data do cadastro e esse inicio nao muda depois. */
     public static Escola cadastrar(String nome, String cnpjCpf, Endereco endereco, String email, String telefone,
             PlanoEscola plano, boolean ativo) {
-        return new Escola(null, nome, cnpjCpf, endereco, email, telefone, plano, ativo, LocalDate.now(), null, null,
-                new HashSet<>(), null, 0L);
+        return new Escola(null, nome, cnpjCpf, endereco, email, telefone, plano, ativo,
+                ativo ? null : MotivoSuspensao.MANUAL, LocalDate.now(), null, null, new HashSet<>(), null, 0L);
     }
 
     /**
@@ -149,10 +154,17 @@ public class Escola {
 
     public void ativar() {
         this.ativo = true;
+        this.motivoSuspensao = null;
     }
 
+    /** Suspensao pelo Super Admin. */
     public void suspender() {
+        suspender(MotivoSuspensao.MANUAL);
+    }
+
+    public void suspender(MotivoSuspensao motivo) {
         this.ativo = false;
+        this.motivoSuspensao = motivo;
     }
 
     private static String manterOuLimpar(String atual, String novo) {

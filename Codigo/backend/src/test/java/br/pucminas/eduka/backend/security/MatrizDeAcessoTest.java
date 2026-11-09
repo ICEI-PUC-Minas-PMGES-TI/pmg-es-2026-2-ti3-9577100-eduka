@@ -100,6 +100,7 @@ class MatrizDeAcessoTest {
                 "GET /auditoria/pagina",
                 "GET /dashboard/escola",
                 "GET /config-pagamento/assinatura",
+                "GET /config-pagamento/assinatura/suspensao",
                 "GET /config-pagamento/conta",
                 "POST /config-pagamento/conta/ativar",
                 "POST /config-pagamento/conta/sincronizar",
@@ -110,12 +111,15 @@ class MatrizDeAcessoTest {
                 "POST /config-pagamento/faturas/{id}/pagar",
                 "GET /config-pagamento/faturas/{id}/comprovante",
                 "POST /config-pagamento/faturas/{id}/sandbox/pagar",
-                "GET /usuarios/secretarias",
-                "POST /usuarios/secretarias",
-                "GET /usuarios/secretarias/{id}",
-                "PUT /usuarios/secretarias/{id}",
-                "DELETE /usuarios/secretarias/{id}",
-                "PATCH /usuarios/secretarias/{id}/ativar");
+                "GET /usuarios/equipe",
+                "POST /usuarios/equipe",
+                "GET /usuarios/equipe/{id}",
+                "PUT /usuarios/equipe/{id}",
+                "POST /usuarios/equipe/{id}/primeiro-acesso",
+                "PATCH /usuarios/equipe/{id}/inativar",
+                "PATCH /usuarios/equipe/{id}/ativar",
+                // LGPD: apagar o dado pessoal nao tem volta.
+                "POST /alunos/{id}/anonimizar");
 
         // Estrutura da escola, sem dado pessoal: quem trabalha nela le.
         libera(matriz, EQUIPE,
@@ -148,6 +152,7 @@ class MatrizDeAcessoTest {
                 "POST /alunos",
                 "PUT /alunos/{id}",
                 "POST /alunos/{id}/primeiro-acesso",
+                "GET /alunos/{id}/dados-pessoais",
                 "GET /alunos/correcoes",
                 "PATCH /alunos/correcoes/{id}/atender",
                 "POST /matriculas",

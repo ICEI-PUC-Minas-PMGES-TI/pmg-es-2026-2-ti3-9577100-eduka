@@ -20,6 +20,21 @@ function abrir() {
 describe('Login', () => {
   afterEach(() => vi.unstubAllGlobals())
 
+  it('suspensa por fatura em atraso, o aviso explica o motivo', async () => {
+    simularApi(({ caminho }) =>
+      caminho === '/login'
+        ? { status: 403, corpo: { status: 403, codigo: 'ESCOLA_SUSPENSA', motivo: 'FATURA_EM_ATRASO' } }
+        : undefined,
+    )
+    abrir()
+
+    await userEvent.type(screen.getByLabelText(/e-mail ou matrícula/i), 'maria@escola.com')
+    await userEvent.type(screen.getByLabelText(/^senha/i), 'senha-certa')
+    await userEvent.click(screen.getByRole('button', { name: /acessar/i }))
+
+    expect(await screen.findByText(/porque uma fatura do Edúka está em atraso/)).toBeInTheDocument()
+  })
+
   it('leva ao aviso de suspensão quando a escola está suspensa', async () => {
     simularApi(({ caminho }) =>
       caminho === '/login' ? problema(403, 'ESCOLA_SUSPENSA', 'A assinatura da escola esta suspensa') : undefined,

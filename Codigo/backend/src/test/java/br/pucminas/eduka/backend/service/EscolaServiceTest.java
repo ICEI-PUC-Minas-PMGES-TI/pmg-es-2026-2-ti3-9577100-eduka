@@ -26,6 +26,7 @@ import org.springframework.web.server.ResponseStatusException;
 import br.pucminas.eduka.backend.domain.Endereco;
 import br.pucminas.eduka.backend.domain.Escola;
 import br.pucminas.eduka.backend.domain.ModuloEscola;
+import br.pucminas.eduka.backend.domain.MotivoSuspensao;
 import br.pucminas.eduka.backend.domain.PlanoEscola;
 import br.pucminas.eduka.backend.dto.EnderecoDto;
 import br.pucminas.eduka.backend.dto.EscolaRequest;
@@ -39,12 +40,14 @@ class EscolaServiceTest {
 
     @Mock
     private EscolaRepository escolaRepository;
+    @Mock
+    private AuditoriaService auditoriaService;
 
     private EscolaService escolaService;
 
     @BeforeEach
     void setUp() {
-        escolaService = new EscolaService(escolaRepository);
+        escolaService = new EscolaService(escolaRepository, auditoriaService);
     }
 
     private static final Endereco ENDERECO = new Endereco("Rua das Escolas", "100", "Centro", "Belo Horizonte",
@@ -52,7 +55,7 @@ class EscolaServiceTest {
 
     private Escola escola(UUID id, String nome, boolean ativo) {
         return new Escola(id, nome, "12.345.678/0001-90", ENDERECO, "contato@escola.com", "(31) 4000-0000",
-                PlanoEscola.BASICO, ativo, LocalDate.of(2024, 1, 15), LocalDate.of(2026, 1, 15), 500,
+                PlanoEscola.BASICO, ativo, ativo ? null : MotivoSuspensao.MANUAL, LocalDate.of(2024, 1, 15), LocalDate.of(2026, 1, 15), 500,
                 new HashSet<>(Set.of(ModuloEscola.PORTAL_ALUNO)), Instant.now(), 0L);
     }
 

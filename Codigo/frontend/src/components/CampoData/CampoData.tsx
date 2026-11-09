@@ -17,6 +17,8 @@ type CampoDataProps = {
   min?: string
   /** Última data permitida, em ISO. */
   max?: string
+  /** Mês em que o calendário abre quando vazio, em ISO; sem ele, abre no mês de min. */
+  mesInicial?: string
   /** Só exibe a data, sem abrir o calendário (ex.: início da vigência). */
   somenteLeitura?: boolean
   placeholder?: string
@@ -61,6 +63,7 @@ export function CampoData({
   onChange,
   min,
   max,
+  mesInicial,
   somenteLeitura = false,
   placeholder = 'dd/mm/aaaa',
   className,
@@ -167,7 +170,7 @@ export function CampoData({
             locale={ptBR}
             autoFocus
             selected={selecionada}
-            defaultMonth={selecionada ?? minima}
+            defaultMonth={selecionada ?? (mesInicial ? paraData(mesInicial) : minima)}
             disabled={[...(minima ? [{ before: minima }] : []), ...(maxima ? [{ after: maxima }] : [])]}
             captionLayout="dropdown"
             startMonth={primeiroMes}

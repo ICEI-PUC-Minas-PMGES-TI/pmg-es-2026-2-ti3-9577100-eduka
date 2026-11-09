@@ -1,5 +1,11 @@
 import type { PaginaDoBackend } from '../hooks/usePaginacao'
-import type { Assinatura, Comprovante, FaturaPlataforma, LancarFaturaRequest } from '../types/faturaPlataforma'
+import type {
+  Assinatura,
+  Comprovante,
+  FaturaPlataforma,
+  LancarFaturaRequest,
+  SuspensaoPrevista,
+} from '../types/faturaPlataforma'
 import type { DadosPagamento, FormaPagamento } from '../types/pagamentoAluno'
 import { apiRequest } from './api'
 
@@ -45,6 +51,14 @@ export function buscarComprovanteDaFatura(escolaId: string, faturaId: string): P
 // ---- MASTER ----
 
 /** Plano, situação, vigência e limite de usuários da escola do token (IU24-A). */
+/**
+ * Suspensão prevista da escola do token por fatura em atraso; null quando não há
+ * (204). Perfil: MASTER.
+ */
+export async function buscarSuspensaoPrevista(signal?: AbortSignal): Promise<SuspensaoPrevista | null> {
+  return (await apiRequest<SuspensaoPrevista | undefined>('/config-pagamento/assinatura/suspensao', { signal })) ?? null
+}
+
 export function buscarMinhaAssinatura(signal?: AbortSignal): Promise<Assinatura> {
   return apiRequest<Assinatura>('/config-pagamento/assinatura', { signal })
 }

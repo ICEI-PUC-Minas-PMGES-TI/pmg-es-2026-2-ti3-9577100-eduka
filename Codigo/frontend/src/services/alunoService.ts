@@ -2,7 +2,7 @@ import type { PaginaComResumo } from '../hooks/usePaginacao'
 import type { Aluno, AlunoDaLista, AlunoRequest, ResumoAlunos, SituacaoNaEscola } from '../types/aluno'
 import type { HistoricoFinanceiro } from '../types/pagamentoAluno'
 import type { RiscoAtraso } from '../types/riscoAtraso'
-import { apiRequest } from './api'
+import { apiBaixarArquivo, apiRequest } from './api'
 
 // O backend já limita os alunos à escola de quem está logado. A listagem
 // inteira (para escolher alunos) fica em matriculaService.listarAlunos.
@@ -53,6 +53,22 @@ export function buscarHistoricoFinanceiroDoAluno(id: string, signal?: AbortSigna
 /** Risco de atraso do aluno (baixo, médio ou alto) e o motivo. Só MASTER e FINANCEIRO. */
 export function buscarRiscoAtrasoDoAluno(id: string, signal?: AbortSignal): Promise<RiscoAtraso> {
   return apiRequest<RiscoAtraso>(`/alunos/${id}/financeiro/risco`, { signal })
+}
+
+/**
+ * PDF com todos os dados pessoais do aluno, para entregar a quem pediu (LGPD).
+ * MASTER e SECRETARIA. 409 se o aluno já foi anonimizado.
+ */
+export function exportarDadosPessoais(id: string): Promise<Blob> {
+  return apiBaixarArquivo(`/alunos/${id}/dados-pessoais`, 'application/pdf')
+}
+
+/**
+ * Apaga os dados pessoais do aluno que saiu; o histórico financeiro fica. Só
+ * MASTER. 409 se ele ainda tem matrícula ativa ou trancada, ou cobrança em aberto.
+ */
+export function anonimizarAluno(id: string): Promise<void> {
+  return apiRequest<void>(`/alunos/${id}/anonimizar`, { method: 'POST' })
 }
 
 /** Portal do aluno: os dados do próprio aluno logado. */

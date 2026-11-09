@@ -37,6 +37,7 @@ const FILTROS: { valor: Filtro; rotulo: string }[] = [
   { valor: 'MATRICULADO', rotulo: 'Matriculados' },
   { valor: 'SEM_TURMA', rotulo: 'Sem turma' },
   { valor: 'TRANCADO', rotulo: 'Trancados' },
+  { valor: 'ANONIMIZADO', rotulo: 'Anonimizados' },
 ]
 
 /** Turmas ativas com vaga livre, para o cadastro já matricular. */
@@ -97,7 +98,11 @@ export function Alunos() {
     if (location.state) navigate(location.pathname, { replace: true, state: null })
   }, [location.state, location.pathname, navigate])
 
+  // O anonimizado já saiu da escola: não conta como aluno cadastrado, e a pílula só aparece se houver algum.
+  const anonimizados = resumo?.porSituacao.ANONIMIZADO ?? 0
+  const naEscola = (resumo?.total ?? 0) - anonimizados
   const semTurma = resumo?.porSituacao.SEM_TURMA ?? 0
+  const filtros = FILTROS.filter((f) => f.valor !== 'ANONIMIZADO' || anonimizados > 0 || filtro === 'ANONIMIZADO')
   const mensagemVazia =
     resumo?.total === 0
       ? 'Nenhum aluno cadastrado ainda.'
@@ -151,6 +156,13 @@ export function Alunos() {
     }
   }
 
+  function handleAnonimizado(aluno: AlunoDaLista) {
+    setVendo(null)
+    limparAvisos()
+    setSucesso(`Os dados pessoais de "${aluno.nome}" foram apagados. O histórico financeiro continua guardado.`)
+    lista.recarregar()
+  }
+
   async function handleReenviarAcesso(aluno: AlunoDaLista) {
     limparAvisos()
     setReenviandoId(aluno.id)
@@ -175,7 +187,7 @@ export function Alunos() {
     <SecretariaLayout titulo="Alunos" subtitulo="Cadastre os alunos da escola e mantenha os dados em dia.">
       {resumo && (
         <StatCards rotulo="Resumo dos alunos">
-          <StatCard label="Alunos cadastrados" value={resumo.total} descricao="Na escola" destaque />
+          <StatCard label="Alunos cadastrados" value={naEscola} descricao="Na escola" destaque />
           <StatCard label="Com turma" value={resumo.porSituacao.MATRICULADO} descricao="Com matrícula ativa" />
           <StatCard
             label="Sem turma"
@@ -198,7 +210,7 @@ export function Alunos() {
           />
         </label>
         <div className={styles.filtros} role="group" aria-label="Filtrar por situação">
-          {FILTROS.map((f) => (
+          {filtros.map((f) => (
             <button
               key={f.valor}
               type="button"
@@ -246,7 +258,14 @@ export function Alunos() {
         onReenviarAcesso={handleReenviarAcesso}
       />
 
-      {vendo && <DetalhesAlunoModal aluno={vendo} onFechar={() => setVendo(null)} />}
+      {vendo && (
+        <DetalhesAlunoModal
+          aluno={vendo}
+          anonimizado={vendo.situacao === 'ANONIMIZADO'}
+          onFechar={() => setVendo(null)}
+          onAnonimizado={() => handleAnonimizado(vendo)}
+        />
+      )}
 
       {modal.aberto && (
         <AlunoModal

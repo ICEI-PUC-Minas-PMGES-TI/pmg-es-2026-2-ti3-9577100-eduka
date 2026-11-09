@@ -54,7 +54,12 @@ function abrir(alunos: AlunoDaLista[]): ChamadaApi[] {
       const contar = (s: SituacaoNaEscola) => alunos.filter((a) => a.situacao === s).length
       const resumo: ResumoAlunos = {
         total: alunos.length,
-        porSituacao: { MATRICULADO: contar('MATRICULADO'), TRANCADO: contar('TRANCADO'), SEM_TURMA: contar('SEM_TURMA') },
+        porSituacao: {
+          MATRICULADO: contar('MATRICULADO'),
+          TRANCADO: contar('TRANCADO'),
+          SEM_TURMA: contar('SEM_TURMA'),
+          ANONIMIZADO: contar('ANONIMIZADO'),
+        },
       }
       return { corpo: { ...cortarPagina(filtrados, caminho), resumo } }
     }
@@ -156,5 +161,28 @@ describe('Alunos', () => {
     falhar = false
     await userEvent.click(screen.getByRole('button', { name: /tentar novamente/i }))
     expect(await screen.findByText('Ana Souza')).toBeInTheDocument()
+  })
+
+  it('aluno anonimizado não conta como cadastrado e só pode ser visto', async () => {
+    const anonimizado: AlunoDaLista = {
+      id: 'dani',
+      nome: 'Aluno anonimizado',
+      matricula: '2024009',
+      genero: null,
+      situacao: 'ANONIMIZADO',
+      turmaId: null,
+      turmaNome: null,
+    }
+    abrir([...ALUNOS, anonimizado])
+
+    const linha = (await screen.findByText('Aluno anonimizado')).closest('tr') as HTMLElement
+    expect(within(linha).getByText('Anonimizado')).toBeInTheDocument()
+    expect(within(linha).getByRole('button', { name: 'Ver' })).toBeInTheDocument()
+    expect(within(linha).queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
+    expect(within(linha).queryByRole('button', { name: 'Reenviar acesso' })).not.toBeInTheDocument()
+
+    const resumo = screen.getByRole('region', { name: 'Resumo dos alunos' })
+    expect(within(resumo).getByText('3')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^anonimizados/i })).toBeInTheDocument()
   })
 })

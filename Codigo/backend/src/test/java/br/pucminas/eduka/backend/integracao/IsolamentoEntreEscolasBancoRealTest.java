@@ -138,7 +138,7 @@ class IsolamentoEntreEscolasBancoRealTest extends BancoRealTest {
                 "/cobrancas/" + cobrancaPagaB,
                 "/cobrancas/" + cobrancaPagaB + "/comprovante",
                 "/despesas/" + despesaB,
-                "/usuarios/secretarias/" + secretariaB,
+                "/usuarios/equipe/" + secretariaB,
                 "/config-pagamento/faturas/" + faturaB,
                 "/config-pagamento/faturas/" + faturaB + "/comprovante");
 
@@ -158,7 +158,7 @@ class IsolamentoEntreEscolasBancoRealTest extends BancoRealTest {
                 "/academico/secretaria/disciplinas",
                 "/cobrancas", "/cobrancas/pagina",
                 "/despesas", "/despesas/pagina",
-                "/usuarios/secretarias",
+                "/usuarios/equipe",
                 "/config-pagamento/faturas", "/config-pagamento/faturas/pagina",
                 "/auditoria/pagina");
         List<String> marcas = List.of(nomeDoAluno, nomeDaTurma, nomeDaDisciplina, nomeDoProfessor, nomeDaSecretaria,
@@ -190,8 +190,10 @@ class IsolamentoEntreEscolasBancoRealTest extends BancoRealTest {
                 delete("/professores/" + professorB),
                 patch("/professores/" + professorB + "/inativar"),
                 post("/alunos/" + alunoB + "/primeiro-acesso"),
-                delete("/usuarios/secretarias/" + secretariaB),
-                patch("/usuarios/secretarias/" + secretariaB + "/ativar"),
+                patch("/usuarios/equipe/" + secretariaB + "/inativar"),
+                patch("/usuarios/equipe/" + secretariaB + "/ativar"),
+                comJson(put("/usuarios/equipe/" + secretariaB), "{\"nome\":\"X\",\"cpf\":\"52998224725\",\"email\":\"x@x.com\"}"),
+                post("/usuarios/equipe/" + secretariaB + "/primeiro-acesso"),
                 patch("/cobrancas/" + cobrancaAbertaB + "/cancelar"));
 
         for (MockHttpServletRequestBuilder tentativa : tentativas) {

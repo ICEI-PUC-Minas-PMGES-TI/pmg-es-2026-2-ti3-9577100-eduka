@@ -65,7 +65,7 @@ public class AlunoController {
     @PreAuthorize(Perfis.LEITURA_ALUNOS)
     @Operation(summary = "Lista os alunos em paginas", description = "Perfis: MASTER, SECRETARIA, FINANCEIRO. "
             + "Filtros opcionais por parte do nome ou da matricula (`busca`) e por situacao (MATRICULADO, "
-            + "TRANCADO, SEM_TURMA). `pagina` comeca em 0; `tamanho` vai de 1 a 100. `ordenarPor`: NOME "
+            + "TRANCADO, SEM_TURMA, ANONIMIZADO). `pagina` comeca em 0; `tamanho` vai de 1 a 100. `ordenarPor`: NOME "
             + "(padrao) ou MATRICULA; `direcao`: ASC (padrao) ou DESC. O `resumo` conta os alunos da escola "
             + "inteira por situacao, sem a busca nem o filtro de situacao.")
     @ApiResponse(responseCode = "200", description = "A pagina de alunos, com o resumo da escola.")

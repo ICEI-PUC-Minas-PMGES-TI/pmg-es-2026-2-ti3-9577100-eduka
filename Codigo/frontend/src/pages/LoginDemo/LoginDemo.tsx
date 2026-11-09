@@ -5,7 +5,7 @@ import { Button } from '../../components/Button/Button'
 import { Campo } from '../../components/Campo/Campo'
 import { Icon, type IconName } from '../../components/Icon/Icon'
 import { rotaInicialPorPerfil } from '../../routes/paths'
-import { ApiError } from '../../services/api'
+import { ApiError, ehEscolaSuspensa, motivoDaSuspensao, rotaAcessoSuspenso } from '../../services/api'
 import type { PerfilUsuario } from '../../services/authService'
 import { entrarComoDemo, listarContasDemo, type ContaDemo, type GrupoDemo } from '../../services/demoService'
 import styles from '../LoginDev/LoginDev.module.css'
@@ -53,6 +53,11 @@ export function LoginDemo() {
       const { perfil } = await entrarComoDemo(login, senha, conta.login)
       navigate(rotaInicialPorPerfil[perfil], { replace: true })
     } catch (e) {
+      // Escola suspensa: o mesmo aviso (IU04) do login normal.
+      if (ehEscolaSuspensa(e)) {
+        navigate(rotaAcessoSuspenso(motivoDaSuspensao(e)), { replace: true })
+        return
+      }
       setErro(mensagemDeErro(e, `Não foi possível entrar como ${conta.rotulo}.`))
       setEntrando(null)
     }

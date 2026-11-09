@@ -258,7 +258,7 @@ todas.
 | Método | Rota | Perfis autorizados |
 |---|---|---|
 | `GET` | `/alunos` · `/alunos/{id}` (o professor vê só os alunos das próprias turmas, em `/portal/professor`) | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
-| `GET` | `/alunos/pagina?busca&situacao&pagina&tamanho&ordenarPor&direcao` (`busca`: parte do nome ou da matrícula; `situacao`: `MATRICULADO`, `TRANCADO` ou `SEM_TURMA`; `ordenarPor`: `NOME` ou `MATRICULA`; `resumo`: total e quantidade por situação) | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
+| `GET` | `/alunos/pagina?busca&situacao&pagina&tamanho&ordenarPor&direcao` (`busca`: parte do nome ou da matrícula; `situacao`: `MATRICULADO`, `TRANCADO`, `SEM_TURMA` ou `ANONIMIZADO`; `ordenarPor`: `NOME` ou `MATRICULA`; `resumo`: total e quantidade por situação) | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
 | `POST` | `/alunos` | `MASTER`, `SECRETARIA` |
 | `PUT` | `/alunos/{id}` (responsáveis não mudam; 409 se a matrícula ou o e-mail já estão em uso) | `MASTER`, `SECRETARIA` |
 | `POST` | `/alunos/{id}/primeiro-acesso` (reenvia o e-mail) | `MASTER`, `SECRETARIA` |

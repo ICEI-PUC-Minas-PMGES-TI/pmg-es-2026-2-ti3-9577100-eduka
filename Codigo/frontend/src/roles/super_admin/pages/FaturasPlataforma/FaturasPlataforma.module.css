@@ -1,9 +1,48 @@
+.grade {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 20px;
+  align-items: start;
+}
+
+.principal {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+@media (max-width: 1000px) {
+  .grade {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.cancelar {
+  padding: 4px;
+  border: 0;
+  background: none;
+  color: var(--color-primary-text);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cancelar:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.cancelar:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
 .filtros {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin: 8px 0 16px;
 }
 
 .pilula {

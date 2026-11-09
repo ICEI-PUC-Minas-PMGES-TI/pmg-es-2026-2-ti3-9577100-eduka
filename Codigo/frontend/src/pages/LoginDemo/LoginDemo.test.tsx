@@ -4,6 +4,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { problema, simularApi } from '../../test/api'
 import type { GrupoDemo } from '../../services/demoService'
+import { AcessoSuspenso } from '../AcessoSuspenso/AcessoSuspenso'
 import { LoginDemo } from './LoginDemo'
 
 const GRUPOS: GrupoDemo[] = [
@@ -19,6 +20,7 @@ function abrir() {
     [
       { path: '/login/demo', element: <LoginDemo /> },
       { path: '/master', element: <p>Painel do master</p> },
+      { path: '/acesso-suspenso', element: <AcessoSuspenso /> },
     ],
     { initialEntries: ['/login/demo'] },
   )
@@ -60,6 +62,23 @@ describe('LoginDemo', () => {
       senha: 'senha-do-acesso',
       conta: 'helena.duarte@mock.eduka.com.br',
     })
+  })
+
+  it('conta de escola suspensa vai para o aviso de suspensão', async () => {
+    simularApi(({ caminho }) => {
+      if (caminho === '/demo/contas') return { corpo: GRUPOS }
+      if (caminho === '/demo/entrar') {
+        return { status: 403, corpo: { status: 403, codigo: 'ESCOLA_SUSPENSA', motivo: 'FATURA_EM_ATRASO' } }
+      }
+      return undefined
+    })
+    abrir()
+
+    await preencherAcesso()
+    await userEvent.click(await screen.findByRole('button', { name: /helena duarte/i }))
+
+    expect(await screen.findByRole('heading', { name: /acesso temporariamente indisponível/i })).toBeInTheDocument()
+    expect(screen.getByText(/porque uma fatura do Edúka está em atraso/)).toBeInTheDocument()
   })
 
   it('não manda o token salvo de uma sessão anterior', async () => {

@@ -14,6 +14,8 @@ import org.springframework.data.domain.Sort.Direction;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.PapelPessoa;
 import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Pessoa;
@@ -70,15 +72,17 @@ public class ProfessorService {
     private final PessoaPapelRepository pessoaPapelRepository;
     private final IsolamentoEscola isolamentoEscola;
     private final AcessoService acessoService;
+    private final AuditoriaService auditoriaService;
 
     public ProfessorService(ProfessorRepository professorRepository, PessoaRepository pessoaRepository,
             PessoaPapelRepository pessoaPapelRepository, IsolamentoEscola isolamentoEscola,
-            AcessoService acessoService) {
+            AcessoService acessoService, AuditoriaService auditoriaService) {
         this.professorRepository = professorRepository;
         this.pessoaRepository = pessoaRepository;
         this.pessoaPapelRepository = pessoaPapelRepository;
         this.isolamentoEscola = isolamentoEscola;
         this.acessoService = acessoService;
+        this.auditoriaService = auditoriaService;
     }
 
     /**
@@ -163,6 +167,7 @@ public class ProfessorService {
                 .vinculo(request.vinculo())
                 .ativo(true)
                 .build());
+        auditar(OperacaoAuditoria.CRIAR, professor.getId());
         return ProfessorResponse.de(professor, pessoa);
     }
 
@@ -184,6 +189,7 @@ public class ProfessorService {
             professor.setUsuarioId(usuario.getId());
             professorRepository.save(professor);
         }
+        auditar(OperacaoAuditoria.REENVIAR_ACESSO, professor.getId());
     }
 
     @Transactional
@@ -203,6 +209,7 @@ public class ProfessorService {
         professor.setAtualizadoEm(Instant.now());
 
         acessoService.sincronizarLogin(pessoa);
+        auditar(OperacaoAuditoria.EDITAR, professor.getId());
         return ProfessorResponse.de(professorRepository.save(professor), pessoaRepository.save(pessoa));
     }
 
@@ -245,6 +252,12 @@ public class ProfessorService {
         if (papeisProfessor.size() == papeis.size()) {
             pessoaRepository.delete(pessoa);
         }
+        // O log nao aponta por FK: o id do professor excluido continua identificando o registro.
+        auditar(OperacaoAuditoria.EXCLUIR, professor.getId());
+    }
+
+    private void auditar(OperacaoAuditoria operacao, UUID professorId) {
+        auditoriaService.registrar(operacao, EntidadeAuditada.PROFESSOR, professorId);
     }
 
     private ProfessorResponse alterarAtivo(UUID id, boolean ativo) {
@@ -256,6 +269,7 @@ public class ProfessorService {
             professor.setAtualizadoEm(Instant.now());
             professor = professorRepository.save(professor);
             acessoService.definirAtivo(pessoa, ativo);
+            auditar(ativo ? OperacaoAuditoria.ATIVAR : OperacaoAuditoria.INATIVAR, professor.getId());
         }
         return ProfessorResponse.de(professor, pessoa);
     }

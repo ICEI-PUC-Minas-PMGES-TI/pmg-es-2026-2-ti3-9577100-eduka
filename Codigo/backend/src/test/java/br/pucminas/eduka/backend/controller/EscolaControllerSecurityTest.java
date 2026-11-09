@@ -27,6 +27,7 @@ import br.pucminas.eduka.backend.repository.EscolaRepository;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.EscolaService;
+import br.pucminas.eduka.backend.service.AuditoriaService;
 
 @WebMvcTest(EscolaController.class)
 @Import({ JwtConfig.class, JwtService.class, ApiExceptionHandler.class, EscolaService.class })
@@ -42,6 +43,8 @@ class EscolaControllerSecurityTest {
 
     @MockitoBean
     private EscolaRepository escolaRepository;
+    @MockitoBean
+    private AuditoriaService auditoriaService;
 
     private String accessToken(String perfil) {
         return jwtService.generateAccessToken(UUID.randomUUID(), perfil, ESCOLA_A);

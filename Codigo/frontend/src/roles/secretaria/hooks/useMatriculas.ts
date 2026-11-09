@@ -34,7 +34,12 @@ export function useMatriculas() {
         setTurmas(
           [...turmasDaEscola].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { numeric: true })),
         )
-        setAlunos([...alunosDaEscola].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')))
+        // O anonimizado saiu da escola: não volta a ser matriculado.
+        setAlunos(
+          alunosDaEscola
+            .filter((a) => a.situacao !== 'ANONIMIZADO')
+            .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
+        )
         setResumo(resumoDaEscola)
         setErro(null)
       })

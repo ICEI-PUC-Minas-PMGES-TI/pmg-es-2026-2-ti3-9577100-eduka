@@ -14,6 +14,7 @@ const BADGE_SITUACAO: Record<SituacaoNaEscola, { rotulo: string; tom: 'success' 
   MATRICULADO: { rotulo: 'Matriculado', tom: 'success' },
   TRANCADO: { rotulo: 'Trancado', tom: 'neutral' },
   SEM_TURMA: { rotulo: 'Sem turma', tom: 'danger' },
+  ANONIMIZADO: { rotulo: 'Anonimizado', tom: 'neutral' },
 }
 
 type AlunosTableProps = {
@@ -69,6 +70,8 @@ export function AlunosTable({
             <tbody>
               {alunos.map((aluno) => {
                 const badge = BADGE_SITUACAO[aluno.situacao]
+                // Sem dado pessoal, não há o que editar nem acesso para reenviar.
+                const anonimizado = aluno.situacao === 'ANONIMIZADO'
                 return (
                   <tr key={aluno.id}>
                     <td className={styles.colPrincipal}>
@@ -91,19 +94,23 @@ export function AlunosTable({
                         <Button size="sm" icon="eye" onClick={() => onVer(aluno)}>
                           Ver
                         </Button>
-                        <Button size="sm" icon="edit" onClick={() => onEditar(aluno)}>
-                          Editar
-                        </Button>
-                        <Dica texto="Envia uma nova senha provisória para o e-mail do aluno">
-                          <Button
-                            size="sm"
-                            icon="mail"
-                            disabled={reenviandoId === aluno.id}
-                            onClick={() => onReenviarAcesso(aluno)}
-                          >
-                            Reenviar acesso
-                          </Button>
-                        </Dica>
+                        {!anonimizado && (
+                          <>
+                            <Button size="sm" icon="edit" onClick={() => onEditar(aluno)}>
+                              Editar
+                            </Button>
+                            <Dica texto="Envia uma nova senha provisória para o e-mail do aluno">
+                              <Button
+                                size="sm"
+                                icon="mail"
+                                disabled={reenviandoId === aluno.id}
+                                onClick={() => onReenviarAcesso(aluno)}
+                              >
+                                Reenviar acesso
+                              </Button>
+                            </Dica>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

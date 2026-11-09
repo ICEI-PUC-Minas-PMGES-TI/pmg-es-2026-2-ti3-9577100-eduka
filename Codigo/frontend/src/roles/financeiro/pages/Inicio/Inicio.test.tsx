@@ -150,10 +150,15 @@ describe('Início do financeiro', () => {
     expect(within(resumo).getByText(`${reais(300)} · 46% de inadimplência`)).toBeInTheDocument()
     expect(within(resumo).getByText('2 despesas este mês · próxima em 31/10')).toBeInTheDocument()
 
-    const semana = screen.getByRole('region', { name: 'Vencem esta semana' })
-    expect(within(semana).getByText('Ana Souza')).toBeInTheDocument()
-    expect(within(semana).getByText('Em atraso')).toBeInTheDocument()
-    expect(within(semana).getByText('Vence hoje')).toBeInTheDocument()
+    // Abre na aba de atraso, porque há cobrança vencida; a da semana fica na outra aba.
+    const vencimentos = screen.getByRole('region', { name: 'Vencimentos' })
+    expect(within(vencimentos).getByText('Ana Souza')).toBeInTheDocument()
+    expect(within(vencimentos).getByText('Em atraso')).toBeInTheDocument()
+    expect(within(vencimentos).queryByText('Bruno Lima')).not.toBeInTheDocument()
+    await userEvent.click(within(vencimentos).getByRole('button', { name: 'Esta semana (1)' }))
+    expect(within(vencimentos).getByText('Bruno Lima')).toBeInTheDocument()
+    expect(within(vencimentos).getByText('Vence hoje')).toBeInTheDocument()
+    expect(within(vencimentos).queryByText('Ana Souza')).not.toBeInTheDocument()
 
     // Os horários aparecem no fuso da escola (UTC-3).
     const pagamentos = screen.getByRole('region', { name: 'Últimos pagamentos' })
@@ -164,12 +169,38 @@ describe('Início do financeiro', () => {
     expect(screen.getByRole('img', { name: `Saiu em outubro de 2026: ${formatarMoeda(40)}` })).toBeInTheDocument()
   })
 
+  it('a aba de atraso avisa quando o backend mandou só as mais antigas e pagina de 5 em 5', async () => {
+    const atrasadas = Array.from({ length: 7 }, (_, i) => ({
+      id: `cob-${i}`,
+      alunoId: `aluno-${i}`,
+      alunoNome: `Aluno ${i + 1}`,
+      descricao: 'Mensalidade',
+      valor: 100,
+      dataVencimento: `2026-08-${String(i + 1).padStart(2, '0')}`,
+      status: 'EM_ATRASO' as const,
+    }))
+    abrir({ corpo: { ...PAINEL, emAtraso: { ...PAINEL.emAtraso, cobrancas: 12 }, vencemNaSemana: atrasadas } })
+
+    const vencimentos = await screen.findByRole('region', { name: 'Vencimentos' })
+    expect(within(vencimentos).getByText('As 7 mais antigas de 12 cobranças em atraso.')).toBeInTheDocument()
+    expect(within(vencimentos).getByRole('button', { name: 'Em atraso (12)' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(vencimentos).getByText('Aluno 5')).toBeInTheDocument()
+    expect(within(vencimentos).queryByText('Aluno 6')).not.toBeInTheDocument()
+    expect(within(vencimentos).getByText('1–5 de 7')).toBeInTheDocument()
+
+    await userEvent.click(within(vencimentos).getByRole('button', { name: 'Próxima página' }))
+    expect(within(vencimentos).getByText('Aluno 6')).toBeInTheDocument()
+    expect(within(vencimentos).queryByText('Aluno 1')).not.toBeInTheDocument()
+    expect(within(vencimentos).getByRole('button', { name: 'Próxima página' })).toBeDisabled()
+  })
+
   it('escola sem movimento vê o painel zerado e os avisos de vazio', async () => {
     abrir({ corpo: VAZIO })
 
     expect(await screen.findByText('Nada venceu ainda')).toBeInTheDocument()
     expect(screen.getByText('Nada a pagar este mês')).toBeInTheDocument()
-    expect(screen.getByText('Nenhuma cobrança vence esta semana e nada está em atraso.')).toBeInTheDocument()
+    // Sem atraso, abre na aba da semana.
+    expect(screen.getByText('Nenhuma cobrança vence nos próximos dias.')).toBeInTheDocument()
     expect(screen.getByText('Nenhum pagamento recebido ainda.')).toBeInTheDocument()
     expect(screen.getByText('Nenhum dinheiro entrou ou saiu nos últimos 6 meses.')).toBeInTheDocument()
   })

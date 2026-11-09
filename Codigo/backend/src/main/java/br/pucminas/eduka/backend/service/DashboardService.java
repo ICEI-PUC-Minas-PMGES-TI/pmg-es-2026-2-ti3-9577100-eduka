@@ -3,8 +3,11 @@ package br.pucminas.eduka.backend.service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -21,7 +24,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.pucminas.eduka.backend.domain.AlocacaoProfessor;
+import br.pucminas.eduka.backend.domain.Aula;
 import br.pucminas.eduka.backend.domain.Avaliacao;
+import br.pucminas.eduka.backend.domain.DiaSemana;
+import br.pucminas.eduka.backend.domain.HorarioTurma;
 import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.PeriodoLetivo;
 import br.pucminas.eduka.backend.domain.Professor;
@@ -30,15 +36,18 @@ import br.pucminas.eduka.backend.domain.Turma;
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.DashboardEscolaResponse;
 import br.pucminas.eduka.backend.dto.DashboardProfessorResponse;
+import br.pucminas.eduka.backend.dto.DashboardProfessorResponse.AulaDaSemana;
 import br.pucminas.eduka.backend.dto.DashboardProfessorResponse.AvaliacaoResumo;
 import br.pucminas.eduka.backend.dto.DashboardSecretariaResponse;
 import br.pucminas.eduka.backend.dto.DashboardSecretariaResponse.OcupacaoTurma;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.AlocacaoProfessorRepository;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
+import br.pucminas.eduka.backend.repository.AulaRepository;
 import br.pucminas.eduka.backend.repository.AvaliacaoRepository;
 import br.pucminas.eduka.backend.repository.CursoRepository;
 import br.pucminas.eduka.backend.repository.DisciplinaRepository;
+import br.pucminas.eduka.backend.repository.HorarioTurmaRepository;
 import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.NotaRepository;
 import br.pucminas.eduka.backend.repository.PeriodoLetivoRepository;
@@ -82,6 +91,8 @@ public class DashboardService {
     private final AlocacaoProfessorRepository alocacaoRepository;
     private final AvaliacaoRepository avaliacaoRepository;
     private final NotaRepository notaRepository;
+    private final HorarioTurmaRepository horarioRepository;
+    private final AulaRepository aulaRepository;
     private final IsolamentoEscola isolamentoEscola;
     private final Clock clock;
 
@@ -90,7 +101,8 @@ public class DashboardService {
             DisciplinaRepository disciplinaRepository, PeriodoLetivoRepository periodoLetivoRepository,
             TurmaRepository turmaRepository, MatriculaTurmaRepository matriculaRepository,
             AlocacaoProfessorRepository alocacaoRepository, AvaliacaoRepository avaliacaoRepository,
-            NotaRepository notaRepository, IsolamentoEscola isolamentoEscola, Clock clock) {
+            NotaRepository notaRepository, HorarioTurmaRepository horarioRepository, AulaRepository aulaRepository,
+            IsolamentoEscola isolamentoEscola, Clock clock) {
         this.alunoRepository = alunoRepository;
         this.professorRepository = professorRepository;
         this.usuarioRepository = usuarioRepository;
@@ -102,6 +114,8 @@ public class DashboardService {
         this.alocacaoRepository = alocacaoRepository;
         this.avaliacaoRepository = avaliacaoRepository;
         this.notaRepository = notaRepository;
+        this.horarioRepository = horarioRepository;
+        this.aulaRepository = aulaRepository;
         this.isolamentoEscola = isolamentoEscola;
         this.clock = clock;
     }
@@ -114,7 +128,7 @@ public class DashboardService {
 
         long professores = professorRepository.countByEscolaId(escolaId);
         long professoresAtivos = professorRepository.countByEscolaIdAndAtivoTrue(escolaId);
-        long alunos = alunoRepository.countByEscolaId(escolaId);
+        long alunos = alunoRepository.countByEscolaIdAndAnonimizadoEmIsNull(escolaId);
         long alunosAtivos = matriculaRepository.contarAlunosComMatriculaAtiva(escolaId);
         var pessoas = new DashboardEscolaResponse.Pessoas(
                 alunos,
@@ -161,7 +175,7 @@ public class DashboardService {
         matriculaRepository.contarPorSituacao(escolaId)
                 .forEach(s -> porSituacao.put(s.getStatus(), s.getQuantidade()));
         long recentes = matriculaRepository.countByEscolaIdAndDataMatriculaGreaterThanEqual(escolaId, desde);
-        long alunosSemTurma = alunosSemTurma(alunoRepository.countByEscolaId(escolaId),
+        long alunosSemTurma = alunosSemTurma(alunoRepository.countByEscolaIdAndAnonimizadoEmIsNull(escolaId),
                 matriculaRepository.contarAlunosComMatriculaAtiva(escolaId));
 
         Map<Long, Long> ativasPorTurma = ativasPorTurma(escolaId);
@@ -194,7 +208,7 @@ public class DashboardService {
         List<AlocacaoProfessor> alocacoes = alocacaoRepository
                 .findAllComTurmaEDisciplinaByEscolaIdAndProfessorId(escolaId, professor.getId());
         if (alocacoes.isEmpty()) {
-            return new DashboardProfessorResponse(0, 0, 0, 0, List.of(), List.of());
+            return new DashboardProfessorResponse(0, 0, 0, 0, List.of(), List.of(), List.of());
         }
         Set<Long> turmaIds = alocacoes.stream().map(a -> a.getTurma().getId()).collect(Collectors.toSet());
         Set<String> pares = alocacoes.stream()
@@ -246,7 +260,55 @@ public class DashboardService {
 
         long disciplinas = alocacoes.stream().map(a -> a.getDisciplina().getId()).distinct().count();
         return new DashboardProfessorResponse(turmaIds.size(), disciplinas, alunos, avaliacoes.size(), proximas,
-                pendentes);
+                pendentes, aulasDaSemana(escolaId, alocacoes, hoje));
+    }
+
+    /**
+     * A grade das turmas ativas do professor posta nas datas desta semana (de
+     * segunda a sabado), por data e hora, cada aula com a chamada feita ou nao.
+     */
+    private List<AulaDaSemana> aulasDaSemana(UUID escolaId, List<AlocacaoProfessor> alocacoes, LocalDate hoje) {
+        Map<UUID, AlocacaoProfessor> ativas = alocacoes.stream()
+                .filter(a -> Boolean.TRUE.equals(a.getTurma().getAtiva()))
+                .collect(Collectors.toMap(AlocacaoProfessor::getId, Function.identity(), (a, b) -> a));
+        if (ativas.isEmpty()) {
+            return List.of();
+        }
+        List<HorarioTurma> grade = horarioRepository.findAllByEscolaIdAndAlocacao_IdIn(escolaId, ativas.keySet());
+        if (grade.isEmpty()) {
+            return List.of();
+        }
+        LocalDate segunda = hoje.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate sabado = segunda.plusDays(DiaSemana.SABADO.ordinal());
+
+        // Chamadas ja registradas na semana, por turma, disciplina e dia.
+        Set<Long> turmaIds = ativas.values().stream().map(a -> a.getTurma().getId()).collect(Collectors.toSet());
+        Map<String, Long> registradas = aulaRepository
+                .findAllByEscolaIdAndTurmaIdInAndDataBetween(escolaId, turmaIds, segunda, sabado).stream()
+                .collect(Collectors.groupingBy(
+                        (Aula a) -> chaveAula(a.getTurma().getId(), a.getDisciplina().getId(), a.getData()),
+                        Collectors.counting()));
+
+        List<AulaDaSemana> aulas = new ArrayList<>();
+        Map<String, Long> jaContadas = new HashMap<>();
+        grade.stream()
+                .sorted(Comparator.comparing(HorarioTurma::getDiaSemana).thenComparing(HorarioTurma::getHoraInicio))
+                .forEach(h -> {
+                    AlocacaoProfessor alocacao = ativas.get(h.getAlocacao().getId());
+                    LocalDate data = segunda.plusDays(h.getDiaSemana().ordinal());
+                    String chave = chaveAula(alocacao.getTurma().getId(), alocacao.getDisciplina().getId(), data);
+                    // A n-esima aula da disciplina no dia esta feita se ha ao menos n chamadas nele.
+                    long ordem = jaContadas.merge(chave, 1L, Long::sum);
+                    boolean feita = registradas.getOrDefault(chave, 0L) >= ordem;
+                    aulas.add(new AulaDaSemana(data, h.getDiaSemana(), h.getHoraInicio(), h.getHoraFim(),
+                            alocacao.getTurma().getId(), alocacao.getTurma().getNome(),
+                            alocacao.getDisciplina().getId(), alocacao.getDisciplina().getNome(), feita));
+                });
+        return aulas;
+    }
+
+    private static String chaveAula(Long turmaId, Long disciplinaId, LocalDate data) {
+        return turmaId + ":" + disciplinaId + ":" + data;
     }
 
     // ------------------------------------------------------------------ comum
