@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ApiError } from '../services/api'
 
 /** Itens por página das listas, quando a tela não define outro valor. */
 export const POR_PAGINA = 10
@@ -86,33 +87,6 @@ export function usePaginacao<T, E extends HTMLElement = HTMLDivElement>(
   return { paginacao, topo }
 }
 
-/**
- * Página pedida ao backend (a partir de 0) e quantos itens por página.
- * `irPara` recebe a página como a Paginacao mostra, a partir de 1, e rola até
- * o elemento que recebe o `topo`. Busca ou filtro novo volta com `setPagina(0)`.
- */
-export function usePaginaDoBackend<E extends HTMLElement = HTMLDivElement>() {
-  const [pagina, setPagina] = useState(0)
-  const [porPagina, setPorPagina] = useState(POR_PAGINA)
-  const topo = useRef<E>(null)
-
-  const irPara = useCallback((nova: number) => {
-    setPagina(nova - 1)
-    topo.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [])
-
-  /** Mantém na tela o primeiro item que estava nela. */
-  const mudarPorPagina = useCallback(
-    (novo: number) => {
-      setPagina(paginaDoItem(pagina * porPagina, novo) - 1)
-      setPorPagina(novo)
-    },
-    [pagina, porPagina],
-  )
-
-  return { pagina, setPagina, porPagina, irPara, mudarPorPagina, topo }
-}
-
 /** Página que o backend já devolve cortada; `pagina` começa em 0. */
 export type PaginaDoBackend<T> = {
   conteudo: T[]
@@ -122,19 +96,152 @@ export type PaginaDoBackend<T> = {
   totalPaginas: number
 }
 
-/** Estado do componente Paginacao para uma lista paginada no backend; os controles vêm do usePaginaDoBackend. */
-export function paginacaoDoBackend<T>(
-  pagina: PaginaDoBackend<T>,
-  { irPara, mudarPorPagina }: Pick<EstadoPaginacao<T>, 'irPara' | 'mudarPorPagina'>,
-): EstadoPaginacao<T> {
+/** Página com o resumo da escola (cards e contadores), como o PaginaComResumoResponse do backend. */
+export type PaginaComResumo<T, R> = PaginaDoBackend<T> & { resumo: R }
+
+/**
+ * Pede ao backend a página `pagina` (a partir de 0) com `tamanho` itens.
+ * Memorizada com useCallback sobre a busca e os filtros: trocar a função é
+ * trocar de lista, e a lista volta para a primeira página.
+ */
+export type BuscarPagina<P> = (pagina: number, tamanho: number, signal: AbortSignal) => Promise<P>
+
+/** Tipo dos itens de uma página. */
+type ItemDa<P> = P extends PaginaDoBackend<infer T> ? T : never
+
+/** Última resposta e a consulta que a produziu. */
+type PaginaCarregada<P> = {
+  origem: BuscarPagina<P>
+  pagina: number
+  tamanho: number
+  versao: number
+  dados: P | null
+  erro: string | null
+}
+
+/**
+ * Lista paginada no backend, para o componente Paginacao. Cuida do que toda
+ * tela paginada precisa:
+ *
+ * - busca ou filtro novo (outra `buscar`) volta para a primeira página;
+ * - consulta nova cancela a anterior, e resposta atrasada não sobrescreve;
+ * - até a resposta chegar, a página anterior fica na tela (`atualizando`) e
+ *   a navegação espera; "Carregando" só na primeira vez;
+ * - se a lista encolheu e a página pedida ficou vazia, vai para a última;
+ * - `recarregar` lê a mesma página de novo (depois de cadastrar ou editar).
+ *
+ * Trocar de página rola até o elemento que recebe o `topo` (ref).
+ *
+ * @param buscar       null enquanto não há o que buscar (ex.: nenhuma turma escolhida):
+ *                     sem consulta, sem lista e sem "Carregando"
+ * @param mensagemErro texto quando a falha não é do backend (rede, resposta inesperada)
+ * @param mensagem404  texto no lugar do erro quando a API responde 404 (ex.: a turma deixou de ser do professor)
+ */
+export function useListaPaginada<P extends PaginaDoBackend<unknown>, E extends HTMLElement = HTMLDivElement>(
+  buscar: BuscarPagina<P> | null,
+  mensagemErro: string,
+  mensagem404?: string,
+) {
+  const [estado, setEstado] = useState({ pagina: 0, origem: buscar })
+  const [porPagina, setPorPagina] = useState(POR_PAGINA)
+  const [versao, setVersao] = useState(0)
+  const [carregada, setCarregada] = useState<PaginaCarregada<P> | null>(null)
+  const topo = useRef<E>(null)
+
+  let pagina = estado.pagina
+  if (estado.origem !== buscar) {
+    // Ajuste durante a renderização: a consulta nova já sai pedindo a primeira página.
+    pagina = 0
+    setEstado({ pagina: 0, origem: buscar })
+  }
+
+  useEffect(() => {
+    if (!buscar) return
+    const controller = new AbortController()
+    buscar(pagina, porPagina, controller.signal)
+      .then((dados) => {
+        // Resposta que chegou depois de outra consulta começar não vale mais.
+        if (controller.signal.aborted) return
+        if (dados.conteudo.length === 0 && dados.pagina > 0) {
+          setEstado((atual) =>
+            atual.origem === buscar ? { ...atual, pagina: Math.max(0, dados.totalPaginas - 1) } : atual,
+          )
+          return
+        }
+        setCarregada({ origem: buscar, pagina, tamanho: porPagina, versao, dados, erro: null })
+      })
+      .catch((e: unknown) => {
+        if (controller.signal.aborted) return
+        const erro =
+          e instanceof ApiError
+            ? e.status === 404 && mensagem404
+              ? mensagem404
+              : (e.detalhe ?? e.message)
+            : mensagemErro
+        // A página anterior continua na tela, com o erro em cima.
+        setCarregada((anterior) => ({
+          origem: buscar,
+          pagina,
+          tamanho: porPagina,
+          versao,
+          dados: anterior?.dados ?? null,
+          erro,
+        }))
+      })
+    return () => controller.abort()
+  }, [buscar, pagina, porPagina, versao, mensagemErro, mensagem404])
+
+  const irPara = useCallback((nova: number) => {
+    setEstado((atual) => ({ ...atual, pagina: nova - 1 }))
+    topo.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
+
+  /** Mantém na tela o primeiro item que estava nela. */
+  const mudarPorPagina = useCallback(
+    (novo: number) => {
+      setEstado((atual) => ({ ...atual, pagina: paginaDoItem(pagina * porPagina, novo) - 1 }))
+      setPorPagina(novo)
+    },
+    [pagina, porPagina],
+  )
+
+  const recarregar = useCallback(() => setVersao((v) => v + 1), [])
+
+  const atual =
+    carregada !== null &&
+    carregada.origem === buscar &&
+    carregada.pagina === pagina &&
+    carregada.tamanho === porPagina &&
+    carregada.versao === versao
+  // Sem busca, a lista de uma busca anterior não vale.
+  const dados = buscar ? (carregada?.dados ?? null) : null
+  // Montado aqui, e não por uma função auxiliar: passar o irPara (que usa o ref) a uma função
+  // durante a renderização o lint lê como acesso ao ref.
+  const paginacao: EstadoPaginacao<ItemDa<P>> | null = dados
+    ? {
+        itensDaPagina: dados.conteudo as ItemDa<P>[],
+        pagina: dados.pagina + 1,
+        totalPaginas: Math.max(1, dados.totalPaginas),
+        inicio: dados.pagina * dados.tamanho,
+        total: dados.totalElementos,
+        irPara,
+        porPagina: dados.tamanho,
+        mudarPorPagina,
+      }
+    : null
+
   return {
-    itensDaPagina: pagina.conteudo,
-    pagina: pagina.pagina + 1,
-    totalPaginas: Math.max(1, pagina.totalPaginas),
-    inicio: pagina.pagina * pagina.tamanho,
-    total: pagina.totalElementos,
-    irPara,
-    porPagina: pagina.tamanho,
-    mudarPorPagina,
+    /** Última página recebida; durante uma consulta nova, ainda a anterior. */
+    dados,
+    /** Estado para o componente Paginacao; null até a primeira página chegar. */
+    paginacao,
+    /** Nada chegou ainda: a tela mostra "Carregando". */
+    carregando: buscar !== null && carregada === null,
+    /** Outra página, busca ou filtro a caminho: a lista atual fica e a navegação espera. */
+    atualizando: buscar !== null && carregada !== null && !atual,
+    /** Falha da consulta atual. */
+    erro: atual ? carregada.erro : null,
+    recarregar,
+    topo,
   }
 }

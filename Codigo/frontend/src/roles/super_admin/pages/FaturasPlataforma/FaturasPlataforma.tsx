@@ -6,6 +6,7 @@ import { EstadoDashboard } from '../../../../components/Dashboard/Dashboard'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { TabelaFaturas } from '../../../../components/TabelaFaturas/TabelaFaturas'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
+import { usePaginacao } from '../../../../hooks/usePaginacao'
 import { ApiError } from '../../../../services/api'
 import { listarEscolas } from '../../../../services/escolaService'
 import {
@@ -89,6 +90,8 @@ export function FaturasPlataforma() {
   const resumo = useMemo(() => indicadores(faturas), [faturas])
   const contagem = (f: Filtro) => (f === 'TODAS' ? faturas.length : faturas.filter((x) => x.status === f).length)
   const visiveis = filtro === 'TODAS' ? faturas : faturas.filter((f) => f.status === filtro)
+  // Trocar de filtro volta para a primeira página.
+  const { paginacao, topo } = usePaginacao<FaturaPlataforma, HTMLElement>(visiveis, { reiniciarCom: filtro })
 
   return (
     <SuperAdminLayout
@@ -145,7 +148,8 @@ export function FaturasPlataforma() {
           </div>
 
           <TabelaFaturas
-            faturas={visiveis}
+            paginacao={paginacao}
+            topo={topo}
             mostrarEscola
             vazio="Nenhuma fatura nesta situação."
             acoes={(f) => (

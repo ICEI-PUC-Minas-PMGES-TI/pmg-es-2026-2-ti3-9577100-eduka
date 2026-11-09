@@ -8,6 +8,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -26,9 +28,13 @@ import br.pucminas.eduka.backend.dto.DespesaResponse;
 import br.pucminas.eduka.backend.dto.FaturaPlataformaResponse;
 import br.pucminas.eduka.backend.dto.MatriculaTurmaResponse;
 import br.pucminas.eduka.backend.dto.Ordenacao;
+import br.pucminas.eduka.backend.dto.PaginaComResumoResponse;
 import br.pucminas.eduka.backend.dto.PaginaResponse;
 import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.dto.ProfessorResponse;
+import br.pucminas.eduka.backend.dto.ResumoAlunosResponse;
+import br.pucminas.eduka.backend.dto.ResumoDespesasResponse;
+import br.pucminas.eduka.backend.dto.ResumoProfessoresResponse;
 import br.pucminas.eduka.backend.dto.TurmaResponse;
 import br.pucminas.eduka.backend.pagamento.PaymentRoutingService;
 import br.pucminas.eduka.backend.service.AcademicoSecretariaService;
@@ -76,15 +82,16 @@ class PaginacaoBancoRealTest extends BancoRealTest {
                 null);
         autenticarComo("FINANCEIRO", escola);
 
-        PaginaResponse<DespesaResponse> primeira = despesaService.listarPaginado(SituacaoDespesa.A_PAGAR, null,
+        var primeira = despesaService.listarPaginado(List.of(SituacaoDespesa.A_PAGAR), null,
                 null, null, new Paginacao(0, 2), Ordenacao.Despesas.VENCIMENTO, null);
         assertThat(primeira.conteudo()).extracting(DespesaResponse::valor)
                 .containsExactly(new BigDecimal("100.00"), new BigDecimal("200.00"));
         assertThat(primeira.conteudo()).allSatisfy(d -> assertThat(d.categoriaNome()).isNotBlank());
-        assertThat(primeira).extracting(PaginaResponse::pagina, PaginaResponse::tamanho,
-                PaginaResponse::totalElementos, PaginaResponse::totalPaginas).containsExactly(0, 2, 3L, 2);
+        assertThat(primeira).extracting(PaginaComResumoResponse::pagina, PaginaComResumoResponse::tamanho,
+                PaginaComResumoResponse::totalElementos, PaginaComResumoResponse::totalPaginas)
+                .containsExactly(0, 2, 3L, 2);
 
-        PaginaResponse<DespesaResponse> segunda = despesaService.listarPaginado(SituacaoDespesa.A_PAGAR, null,
+        var segunda = despesaService.listarPaginado(List.of(SituacaoDespesa.A_PAGAR), null,
                 null, null, new Paginacao(1, 2), Ordenacao.Despesas.VENCIMENTO, null);
         assertThat(segunda.conteudo()).extracting(DespesaResponse::valor)
                 .containsExactly(new BigDecimal("300.00"));
@@ -95,10 +102,49 @@ class PaginacaoBancoRealTest extends BancoRealTest {
                 .containsExactly(new BigDecimal("999.00"), new BigDecimal("300.00"), new BigDecimal("200.00"),
                         new BigDecimal("100.00"));
 
-        PaginaResponse<DespesaResponse> depoisDoFim = despesaService.listarPaginado(null, null, null, null,
+        var depoisDoFim = despesaService.listarPaginado(null, null, null, null,
                 new Paginacao(9, 2), Ordenacao.Despesas.VENCIMENTO, null);
         assertThat(depoisDoFim.conteudo()).isEmpty();
         assertThat(depoisDoFim.totalElementos()).isEqualTo(4);
+    }
+
+    @Test
+    void despesasAceitamVariasSituacoesEResumemCadaUmaSemOFiltroDeSituacao() {
+        UUID escola = dados.escola();
+        UUID categoria = dados.categoriaDespesa(escola);
+        LocalDate outubro = LocalDate.of(2026, 10, 10);
+        dados.despesa(escola, categoria, new BigDecimal("100.00"), outubro, SituacaoDespesa.A_PAGAR, null);
+        dados.despesa(escola, categoria, new BigDecimal("50.50"), outubro, SituacaoDespesa.A_PAGAR, null);
+        dados.despesa(escola, categoria, new BigDecimal("70.00"), outubro, SituacaoDespesa.PAGA, null);
+        dados.despesa(escola, categoria, new BigDecimal("999.00"), outubro, SituacaoDespesa.CANCELADA, null);
+        // Fora do periodo: nao entra na pagina nem no resumo.
+        dados.despesa(escola, categoria, new BigDecimal("1.00"), outubro.plusMonths(1), SituacaoDespesa.PAGA, null);
+        UUID outra = dados.escola();
+        dados.despesa(outra, dados.categoriaDespesa(outra), new BigDecimal("5.00"), outubro, SituacaoDespesa.PAGA,
+                null);
+        autenticarComo("FINANCEIRO", escola);
+
+        PaginaComResumoResponse<DespesaResponse, ResumoDespesasResponse> semCanceladas = despesaService
+                .listarPaginado(List.of(SituacaoDespesa.A_PAGAR, SituacaoDespesa.PAGA), null,
+                        LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), new Paginacao(0, 10),
+                        Ordenacao.Despesas.VALOR, null);
+
+        assertThat(semCanceladas.conteudo()).extracting(DespesaResponse::valor)
+                .containsExactly(new BigDecimal("50.50"), new BigDecimal("70.00"), new BigDecimal("100.00"));
+        assertThat(semCanceladas.resumo().porSituacao())
+                .extracting(ResumoDespesasResponse.TotalPorSituacao::situacao,
+                        ResumoDespesasResponse.TotalPorSituacao::quantidade,
+                        t -> t.valor().setScale(2))
+                .containsExactly(tuple(SituacaoDespesa.A_PAGAR, 2L, new BigDecimal("150.50")),
+                        tuple(SituacaoDespesa.PAGA, 1L, new BigDecimal("70.00")),
+                        tuple(SituacaoDespesa.CANCELADA, 1L, new BigDecimal("999.00")));
+
+        // Situacao sem despesa no periodo vem zerada, nunca some.
+        assertThat(despesaService.listarPaginado(List.of(SituacaoDespesa.PAGA), null, LocalDate.of(2027, 1, 1),
+                LocalDate.of(2027, 1, 31), new Paginacao(0, 10), Ordenacao.Despesas.VENCIMENTO, null)
+                .resumo().porSituacao())
+                .extracting(ResumoDespesasResponse.TotalPorSituacao::quantidade, t -> t.valor().signum())
+                .containsOnly(tuple(0L, 0));
     }
 
     @Test
@@ -128,17 +174,36 @@ class PaginacaoBancoRealTest extends BancoRealTest {
         dados.aluno(dados.escola(), "Aaron");
         autenticarComo("SECRETARIA", escola);
 
-        PaginaResponse<AlunoResponse> primeira = alunoService.listarPaginado(null, null, new Paginacao(0, 2),
+        var primeira = alunoService.listarPaginado(null, null, new Paginacao(0, 2),
                 Ordenacao.Alunos.NOME, null);
         assertThat(primeira.conteudo()).extracting(AlunoResponse::nome).containsExactly("alice", "Álvaro");
-        assertThat(primeira).extracting(PaginaResponse::totalElementos, PaginaResponse::totalPaginas)
-                .containsExactly(3L, 2);
+        assertThat(primeira).extracting(PaginaComResumoResponse::totalElementos,
+                PaginaComResumoResponse::totalPaginas).containsExactly(3L, 2);
         assertThat(alunoService.listarPaginado(null, null, new Paginacao(1, 2), Ordenacao.Alunos.NOME, null)
                 .conteudo()).extracting(AlunoResponse::nome).containsExactly("Bruna");
 
-        assertThat(alunoService.listarPaginado("a", AlunoResponse.Situacao.SEM_TURMA, new Paginacao(0, 10),
-                Ordenacao.Alunos.NOME, Direction.DESC).conteudo())
-                .extracting(AlunoResponse::nome).containsExactly("Bruna", "alice");
+        var semTurmaComA = alunoService.listarPaginado("a", AlunoResponse.Situacao.SEM_TURMA,
+                new Paginacao(0, 10), Ordenacao.Alunos.NOME, Direction.DESC);
+        assertThat(semTurmaComA.conteudo()).extracting(AlunoResponse::nome).containsExactly("Bruna", "alice");
+        // O resumo e da escola inteira: nem a busca nem a situacao mudam as contas.
+        assertThat(semTurmaComA.resumo()).isEqualTo(new ResumoAlunosResponse(3, Map.of(
+                AlunoResponse.Situacao.MATRICULADO, 1L,
+                AlunoResponse.Situacao.TRANCADO, 0L,
+                AlunoResponse.Situacao.SEM_TURMA, 2L)));
+    }
+
+    @Test
+    void alunosBuscamPeloNumeroDeMatricula() {
+        UUID escola = dados.escola();
+        dados.aluno(escola, "Carlos");
+        dados.aluno(escola, "Daniela");
+        autenticarComo("SECRETARIA", escola);
+        AlunoResponse daniela = alunoService.listarPaginado("daniela", null, new Paginacao(0, 10),
+                Ordenacao.Alunos.NOME, null).conteudo().get(0);
+
+        assertThat(alunoService.listarPaginado(" " + daniela.matricula().toUpperCase() + " ", null,
+                new Paginacao(0, 10), Ordenacao.Alunos.NOME, null).conteudo())
+                .extracting(AlunoResponse::nome).containsExactly("Daniela");
     }
 
     @Test
@@ -152,8 +217,13 @@ class PaginacaoBancoRealTest extends BancoRealTest {
         dados.matricula(escola, dados.aluno(escola, "Ívis"), turma, StatusMatricula.ATIVA, LocalDate.of(2026, 3, 1));
         autenticarComo("SECRETARIA", escola);
 
-        assertThat(professorService.listarPaginado(null, true, new Paginacao(0, 10), Ordenacao.Professores.NOME,
-                null).conteudo()).extracting(ProfessorResponse::nome).containsExactly("Bruno", "Carla");
+        var ativos = professorService.listarPaginado(null, true, new Paginacao(0, 10), Ordenacao.Professores.NOME,
+                null);
+        assertThat(ativos.conteudo()).extracting(ProfessorResponse::nome).containsExactly("Bruno", "Carla");
+        // Resumo da escola inteira, com a inativa; nenhum cadastro de teste informa o vinculo.
+        assertThat(ativos.resumo()).isEqualTo(new ResumoProfessoresResponse(3, 2, 3));
+        assertThat(professorService.listarPaginado("CAR", null, new Paginacao(0, 10), Ordenacao.Professores.NOME,
+                null).conteudo()).extracting(ProfessorResponse::nome).containsExactly("Carla");
         assertThat(professorService.listarPaginado(null, null, new Paginacao(0, 10),
                 Ordenacao.Professores.DATA_ADMISSAO, Direction.DESC).conteudo())
                 .extracting(ProfessorResponse::nome).containsExactly("Bruno", "Ana", "Carla");

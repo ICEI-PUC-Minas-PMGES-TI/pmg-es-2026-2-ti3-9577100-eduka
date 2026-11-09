@@ -1,10 +1,30 @@
-import type { Aluno, AlunoRequest } from '../types/aluno'
+import type { PaginaComResumo } from '../hooks/usePaginacao'
+import type { Aluno, AlunoDaLista, AlunoRequest, ResumoAlunos, SituacaoNaEscola } from '../types/aluno'
 import type { HistoricoFinanceiro } from '../types/pagamentoAluno'
 import type { RiscoAtraso } from '../types/riscoAtraso'
 import { apiRequest } from './api'
 
 // O backend já limita os alunos à escola de quem está logado. A listagem
-// (resumo) fica em matriculaService.listarAlunos.
+// inteira (para escolher alunos) fica em matriculaService.listarAlunos.
+
+export type ConsultaAlunos = {
+  pagina: number
+  tamanho: number
+  /** Parte do nome ou do número de matrícula. */
+  busca?: string
+  situacao?: SituacaoNaEscola
+}
+
+/** Uma página dos alunos, em ordem de nome, com o resumo da escola inteira. */
+export function listarPaginaDeAlunos(
+  consulta: ConsultaAlunos,
+  signal?: AbortSignal,
+): Promise<PaginaComResumo<AlunoDaLista, ResumoAlunos>> {
+  const params = new URLSearchParams({ pagina: String(consulta.pagina), tamanho: String(consulta.tamanho) })
+  if (consulta.busca) params.set('busca', consulta.busca)
+  if (consulta.situacao) params.set('situacao', consulta.situacao)
+  return apiRequest(`/alunos/pagina?${params}`, { signal })
+}
 
 export function buscarAluno(id: string, signal?: AbortSignal): Promise<Aluno> {
   return apiRequest<Aluno>(`/alunos/${id}`, { signal })

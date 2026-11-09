@@ -34,19 +34,22 @@ src/
 ├── routes/               router.tsx (rotas), paths.ts (caminhos) e RotaProtegida.tsx
 ├── roles/                Um módulo por perfil de usuário, cada um com routes.tsx, layouts/,
 │   │                     pages/ e, quando precisa, components/ e hooks/ próprios
-│   ├── super_admin/      LoginAdmin, painel de escolas (PainelEscolas) e EditarEscola
-│   ├── master/           Início (resumo da escola e do financeiro) e Recebimentos
+│   ├── super_admin/      LoginAdmin, painel de escolas (PainelEscolas), EditarEscola, Faturas
+│   │                     (de uma escola) e Faturas da plataforma (de todas)
+│   ├── master/           Início (resumo da escola e do financeiro), Recebimentos e Plano e faturas
 │   ├── secretaria/       Início, Alunos, Professores, Acadêmico (períodos, cursos,
 │   │                     disciplinas e turmas), Alocação de professores e Matrículas
-│   ├── professor/        Início, Minhas turmas, Avaliações e Notas
-│   ├── aluno/            Boletim, Provas e tarefas e Meus dados
-│   └── financeiro/       Início (resumo financeiro), Cobranças, Nova cobrança e Despesas
+│   ├── professor/        Início, Minhas turmas, Avaliações, Notas e Chamada
+│   ├── aluno/            Boletim (com Provas e tarefas), Pagamentos e Meus dados
+│   └── financeiro/       Início (resumo financeiro), Cobranças, Nova cobrança, Despesas e Relatórios
 ├── pages/                Telas fora dos perfis: Home (página inicial), Login (escola, com
 │                         código por e-mail e primeiro acesso), LoginDev, AreaEmConstrucao,
 │                         PaginaNaoEncontrada
 ├── components/           Componentes compartilhados (ver "Componentes" abaixo)
 ├── hooks/                useCarregamento (busca com cancelamento e recarga), useDetalhe
-│                         (detalhe ao abrir um modal), usePopoverFlutuante (dropdowns e calendário)
+│                         (detalhe ao abrir um modal), usePaginacao (paginação de lista já
+│                         carregada e useListaPaginada, página a página do backend), useTermoAdiado
+│                         (busca que espera a digitação parar), usePopoverFlutuante (dropdowns e calendário)
 ├── services/             api.ts, authService.ts e um service por recurso da API (escola,
 │                         aluno, professor, acadêmico, alocação, matrícula, dashboard, portais)
 ├── types/                Tipos que espelham os DTOs do backend
@@ -91,6 +94,25 @@ resolve:
 | `Button` | Variantes `primary`/`accent` (roxo), `outline` (vidro), `danger` (excluir confirmado) e `dangerOutline` (excluir na linha da tabela). Sem texto, fica compacto. |
 | `Campo`, `Select`, `CampoData`, `Switch` | Campos de formulário com rótulo, dica e erro. Use `Select` e `CampoData` em vez dos controles nativos do navegador. |
 | `Badge`, `Icon` | Situação (ativo, suspenso...) e ícones SVG. |
+| `Paginacao` | Rodapé de toda lista paginada: "1–10 de 42", itens por página (10, 20 ou 50), números das páginas, Anterior e Próxima. Some quando tudo cabe numa página. Recebe o estado de `usePaginacao` ou de `useListaPaginada` (ver abaixo). |
+| `TabelaFaturas` | Faturas da plataforma, da mais recente para a mais antiga, com a paginação embaixo. |
+
+## Listas paginadas
+
+Lista que cresce (alunos, professores, cobranças, despesas, faturas) vem do backend uma página por
+vez, pelo `GET .../pagina` do recurso. Use `useListaPaginada` com uma função de busca memorizada
+com `useCallback` sobre a busca e os filtros: trocar a função é trocar de lista, e ela volta para
+a primeira página. O hook já cancela a consulta anterior, mantém a página atual na tela enquanto a
+próxima chega (`atualizando`, que também trava os botões da `Paginacao`), volta para a última
+página se a lista encolheu e lê a mesma página de novo com `recarregar` (depois de cadastrar ou
+editar). Enquanto não há o que buscar (ex.: nenhuma turma escolhida, como na Chamada), passe `null`
+no lugar da função. Para a busca por texto, passe o termo por `useTermoAdiado`, que só o entrega quando a
+digitação para. Cards e contadores das abas vêm no `resumo` da própria página, contados no
+backend sobre a escola inteira.
+
+Lista pequena que a tela precisa inteira (as matrículas de uma turma, as faturas de uma escola no
+Plano e faturas) é carregada uma vez e paginada no front com `usePaginacao`, passando
+`reiniciarCom` com a busca e o filtro para voltar à primeira página quando eles mudam.
 
 Não use `window.alert` nem `window.confirm`: avisos e confirmações são diálogos com `Modal`.
 

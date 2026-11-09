@@ -32,7 +32,7 @@ export function FinanceiroLayout({ titulo, subtitulo, acao, children }: Financei
   }
   return (
     <PainelLayout
-      contexto="[NOME DA ESCOLA] · Financeiro"
+      contexto="Financeiro"
       titulo={titulo}
       subtitulo={subtitulo}
       acao={acao}

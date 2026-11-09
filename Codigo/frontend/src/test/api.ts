@@ -1,4 +1,24 @@
 import { vi } from 'vitest'
+import type { PaginaDoBackend } from '../hooks/usePaginacao'
+
+/** Parâmetros da consulta de um caminho, ex.: { pagina: '0', tamanho: '10' }. */
+export function parametros(caminho: string): Record<string, string> {
+  return Object.fromEntries(new URL(caminho, 'http://teste').searchParams)
+}
+
+/** Faz o papel de um GET .../pagina: corta `itens` (já filtrados) na página e no tamanho pedidos. */
+export function cortarPagina<T>(itens: T[], caminho: string): PaginaDoBackend<T> {
+  const { pagina: textoPagina, tamanho: textoTamanho } = parametros(caminho)
+  const pagina = Number(textoPagina)
+  const tamanho = Number(textoTamanho)
+  return {
+    conteudo: itens.slice(pagina * tamanho, (pagina + 1) * tamanho),
+    pagina,
+    tamanho,
+    totalElementos: itens.length,
+    totalPaginas: Math.ceil(itens.length / tamanho),
+  }
+}
 
 /** O que o backend responde: o corpo vira JSON; status padrão 200. */
 export type RespostaApi = { status?: number; corpo?: unknown }

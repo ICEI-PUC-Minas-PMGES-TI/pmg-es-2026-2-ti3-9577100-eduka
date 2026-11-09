@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Button } from '../../../../components/Button/Button'
 import { Paginacao } from '../../../../components/Paginacao/Paginacao'
-import { usePaginacao } from '../../../../hooks/usePaginacao'
+import { useListaPaginada, type PaginaComResumo } from '../../../../hooks/usePaginacao'
 import { ApiError } from '../../../../services/api'
 import {
   criarDespesa,
   listarCategoriasDespesa,
-  listarDespesas,
+  listarPaginaDeDespesas,
   mudarSituacaoDespesa,
   type PeriodoDespesas,
 } from '../../../../services/despesaService'
@@ -14,6 +14,7 @@ import type {
   CategoriaDespesa,
   Despesa,
   FiltroSituacaoDespesa,
+  ResumoDespesas,
   SituacaoDespesa,
 } from '../../../../types/despesa'
 import { formatarMoeda, hojeIso } from '../../../../utils/formatters'
@@ -51,18 +52,31 @@ const FILTROS: { valor: FiltroSituacaoDespesa; rotulo: string }[] = [
   { valor: 'PAGAS', rotulo: 'Pagas' },
 ]
 
-/** A despesa entra na lista com o filtro escolhido? */
-function passaNoFiltro(despesa: Despesa, filtro: FiltroSituacaoDespesa): boolean {
-  if (filtro === 'A_PAGAR') return despesa.situacao === 'A_PAGAR'
-  if (filtro === 'PAGAS') return despesa.situacao === 'PAGA'
-  return true
+/** O que cada pílula pede ao backend. "Todas" deixa as canceladas de fora. */
+const SITUACOES_DO_FILTRO: Record<FiltroSituacaoDespesa, SituacaoDespesa[]> = {
+  TODAS: ['A_PAGAR', 'PAGA'],
+  A_PAGAR: ['A_PAGAR'],
+  PAGAS: ['PAGA'],
 }
 
+/** A despesa entra na lista com o filtro escolhido? */
+function passaNoFiltro(despesa: Despesa, filtro: FiltroSituacaoDespesa): boolean {
+  return SITUACOES_DO_FILTRO[filtro].includes(despesa.situacao)
+}
+
+/** Soma e quantidade de uma situação no resumo do backend. */
+function totalDa(resumo: ResumoDespesas | null, situacao: SituacaoDespesa) {
+  const total = resumo?.porSituacao.find((t) => t.situacao === situacao)
+  return { valor: total?.valor ?? 0, quantidade: total?.quantidade ?? 0 }
+}
+
+/**
+ * Despesas do financeiro (IU21): as do mês atual, uma página por vez
+ * (GET /despesas/pagina), com os totais do mês somados no backend.
+ */
 export function Despesas() {
-  const [despesas, setDespesas] = useState<Despesa[]>([])
   const [categorias, setCategorias] = useState<CategoriaDespesa[]>([])
-  const [carregando, setCarregando] = useState(true)
-  const [erroLista, setErroLista] = useState<string | null>(null)
+  const [erroCategorias, setErroCategorias] = useState<string | null>(null)
   const [filtro, setFiltro] = useState<FiltroSituacaoDespesa>('TODAS')
   const [atualizandoId, setAtualizandoId] = useState<string | null>(null)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
@@ -81,79 +95,55 @@ export function Despesas() {
 
   useEffect(() => {
     const controller = new AbortController()
-    // A tela é a lista do mês: o histórico das outras despesas fica no backend.
-    const doMes = periodoDoMes(hojeIso().slice(0, 7))
-    Promise.all([listarDespesas(doMes, controller.signal), listarCategoriasDespesa(controller.signal)])
-      .then(([dadosDespesas, dadosCategorias]) => {
-        setDespesas(dadosDespesas)
+    listarCategoriasDespesa(controller.signal)
+      .then((dadosCategorias) => {
         setCategorias(dadosCategorias)
         setCategoriaId(dadosCategorias[0]?.id ?? null)
       })
       .catch((e: unknown) => {
-        if (!controller.signal.aborted) setErroLista(mensagemDeErro(e, 'Não foi possível carregar as despesas.'))
+        if (!controller.signal.aborted) {
+          setErroCategorias(mensagemDeErro(e, 'Não foi possível carregar as categorias.'))
+        }
       })
-      .finally(() => {
-        if (!controller.signal.aborted) setCarregando(false)
-      })
-
     return () => controller.abort()
   }, [])
 
-  // Mês atual (AAAA-MM), no fuso da escola
+  // Mês atual (AAAA-MM), no fuso da escola. A tela é a lista do mês: o histórico fica no backend.
   const mesAtual = hojeIso().slice(0, 7)
 
-  // A tela é a lista do mês: só o que vence no mês atual; cancelada não entra
-  const despesasDoMes = useMemo(
-    () => despesas.filter((d) => d.situacao !== 'CANCELADA' && d.dataVencimento.startsWith(mesAtual)),
-    [despesas, mesAtual],
+  const buscarDespesas = useCallback(
+    (pagina: number, tamanho: number, signal: AbortSignal) =>
+      listarPaginaDeDespesas(
+        { pagina, tamanho, ...periodoDoMes(mesAtual), situacoes: SITUACOES_DO_FILTRO[filtro] },
+        signal,
+      ),
+    [mesAtual, filtro],
   )
-
-  const totais = useMemo(() => {
-    let pago = 0
-    let qtdPagas = 0
-    let faltaPagar = 0
-    let qtdAPagar = 0
-
-    for (const d of despesasDoMes) {
-      if (d.situacao === 'PAGA') {
-        pago += d.valor
-        qtdPagas += 1
-      } else if (d.situacao === 'A_PAGAR') {
-        faltaPagar += d.valor
-        qtdAPagar += 1
-      }
-    }
-
-    return {
-      pago,
-      qtdPagas,
-      faltaPagar,
-      qtdAPagar,
-      total: pago + faltaPagar,
-    }
-  }, [despesasDoMes])
-
-  // Despesas do mês filtradas pela pílula selecionada e ordenadas por data
-  const despesasFiltradas = useMemo(
-    () =>
-      despesasDoMes
-        .filter((d) => passaNoFiltro(d, filtro))
-        // Datas ISO (AAAA-MM-DD) ordenam como texto
-        .sort((a, b) => a.dataVencimento.localeCompare(b.dataVencimento)),
-    [despesasDoMes, filtro],
+  const lista = useListaPaginada<PaginaComResumo<Despesa, ResumoDespesas>>(
+    buscarDespesas,
+    'Não foi possível carregar as despesas.',
   )
-  const { paginacao, topo } = usePaginacao(despesasFiltradas, { reiniciarCom: filtro })
+  const { paginacao, topo, carregando, atualizando, erro: erroLista, recarregar } = lista
+
+  // Os cards somam o mês inteiro no backend, sem a pílula escolhida; cancelada não entra.
+  const pagas = totalDa(lista.dados?.resumo ?? null, 'PAGA')
+  const aPagar = totalDa(lista.dados?.resumo ?? null, 'A_PAGAR')
+  const totais = {
+    pago: pagas.valor,
+    qtdPagas: pagas.quantidade,
+    faltaPagar: aPagar.valor,
+    qtdAPagar: aPagar.quantidade,
+    total: pagas.valor + aPagar.valor,
+  }
 
   /** Marca como paga a despesa a pagar, ou desfaz o pagamento da paga. */
   async function handleAlternarSituacao(despesa: Despesa) {
     setErroAcao(null)
     setAtualizandoId(despesa.id)
     try {
-      const atualizada = await mudarSituacaoDespesa(
-        despesa.id,
-        despesa.situacao === 'PAGA' ? 'A_PAGAR' : 'PAGA',
-      )
-      setDespesas((prev) => prev.map((d) => (d.id === atualizada.id ? atualizada : d)))
+      await mudarSituacaoDespesa(despesa.id, despesa.situacao === 'PAGA' ? 'A_PAGAR' : 'PAGA')
+      // Os totais e a pílula escolhida mudam: a página vem de novo do backend.
+      recarregar()
     } catch (e) {
       setErroAcao(mensagemDeErro(e, 'Não foi possível mudar a situação da despesa.'))
     } finally {
@@ -225,7 +215,7 @@ export function Despesas() {
         paga: situacao === 'PAGA',
       })
 
-      setDespesas((prev) => [...prev, nova])
+      recarregar()
       setDescricao('')
       setValor('')
       // A lista só mostra o mês atual e a situação filtrada: avisa quando a
@@ -313,16 +303,19 @@ export function Despesas() {
               </p>
             )}
 
-            <div ref={topo} className={styles.tabelaWrapper}>
+            <div ref={topo} className={styles.tabelaWrapper} aria-busy={atualizando}>
               {carregando ? (
                 <div className={styles.vazio} role="status">
                   Carregando despesas…
                 </div>
-              ) : erroLista ? (
+              ) : erroLista || !paginacao ? (
                 <div className={styles.vazio} role="alert">
-                  {erroLista}
+                  <span>{erroLista}</span>
+                  <Button size="sm" onClick={recarregar}>
+                    Tentar novamente
+                  </Button>
                 </div>
-              ) : despesasFiltradas.length === 0 ? (
+              ) : paginacao.total === 0 ? (
                 <div className={styles.vazio}>Nenhuma despesa de {rotuloDoMes(mesAtual).toLowerCase()} nesta situação.</div>
               ) : (
                 <table className={styles.tabela}>
@@ -383,7 +376,9 @@ export function Despesas() {
                 </table>
               )}
             </div>
-            {!carregando && !erroLista && <Paginacao paginacao={paginacao} rotulo="Páginas das despesas" />}
+            {paginacao && !erroLista && (
+              <Paginacao paginacao={paginacao} rotulo="Páginas das despesas" carregando={atualizando} />
+            )}
           </section>
         </div>
 
@@ -430,6 +425,11 @@ export function Despesas() {
                     </button>
                   ))}
                 </div>
+                {erroCategorias && (
+                  <p className={styles.erroForm} role="alert">
+                    {erroCategorias}
+                  </p>
+                )}
               </div>
 
               {/* Valor e Data */}

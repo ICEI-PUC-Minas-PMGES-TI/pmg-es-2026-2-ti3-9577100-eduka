@@ -458,6 +458,18 @@ class RoteadorFatura {
         });
     }
 
+    /**
+     * Uma fatura da escola do token, como na listagem: a tela de pagamento
+     * consulta so ela enquanto espera o PIX ou o boleto.
+     *
+     * @throws RecursoNaoEncontradoException fatura inexistente ou de outra escola
+     */
+    FaturaPlataformaResponse buscarMinha(UUID faturaId) {
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        return transacao.execute(status -> FaturaPlataformaResponse.paraEscola(daEscola(escolaId, faturaId),
+                escola(escolaId).getNome(), hoje()));
+    }
+
     PaginaResponse<FaturaPlataformaResponse> listarMinhas(StatusCobranca situacao, Paginacao paginacao,
             Ordenacao.Faturas ordenarPor, Direction direcao) {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
