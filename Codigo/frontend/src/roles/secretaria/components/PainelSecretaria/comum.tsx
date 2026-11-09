@@ -1,5 +1,8 @@
-import type { ReactNode } from 'react'
+import { Children, cloneElement, isValidElement, type ReactNode } from 'react'
 import { Button } from '../../../../components/Button/Button'
+import { Paginacao } from '../../../../components/Paginacao/Paginacao'
+import { usePaginacao } from '../../../../hooks/usePaginacao'
+import { Dica } from '../../../../components/Dica/Dica'
 import styles from './PainelSecretaria.module.css'
 
 type CabecalhoAbaProps = {
@@ -33,28 +36,59 @@ type TabelaProps = {
   vazio: string
   /** Linhas (<tr>); a tabela mostra `vazio` quando não há nenhuma. */
   linhas: ReactNode[]
+  /** Rótulo acessível da paginação, ex.: "Páginas dos cursos". */
+  rotuloPaginacao?: string
+  /** Quando muda (filtro, turma), a tabela volta para a primeira página. */
+  reiniciarCom?: string | number
+  /** Classe extra do card, para quem precisa ajustar a tabela (ex.: sem largura mínima). */
+  className?: string
 }
 
-/** Tabela em card de vidro, no mesmo visual da lista de professores. */
-export function Tabela({ colunas, vazio, linhas }: TabelaProps) {
+/** Dá a cada célula o nome da coluna (data-rotulo), que no celular aparece em cima do dado. */
+function comRotulos(linha: ReactNode, colunas: string[]): ReactNode {
+  if (!isValidElement<{ children?: ReactNode }>(linha)) return linha
+  return cloneElement(
+    linha,
+    undefined,
+    Children.toArray(linha.props.children).map((celula, indice) =>
+      isValidElement<{ 'data-rotulo'?: string }>(celula) && colunas[indice]
+        ? cloneElement(celula, { 'data-rotulo': colunas[indice] })
+        : celula,
+    ),
+  )
+}
+
+/** Tabela em card de vidro, no mesmo visual da lista de professores, com 10 linhas por página. */
+export function Tabela({
+  colunas,
+  vazio,
+  linhas,
+  rotuloPaginacao = 'Páginas da tabela',
+  reiniciarCom,
+  className,
+}: TabelaProps) {
+  const { paginacao, topo } = usePaginacao(linhas, { reiniciarCom })
   return (
-    <div className={styles.card}>
-      <div className={styles.rolagem}>
-        <table className={styles.tabela}>
-          <thead>
-            <tr>
-              {colunas.map((coluna) => (
-                <th key={coluna} scope="col">
-                  {coluna}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>{linhas}</tbody>
-        </table>
+    <>
+      <div ref={topo} className={[styles.card, className].filter(Boolean).join(' ')}>
+        <div className={styles.rolagem}>
+          <table className={styles.tabela}>
+            <thead>
+              <tr>
+                {colunas.map((coluna) => (
+                  <th key={coluna} scope="col">
+                    {coluna}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>{paginacao.itensDaPagina.map((linha) => comRotulos(linha, colunas))}</tbody>
+          </table>
+        </div>
+        {linhas.length === 0 && <p className={styles.mensagem}>{vazio}</p>}
       </div>
-      {linhas.length === 0 && <p className={styles.mensagem}>{vazio}</p>}
-    </div>
+      <Paginacao paginacao={paginacao} rotulo={rotuloPaginacao} />
+    </>
   )
 }
 
@@ -76,14 +110,9 @@ export function AcoesLinha({ nome, onVer, onEditar, onExcluir }: AcoesLinhaProps
       <Button size="sm" icon="edit" onClick={onEditar}>
         Editar
       </Button>
-      <Button
-        size="sm"
-        icon="trash"
-        variant="dangerOutline"
-        aria-label={`Excluir ${nome}`}
-        title="Excluir"
-        onClick={onExcluir}
-      />
+      <Dica texto="Excluir" descrever={false}>
+        <Button size="sm" icon="trash" variant="dangerOutline" aria-label={`Excluir ${nome}`} onClick={onExcluir} />
+      </Dica>
     </span>
   )
 }

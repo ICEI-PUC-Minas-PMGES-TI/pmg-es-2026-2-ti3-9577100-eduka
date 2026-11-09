@@ -166,7 +166,7 @@ flowchart TB
         CADC["Cadastros<br/><code>/escolas</code> · <code>/usuarios/secretarias</code><br/><code>/alunos</code> · <code>/professores</code>"]
         ACADC["Acadêmico<br/><code>/academico/secretaria</code> · alocações<br/><code>/matriculas</code>"]
         FINC["Financeiro<br/><code>/cobrancas</code> · <code>/despesas</code>"]
-        PORTC["Portais<br/><code>/portal/professor</code> (turmas, avaliações, notas)<br/><code>/portal/aluno</code>"]
+        PORTC["Portais<br/><code>/portal/professor</code> (turmas, avaliações, notas, aulas e chamada)<br/><code>/portal/aluno</code>"]
         DASHC["DashboardController<br/><code>/dashboard</code>"]
         HLTC["HealthController<br/><code>GET /health</code>"]
     end
@@ -174,7 +174,7 @@ flowchart TB
     subgraph svc["service — regra de negócio"]
         AUTHS["AuthService · VerificacaoLoginService<br/>UsuarioService · AcessoService"]
         CADS["EscolaService · SecretariaService<br/>AlunoService · ProfessorService"]
-        ACADS["AcademicoSecretariaService<br/>AlocacaoProfessorService<br/>MatriculaTurmaService · AvaliacaoService"]
+        ACADS["AcademicoSecretariaService<br/>AlocacaoProfessorService · HorarioTurmaService<br/>MatriculaTurmaService · AvaliacaoService · AulaService"]
         PORTS["PortalProfessorService · PortalAlunoService<br/>DashboardService"]
     end
 
@@ -213,7 +213,7 @@ que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o e
 
 | Método | Rota | Perfis autorizados |
 |---|---|---|
-| `GET` | `/health` | público |
+| `GET` | `/health` (consulta o banco: 200 `UP`, 503 `DOWN`) | público |
 | `POST` | `/login` (com a verificação ligada, devolve só a `verificacao` pendente) | público |
 | `POST` | `/login/codigo` (confere o código de 6 dígitos e devolve os tokens) | público |
 | `POST` | `/login/codigo/reenvio` (troca o código; 429 se pedir cedo demais ou passar do limite de envios) | público |
@@ -233,6 +233,8 @@ que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o e
 | `POST` | `/config-pagamento/conta/sincronizar` (lê a situação da conta no Asaas; uma rotina faz o mesmo a cada 15 min para as que aguardam aprovação) | `MASTER` |
 | `POST` | `/config-pagamento/conta/sandbox/aprovar` (só no perfil `dev`: aprova a conta filha no Sandbox do Asaas; 202; 409 `SANDBOX_INDISPONIVEL` fora do Sandbox) | `MASTER` |
 | `POST` | `/cobrancas/{id}/sandbox/confirmar-pagamento` (só no perfil `dev`: simula no Sandbox o pagamento da cobrança emitida, que chega pelo webhook; 202; 409 `SANDBOX_INDISPONIVEL`) | `MASTER`, `FINANCEIRO` |
+| `POST` | `/portal/aluno/cobrancas/{id}/sandbox/pagar` (perfis `dev` e `demo`: o aluno paga no Sandbox a própria cobrança depois de gerar o PIX ou o boleto; o backend consulta o Asaas e grava o pagamento sem esperar o webhook; 202; 404 cobrança de outro aluno; 409 `SANDBOX_INDISPONIVEL`) | `ALUNO` |
+| `POST` | `/config-pagamento/faturas/{id}/sandbox/pagar` (perfis `dev` e `demo`: o MASTER paga no Sandbox a fatura do Edúka depois de gerar o PIX ou o boleto; o valor cai na conta-pai e o backend grava o pagamento sem esperar o webhook; 202; 404 fatura de outra escola; 409 `COBRANCA_NAO_PAGAVEL` ou `SANDBOX_INDISPONIVEL`) | `MASTER` |
 | `GET` | `/usuarios/secretarias` · `/usuarios/secretarias/{id}` | `MASTER` |
 | `POST` | `/usuarios/secretarias` | `MASTER` |
 | `PUT` | `/usuarios/secretarias/{id}` | `MASTER` |
@@ -243,7 +245,7 @@ que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o e
 
 | Método | Rota | Perfis autorizados |
 |---|---|---|
-| `GET` | `/alunos` · `/alunos/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO`, `PROFESSOR` |
+| `GET` | `/alunos` · `/alunos/{id}` (o professor vê só os alunos das próprias turmas, em `/portal/professor`) | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
 | `POST` | `/alunos` | `MASTER`, `SECRETARIA` |
 | `PUT` | `/alunos/{id}` (responsáveis não mudam; 409 se a matrícula ou o e-mail já estão em uso) | `MASTER`, `SECRETARIA` |
 | `POST` | `/alunos/{id}/primeiro-acesso` (reenvia o e-mail) | `MASTER`, `SECRETARIA` |
@@ -265,8 +267,12 @@ que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o e
 | `DELETE` | `/academico/secretaria/{...}/{id}` (409 se o registro está em uso) | `MASTER`, `SECRETARIA` |
 | `GET` | `/professores/{professorId}/alocacoes` · `/turmas/{turmaId}/alocacoes` | `MASTER`, `SECRETARIA` |
 | `POST` | `/professores/{professorId}/alocacoes` (disciplina da grade da turma; 409 se já tem professor) | `MASTER`, `SECRETARIA` |
-| `DELETE` | `/professores/{professorId}/alocacoes/{alocacaoId}` | `MASTER`, `SECRETARIA` |
-| `GET` | `/matriculas?turmaId` · `/matriculas/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO`, `PROFESSOR` |
+| `DELETE` | `/professores/{professorId}/alocacoes/{alocacaoId}` (leva junto os horários dessa disciplina na grade semanal da turma, `HORARIO_TURMA` em cascata) | `MASTER`, `SECRETARIA` |
+| `GET` | `/turmas/{turmaId}/horario` (grade semanal da turma, de segunda a sábado e por hora, com disciplina e professor) | `MASTER`, `SECRETARIA` |
+| `POST` | `/turmas/{turmaId}/horario` (alocação da própria turma, dia e horas; 400 se a alocação é de outra turma ou o início não vem antes do fim; 409 `HORARIO_TURMA_CONFLITANTE` ou `HORARIO_PROFESSOR_CONFLITANTE` se sobrepõe outra aula da turma ou do professor no dia, e aulas que só se encostam não conflitam) | `MASTER`, `SECRETARIA` |
+| `PUT` | `/turmas/{turmaId}/horario/{horarioId}` (muda dia e horas; mesmas regras e 409) | `MASTER`, `SECRETARIA` |
+| `DELETE` | `/turmas/{turmaId}/horario/{horarioId}` | `MASTER`, `SECRETARIA` |
+| `GET` | `/matriculas?turmaId` · `/matriculas/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
 | `POST` | `/matriculas` (409 se a turma está sem vagas ou o aluno já está nela) | `MASTER`, `SECRETARIA` |
 | `PATCH` | `/matriculas/{id}` (trancar, reativar, transferir, concluir, cancelar ou editar a observação) | `MASTER`, `SECRETARIA` |
 
@@ -276,7 +282,7 @@ que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o e
 |---|---|---|
 | `GET` | `/cobrancas?alunoId&status&vencimentoDe&vencimentoAte` · `/cobrancas/{id}` | `MASTER`, `FINANCEIRO` |
 | `GET` | `/cobrancas/pagina?alunoId&periodoLetivoId&status&vencimentoDe&vencimentoAte&pagina&tamanho` (paginada pelo vencimento, `tamanho` até 100; `totaisPorStatus` traz quantidade e valor de cada situação com os mesmos filtros, menos o de situação) | `MASTER`, `FINANCEIRO` |
-| `POST` | `/cobrancas` (aluno, descrição, valor e vencimento; matrícula e responsável opcionais, mas têm de ser do aluno) | `MASTER`, `FINANCEIRO` |
+| `POST` | `/cobrancas` (aluno, descrição, valor e vencimento; `tipo` opcional, `OUTRO` por padrão; matrícula e responsável opcionais, mas têm de ser do aluno; sem matrícula, vale a única `ATIVA` do aluno, se houver só uma) | `MASTER`, `FINANCEIRO` |
 | `PUT` | `/cobrancas/{id}` (400 se a cobrança já foi paga ou cancelada; 409 `COBRANCA_NAO_EDITAVEL` depois que alguém clicou em Pagar, porque a cobrança já está no Asaas: aí só cancelando e lançando outra; a situação acompanha o novo vencimento) | `MASTER`, `FINANCEIRO` |
 | `PATCH` | `/cobrancas/{id}/cancelar` (a cobrança fica no histórico como `CANCELADA`; se já foi emitida, é removida antes no Asaas, fora de transação; 409 `COBRANCA_JA_PAGA` se já foi paga, aqui ou no Asaas, e nesse caso o pagamento achado fica registrado; 409 `PAGAMENTO_EM_PROCESSAMENTO` enquanto o pagamento está sendo gerado) | `MASTER`, `FINANCEIRO` |
 | `GET` | `/cobrancas/{id}/comprovante` (comprovante do pagamento online montado pelo Edúka: a escola como beneficiária, o pagador com CPF mascarado, valor, data, forma e código da transação; 404 `COMPROVANTE_INDISPONIVEL` enquanto não há pagamento online registrado, inclusive na baixa manual) | `MASTER`, `FINANCEIRO` |
@@ -298,8 +304,8 @@ completa a data de crédito e o valor líquido. Pagamento de cobrança `CANCELAD
 resposta de criação se perdeu; a remoção no provedor (`PAYMENT_DELETED`) leva a cobrança em
 `EMITINDO` para `FALHA_EMISSAO` e cancela a emitida em aberto. Aviso sem id ou sem tipo responde 400.
 Se a aplicação falhar, o aviso fica em `ERRO` para nova tentativa e o webhook continua respondendo 200.
-Estorno e contestação feitos no Asaas ficam registrados na auditoria, sem mudar a cobrança (ver
-Auditoria, abaixo).
+Estorno e contestação feitos no Asaas ficam registrados na auditoria, sem mudar a situação da cobrança; o
+estorno também desconta o valor devolvido do recebido (ver Auditoria, abaixo).
 
 Duas rotinas cobrem o que o webhook não resolveu. Rodam sem usuário e chamam o Asaas fora de
 transação, pelo `PaymentRoutingService`. Uma falha num item não para os outros.
@@ -361,9 +367,16 @@ autor (restrição no banco, V32). O que entra no log (V32, V33 e V34):
 | Asaas | `COBRANCA`, `FATURA_PLATAFORMA` | `ESTORNAR` | estorno total ou parcial (`PAYMENT_REFUNDED`, `PAYMENT_PARTIALLY_REFUNDED`) |
 | Asaas | `COBRANCA`, `FATURA_PLATAFORMA` | `CONTESTAR` | contestação em qualquer etapa (`PAYMENT_CHARGEBACK_REQUESTED`, `PAYMENT_CHARGEBACK_DISPUTE`, `PAYMENT_AWAITING_CHARGEBACK_REVERSAL`) |
 
-Estorno e contestação **só são auditados**: a situação da cobrança ou da fatura não muda (o que o
-estorno faz com uma cobrança `PAGA` ainda não foi decidido). Estorno em andamento ou negado não é
-estorno e chega como aviso sem efeito.
+A situação da cobrança ou da fatura não muda com estorno ou contestação. Contestação e estorno de fatura da
+plataforma **só são auditados**. O estorno de cobrança também registra o valor devolvido (decisão do grupo, 05/11):
+uma linha em `ESTORNO_COBRANCA`, com a data do aviso, e a soma em `PAGAMENTO_COBRANCA.VALOR_ESTORNADO`. A cobrança
+fica encerrada em `PAGA`; para cobrar de novo, a escola lança outra.
+
+O aviso traz o total já devolvido (`payment.refunds`, só os `DONE`; no `PAYMENT_REFUNDED` sem nenhum, o valor da
+cobrança), e o Edúka grava só a diferença para o que já registrou, com o pagamento travado. Assim, aviso repetido, fora
+de ordem ou simultâneo não desconta em dobro, e o total nunca passa do valor pago. Se o aviso não diz o valor ou a
+cobrança não tem pagamento registrado, o estorno fica só na auditoria. Estorno em andamento ou negado não é estorno e
+chega como aviso sem efeito.
 
 O webhook da conta filha assina esses eventos ao ser criado junto com a conta
 (`AsaasAdapter.EVENTOS_WEBHOOK`). Conta filha criada antes da inclusão de estorno e contestação, e o
@@ -382,9 +395,13 @@ sem isso, esses avisos não chegam.
 | `DELETE` | `/portal/professor/avaliacoes/{id}` (409 se já tem nota) | `PROFESSOR` |
 | `GET` | `/portal/professor/avaliacoes/{id}/notas` (alunos ativos da turma com a nota) | `PROFESSOR` |
 | `PUT` | `/portal/professor/avaliacoes/{id}/notas` (lança em lote; nota nula apaga) | `PROFESSOR` |
+| `GET` | `/portal/professor/aulas?turmaId&disciplinaId&pagina&tamanho&direcao` (aulas da disciplina na turma em páginas, da mais recente para a mais antiga, com os totais de presentes e faltas; 404 se não for alocada a ele) · `/portal/professor/aulas/chamada?turmaId&disciplinaId&data` (quem entra na chamada do dia e as aulas já registradas nele; `data` padrão hoje; 400 se futura) · `/portal/professor/aulas/{id}` (a aula com a chamada completa) | `PROFESSOR` (só turma/disciplina alocada a ele) |
+| `POST` | `/portal/professor/aulas` (registra data, conteúdo e a chamada presente/falta; 400 se a data é futura, se algum aluno com matrícula ativa na turma, feita até o dia da aula, ficou fora da lista, ou se há aluno sem matrícula ativa ou matriculado depois do dia da aula) | `PROFESSOR` |
+| `PUT` | `/portal/professor/aulas/{id}` (corrige conteúdo e chamada, mesmas regras; a data não muda) | `PROFESSOR` |
+| `DELETE` | `/portal/professor/aulas/{id}` (exclui a aula e a chamada dela, para desfazer data errada ou registro em duplicidade; 204, ou 404 se for de outro professor ou outra escola) | `PROFESSOR` |
 | `GET` | `/portal/aluno/me` (dados do próprio aluno, pelo token) | `ALUNO` |
 | `GET` | `/portal/aluno/turmas` (turmas do aluno, com a grade e os professores) | `ALUNO` |
-| `GET` | `/portal/aluno/boletim` (notas por turma e disciplina, com os totais de pontos) | `ALUNO` |
+| `GET` | `/portal/aluno/boletim` (notas por turma e disciplina, com os totais de pontos e a frequência: aulas, faltas, presença e alerta acima de 25% de faltas; nula em disciplina sem aula) | `ALUNO` |
 | `GET` | `/portal/aluno/avaliacoes` (agenda de provas, trabalhos e tarefas das turmas ativas) | `ALUNO` |
 | `GET` | `/portal/aluno/cobrancas/{id}` (uma cobrança do próprio aluno com `situacaoPagamento`, forma, `pagamento` (valor, data e forma, quando já pago online) e `acoes`: `PAGAR` em aberto, `VER_COMPROVANTE` quando paga com pagamento registrado; 404 se for de outro aluno) | `ALUNO` |
 | `GET` | `/portal/aluno/cobrancas/{id}/comprovante` (o mesmo comprovante da gestão, sem nenhuma URL do Asaas; 404 `COMPROVANTE_INDISPONIVEL` antes da confirmação; 404 se for de outro aluno) | `ALUNO` |
@@ -392,6 +409,8 @@ sem isso, esses avisos não chegam.
 | `GET` | `/dashboard/escola` (pessoas, estrutura, ocupação de vagas e aproveitamento) | `MASTER` |
 | `GET` | `/dashboard/secretaria` (matrículas por situação, vagas e ocupação por turma) | `MASTER`, `SECRETARIA` |
 | `GET` | `/dashboard/financeiro` (recebido no mês, falta receber, alunos em atraso e inadimplência, despesas a pagar, entradas e saídas dos 6 últimos meses, cobranças que vencem na semana, últimos pagamentos e últimas ações do `LOG_AUDITORIA`; serve o Início do financeiro e o do `MASTER`) | `MASTER`, `FINANCEIRO` |
+| `GET` | `/relatorios/financeiro?de&ate` (relatório do período, no máximo 24 meses. Pelo dia em que o dinheiro se moveu: recebido sem os estornos do período, estornado, despesas pagas, saldo, formas de pagamento e receitas e despesas por mês. Pelo vencimento, sem as canceladas: despesas lançadas, inadimplência e resumo por curso, tipo e mês) | `MASTER`, `FINANCEIRO` |
+| `GET` | `/relatorios/financeiro/exportar?de&ate&conjuntos&separador` (CSV com uma seção para cada conjunto em `conjuntos`: `COBRANCAS`, `PAGAMENTOS`, com os estornos em valor negativo, e `DESPESAS`; `separador` `PONTO_E_VIRGULA`, o padrão, ou `VIRGULA`; o nome do arquivo traz o período) | `MASTER`, `FINANCEIRO` |
 
 Qualquer rota não listada como pública exige `Authorization: Bearer <access token>` e responde
 `401` sem ele. Perfil sem permissão recebe `403`.
@@ -400,7 +419,10 @@ A autorização tem duas camadas. `RotasPorPerfil`, aplicada no filter chain, de
 entram em cada módulo pelo prefixo da rota (`/escolas`, `/alunos`, `/cobrancas`...). Módulos que
 ainda não têm controller já estão na lista, de modo que o endpoint nasce protegido. Dentro do
 módulo, o controller refina por ação com `@PreAuthorize` e as constantes de `Perfis`
-(ex.: `/alunos` é lido por quatro perfis, mas só `MASTER` e `SECRETARIA` cadastram).
+(ex.: `/alunos` é lido por três perfis, mas só `MASTER` e `SECRETARIA` cadastram).
+
+O teste `MatrizDeAcessoTest` guarda o contrato: lista cada endpoint com os perfis autorizados e falha se
+um endpoint novo não entrar na lista ou se o que o código libera for diferente dela.
 
 ---
 
@@ -446,7 +468,7 @@ O isolamento tem duas camadas:
    `escolaId` do cliente. Quando o recurso é carregado por outro caminho,
    `IsolamentoEscola.exigirAcesso(escolaIdDoRecurso)` responde `403` se ele for de outra escola.
 2. **Persistência.** Entidades com o campo de escola anotado com `@TenantId` (hoje `Aluno`,
-   `Professor`, `AlocacaoProfessor`, `MatriculaTurma`, `Avaliacao` e `Nota`)
+   `Professor`, `AlocacaoProfessor`, `MatriculaTurma`, `Avaliacao`, `Nota`, `Aula` e `Frequencia`)
    recebem `escola_id = <escola do token>` automaticamente do Hibernate em toda consulta, e o
    campo é preenchido sozinho no insert. O tenant vem do `EscolaTenantIdentifierResolver`. Sem
    escola no contexto (login, subida da aplicação, `SUPER_ADMIN`), ele devolve um id que não
@@ -566,6 +588,8 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | `V20__criar_cobranca.sql` | `COBRANCA`: cobrança de um aluno, com matrícula e responsável opcionais, valor, vencimento e situação (pendente, paga, cancelada) |
 | `V21__cobranca_em_atraso.sql` | `COBRANCA.STATUS` passa a aceitar `EM_ATRASO`; marca as pendentes já vencidas e cria o índice da rotina diária |
 | `V22__criar_log_auditoria.sql` | `LOG_AUDITORIA`: quem criou, editou, cancelou ou estornou cobrança, pagamento ou despesa, com escola, registro afetado e data/hora |
+| `V40__tipo_da_cobranca.sql` | `COBRANCA.TIPO`: mensalidade, matrícula, material ou outro; agrupa o resumo por tipo dos relatórios. As cobranças existentes recebem o tipo pelo início da descrição |
+| `V41__estorno_de_cobranca.sql` | `ESTORNO_COBRANCA`: uma linha por estorno, com valor e data; `PAGAMENTO_COBRANCA.VALOR_ESTORNADO`: a soma |
 
 ---
 
@@ -586,6 +610,8 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | 11 | **Dados pessoais cifrados na aplicação (AES-256-GCM)** | Atende à LGPD mesmo com acesso indevido ao banco ou a um backup: sem a `PII_ENCRYPTION_KEY`, que nunca sai da JVM, os dados pessoais são ilegíveis. Custo: não dá para filtrar por esses campos no SQL. |
 | 12 | **Isolamento também no Hibernate (`@TenantId`)** | O filtro por escola deixa de depender de cada service lembrar dele; sem escola no contexto, a consulta volta vazia. |
 | 13 | **Autorização por módulo (`RotasPorPerfil`) antes do controller** | Um endpoint novo dentro de um prefixo existente já nasce protegido pelo perfil do módulo. |
+| 14 | **Relatórios financeiros contam o dinheiro pelo dia em que ele se moveu** | Saldo e gráfico usam recebido e despesas pagas, como o Início, para os dois não divergirem; as despesas lançadas ficam só no card delas (decisão do grupo, 05/11). |
+| 15 | **Estorno não muda a situação da cobrança** | A cobrança estornada fica encerrada em `PAGA` e o valor sai do recebido no período do estorno. Evita reemitir no provedor e funciona igual para estorno parcial; cobrar de novo é uma cobrança nova (decisão do grupo, 05/11). |
 
 ---
 
@@ -612,8 +638,8 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
   o alvo em produção é `verify-full`.
 * **Refresh token.** O backend emite e sabe validar refresh tokens, mas ainda não há endpoint
   HTTP de renovação. Quando o access token expira, o usuário precisa fazer login de novo.
-* **Módulo financeiro.** Cobranças (`/cobrancas`) e despesas (`/despesas`) têm API; boletos,
-  pagamentos e relatórios ainda não existem, e nada marca uma cobrança como paga (a regra de mudança para
+* **Módulo financeiro.** Cobranças (`/cobrancas`) e despesas (`/despesas`) têm API; boletos e
+  pagamentos ainda não existem, e nada marca uma cobrança como paga (a regra de mudança para
   `PAGA` já está em `StatusCobranca`). Pagamentos e despesas, quando existirem, devem chamar
   `AuditoriaService.registrar` em criar, editar, cancelar e estornar. Ainda não há tela nem
   endpoint para consultar o `LOG_AUDITORIA` (a rota `/auditoria` já está reservada para
@@ -623,7 +649,7 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 * **Gestão de usuários pelo master.** A API de `/usuarios/secretarias` está pronta, mas o
   `MASTER` ainda não tem tela para cadastrar e inativar a secretaria.
 * **`@TenantId` nas demais entidades.** Hoje têm o filtro automático do Hibernate `Aluno`,
-  `Professor`, `AlocacaoProfessor`, `MatriculaTurma`, `Avaliacao` e `Nota`. As tabelas da estrutura
+  `Professor`, `AlocacaoProfessor`, `MatriculaTurma`, `Avaliacao`, `Nota`, `Aula` e `Frequencia`. As tabelas da estrutura
   acadêmica (`PeriodoLetivo`, `Curso`, `Disciplina`, `Turma`) filtram pela escola só nos services;
   as próximas entidades de negócio devem usar `@TenantId`. `Pessoa` é exceção proposital:
   o `SUPER_ADMIN` cria pessoas em nome de outras escolas, o que o filtro não expressa. Por isso

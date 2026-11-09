@@ -11,7 +11,7 @@ export function EstadoTurmas({
   erro: string | null
   onTentarDeNovo: () => void
 }) {
-  if (carregando) return <div className={styles.mensagem}>Carregando suas turmas…</div>
+  if (carregando) return <div className={styles.mensagem} role="status">Carregando suas turmas…</div>
   if (erro) {
     return (
       <div className={styles.mensagem} role="alert">

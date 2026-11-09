@@ -4,12 +4,13 @@ import { Button } from '../../../../components/Button/Button'
 import { Atalhos, Colunas, EstadoDashboard, Painel, PainelVazio } from '../../../../components/Dashboard/Dashboard'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
-import { paths, type EstadoAbrirCadastro } from '../../../../routes/paths'
+import { paths, type EstadoNovaAvaliacao } from '../../../../routes/paths'
 import { obterDashboardProfessor } from '../../../../services/portalProfessorService'
 import type { AvaliacaoResumo, DashboardProfessor } from '../../../../types/dashboard'
 import { ROTULOS_TIPO_AVALIACAO } from '../../../../types/portalAluno'
 import { formatarPontos, hojeIso, plural } from '../../../../utils/formatters'
 import { ProfessorLayout } from '../../layouts/ProfessorLayout'
+import { Dica } from '../../../../components/Dica/Dica'
 import styles from './Inicio.module.css'
 
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
@@ -41,7 +42,7 @@ function Resumo({ dados }: { dados: DashboardProfessor }) {
       turma: String(avaliacao.turmaId),
       disciplina: String(avaliacao.disciplinaId),
     })
-    navigate(`${paths.professor.notas}?${params}`)
+    navigate(`${paths.professor.avaliacoes}?${params}`)
   }
 
   function lancarNotas(avaliacao: AvaliacaoResumo) {
@@ -50,7 +51,7 @@ function Resumo({ dados }: { dados: DashboardProfessor }) {
       disciplina: String(avaliacao.disciplinaId),
       avaliacao: avaliacao.id,
     })
-    navigate(`${paths.professor.notas}?${params}`)
+    navigate(`${paths.professor.avaliacoes}?${params}`)
   }
 
   return (
@@ -89,12 +90,13 @@ function Resumo({ dados }: { dados: DashboardProfessor }) {
           titulo="Atalhos do dia"
           horizontal
           itens={[
-            { rotulo: 'Lançar notas', icon: 'check', onClick: () => navigate(paths.professor.notas) },
+            { rotulo: 'Fazer chamada', icon: 'calendar', onClick: () => navigate(paths.professor.chamada) },
+            { rotulo: 'Lançar notas', icon: 'check', onClick: () => navigate(paths.professor.avaliacoes) },
             {
               rotulo: 'Criar uma avaliação',
               icon: 'plus',
               onClick: () =>
-                navigate(paths.professor.notas, { state: { abrirCadastro: true } satisfies EstadoAbrirCadastro }),
+                navigate(paths.professor.avaliacoes, { state: { abrirCadastro: true } satisfies EstadoNovaAvaliacao }),
             },
             { rotulo: 'Ver minhas turmas', icon: 'users', onClick: () => navigate(paths.professor.turmas) },
           ]}
@@ -124,13 +126,14 @@ function Resumo({ dados }: { dados: DashboardProfessor }) {
                       avaliacao.data === hoje ? 'Hoje' : `${formatarPontos(avaliacao.valor)} pts`
                     }
                     acao={
-                      <Button
-                        size="sm"
-                        icon="arrowRight"
-                        aria-label={`Abrir as avaliações de ${avaliacao.turmaNome} · ${avaliacao.disciplinaNome}`}
-                        title="Abrir avaliações"
-                        onClick={() => abrirAvaliacoes(avaliacao)}
-                      />
+                      <Dica texto="Abrir avaliações" descrever={false}>
+                        <Button
+                          size="sm"
+                          icon="arrowRight"
+                          aria-label={`Abrir as avaliações de ${avaliacao.turmaNome} · ${avaliacao.disciplinaNome}`}
+                          onClick={() => abrirAvaliacoes(avaliacao)}
+                        />
+                      </Dica>
                     }
                   />
                 ))}
@@ -150,7 +153,7 @@ function Resumo({ dados }: { dados: DashboardProfessor }) {
                     detalhe={`${avaliacao.notasFaltando} ${plural(avaliacao.notasFaltando, 'aluno sem nota', 'alunos sem nota')}`}
                     alerta
                     acao={
-                      <Button size="sm" variant="primary" icon="check" onClick={() => lancarNotas(avaliacao)}>
+                      <Button size="sm" variant="primary" icon="check" className={styles.acaoLarga} onClick={() => lancarNotas(avaliacao)}>
                         Lançar
                       </Button>
                     }

@@ -1,18 +1,25 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router'
 import iconeEduka from '../../assets/eduka-icone.svg'
 import { paths } from '../../routes/paths'
-import { limparSessao } from '../../services/authService'
+import { EVENTO_ESCOLA_SUSPENSA, rotaAcessoSuspenso } from '../../services/api'
+import { limparSessao, obterUsuarioLogado } from '../../services/authService'
+import { AvisoSuspensao } from '../AvisoSuspensao/AvisoSuspensao'
 import { iniciais } from '../../utils/formatters'
 import { Button } from '../Button/Button'
 import { Icon, type IconName } from '../Icon/Icon'
 import { Modal } from '../Modal/Modal'
+import { Dica } from '../Dica/Dica'
 import styles from './PainelLayout.module.css'
 
 /** Item do menu flutuante; sem `to` ainda não tem página e aparece desabilitado. */
 export type ItemMenu = {
   label: string
   icon: IconName
+  /**
+   * Página do item. Sem ela, o item aparece apagado com a dica "Em breve",
+   * marcando o que ainda falta implementar (no celular, some por inteiro).
+   */
   to?: string
 }
 
@@ -58,6 +65,18 @@ export function PainelLayout({
   const navigate = useNavigate()
   const [ajudaAberta, setAjudaAberta] = useState(false)
   const temMenu = menu.length > 0
+  const ehMaster = obterUsuarioLogado()?.perfil === 'MASTER'
+
+  // A escola foi suspensa com a tela aberta: qualquer requisição volta
+  // ESCOLA_SUSPENSA. Encerra a sessão e mostra o aviso (IU04).
+  useEffect(() => {
+    function aoSuspender(evento: Event) {
+      limparSessao()
+      navigate(rotaAcessoSuspenso((evento as CustomEvent<string | null>).detail), { replace: true })
+    }
+    window.addEventListener(EVENTO_ESCOLA_SUSPENSA, aoSuspender)
+    return () => window.removeEventListener(EVENTO_ESCOLA_SUSPENSA, aoSuspender)
+  }, [navigate])
 
   // JWT e stateless: basta descartar o token local. replace impede que o
   // "voltar" reabra o painel.
@@ -94,16 +113,12 @@ export function PainelLayout({
               </span>
             </div>
           )}
-          <button
-            type="button"
-            className={styles.pilula}
-            disabled={!ajuda}
-            title={ajuda ? 'Ajuda e orientações' : 'Em breve'}
-            onClick={() => setAjudaAberta(true)}
-          >
-            <Icon name="help" size={17} />
-            Ajuda
-          </button>
+          <Dica texto={ajuda ? 'Ajuda e orientações' : 'Em breve'}>
+            <button type="button" className={styles.pilula} disabled={!ajuda} onClick={() => setAjudaAberta(true)}>
+              <Icon name="help" size={17} />
+              Ajuda
+            </button>
+          </Dica>
           <button type="button" className={styles.pilula} onClick={sair}>
             <Icon name="logout" size={17} />
             Sair
@@ -111,7 +126,10 @@ export function PainelLayout({
         </div>
       </header>
 
-      <main className={styles.main}>{children}</main>
+      <main className={styles.main}>
+        {ehMaster && <AvisoSuspensao />}
+        {children}
+      </main>
 
       {temMenu && (
         <nav className={styles.nav} aria-label={menuRotulo}>
@@ -126,10 +144,12 @@ export function PainelLayout({
                 <span>{item.label}</span>
               </NavLink>
             ) : (
-              <button key={item.label} type="button" className={styles.item} disabled title="Em breve">
-                <Icon name={item.icon} size={16} />
-                <span>{item.label}</span>
-              </button>
+              <Dica key={item.label} texto="Em breve">
+                <button type="button" className={styles.item} disabled>
+                  <Icon name={item.icon} size={16} />
+                  <span>{item.label}</span>
+                </button>
+              </Dica>
             ),
           )}
         </nav>

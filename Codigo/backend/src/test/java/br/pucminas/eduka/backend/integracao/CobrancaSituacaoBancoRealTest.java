@@ -118,7 +118,7 @@ class CobrancaSituacaoBancoRealTest extends BancoRealTest {
                 new BigDecimal("999.00"));
 
         PaginaCobrancasResponse pagina = cobrancaService
-                .listarPaginado(new CobrancaFiltro(null, null, null, null, null), 0, 20);
+                .listarPaginado(new CobrancaFiltro(null, null, null, null, null), null, 0, 20);
 
         assertThat(pagina.totalElementos()).isEqualTo(4);
         // A pendente vencida conta como EM_ATRASO, mesmo antes da rotina diaria marcar.
@@ -126,6 +126,28 @@ class CobrancaSituacaoBancoRealTest extends BancoRealTest {
                 .extracting(TotalPorStatus::status, TotalPorStatus::quantidade, t -> t.valor().intValue())
                 .containsExactly(tuple(StatusCobranca.PENDENTE, 1L, 100), tuple(StatusCobranca.EM_ATRASO, 1L, 50),
                         tuple(StatusCobranca.PAGA, 1L, 30), tuple(StatusCobranca.CANCELADA, 1L, 20));
+    }
+
+    @Test
+    void buscaPeloNomeDoAlunoRestringeAPaginaMasNaoOsTotais() {
+        UUID mariana = dados.aluno(escola, "Mariana Souza");
+        UUID daMariana = dados.cobranca(escola, mariana, StatusCobranca.PAGA, LocalDate.now());
+        UUID outraEscola = dados.escola();
+        dados.cobranca(outraEscola, dados.aluno(outraEscola, "Mariana Lima"), StatusCobranca.PAGA, LocalDate.now());
+        CobrancaFiltro semFiltro = new CobrancaFiltro(null, null, null, null, null);
+
+        PaginaCobrancasResponse pagina = cobrancaService.listarPaginado(semFiltro, "  MARIANA ", 0, 20);
+
+        assertThat(pagina.conteudo()).extracting(CobrancaResponse::id).containsExactly(daMariana);
+        assertThat(pagina.totalElementos()).isEqualTo(1);
+        // As abas continuam mostrando a escola inteira: a do setUp (PENDENTE) e a da Mariana (PAGA).
+        assertThat(pagina.totaisPorStatus()).extracting(TotalPorStatus::quantidade)
+                .containsExactly(1L, 0L, 1L, 0L);
+
+        PaginaCobrancasResponse ninguem = cobrancaService.listarPaginado(semFiltro, "Zuleica", 0, 20);
+
+        assertThat(ninguem.conteudo()).isEmpty();
+        assertThat(ninguem.totalElementos()).isZero();
     }
 
     @Test

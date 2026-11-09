@@ -30,6 +30,35 @@ export function formatarMoeda(valor: number): string {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+const MOEDA_COMPACTA = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+  notation: 'compact',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 1,
+})
+
+/** Reais em pouco espaço, para eixo de gráfico: 1500 -> "R$ 1,5 mil", 850 -> "R$ 850". */
+export function formatarMoedaCompacta(valor: number): string {
+  return MOEDA_COMPACTA.format(valor)
+}
+
+const SALDO_COMPACTO = new Intl.NumberFormat('pt-BR', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+  signDisplay: 'exceptZero',
+})
+
+/** Saldo em pouco espaço, com o sinal: 51000 -> "+51 mil", -850 -> "-850". */
+export function formatarSaldoCompacto(valor: number): string {
+  return SALDO_COMPACTO.format(valor)
+}
+
+/** Percentual com até uma casa: 6.8 -> "6,8%"; sem base para o cálculo (null) -> "—". */
+export function formatarPercentual(valor: number | null): string {
+  return valor === null ? '—' : `${valor.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
+}
+
 // O mesmo fuso que o backend usa para "hoje" (FUSO_ESCOLA).
 const DATA_DA_ESCOLA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' })
 

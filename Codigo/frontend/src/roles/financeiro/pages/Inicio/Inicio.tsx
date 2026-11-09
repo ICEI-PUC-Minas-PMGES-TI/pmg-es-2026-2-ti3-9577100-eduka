@@ -6,6 +6,7 @@ import {
   UltimosPagamentos,
   VencemNaSemana,
 } from '../../../../components/PainelFinanceiro/PainelFinanceiro'
+import { AlunosEmRisco } from '../../../../components/RiscoAtraso/RiscoAtraso'
 import { descricaoInadimplencia, quantasCobrancas } from '../../../../components/PainelFinanceiro/textos'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
@@ -74,30 +75,37 @@ function Resumo({ dados }: { dados: DashboardFinanceiro }) {
         />
       </StatCards>
 
-      <Colunas>
+      <Atalhos
+        titulo="Atalhos do dia"
+        horizontal
+        itens={[
+          { rotulo: 'Nova cobrança', icon: 'plus', onClick: () => navigate(paths.financeiro.novaCobranca) },
+          { rotulo: 'Ver cobranças em atraso', icon: 'alert', onClick: () => navigate(COBRANCAS_EM_ATRASO) },
+          { rotulo: 'Lançar uma despesa', icon: 'dollarSign', onClick: () => navigate(paths.financeiro.despesas) },
+        ]}
+      />
+
+      <EntrouESaiu meses={dados.ultimosMeses} />
+
+      <Colunas esticar>
         <VencemNaSemana
           cobrancas={dados.vencemNaSemana}
-          acao={
-            <Button size="sm" icon="arrowRight" onClick={() => navigate(paths.financeiro.cobrancas)}>
+          totalEmAtraso={emAtraso.cobrancas}
+          acao={(aba) => (
+            <Button
+              size="sm"
+              icon="arrowRight"
+              onClick={() => navigate(aba === 'EM_ATRASO' ? COBRANCAS_EM_ATRASO : paths.financeiro.cobrancas)}
+            >
               Ver cobranças
             </Button>
-          }
+          )}
         />
-
-        <Atalhos
-          titulo="Atalhos do dia"
-          itens={[
-            { rotulo: 'Nova cobrança', icon: 'plus', onClick: () => navigate(paths.financeiro.novaCobranca) },
-            { rotulo: 'Ver cobranças em atraso', icon: 'alert', onClick: () => navigate(COBRANCAS_EM_ATRASO) },
-            { rotulo: 'Lançar uma despesa', icon: 'dollarSign', onClick: () => navigate(paths.financeiro.despesas) },
-          ]}
-        />
-      </Colunas>
-
-      <Colunas>
         <UltimosPagamentos pagamentos={dados.ultimosPagamentos} />
-        <EntrouESaiu meses={dados.ultimosMeses} />
       </Colunas>
+
+      {/* O atalho "Ver cobranças em atraso" já fica acima: o painel não repete o botão. */}
+      <AlunosEmRisco />
     </>
   )
 }

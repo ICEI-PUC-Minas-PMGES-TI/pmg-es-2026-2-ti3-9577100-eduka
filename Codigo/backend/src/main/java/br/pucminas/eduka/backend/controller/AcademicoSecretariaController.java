@@ -3,22 +3,28 @@ package br.pucminas.eduka.backend.controller;
 import java.net.URI;
 import java.util.List;
 
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.pucminas.eduka.backend.dto.CursoRequest;
 import br.pucminas.eduka.backend.dto.CursoResponse;
 import br.pucminas.eduka.backend.dto.DisciplinaRequest;
 import br.pucminas.eduka.backend.dto.DisciplinaResponse;
+import br.pucminas.eduka.backend.dto.Ordenacao;
+import br.pucminas.eduka.backend.dto.PaginaResponse;
+import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.dto.PeriodoLetivoRequest;
 import br.pucminas.eduka.backend.dto.PeriodoLetivoResponse;
 import br.pucminas.eduka.backend.dto.TurmaRequest;
@@ -28,6 +34,7 @@ import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 import br.pucminas.eduka.backend.service.AcademicoSecretariaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
@@ -74,6 +81,26 @@ public class AcademicoSecretariaController {
             @Parameter(hidden = true) @AuthenticationPrincipal UsuarioAutenticado usuario,
             @PathVariable Long id, @Valid @RequestBody PeriodoLetivoRequest request) {
         return academicoSecretariaService.atualizarPeriodoLetivo(usuario.escolaId(), id, request);
+    }
+
+    @PatchMapping("/periodos-letivos/{id}/encerrar")
+    @PreAuthorize(Perfis.CADASTRO_ACADEMICO)
+    @Operation(summary = "Encerra o periodo letivo em andamento", description = "Deixa de receber matricula nova; "
+            + "matriculas e notas ja feitas ficam. 400 se o periodo nao esta em andamento.")
+    public PeriodoLetivoResponse encerrarPeriodoLetivo(
+            @Parameter(hidden = true) @AuthenticationPrincipal UsuarioAutenticado usuario,
+            @PathVariable Long id) {
+        return academicoSecretariaService.encerrarPeriodoLetivo(usuario.escolaId(), id);
+    }
+
+    @PatchMapping("/periodos-letivos/{id}/abrir-matriculas")
+    @PreAuthorize(Perfis.CADASTRO_ACADEMICO)
+    @Operation(summary = "Abre as matriculas de um periodo planejado", description = "400 se o periodo ja "
+            + "comecou ou foi encerrado.")
+    public PeriodoLetivoResponse abrirMatriculas(
+            @Parameter(hidden = true) @AuthenticationPrincipal UsuarioAutenticado usuario,
+            @PathVariable Long id) {
+        return academicoSecretariaService.abrirMatriculas(usuario.escolaId(), id);
     }
 
     @DeleteMapping("/periodos-letivos/{id}")
@@ -165,6 +192,27 @@ public class AcademicoSecretariaController {
     public List<TurmaResponse> listarTurmas(
             @Parameter(hidden = true) @AuthenticationPrincipal UsuarioAutenticado usuario) {
         return academicoSecretariaService.listarTurmas(usuario.escolaId());
+    }
+
+    @GetMapping("/turmas/pagina")
+    @Operation(summary = "Lista as turmas em paginas",
+            description = "Filtros opcionais por periodo letivo, curso, situacao (`ativa`) e `busca` (parte do nome "
+                    + "ou do codigo). `pagina` comeca em 0; `tamanho` vai de 1 a 100. `ordenarPor`: NOME (padrao) "
+                    + "ou CODIGO; `direcao`: ASC (padrao) ou DESC.")
+    @ApiResponse(responseCode = "200", description = "A pagina de turmas.")
+    @ApiResponse(responseCode = "400", description = "Pagina, tamanho ou ordenacao invalidos.")
+    public PaginaResponse<TurmaResponse> listarTurmasPaginado(
+            @Parameter(hidden = true) @AuthenticationPrincipal UsuarioAutenticado usuario,
+            @RequestParam(required = false) Long periodoLetivoId,
+            @RequestParam(required = false) Long cursoId,
+            @RequestParam(required = false) Boolean ativa,
+            @Parameter(description = "Parte do nome ou do codigo") @RequestParam(required = false) String busca,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = Paginacao.TAMANHO_PADRAO) int tamanho,
+            @RequestParam(defaultValue = "NOME") Ordenacao.Turmas ordenarPor,
+            @RequestParam(required = false) Direction direcao) {
+        return academicoSecretariaService.listarTurmas(usuario.escolaId(), periodoLetivoId, cursoId, ativa, busca,
+                new Paginacao(pagina, tamanho), ordenarPor, direcao);
     }
 
     @PostMapping("/turmas")

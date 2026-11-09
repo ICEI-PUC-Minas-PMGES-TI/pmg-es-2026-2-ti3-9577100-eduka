@@ -4,7 +4,7 @@ import logoEduka from '../../assets/eduka-logo-branca.svg'
 import { Icon } from '../../components/Icon/Icon'
 import { VerificacaoCodigo } from '../../components/VerificacaoCodigo/VerificacaoCodigo'
 import { rotaInicialPorPerfil } from '../../routes/paths'
-import { ApiError } from '../../services/api'
+import { ApiError, ehEscolaSuspensa, motivoDaSuspensao, rotaAcessoSuspenso } from '../../services/api'
 import {
   autenticar,
   definirSenhaDefinitiva,
@@ -97,6 +97,10 @@ export function Login() {
       }
       concluir(resposta)
     } catch (err) {
+      if (ehEscolaSuspensa(err)) {
+        navigate(rotaAcessoSuspenso(motivoDaSuspensao(err)), { replace: true })
+        return
+      }
       setErro(mensagemDeErro(err))
     } finally {
       setCarregando(false)
@@ -124,6 +128,10 @@ export function Login() {
     try {
       concluir(await definirSenhaDefinitiva(login, senha, novaSenha))
     } catch (err) {
+      if (ehEscolaSuspensa(err)) {
+        navigate(rotaAcessoSuspenso(motivoDaSuspensao(err)), { replace: true })
+        return
+      }
       setErro(mensagemDeErro(err))
     } finally {
       setCarregando(false)

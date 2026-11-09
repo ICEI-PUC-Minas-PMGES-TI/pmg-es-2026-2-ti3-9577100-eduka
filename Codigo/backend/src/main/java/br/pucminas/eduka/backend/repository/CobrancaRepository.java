@@ -1,5 +1,6 @@
 package br.pucminas.eduka.backend.repository;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collection;
@@ -20,6 +21,8 @@ import org.springframework.stereotype.Repository;
 
 import br.pucminas.eduka.backend.domain.Cobranca;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
+import br.pucminas.eduka.backend.domain.TipoCobranca;
+import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 
 @Repository
 public interface CobrancaRepository
@@ -41,6 +44,93 @@ public interface CobrancaRepository
 
     @EntityGraph(attributePaths = { "aluno", "matricula", "matricula.turma" })
     Optional<Cobranca> findByIdAndEscolaId(UUID id, UUID escolaId);
+
+    /**
+     * Cobrancas da escola pagas de {@code desde} (inclusive) ate {@code antes}
+     * (exclusive), com o que entrou: o valor pago no provedor ou, na baixa
+     * manual (sem pagamento registrado), o da cobranca. Para o painel somar
+     * por mes.
+     */
+    @Query("SELECT c.pagaEm AS pagaEm, COALESCE(p.valorPago, c.valor) AS valor FROM Cobranca c "
+            + "LEFT JOIN PagamentoCobranca p ON p.cobrancaId = c.id AND p.escolaId = c.escolaId "
+            + "WHERE c.escolaId = :escolaId AND c.status = br.pucminas.eduka.backend.domain.StatusCobranca.PAGA "
+            + "AND c.pagaEm >= :desde AND c.pagaEm < :antes")
+    List<Movimento> recebidosEntre(@Param("escolaId") UUID escolaId, @Param("desde") Instant desde,
+            @Param("antes") Instant antes);
+
+    // ---- Relatorios financeiros: contas no banco, sem carregar as cobrancas ----
+
+    /**
+     * O que entrou de {@code desde} (inclusive) ate {@code antes} (exclusive),
+     * como {@link #recebidosEntre}, com a forma e o que identifica cada
+     * pagamento. Do mais antigo ao mais recente. O que foi devolvido depois vem
+     * de {@link EstornoCobrancaRepository#estornosEntre}.
+     */
+    @Query("SELECT c.pagaEm AS pagaEm, COALESCE(p.valorPago, c.valor) AS valor, p.formaPagamento AS forma, "
+            + "c.descricao AS descricao, c.aluno.pessoaId AS pessoaId FROM Cobranca c "
+            + "LEFT JOIN PagamentoCobranca p ON p.cobrancaId = c.id AND p.escolaId = c.escolaId "
+            + "WHERE c.escolaId = :escolaId AND c.status = br.pucminas.eduka.backend.domain.StatusCobranca.PAGA "
+            + "AND c.pagaEm >= :desde AND c.pagaEm < :antes ORDER BY c.pagaEm, c.id")
+    List<Recebimento> recebimentosEntre(@Param("escolaId") UUID escolaId, @Param("desde") Instant desde,
+            @Param("antes") Instant antes);
+
+    /**
+     * Totais das cobrancas nao canceladas que vencem de {@code de} a
+     * {@code ate} (inclusive). Situacao e vencimento entram no grupo para o
+     * servico chegar a situacao efetiva ({@link StatusCobranca#efetivo}); tipo
+     * e curso, para somar cada resumo sem outra consulta.
+     */
+    @Query("SELECT c.tipo AS tipo, curso.id AS cursoId, curso.nome AS cursoNome, c.status AS status, "
+            + "c.dataVencimento AS vencimento, COUNT(c) AS quantidade, SUM(c.valor) AS valor, "
+            + "SUM(COALESCE(p.valorPago, c.valor) - COALESCE(p.valorEstornado, 0)) AS valorPago FROM Cobranca c "
+            + "LEFT JOIN c.matricula matricula LEFT JOIN matricula.turma turma LEFT JOIN turma.curso curso "
+            + "LEFT JOIN PagamentoCobranca p ON p.cobrancaId = c.id AND p.escolaId = c.escolaId "
+            + "WHERE c.escolaId = :escolaId AND c.status <> br.pucminas.eduka.backend.domain.StatusCobranca.CANCELADA "
+            + "AND c.dataVencimento BETWEEN :de AND :ate "
+            + "GROUP BY c.tipo, curso.id, curso.nome, c.status, c.dataVencimento")
+    List<CobrancasDoGrupo> totaisPorVencimento(@Param("escolaId") UUID escolaId, @Param("de") LocalDate de,
+            @Param("ate") LocalDate ate);
+
+    /** As cobrancas de {@link #totaisPorVencimento}, uma a uma, para a exportacao. */
+    @EntityGraph(attributePaths = { "aluno", "matricula", "matricula.turma", "matricula.turma.curso" })
+    @Query("SELECT c FROM Cobranca c WHERE c.escolaId = :escolaId "
+            + "AND c.status <> br.pucminas.eduka.backend.domain.StatusCobranca.CANCELADA "
+            + "AND c.dataVencimento BETWEEN :de AND :ate ORDER BY c.dataVencimento, c.id")
+    List<Cobranca> naoCanceladasQueVencemEntre(@Param("escolaId") UUID escolaId, @Param("de") LocalDate de,
+            @Param("ate") LocalDate ate);
+
+    /** Dinheiro que entrou (valor positivo) ou que foi devolvido num estorno (negativo). */
+    interface Recebimento extends Movimento {
+        /** PIX ou BOLETO; nula na baixa manual. */
+        FormaPagamento getForma();
+
+        String getDescricao();
+
+        UUID getPessoaId();
+    }
+
+    interface CobrancasDoGrupo {
+        TipoCobranca getTipo();
+
+        /** Nulo na cobranca avulsa, sem matricula. */
+        Long getCursoId();
+
+        String getCursoNome();
+
+        StatusCobranca getStatus();
+
+        LocalDate getVencimento();
+
+        long getQuantidade();
+
+        BigDecimal getValor();
+
+        /**
+         * O pago no provedor sem o estornado ou, sem pagamento registrado, o da
+         * cobranca. So tem sentido na PAGA.
+         */
+        BigDecimal getValorPago();
+    }
 
     /** {@code responsavelId} e o id da pessoa do responsavel, como na coluna. */
     boolean existsByEscolaIdAndResponsavelId(UUID escolaId, UUID responsavelId);
@@ -147,5 +237,46 @@ public interface CobrancaRepository
         UUID getId();
 
         byte[] getCredencialCifrada();
+    }
+    /**
+     * Cobrancas da escola para o risco de atraso: as nao canceladas com
+     * vencimento a partir de {@code desde} e as em aberto de qualquer data. So
+     * as colunas das regras, com a data do pagamento online quando ha.
+     */
+    @Query(SELECT_PARA_RISCO + "WHERE c.escolaId = :escolaId " + FILTRO_PARA_RISCO)
+    List<CobrancaParaRisco> buscarParaRisco(@Param("escolaId") UUID escolaId, @Param("desde") LocalDate desde);
+
+    /** {@link #buscarParaRisco} de um aluno. */
+    @Query(SELECT_PARA_RISCO + "WHERE c.escolaId = :escolaId AND c.aluno.id = :alunoId " + FILTRO_PARA_RISCO)
+    List<CobrancaParaRisco> buscarParaRiscoDoAluno(@Param("escolaId") UUID escolaId,
+            @Param("alunoId") UUID alunoId, @Param("desde") LocalDate desde);
+
+    String SELECT_PARA_RISCO = "SELECT c.aluno.id AS alunoId, c.valor AS valor, "
+            + "c.dataVencimento AS dataVencimento, c.status AS status, c.pagaEm AS pagaEm, "
+            + "p.dataPagamento AS dataPagamento FROM Cobranca c "
+            + "LEFT JOIN PagamentoCobranca p ON p.cobrancaId = c.id AND p.escolaId = c.escolaId ";
+
+    String FILTRO_PARA_RISCO = "AND c.status <> br.pucminas.eduka.backend.domain.StatusCobranca.CANCELADA "
+            + "AND (c.dataVencimento >= :desde OR c.status IN (br.pucminas.eduka.backend.domain.StatusCobranca.PENDENTE, "
+            + "br.pucminas.eduka.backend.domain.StatusCobranca.EM_ATRASO))";
+
+    /**
+     * Cobranca vista pelo risco de atraso.
+     *
+     * {@code dataPagamento} vem do pagamento online; na baixa manual e nula e
+     * vale {@code pagaEm}.
+     */
+    interface CobrancaParaRisco {
+        UUID getAlunoId();
+
+        BigDecimal getValor();
+
+        LocalDate getDataVencimento();
+
+        StatusCobranca getStatus();
+
+        Instant getPagaEm();
+
+        LocalDate getDataPagamento();
     }
 }

@@ -9,11 +9,11 @@ import {
   type BoletimDisciplina,
   type BoletimTurma,
 } from '../../../../types/portalAluno'
-import { formatarPontos } from '../../../../utils/formatters'
-import { atingiuMedia } from '../../../professor/notas'
+import { formatarPontos, plural } from '../../../../utils/formatters'
+import { atingiuMedia, PERCENTUAL_APROVACAO } from '../../../professor/notas'
 import { formatarData } from '../../../secretaria/components/PainelSecretaria/formatacao'
 import { AgendaAvaliacoes } from '../../components/AgendaAvaliacoes/AgendaAvaliacoes'
-import { aproveitamento } from '../../formatacao'
+import { aproveitamento, somarFrequencias } from '../../formatacao'
 import { useDadosDoAluno } from '../../hooks/useDadosDoAluno'
 import { AlunoLayout } from '../../layouts/AlunoLayout'
 import styles from './Boletim.module.css'
@@ -67,9 +67,13 @@ function Notas() {
   const { dados: turmas, carregando, erro, recarregar } = useDadosDoAluno(buscarBoletim, SEM_TURMAS)
 
   // Resumo só da turma (ou turmas) em que o aluno está cursando agora.
-  const disciplinasAtivas = turmas
-    .filter((t) => t.situacaoMatricula === 'ATIVA')
-    .flatMap((t) => t.disciplinas)
+  const turmasAtivas = turmas.filter((t) => t.situacaoMatricula === 'ATIVA')
+  const disciplinasAtivas = turmasAtivas.flatMap((t) => t.disciplinas)
+  const limiteFaltas = turmas[0]?.limiteFaltasPercentual ?? 0
+  const frequencia = somarFrequencias(
+    turmasAtivas.map((t) => t.frequencia),
+    limiteFaltas,
+  )
   const avaliacoes = disciplinasAtivas.flatMap((d) => d.avaliacoes)
   const comNota = avaliacoes.filter((a) => a.nota !== null).length
   const geral = aproveitamento(
@@ -80,7 +84,7 @@ function Notas() {
 
   return (
     <>
-      {carregando && <div className={styles.mensagem}>Carregando seu boletim…</div>}
+      {carregando && <div className={styles.mensagem} role="status">Carregando seu boletim…</div>}
 
       {!carregando && erro && (
         <div className={styles.mensagem} role="alert">
@@ -120,13 +124,29 @@ function Notas() {
                 }
                 alerta={recuperacao.length > 0}
               />
-              <StatCard label="Disciplinas" value={disciplinasAtivas.length} descricao="Na sua turma atual" />
+              <StatCard
+                label="Frequência"
+                value={frequencia === null ? '—' : `${formatarPontos(frequencia.percentualFrequencia)}%`}
+                descricao={
+                  frequencia === null
+                    ? 'Sem aulas registradas ainda'
+                    : `${frequencia.faltas} ${plural(frequencia.faltas, 'falta', 'faltas')} em ${frequencia.totalAulas} ${plural(frequencia.totalAulas, 'aula', 'aulas')}${frequencia.alertaFaltas ? ' · acima do limite de faltas' : ''}`
+                }
+                alerta={frequencia?.alertaFaltas}
+              />
               <StatCard
                 label="Avaliações com nota"
                 value={`${comNota} de ${avaliacoes.length}`}
                 descricao="Provas, trabalhos e tarefas"
               />
             </StatCards>
+          )}
+
+          {disciplinasAtivas.length > 0 && (
+            <p className={styles.regras}>
+              <strong>Regras de aprovação:</strong> média mínima de {formatarPontos(PERCENTUAL_APROVACAO * 100)}% dos
+              pontos e limite de {formatarPontos(limiteFaltas)}% de faltas nas aulas dadas.
+            </p>
           )}
 
           {turmas.map((turma) => (
@@ -162,6 +182,7 @@ function Notas() {
 
 function CartaoDisciplina({ disciplina }: { disciplina: BoletimDisciplina }) {
   const percentual = aproveitamento(disciplina.pontosObtidos, disciplina.pontosAvaliados)
+  const { frequencia } = disciplina
 
   return (
     <article className={styles.cartao}>
@@ -169,12 +190,18 @@ function CartaoDisciplina({ disciplina }: { disciplina: BoletimDisciplina }) {
         <div className={styles.cartaoTitulo}>
           <h3>{disciplina.disciplinaNome}</h3>
           <span>{disciplina.professorNome ?? 'Professor a definir'}</span>
-          {percentual !== null && (
+          {(percentual !== null || frequencia?.alertaFaltas) && (
             <span className={styles.situacao}>
-              {emRecuperacao(disciplina) ? (
-                <Badge tone="danger">Recuperação</Badge>
-              ) : (
-                <Badge tone="success">Na média</Badge>
+              {percentual !== null &&
+                (emRecuperacao(disciplina) ? (
+                  <Badge tone="danger">Recuperação</Badge>
+                ) : (
+                  <Badge tone="success">Na média</Badge>
+                ))}
+              {frequencia?.alertaFaltas && (
+                <Badge tone="danger" icon="alert">
+                  Faltas acima do limite
+                </Badge>
               )}
             </span>
           )}
@@ -187,6 +214,11 @@ function CartaoDisciplina({ disciplina }: { disciplina: BoletimDisciplina }) {
           <span>
             {percentual === null ? 'Sem notas ainda' : `${percentual}% de aproveitamento`} ·{' '}
             {formatarPontos(disciplina.pontosDistribuidos)} pts distribuídos
+          </span>
+          <span className={frequencia?.alertaFaltas ? styles.faltasAlerta : undefined}>
+            {frequencia === null
+              ? 'Frequência: sem aulas'
+              : `Frequência: ${formatarPontos(frequencia.percentualFrequencia)}% · ${frequencia.faltas} ${plural(frequencia.faltas, 'falta', 'faltas')} em ${frequencia.totalAulas} ${plural(frequencia.totalAulas, 'aula', 'aulas')}`}
           </span>
         </div>
       </header>
@@ -211,14 +243,14 @@ function CartaoDisciplina({ disciplina }: { disciplina: BoletimDisciplina }) {
             <tbody>
               {disciplina.avaliacoes.map((avaliacao) => (
                 <tr key={avaliacao.id}>
-                  <td className={styles.secundario}>{formatarData(avaliacao.data)}</td>
-                  <td>
+                  <td data-rotulo="Data" className={styles.secundario}>{formatarData(avaliacao.data)}</td>
+                  <td className={styles.colAvaliacao}>
                     <span className={styles.tipo}>{ROTULOS_TIPO_AVALIACAO[avaliacao.tipo]}</span>
                     {avaliacao.titulo}
                     {avaliacao.observacao && <span className={styles.observacao}>{avaliacao.observacao}</span>}
                   </td>
-                  <td className={`${styles.numero} ${styles.secundario}`}>{formatarPontos(avaliacao.valor)}</td>
-                  <td className={styles.numero}>
+                  <td data-rotulo="Valor" className={`${styles.numero} ${styles.secundario}`}>{formatarPontos(avaliacao.valor)}</td>
+                  <td data-rotulo="Nota" className={styles.numero}>
                     {avaliacao.nota === null ? (
                       <span className={styles.secundario}>—</span>
                     ) : (

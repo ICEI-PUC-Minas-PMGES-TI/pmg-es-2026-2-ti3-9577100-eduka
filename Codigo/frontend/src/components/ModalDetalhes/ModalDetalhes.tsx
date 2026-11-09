@@ -40,6 +40,8 @@ type ModalDetalhesProps = {
   abas?: AbaDetalhe[]
   /** Rótulo da aba das seções, quando há abas extras. */
   rotuloDados?: string
+  /** Botões de ação no rodapé, antes do "Fechar". */
+  acoes?: ReactNode
   onFechar: () => void
 }
 
@@ -62,6 +64,7 @@ export function ModalDetalhes({
   children,
   abas = [],
   rotuloDados = 'Dados',
+  acoes,
   onFechar,
 }: ModalDetalhesProps) {
   const [abaAtiva, setAbaAtiva] = useState(ABA_DADOS)
@@ -75,7 +78,12 @@ export function ModalDetalhes({
       subtitulo={subtitulo}
       tamanho="grande"
       onFechar={onFechar}
-      rodape={<Button onClick={onFechar}>Fechar</Button>}
+      rodape={
+        <>
+          {acoes}
+          <Button onClick={onFechar}>Fechar</Button>
+        </>
+      }
     >
       {abas.length > 0 && (
         <div className={styles.abas} role="tablist" aria-label="Seções do cadastro">

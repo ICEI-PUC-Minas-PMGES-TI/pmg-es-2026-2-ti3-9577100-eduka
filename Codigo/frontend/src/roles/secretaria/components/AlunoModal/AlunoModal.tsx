@@ -11,15 +11,17 @@ import {
   type Aluno,
   type AlunoRequest,
   type Endereco,
-  type Responsavel,
 } from '../../../../types/aluno'
+import { cpfValido, hojeIso, mascararCep, mascararCpf, somenteDigitos } from '../../../../utils/formatters'
+import { CamposDoResponsavel } from '../ResponsaveisDoAluno/CamposDoResponsavel'
 import {
-  cpfValido,
-  mascararCep,
-  mascararCpf,
-  mascararTelefone,
-  somenteDigitos,
-} from '../../../../utils/formatters'
+  RESPONSAVEL_VAZIO,
+  responsavelParaRequest,
+  validarResponsavel,
+  type CamposResponsavel,
+  type ErrosResponsavel,
+} from '../ResponsaveisDoAluno/camposResponsavel'
+import { ResponsaveisDoAluno } from '../ResponsaveisDoAluno/ResponsaveisDoAluno'
 import styles from './AlunoModal.module.css'
 
 type Campos = {
@@ -38,16 +40,10 @@ type Campos = {
   estado: string
 }
 
-type CamposResponsavel = {
-  nome: string
-  parentesco: string
-  cpf: string
-  email: string
-  telefone: string
-}
-
 type Erros = Partial<Record<keyof Campos, string>>
-type ErrosResponsavel = Partial<Record<keyof CamposResponsavel, string>>
+
+/** Início da seleção de ano da data de nascimento; o fim é hoje. */
+const DATA_NASCIMENTO_MINIMA = '1900-01-01'
 
 const CAMPOS_INICIAIS: Campos = {
   nome: '',
@@ -63,8 +59,6 @@ const CAMPOS_INICIAIS: Campos = {
   cidade: '',
   estado: '',
 }
-
-const RESPONSAVEL_VAZIO: CamposResponsavel = { nome: '', parentesco: '', cpf: '', email: '', telefone: '' }
 
 const MAX_NOME = 150
 const MAX_EMAIL = 150
@@ -105,21 +99,16 @@ function validar(campos: Campos): Erros {
   if (!campos.email.trim()) erros.email = 'Informe o e-mail do aluno.'
   else if (!EMAIL_REGEX.test(campos.email.trim())) erros.email = 'E-mail inválido.'
 
+  // ISO compara como texto. O backend recusa a mesma data futura.
+  if (campos.dataNascimento && campos.dataNascimento > hojeIso()) {
+    erros.dataNascimento = 'A data de nascimento não pode ser futura.'
+  }
+
   // Endereço é opcional: só valida o que foi digitado.
   const cep = somenteDigitos(campos.cep)
   if (cep && cep.length !== 8) erros.cep = 'CEP incompleto.'
   if (campos.estado.trim() && campos.estado.trim().length !== 2) erros.estado = 'Use a sigla (ex.: MG).'
 
-  return erros
-}
-
-function validarResponsavel(responsavel: CamposResponsavel): ErrosResponsavel {
-  const erros: ErrosResponsavel = {}
-  if (!responsavel.nome.trim()) erros.nome = 'Informe o nome.'
-  if (responsavel.cpf && !cpfValido(responsavel.cpf)) erros.cpf = 'CPF inválido.'
-  if (responsavel.email.trim() && !EMAIL_REGEX.test(responsavel.email.trim())) erros.email = 'E-mail inválido.'
-  const telefone = somenteDigitos(responsavel.telefone)
-  if (telefone && telefone.length < 10) erros.telefone = 'Telefone incompleto.'
   return erros
 }
 
@@ -150,13 +139,7 @@ function paraRequest(campos: Campos, responsaveis: CamposResponsavel[]): AlunoRe
     dataNascimento: campos.dataNascimento || null,
     genero: opcional(campos.genero),
     endereco: enderecoDe(campos),
-    responsaveis: responsaveis.map((r) => ({
-      nome: r.nome.trim(),
-      parentesco: opcional(r.parentesco),
-      cpf: opcional(somenteDigitos(r.cpf)),
-      email: opcional(r.email),
-      telefone: opcional(somenteDigitos(r.telefone)),
-    })),
+    responsaveis: responsaveis.map(responsavelParaRequest),
   }
 }
 
@@ -175,8 +158,9 @@ type AlunoModalProps = {
 /**
  * Cadastro e edição de aluno pela secretaria. A escola não aparece: o backend
  * usa a do token. No cadastro o backend cria o login do aluno (o e-mail) e
- * envia a senha provisória; os responsáveis só entram no cadastro. Montado só
- * enquanto está aberto, então cada abertura começa limpa.
+ * envia a senha provisória. Os responsáveis vão junto no cadastro; na edição,
+ * cada alteração neles é gravada na hora. Montado só enquanto está aberto, então
+ * cada abertura começa limpa.
  */
 export function AlunoModal({ alunoId, onFechar, onSalvar, onSalvo, turmas = [] }: AlunoModalProps) {
   const edicao = alunoId !== undefined
@@ -185,7 +169,6 @@ export function AlunoModal({ alunoId, onFechar, onSalvar, onSalvo, turmas = [] }
   const [erros, setErros] = useState<Erros>({})
   const [responsaveis, setResponsaveis] = useState<CamposResponsavel[]>([])
   const [errosResponsaveis, setErrosResponsaveis] = useState<ErrosResponsavel[]>([])
-  const [responsaveisAtuais, setResponsaveisAtuais] = useState<Responsavel[]>([])
   const [carregando, setCarregando] = useState(edicao)
   const [erroCarga, setErroCarga] = useState<string | null>(null)
   const [erroEnvio, setErroEnvio] = useState<string | null>(null)
@@ -197,10 +180,7 @@ export function AlunoModal({ alunoId, onFechar, onSalvar, onSalvo, turmas = [] }
     if (!alunoId) return
     const controller = new AbortController()
     buscarAluno(alunoId, controller.signal)
-      .then((aluno) => {
-        setCampos(camposDe(aluno))
-        setResponsaveisAtuais(aluno.responsaveis)
-      })
+      .then((aluno) => setCampos(camposDe(aluno)))
       .catch((e: unknown) => {
         if (controller.signal.aborted) return
         setErroCarga(e instanceof ApiError ? e.message : 'Erro inesperado ao carregar o aluno.')
@@ -216,8 +196,14 @@ export function AlunoModal({ alunoId, onFechar, onSalvar, onSalvo, turmas = [] }
     if (erros[campo]) setErros((atuais) => ({ ...atuais, [campo]: undefined }))
   }
 
-  function alterarResponsavel(indice: number, campo: keyof CamposResponsavel, valor: string) {
-    setResponsaveis((atuais) => atuais.map((r, i) => (i === indice ? { ...r, [campo]: valor } : r)))
+  function alterarResponsavel<K extends keyof CamposResponsavel>(indice: number, campo: K, valor: CamposResponsavel[K]) {
+    setResponsaveis((atuais) =>
+      atuais.map((r, i) => {
+        if (i === indice) return { ...r, [campo]: valor }
+        // No máximo um responsável financeiro por aluno.
+        return campo === 'financeiro' && valor === true ? { ...r, financeiro: false } : r
+      }),
+    )
     setErrosResponsaveis((atuais) => atuais.map((e, i) => (i === indice ? { ...e, [campo]: undefined } : e)))
   }
 
@@ -240,7 +226,7 @@ export function AlunoModal({ alunoId, onFechar, onSalvar, onSalvo, turmas = [] }
     setErroEnvio(null)
 
     const novosErros = validar(campos)
-    const novosErrosResponsaveis = responsaveis.map(validarResponsavel)
+    const novosErrosResponsaveis = responsaveis.map((r) => validarResponsavel(r))
     setErros(novosErros)
     setErrosResponsaveis(novosErrosResponsaveis)
     const primeiroInvalido = Object.keys(novosErros)[0]
@@ -376,6 +362,9 @@ export function AlunoModal({ alunoId, onFechar, onSalvar, onSalvo, turmas = [] }
                   <CampoData
                     {...props}
                     name="dataNascimento"
+                    min={DATA_NASCIMENTO_MINIMA}
+                    max={hojeIso()}
+                    mesInicial={hojeIso()}
                     valor={campos.dataNascimento}
                     onChange={(data) => alterar('dataNascimento', data)}
                   />
@@ -496,108 +485,33 @@ export function AlunoModal({ alunoId, onFechar, onSalvar, onSalvo, turmas = [] }
 
           <fieldset className={styles.secao}>
             <legend className={styles.legenda}>Responsáveis</legend>
-            {edicao ? (
-              <>
-                {responsaveisAtuais.length === 0 ? (
-                  <ModalAviso>Nenhum responsável cadastrado.</ModalAviso>
-                ) : (
-                  <ul className={styles.responsaveis}>
-                    {responsaveisAtuais.map((r) => (
-                      <li key={r.pessoaId}>
-                        <strong>{r.nome}</strong>
-                        {r.parentesco && <span> · {r.parentesco}</span>}
-                        {(r.email || r.telefone) && (
-                          <span className={styles.contato}>
-                            {[r.email, r.telefone && mascararTelefone(r.telefone)].filter(Boolean).join(' · ')}
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <ModalAviso>Os responsáveis ainda não podem ser alterados por aqui.</ModalAviso>
-              </>
+            {alunoId ? (
+              <ResponsaveisDoAluno alunoId={alunoId} />
             ) : (
               <>
-                {responsaveis.map((responsavel, indice) => {
-                  const errosR = errosResponsaveis[indice] ?? {}
-                  const nome = (campo: keyof CamposResponsavel) => `responsavel-${indice}-${campo}`
-                  return (
-                    <div key={indice} className={styles.responsavel}>
-                      <div className={styles.responsavelTopo}>
-                        <span>Responsável {indice + 1}</span>
-                        <Button
-                          size="sm"
-                          icon="trash"
-                          aria-label={`Remover responsável ${indice + 1}`}
-                          onClick={() => removerResponsavel(indice)}
-                        />
-                      </div>
-                      <div className={styles.grid}>
-                        <Campo label="Nome" erro={errosR.nome} obrigatorio className={styles.span4}>
-                          {(props) => (
-                            <input
-                              {...props}
-                              name={nome('nome')}
-                              maxLength={MAX_NOME}
-                              value={responsavel.nome}
-                              onChange={(e) => alterarResponsavel(indice, 'nome', e.target.value)}
-                            />
-                          )}
-                        </Campo>
-                        <Campo label="Parentesco" erro={errosR.parentesco} className={styles.span2}>
-                          {(props) => (
-                            <input
-                              {...props}
-                              name={nome('parentesco')}
-                              placeholder="Ex.: Mãe"
-                              value={responsavel.parentesco}
-                              onChange={(e) => alterarResponsavel(indice, 'parentesco', e.target.value)}
-                            />
-                          )}
-                        </Campo>
-                        <Campo label="CPF" erro={errosR.cpf} className={styles.span2}>
-                          {(props) => (
-                            <input
-                              {...props}
-                              name={nome('cpf')}
-                              inputMode="numeric"
-                              placeholder="000.000.000-00"
-                              value={responsavel.cpf}
-                              onChange={(e) => alterarResponsavel(indice, 'cpf', mascararCpf(e.target.value))}
-                            />
-                          )}
-                        </Campo>
-                        <Campo label="E-mail" erro={errosR.email} className={styles.span2}>
-                          {(props) => (
-                            <input
-                              {...props}
-                              name={nome('email')}
-                              type="email"
-                              maxLength={MAX_EMAIL}
-                              value={responsavel.email}
-                              onChange={(e) => alterarResponsavel(indice, 'email', e.target.value)}
-                            />
-                          )}
-                        </Campo>
-                        <Campo label="Telefone" erro={errosR.telefone} className={styles.span2}>
-                          {(props) => (
-                            <input
-                              {...props}
-                              name={nome('telefone')}
-                              type="tel"
-                              placeholder="(00) 00000-0000"
-                              value={responsavel.telefone}
-                              onChange={(e) =>
-                                alterarResponsavel(indice, 'telefone', mascararTelefone(e.target.value))
-                              }
-                            />
-                          )}
-                        </Campo>
-                      </div>
+                {responsaveis.map((responsavel, indice) => (
+                  <div key={indice} className={styles.responsavel}>
+                    <div className={styles.responsavelTopo}>
+                      <span>Responsável {indice + 1}</span>
+                      <Button
+                        size="sm"
+                        icon="trash"
+                        aria-label={`Remover responsável ${indice + 1}`}
+                        onClick={() => removerResponsavel(indice)}
+                      />
                     </div>
-                  )
-                })}
+                    <CamposDoResponsavel
+                      valores={responsavel}
+                      erros={errosResponsaveis[indice] ?? {}}
+                      prefixo={`responsavel-${indice}`}
+                      dicaCpf="Se já estiver cadastrado na escola, o aluno é ligado a esse responsável."
+                      onAlterar={(campo, valor) => alterarResponsavel(indice, campo, valor)}
+                    />
+                  </div>
+                ))}
+                {!responsaveis.some((r) => r.financeiro) && (
+                  <ModalAviso>Sem responsável financeiro, as cobranças saem em nome do aluno.</ModalAviso>
+                )}
                 <div>
                   <Button size="sm" icon="plus" onClick={adicionarResponsavel}>
                     Adicionar responsável

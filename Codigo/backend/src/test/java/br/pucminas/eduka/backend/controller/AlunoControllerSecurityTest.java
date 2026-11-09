@@ -37,6 +37,7 @@ import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
+import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.ResponsavelRepository;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
@@ -48,6 +49,7 @@ import br.pucminas.eduka.backend.security.PasswordEncoderConfig;
 import br.pucminas.eduka.backend.service.AcessoService;
 import br.pucminas.eduka.backend.service.AlunoService;
 import br.pucminas.eduka.backend.service.ResponsavelService;
+import br.pucminas.eduka.backend.service.AuditoriaService;
 
 /**
  * Contrato de seguranca do primeiro recurso de negocio, ponta a ponta: filter
@@ -74,6 +76,8 @@ class AlunoControllerSecurityTest {
     @MockitoBean
     private AlunoRepository alunoRepository;
     @MockitoBean
+    private AuditoriaService auditoriaService;
+    @MockitoBean
     private PessoaRepository pessoaRepository;
     @MockitoBean
     private PessoaPapelRepository pessoaPapelRepository;
@@ -83,6 +87,8 @@ class AlunoControllerSecurityTest {
     private ResponsavelRepository responsavelRepository;
     @MockitoBean
     private CobrancaRepository cobrancaRepository;
+    @MockitoBean
+    private MatriculaTurmaRepository matriculaRepository;
     @MockitoBean
     private UsuarioRepository usuarioRepository;
 
@@ -159,16 +165,26 @@ class AlunoControllerSecurityTest {
         }
 
         @Test
-        void professorListaMasNaoCadastra() throws Exception {
+        void professorNaoLeOCadastroNemCadastra() throws Exception {
+            // O cadastro traz CPF, endereco e responsaveis; ele ve os alunos das proprias turmas pelo portal.
+            String token = accessToken("PROFESSOR", ESCOLA_A);
+
+            mockMvc.perform(getCom("/alunos", token)).andExpect(status().isForbidden());
+            mockMvc.perform(getCom("/alunos/pagina", token)).andExpect(status().isForbidden());
+            mockMvc.perform(getCom("/alunos/" + UUID.randomUUID(), token)).andExpect(status().isForbidden());
+            mockMvc.perform(postCom("/alunos", token, CORPO_VALIDO)).andExpect(status().isForbidden());
+
+            verify(alunoRepository, never()).findAllByEscolaId(any());
+            verify(alunoRepository, never()).findByIdAndEscolaId(any(), any());
+            verify(alunoRepository, never()).save(any());
+        }
+
+        @Test
+        void financeiroLeOCadastroParaCobrar() throws Exception {
             when(alunoRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of());
 
-            mockMvc.perform(getCom("/alunos", accessToken("PROFESSOR", ESCOLA_A)))
+            mockMvc.perform(getCom("/alunos", accessToken("FINANCEIRO", ESCOLA_A)))
                     .andExpect(status().isOk());
-
-            mockMvc.perform(postCom("/alunos", accessToken("PROFESSOR", ESCOLA_A),
-                    CORPO_VALIDO))
-                    .andExpect(status().isForbidden());
-            verify(alunoRepository, never()).save(any());
         }
 
         @Test

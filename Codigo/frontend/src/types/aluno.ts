@@ -9,6 +9,20 @@ export type AlunoResumo = {
   genero: string | null
 }
 
+/**
+ * Onde o aluno está hoje: com matrícula ativa, só com trancada, ou sem nenhuma
+ * das duas. ANONIMIZADO é quem saiu e teve os dados pessoais apagados (LGPD).
+ */
+export type SituacaoNaEscola = 'MATRICULADO' | 'TRANCADO' | 'SEM_TURMA' | 'ANONIMIZADO'
+
+// A listagem (GET /alunos) traz, além do resumo, a situação e a turma da
+// matrícula ativa (ou da trancada): as telas não precisam ler as matrículas.
+export type AlunoDaLista = AlunoResumo & {
+  situacao: SituacaoNaEscola
+  turmaId: number | null
+  turmaNome: string | null
+}
+
 export type Endereco = {
   logradouro: string | null
   numero: string | null
@@ -43,6 +57,8 @@ export type Aluno = AlunoResumo & {
   /** Nulo quando nenhum campo do endereço foi preenchido. */
   endereco: Endereco | null
   responsaveis: Responsavel[]
+  /** No detalhe, só vem preenchida para o aluno anonimizado. */
+  situacao?: SituacaoNaEscola | null
 }
 
 export type ResponsavelRequest = {
@@ -54,8 +70,36 @@ export type ResponsavelRequest = {
   financeiro?: boolean | null
 }
 
+// Espelha o VinculoResponsavelRequest do backend.
+export type VinculoResponsavelRequest = {
+  parentesco: string | null
+  financeiro: boolean
+}
+
+// Espelha o CadastroResponsavelResponse do backend (GET /responsaveis/{id}).
+export type CadastroResponsavel = {
+  id: string
+  pessoaId: string
+  nome: string
+  cpf: string | null
+  email: string | null
+  telefone: string | null
+  endereco: Endereco | null
+}
+
+// Espelha o CadastroResponsavelRequest do backend. O vínculo com o aluno vai à parte.
+export type CadastroResponsavelRequest = {
+  nome: string
+  /** Só os 11 dígitos. */
+  cpf: string
+  email: string | null
+  telefone: string | null
+  endereco: Endereco | null
+}
+
 // Espelha o AlunoRequest do backend. A escola vem do token, não do corpo.
-// Na edição (PUT) o registro é substituído inteiro e `responsaveis` é ignorado.
+// Na edição (PUT) o registro é substituído inteiro e `responsaveis` é ignorado:
+// os responsáveis mudam em /alunos/{id}/responsaveis.
 export type AlunoRequest = {
   nome: string
   matricula: string

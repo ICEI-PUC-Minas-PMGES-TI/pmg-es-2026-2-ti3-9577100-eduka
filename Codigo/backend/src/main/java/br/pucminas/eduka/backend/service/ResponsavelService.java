@@ -42,6 +42,7 @@ import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.repository.ResponsavelRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
+import br.pucminas.eduka.backend.validation.CpfValidator;
 
 /**
  * Cadastro de responsaveis e vinculo deles com os alunos, com isolamento por
@@ -67,6 +68,8 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
  * responsaveis.</li>
  * <li>No maximo um responsavel financeiro por aluno: marcar outro tira a
  * marca do anterior.</li>
+ * <li>O financeiro e o pagador no provedor (R18), que exige CPF: sem CPF valido
+ * nao se marca, em vez de a recusa aparecer so quando o aluno for pagar.</li>
  * <li>Nao se desvincula responsavel com cobranca em aberto daquele aluno, nem
  * se exclui responsavel ainda vinculado ou com cobranca no historico.</li>
  * </ul>
@@ -218,6 +221,7 @@ public class ResponsavelService {
         Pessoa pessoa = buscarPessoa(responsavel, escolaId);
         boolean financeiro = Boolean.TRUE.equals(request.financeiro());
         if (financeiro) {
+            exigirCpfDoFinanceiro(pessoa);
             tirarFinanceiroAnterior(aluno.getId(), pessoa.getId());
         }
 
@@ -228,6 +232,39 @@ public class ResponsavelService {
         vinculo.setFinanceiro(financeiro);
         alunoResponsavelRepository.save(vinculo);
         return paraResposta(responsavel, pessoa, vinculo);
+    }
+
+    /**
+     * Cadastra e vincula numa transacao so, a partir da edicao do aluno. CPF ja
+     * cadastrado na escola reaproveita o responsavel existente (irmaos), como
+     * no cadastro do aluno.
+     *
+     * @throws RegistroEmUsoException   se esse responsavel ja esta vinculado ao
+     *                                  aluno
+     * @throws IllegalArgumentException se faltar nome, se o CPF for invalido ou
+     *                                  se o financeiro vier sem CPF
+     */
+    @Transactional
+    public ResponsavelResponse incluirNoAluno(UUID alunoId, ResponsavelRequest request) {
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        Aluno aluno = buscarAluno(alunoId, escolaId);
+        ResponsavelComPessoa responsavel = acharOuCriar(request, escolaId);
+        AlunoResponsavelId id = new AlunoResponsavelId(aluno.getId(), responsavel.pessoa().getId());
+        if (alunoResponsavelRepository.existsById(id)) {
+            throw new RegistroEmUsoException("Responsavel ja esta vinculado a este aluno");
+        }
+        boolean financeiro = Boolean.TRUE.equals(request.financeiro());
+        if (financeiro) {
+            exigirCpfDoFinanceiro(responsavel.pessoa());
+            tirarFinanceiroAnterior(aluno.getId(), responsavel.pessoa().getId());
+        }
+        AlunoResponsavel vinculo = AlunoResponsavel.builder()
+                .id(id)
+                .parentesco(request.parentesco())
+                .financeiro(financeiro)
+                .build();
+        alunoResponsavelRepository.save(vinculo);
+        return paraResposta(responsavel.responsavel(), responsavel.pessoa(), vinculo);
     }
 
     /**
@@ -261,9 +298,10 @@ public class ResponsavelService {
      * escola reaproveita o responsavel existente (irmaos); sem CPF ou com CPF
      * novo, cria um. Roda na transacao do cadastro do aluno.
      *
-     * @throws IllegalArgumentException se faltar nome, se o mesmo responsavel
-     *                                  vier repetido ou se houver mais de um
-     *                                  financeiro
+     * @throws IllegalArgumentException se faltar nome, se o CPF for invalido,
+     *                                  se o mesmo responsavel vier repetido, se
+     *                                  houver mais de um financeiro ou se o
+     *                                  financeiro vier sem CPF
      */
     List<ResponsavelResponse> vincularAoNovoAluno(Aluno aluno, List<ResponsavelRequest> requests) {
         if (requests == null || requests.isEmpty()) {
@@ -276,18 +314,12 @@ public class ResponsavelService {
         List<ResponsavelResponse> respostas = new ArrayList<>();
         Set<UUID> jaVinculados = new HashSet<>();
         for (ResponsavelRequest request : requests) {
-            String cpf = request.cpf() == null || request.cpf().isBlank() ? null : request.cpf();
-            ResponsavelComPessoa responsavel = (cpf == null ? Optional.<ResponsavelComPessoa>empty()
-                    : buscarPorCpf(cpf, escolaId))
-                    .orElseGet(() -> {
-                        if (request.nome() == null || request.nome().isBlank()) {
-                            throw new IllegalArgumentException("Nome do responsavel e obrigatorio");
-                        }
-                        return criar(escolaId, request.nome().trim(), cpf, aparar(request.email()),
-                                request.telefone(), null);
-                    });
+            ResponsavelComPessoa responsavel = acharOuCriar(request, escolaId);
             if (!jaVinculados.add(responsavel.pessoa().getId())) {
                 throw new IllegalArgumentException("Responsavel informado mais de uma vez");
+            }
+            if (Boolean.TRUE.equals(request.financeiro())) {
+                exigirCpfDoFinanceiro(responsavel.pessoa());
             }
             AlunoResponsavel vinculo = AlunoResponsavel.builder()
                     .id(new AlunoResponsavelId(aluno.getId(), responsavel.pessoa().getId()))
@@ -327,6 +359,29 @@ public class ResponsavelService {
 
     /** O responsavel e a pessoa dele, para nao rebuscar a pessoa logo depois de criar/achar. */
     private record ResponsavelComPessoa(Responsavel responsavel, Pessoa pessoa) {
+    }
+
+    /** CPF ja cadastrado na escola reaproveita o responsavel; sem CPF ou com CPF novo, cria um. */
+    private ResponsavelComPessoa acharOuCriar(ResponsavelRequest request, UUID escolaId) {
+        String cpf = aparar(request.cpf());
+        if (cpf != null && !new CpfValidator().isValid(cpf, null)) {
+            throw new IllegalArgumentException("CPF do responsavel invalido");
+        }
+        return (cpf == null ? Optional.<ResponsavelComPessoa>empty() : buscarPorCpf(cpf, escolaId))
+                .orElseGet(() -> {
+                    if (request.nome() == null || request.nome().isBlank()) {
+                        throw new IllegalArgumentException("Nome do responsavel e obrigatorio");
+                    }
+                    return criar(escolaId, request.nome().trim(), cpf, aparar(request.email()),
+                            request.telefone(), null);
+                });
+    }
+
+    /** Mesma conferencia do provedor ao emitir ({@code RoteadorPagamento}). */
+    private static void exigirCpfDoFinanceiro(Pessoa pessoa) {
+        if (pessoa.getCpf() == null || !new CpfValidator().isValid(pessoa.getCpf(), null)) {
+            throw new IllegalArgumentException("Responsavel financeiro precisa de CPF valido");
+        }
     }
 
     private ResponsavelComPessoa criar(UUID escolaId, String nome, String cpf, String email, String telefone,

@@ -11,6 +11,10 @@ export type PeriodoLetivo = {
   dataInicio: string
   dataFim: string
   ativo: boolean
+  /** Período planejado só recebe matrícula com isto verdadeiro (IU09). */
+  matriculasAbertas: boolean
+  /** ISO (AAAA-MM-DD); preenchido quando a secretaria encerrou o período. */
+  encerradoEm: string | null
 }
 
 export type PeriodoLetivoRequest = {
@@ -66,6 +70,8 @@ export type TurmaAcademica = {
   ativa: boolean
   /** Grade da turma. */
   disciplinas: Disciplina[]
+  /** Vagas ocupadas: só matrícula ativa conta. */
+  matriculasAtivas: number
 }
 
 export type TurmaRequest = {

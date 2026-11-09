@@ -1,7 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
-import { createPortal } from 'react-dom'
 import { Icon } from '../../../../components/Icon/Icon'
-import { usePopoverFlutuante } from '../../../../hooks/usePopoverFlutuante'
+import { POPOVER, usePopoverFlutuante } from '../../../../hooks/usePopoverFlutuante'
 import { iniciais } from '../../../../utils/formatters'
 import styles from './SeletorProfessor.module.css'
 
@@ -44,6 +43,7 @@ export function SeletorProfessor({
     ancoraRef: botaoRef,
     popoverRef,
     estilo,
+    portal,
   } = usePopoverFlutuante<HTMLButtonElement, HTMLDivElement>(aberto, () => setAberto(false), {
     alturaMinimaAbaixo: 220,
     alturaMaxima: ALTURA_MAXIMA,
@@ -147,11 +147,8 @@ export function SeletorProfessor({
         <Icon name="chevronDown" size={16} className={`${styles.seta} ${aberto ? styles.setaAberta : ''}`} />
       </button>
 
-      {/* No body, e não dentro do painel: o backdrop-filter do vidro vira a
-          referência de position: fixed dos filhos e a lista abriria fora do lugar. */}
-      {aberto &&
-        createPortal(
-        <div ref={popoverRef} className={styles.menu} style={estilo} tabIndex={-1} onKeyDown={handleTecla}>
+      {portal(
+        <div ref={popoverRef} {...POPOVER} className={styles.menu} style={estilo} tabIndex={-1} onKeyDown={handleTecla}>
           {comBusca && (
             <label className={styles.busca}>
               <Icon name="search" size={15} />
@@ -220,8 +217,7 @@ export function SeletorProfessor({
             )}
           </ul>
         </div>,
-          document.body,
-        )}
+      )}
     </>
   )
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Badge } from '../../../../components/Badge/Badge'
+import { Button } from '../../../../components/Button/Button'
 import { Campo } from '../../../../components/Campo/Campo'
 import { CampoData } from '../../../../components/CampoData/CampoData'
 import { ModalDetalhes } from '../../../../components/ModalDetalhes/ModalDetalhes'
@@ -11,19 +12,11 @@ import { mensagemErroAcademico } from './erros'
 import { formatarData } from './formatacao'
 import { ModalCadastro } from '../../../../components/ModalCadastro/ModalCadastro'
 import styles from './PainelSecretaria.module.css'
+import { situacao } from './situacaoPeriodo'
 
 // Limite da coluna NOME (V14).
 const MAX_NOME = 100
 
-type Situacao = { rotulo: string; tom: 'success' | 'neutral' }
-
-/** A situação sai das datas: o backend só guarda se o período está ativo. */
-function situacao(periodo: PeriodoLetivo, hoje: string): Situacao {
-  if (!periodo.ativo) return { rotulo: 'Inativo', tom: 'neutral' }
-  if (hoje < periodo.dataInicio) return { rotulo: 'Planejado', tom: 'neutral' }
-  if (hoje > periodo.dataFim) return { rotulo: 'Encerrado', tom: 'neutral' }
-  return { rotulo: 'Em andamento', tom: 'success' }
-}
 
 /** Dias corridos entre as datas ISO, contando o primeiro e o último. */
 function duracaoEmDias(inicio: string, fim: string): number {
@@ -36,16 +29,42 @@ type PeriodosLetivosProps = {
   onCadastrar: (dados: PeriodoLetivoRequest) => Promise<PeriodoLetivo>
   onAtualizar: (id: number, dados: PeriodoLetivoRequest) => Promise<PeriodoLetivo>
   onExcluir: (id: number) => Promise<void>
+  onEncerrar: (id: number) => Promise<PeriodoLetivo>
+  onAbrirMatriculas: (id: number) => Promise<PeriodoLetivo>
 }
 
 /** Formulário aberto: cadastro (sem período) ou edição. */
 type Formulario = { aberto: false } | { aberto: true; periodo?: PeriodoLetivo }
 
-export function PeriodosLetivos({ periodos, onCadastrar, onAtualizar, onExcluir }: PeriodosLetivosProps) {
+export function PeriodosLetivos({
+  periodos,
+  onCadastrar,
+  onAtualizar,
+  onExcluir,
+  onEncerrar,
+  onAbrirMatriculas,
+}: PeriodosLetivosProps) {
   const [formulario, setFormulario] = useState<Formulario>({ aberto: false })
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [vendo, setVendo] = useState<PeriodoLetivo | null>(null)
   const [excluindo, setExcluindo] = useState<PeriodoLetivo | null>(null)
+  const [encerrando, setEncerrando] = useState<PeriodoLetivo | null>(null)
+  const [abrindo, setAbrindo] = useState<number | null>(null)
+  const [erroAbrir, setErroAbrir] = useState<string | null>(null)
+
+  async function abrirMatriculas(periodo: PeriodoLetivo) {
+    setSucesso(null)
+    setErroAbrir(null)
+    setAbrindo(periodo.id)
+    try {
+      await onAbrirMatriculas(periodo.id)
+      setSucesso(`Matrículas do período "${periodo.nome}" abertas.`)
+    } catch (e) {
+      setErroAbrir(mensagemErroAcademico(e))
+    } finally {
+      setAbrindo(null)
+    }
+  }
   const hoje = hojeIso()
 
   function abrir(periodo?: PeriodoLetivo) {
@@ -62,8 +81,9 @@ export function PeriodosLetivos({ periodos, onCadastrar, onAtualizar, onExcluir 
       <Tabela
         colunas={['Nome', 'Início', 'Término', 'Situação', '']}
         vazio="Nenhum período letivo cadastrado ainda."
+        rotuloPaginacao="Páginas dos períodos letivos"
         linhas={periodos.map((p) => {
-          const { rotulo, tom } = situacao(p, hoje)
+          const { rotulo, tom, fase } = situacao(p, hoje)
           return (
             <tr key={p.id}>
               <td className={styles.destaque}>{p.nome}</td>
@@ -71,8 +91,30 @@ export function PeriodosLetivos({ periodos, onCadastrar, onAtualizar, onExcluir 
               <td>{formatarData(p.dataFim)}</td>
               <td>
                 <Badge tone={tom}>{rotulo}</Badge>
+                {fase === 'planejado' && (
+                  <span className={styles.situacaoMatriculas}>
+                    {p.matriculasAbertas ? 'Matrículas abertas' : 'Matrículas fechadas'}
+                  </span>
+                )}
               </td>
               <td className={styles.acoes}>
+                {fase === 'andamento' && (
+                  <Button
+                    size="sm"
+                    icon="lock"
+                    onClick={() => {
+                      setSucesso(null)
+                      setEncerrando(p)
+                    }}
+                  >
+                    Encerrar
+                  </Button>
+                )}
+                {fase === 'planejado' && !p.matriculasAbertas && (
+                  <Button size="sm" variant="primary" disabled={abrindo === p.id} onClick={() => abrirMatriculas(p)}>
+                    {abrindo === p.id ? 'Abrindo…' : 'Abrir matrículas'}
+                  </Button>
+                )}
                 <AcoesLinha
                   nome={p.nome}
                   onVer={() => setVendo(p)}
@@ -88,6 +130,31 @@ export function PeriodosLetivos({ periodos, onCadastrar, onAtualizar, onExcluir 
         })}
       />
 
+      {erroAbrir && (
+        <p className={styles.erroPeriodo} role="alert">
+          {erroAbrir}
+        </p>
+      )}
+
+      {encerrando && (
+        <ConfirmarExclusao
+          traduzirErro={mensagemErroAcademico}
+          titulo="Encerrar período letivo"
+          nome={encerrando.nome}
+          rotuloConfirmar="Encerrar período"
+          iconeConfirmar="lock"
+          onFechar={() => setEncerrando(null)}
+          onConfirmar={async () => {
+            await onEncerrar(encerrando.id)
+            setEncerrando(null)
+            setSucesso(`Período "${encerrando.nome}" encerrado.`)
+          }}
+        >
+          Encerrar o período <strong>{encerrando.nome}</strong> agora? Ele deixa de receber matrícula nova; as matrículas
+          e notas já feitas continuam.
+        </ConfirmarExclusao>
+      )}
+
       {vendo && (
         <ModalDetalhes
           titulo={vendo.nome}
@@ -100,6 +167,10 @@ export function PeriodosLetivos({ periodos, onCadastrar, onAtualizar, onExcluir 
                 { rotulo: 'Término', valor: formatarData(vendo.dataFim) },
                 { rotulo: 'Duração', valor: `${duracaoEmDias(vendo.dataInicio, vendo.dataFim)} dias` },
                 { rotulo: 'Cadastro', valor: vendo.ativo ? 'Ativo' : 'Inativo' },
+                ...(vendo.encerradoEm ? [{ rotulo: 'Encerrado em', valor: formatarData(vendo.encerradoEm) }] : []),
+                ...(situacao(vendo, hoje).fase === 'planejado'
+                  ? [{ rotulo: 'Matrículas', valor: vendo.matriculasAbertas ? 'Abertas' : 'Fechadas' }]
+                  : []),
               ],
             },
           ]}

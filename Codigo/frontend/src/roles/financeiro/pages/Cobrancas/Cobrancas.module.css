@@ -18,6 +18,8 @@
 
 .buscaIcone {
   position: absolute;
+  /* O backdrop-filter do campo cria um contexto de empilhamento: sem z-index, o campo cobre a lupa. */
+  z-index: 1;
   left: 18px;
   color: var(--color-text-subtle);
   pointer-events: none;
@@ -32,7 +34,6 @@
   background: var(--glass-bg);
   box-shadow: var(--glass-shadow-sm);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   font-family: var(--font-sans);
   font-size: 14.5px;
   color: var(--color-text);
@@ -71,7 +72,6 @@
   background: var(--glass-bg);
   box-shadow: var(--glass-shadow-sm);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   font-family: var(--font-display);
   font-size: 14px;
   font-weight: 800;
@@ -97,25 +97,36 @@
   border-color: transparent;
 }
 
-/* Master-Detail Grid */
-.layoutGrid {
-  display: grid;
-  grid-template-columns: 1fr 380px;
-  gap: 24px;
-  align-items: start;
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: var(--radius-pill);
+  background: rgba(150, 103, 224, 0.12);
+  font-size: 12px;
+  font-weight: 800;
 }
 
-.listaCards {
+.pillAtivo .badge {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.lista {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  scroll-margin-top: 24px;
 }
 
-.mensagemVazia {
+.vazio {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 12px;
   padding: 48px 24px;
   border: var(--glass-border);
   border-radius: var(--radius-xl);
@@ -126,10 +137,6 @@
 }
 
 @media (max-width: 960px) {
-  .layoutGrid {
-    grid-template-columns: 1fr;
-  }
-
   .busca {
     max-width: 100%;
   }
@@ -140,3 +147,17 @@
   }
 }
 
+
+/* Confirmação depois de criar uma cobrança, igual às da Secretaria. */
+.sucesso {
+  margin-bottom: 24px;
+  padding: 14px 20px;
+  border: var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(145deg, rgba(220, 242, 228, 0.95), rgba(220, 242, 228, 0.7));
+  box-shadow: var(--glass-shadow-sm);
+  color: var(--color-success);
+  font-size: 14.5px;
+  font-weight: 500;
+  animation: var(--animacao-surgir);
+}

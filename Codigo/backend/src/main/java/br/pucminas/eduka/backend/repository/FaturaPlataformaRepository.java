@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -23,6 +24,13 @@ import jakarta.persistence.LockModeType;
 public interface FaturaPlataformaRepository extends JpaRepository<FaturaPlataforma, UUID> {
 
     List<FaturaPlataforma> findAllByEscolaIdOrderByCompetenciaDesc(UUID escolaId);
+
+    /** Faturas de todas as escolas (IU24), do vencimento mais recente para o mais antigo. */
+    List<FaturaPlataforma> findAllByOrderByDataVencimentoDescCompetenciaDesc();
+
+    Page<FaturaPlataforma> findAllByEscolaId(UUID escolaId, Pageable pagina);
+
+    Page<FaturaPlataforma> findAllByEscolaIdAndStatus(UUID escolaId, StatusCobranca status, Pageable pagina);
 
     Optional<FaturaPlataforma> findByIdAndEscolaId(UUID id, UUID escolaId);
 

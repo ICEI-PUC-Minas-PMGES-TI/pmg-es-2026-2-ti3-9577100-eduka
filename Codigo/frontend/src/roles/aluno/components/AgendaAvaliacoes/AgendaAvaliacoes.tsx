@@ -20,7 +20,7 @@ export function AgendaAvaliacoes() {
 
   return (
     <>
-      {carregando && <div className={styles.mensagem}>Carregando suas avaliações…</div>}
+      {carregando && <div className={styles.mensagem} role="status">Carregando suas avaliações…</div>}
 
       {!carregando && erro && (
         <div className={styles.mensagem} role="alert">

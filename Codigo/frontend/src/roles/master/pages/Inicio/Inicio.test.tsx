@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router'
+import userEvent from '@testing-library/user-event'
+import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import { problema, simularApi, type RespostaApi } from '../../../../test/api'
 import type { DashboardEscola, DashboardFinanceiro } from '../../../../types/dashboard'
@@ -72,6 +73,7 @@ const FINANCEIRO: DashboardFinanceiro = {
 function abrir(financeiro: RespostaApi) {
   simularApi(({ caminho }) => {
     if (caminho === '/dashboard/escola') return { corpo: ESCOLA }
+    if (caminho === '/cobrancas/risco-atraso?nivelMinimo=MEDIO') return { corpo: [] }
     if (caminho === '/dashboard/financeiro') return financeiro
     return undefined
   })
@@ -93,7 +95,26 @@ describe('Início do master', () => {
     expect(within(resumo).getByText('Alunos · 18% de inadimplência')).toBeInTheDocument()
 
     expect(screen.getByRole('region', { name: 'Dinheiro que entrou e saiu' })).toBeInTheDocument()
-    expect(screen.getByText('8 ativos de 9')).toBeInTheDocument()
+    const numeros = screen.getByRole('region', { name: 'A escola em números' })
+    expect(within(numeros).getByText('1 inativo')).toBeInTheDocument()
+  })
+
+  it('pagina as últimas ações de 5 em 5', async () => {
+    const acoes = Array.from({ length: 7 }, (_, i) => ({
+      ...FINANCEIRO.ultimasAcoes[0],
+      usuarioNome: `Pessoa ${i + 1}`,
+      registroId: `cob-${i}`,
+    }))
+    abrir({ corpo: { ...FINANCEIRO, ultimasAcoes: acoes } })
+
+    const painel = await screen.findByRole('region', { name: 'Últimas ações' })
+    expect(within(painel).getByText('Pessoa 5')).toBeInTheDocument()
+    expect(within(painel).queryByText('Pessoa 6')).not.toBeInTheDocument()
+    expect(within(painel).getByRole('button', { name: 'Página anterior' })).toBeDisabled()
+
+    await userEvent.click(within(painel).getByRole('button', { name: 'Próxima página' }))
+    expect(within(painel).getByText('Pessoa 7')).toBeInTheDocument()
+    expect(within(painel).getByText('6–7 de 7')).toBeInTheDocument()
   })
 
   it('conta quem fez cada ação, inclusive as que vêm do Asaas', async () => {
@@ -113,4 +134,28 @@ describe('Início do master', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Você não tem permissão para acessar este recurso.')
     expect(screen.queryByRole('region', { name: 'Resumo da escola' })).not.toBeInTheDocument()
   })
+
+  it('os atalhos levam às telas da secretaria e do financeiro dentro da gestão', async () => {
+    simularApi(({ caminho }) => {
+      if (caminho === '/dashboard/escola') return { corpo: ESCOLA }
+    if (caminho === '/cobrancas/risco-atraso?nivelMinimo=MEDIO') return { corpo: [] }
+      if (caminho === '/dashboard/financeiro') return { corpo: FINANCEIRO }
+      return undefined
+    })
+    const router = createMemoryRouter(
+      [
+        { path: '/master/inicio', element: <Inicio /> },
+        { path: '/master/matriculas', element: <p>Tela de matrículas</p> },
+        { path: '/master/despesas', element: <p>Tela de despesas</p> },
+      ],
+      { initialEntries: ['/master/inicio'] },
+    )
+    render(<RouterProvider router={router} />)
+
+    const atalhos = await screen.findByRole('heading', { name: /o que você quer fazer/i })
+    expect(atalhos).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /matricular um aluno/i }))
+    expect(await screen.findByText('Tela de matrículas')).toBeInTheDocument()
+  })
 })
+

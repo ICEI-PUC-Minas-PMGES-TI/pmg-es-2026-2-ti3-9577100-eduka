@@ -4,6 +4,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,20 +20,25 @@ import br.pucminas.eduka.backend.domain.StatusMatricula;
 import br.pucminas.eduka.backend.dto.AtualizarMatriculaRequest;
 import br.pucminas.eduka.backend.dto.MatriculaTurmaRequest;
 import br.pucminas.eduka.backend.dto.MatriculaTurmaResponse;
+import br.pucminas.eduka.backend.dto.Ordenacao;
+import br.pucminas.eduka.backend.dto.PaginaResponse;
+import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.MatriculaTurmaService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 /**
- * Matricula de alunos nas turmas da escola do usuario autenticado. Quem
- * trabalha na escola consulta; so gestao e secretaria matriculam e alteram.
+ * Matricula de alunos nas turmas da escola do usuario autenticado. Perfis
+ * administrativos consultam; so gestao e secretaria matriculam e alteram. O
+ * professor ve os alunos das proprias turmas pelo portal.
  */
 @RestController
 @RequestMapping("/matriculas")
 @Tag(name = "Matriculas",
-        description = "Alunos nas turmas. Leitura: MASTER, SECRETARIA, FINANCEIRO, PROFESSOR. "
+        description = "Alunos nas turmas. Leitura: MASTER, SECRETARIA, FINANCEIRO. "
                 + "Cadastro e alteracao: MASTER, SECRETARIA.")
 public class MatriculaTurmaController {
 
@@ -43,7 +49,7 @@ public class MatriculaTurmaController {
     }
 
     @GetMapping
-    @PreAuthorize(Perfis.LEITURA_ACADEMICA)
+    @PreAuthorize(Perfis.LEITURA_ALUNOS)
     @Operation(summary = "Lista as matriculas", description = "Filtros opcionais por turma, aluno e situacao.")
     public List<MatriculaTurmaResponse> listar(@RequestParam(required = false) Long turmaId,
             @RequestParam(required = false) UUID alunoId,
@@ -51,8 +57,26 @@ public class MatriculaTurmaController {
         return matriculaService.listar(turmaId, alunoId, status);
     }
 
+    @GetMapping("/pagina")
+    @PreAuthorize(Perfis.LEITURA_ALUNOS)
+    @Operation(summary = "Lista as matriculas em paginas",
+            description = "Mesmos filtros da listagem. `pagina` comeca em 0; `tamanho` vai de 1 a 100. "
+                    + "`ordenarPor`: ALUNO (padrao, pelo nome) ou DATA_MATRICULA; `direcao`: ASC (padrao) ou DESC.")
+    @ApiResponse(responseCode = "200", description = "A pagina de matriculas.")
+    @ApiResponse(responseCode = "400", description = "Pagina, tamanho ou ordenacao invalidos.")
+    public PaginaResponse<MatriculaTurmaResponse> listarPaginado(@RequestParam(required = false) Long turmaId,
+            @RequestParam(required = false) UUID alunoId,
+            @RequestParam(required = false) StatusMatricula status,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = Paginacao.TAMANHO_PADRAO) int tamanho,
+            @RequestParam(defaultValue = "ALUNO") Ordenacao.Matriculas ordenarPor,
+            @RequestParam(required = false) Direction direcao) {
+        return matriculaService.listarPaginado(turmaId, alunoId, status, new Paginacao(pagina, tamanho), ordenarPor,
+                direcao);
+    }
+
     @GetMapping("/{id}")
-    @PreAuthorize(Perfis.LEITURA_ACADEMICA)
+    @PreAuthorize(Perfis.LEITURA_ALUNOS)
     @Operation(summary = "Busca uma matricula")
     public MatriculaTurmaResponse buscar(@PathVariable UUID id) {
         return matriculaService.buscar(id);

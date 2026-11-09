@@ -22,7 +22,6 @@
   background: var(--glass-bg);
   box-shadow: var(--glass-shadow-sm);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   color: var(--color-text);
   font-family: var(--font-display);
   font-size: 15px;
@@ -66,6 +65,8 @@
 
 .buscaIcone {
   position: absolute;
+  /* O backdrop-filter do campo cria um contexto de empilhamento: sem z-index, o campo cobre a lupa. */
+  z-index: 1;
   left: 14px;
   color: #94a3b8;
   pointer-events: none;
@@ -249,14 +250,12 @@
   border: 1.5px dashed #cbd5e1;
   border-radius: 14px;
   background: #ffffff;
-  cursor: pointer;
-  transition: all 0.15s ease;
 }
 
-.dropzone:hover,
-.dropzoneArrastando {
-  border-color: #9366ea;
-  background: #faf5ff;
+/* Anexo do boleto ainda não disponível: a área aparece apagada e sem clique. */
+.dropzoneEmBreve {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .dropzoneConteudo {
@@ -269,38 +268,25 @@
   color: #1e293b;
 }
 
-.dropzoneArquivo {
+/* Campo recusado na validação: mesma cor da mensagem de erro. */
+.buscaInput[aria-invalid='true'],
+.inputMoeda[aria-invalid='true'],
+.inputPadrao[aria-invalid='true'] {
+  border-color: #dc2626;
+}
+
+.avisoAlunos {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 700;
-  color: #1e293b;
 }
 
-.nomeArquivo {
-  color: #6a3fc4;
-}
-
-.botaoRemoverArquivo {
+.campoMatricula {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: none;
-  background: #fee2e2;
-  color: #dc2626;
-  font-size: 16px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.botaoRemoverArquivo:hover {
-  background: #fca5a5;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .helperBoleto {

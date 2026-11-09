@@ -1,0 +1,108 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px 16px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 520px;
+  padding: 44px 40px 40px;
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  border-radius: 36px;
+  background: var(--glass-bg);
+  box-shadow: 0 24px 60px rgba(150, 103, 224, 0.16), inset 0 2px 0 rgba(255, 255, 255, 0.95);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  text-align: center;
+  animation: var(--animacao-entrar);
+}
+
+.code {
+  background: var(--button-primary-bg);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-family: var(--font-display);
+  font-size: 88px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -2px;
+}
+
+.logo {
+  height: 36px;
+  margin-bottom: 24px;
+}
+
+.icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--color-primary-soft, rgba(150, 103, 224, 0.14));
+  color: var(--color-primary, #7c4dff);
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+}
+
+.text {
+  color: var(--color-text-muted);
+  font-size: 15px;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 50px;
+  margin-top: 16px;
+  padding: 12px 30px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--radius-pill);
+  background: var(--button-primary-bg);
+  box-shadow: var(--button-primary-shadow);
+  color: var(--color-on-primary);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 800;
+  text-decoration: none;
+  transition:
+    filter 0.15s ease,
+    transform 0.08s ease;
+}
+
+.link:hover {
+  filter: brightness(1.05) saturate(1.05);
+}
+
+.link:active {
+  transform: scale(0.98);
+}
+
+.suporte {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-primary, #7c4dff);
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.suporte:hover {
+  text-decoration: underline;
+}

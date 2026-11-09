@@ -8,3 +8,53 @@
   color: var(--color-danger);
   font-size: 13.5px;
 }
+
+.recusa {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-danger-bg, rgba(220, 38, 38, 0.08));
+  color: var(--color-danger);
+  font-size: 13.5px;
+}
+
+.etapas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+  color: var(--color-text-subtle);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.etapas li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.marcador {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font-size: 11px;
+}
+
+.feita {
+  color: var(--color-text);
+}
+
+.feita .marcador {
+  border-color: transparent;
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}

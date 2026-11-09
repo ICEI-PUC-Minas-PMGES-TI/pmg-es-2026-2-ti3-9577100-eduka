@@ -7,7 +7,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
-import java.util.Comparator;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -17,16 +19,18 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.pucminas.eduka.backend.domain.Cobranca;
-import br.pucminas.eduka.backend.domain.Despesa;
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.LogAuditoria;
 import br.pucminas.eduka.backend.domain.OrigemPagamento;
 import br.pucminas.eduka.backend.domain.PagamentoCobranca;
 import br.pucminas.eduka.backend.domain.Pessoa;
-import br.pucminas.eduka.backend.domain.SituacaoDespesa;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.DashboardFinanceiroResponse;
@@ -38,9 +42,13 @@ import br.pucminas.eduka.backend.dto.DashboardFinanceiroResponse.Mes;
 import br.pucminas.eduka.backend.dto.DashboardFinanceiroResponse.PagamentoRecente;
 import br.pucminas.eduka.backend.dto.DashboardFinanceiroResponse.Total;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
+import br.pucminas.eduka.backend.repository.CobrancaFiltro;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
+import br.pucminas.eduka.backend.repository.CobrancaTotaisRepository;
 import br.pucminas.eduka.backend.repository.DespesaRepository;
+import br.pucminas.eduka.backend.repository.EstornoCobrancaRepository;
 import br.pucminas.eduka.backend.repository.LogAuditoriaRepository;
+import br.pucminas.eduka.backend.repository.Movimento;
 import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.repository.UsuarioRepository;
@@ -51,17 +59,18 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
  * e a parte financeira do Inicio do MASTER (IU05).
  *
  * <p>
- * Como em {@link DashboardService}, as contas sao feitas em memoria sobre as
- * cobrancas e despesas da escola. A situacao de cada cobranca e a efetiva
- * ({@link StatusCobranca#efetivo}): a pendente vencida ja conta como em
- * atraso, mesmo antes da rotina diaria gravar.
+ * As contas sao feitas no banco, para o painel nao ler o historico inteiro da
+ * escola a cada abertura: totais agrupados, so o dinheiro dos meses do
+ * grafico e so as {@link #LIMITE_LISTA} linhas de cada lista. A situacao de
+ * cada cobranca e a efetiva ({@link StatusCobranca#efetivo}): a pendente
+ * vencida ja conta como em atraso, mesmo antes da rotina diaria gravar.
  * </p>
  *
  * <p>
  * Recebido e a cobranca PAGA, pela data em que foi dada como paga
  * ({@code PAGA_EM}): pelo aviso do Asaas ou pela baixa manual. O valor e o
  * pago no provedor quando ha {@code PAGAMENTO_COBRANCA}; na baixa manual, o
- * da cobranca.
+ * da cobranca. O estorno sai do recebido no mes em que aconteceu.
  * </p>
  */
 @Service
@@ -73,15 +82,35 @@ public class DashboardFinanceiroService {
     /** Itens de cada lista do painel. */
     static final int LIMITE_LISTA = 10;
 
-    /** Meses do grafico "Dinheiro que entrou e saiu", contando o atual. */
-    static final int MESES_NO_GRAFICO = 6;
+    /**
+     * Meses do grafico "Dinheiro que entrou e saiu", contando o atual. A tela
+     * filtra 3, 6 ou 12 deles sem pedir de novo.
+     */
+    static final int MESES_NO_GRAFICO = 12;
 
     /** "Vencem esta semana": de hoje ate hoje + 6 dias. */
     private static final int DIAS_DA_SEMANA = 6;
 
+    private static final CobrancaFiltro TODAS = new CobrancaFiltro(null, null, null, null, null);
+    private static final CobrancaFiltro PAGAS = new CobrancaFiltro(null, null, StatusCobranca.PAGA, null, null);
+    private static final CobrancaFiltro ATRASADAS = new CobrancaFiltro(null, null, StatusCobranca.EM_ATRASO, null,
+            null);
+    private static final Specification<Cobranca> COM_DATA_DE_PAGAMENTO = (cobranca, query, cb) -> cb
+            .isNotNull(cobranca.get("pagaEm"));
+    private static final Total NADA = new Total(BigDecimal.ZERO, 0);
+
+    /**
+     * "Ultimas acoes" e o painel do financeiro: o log tem tambem alunos, notas
+     * e equipe, que ficam no registro de atividades.
+     */
+    static final Set<EntidadeAuditada> ENTIDADES_FINANCEIRAS = EnumSet.of(EntidadeAuditada.COBRANCA,
+            EntidadeAuditada.PAGAMENTO, EntidadeAuditada.DESPESA, EntidadeAuditada.CONTA_RECEBIMENTO,
+            EntidadeAuditada.FATURA_PLATAFORMA);
+
     private final CobrancaRepository cobrancaRepository;
     private final PagamentoCobrancaRepository pagamentoRepository;
     private final DespesaRepository despesaRepository;
+    private final EstornoCobrancaRepository estornoRepository;
     private final LogAuditoriaRepository logAuditoriaRepository;
     private final UsuarioRepository usuarioRepository;
     private final PessoaRepository pessoaRepository;
@@ -90,11 +119,12 @@ public class DashboardFinanceiroService {
 
     public DashboardFinanceiroService(CobrancaRepository cobrancaRepository,
             PagamentoCobrancaRepository pagamentoRepository, DespesaRepository despesaRepository,
-            LogAuditoriaRepository logAuditoriaRepository, UsuarioRepository usuarioRepository,
+            EstornoCobrancaRepository estornoRepository, LogAuditoriaRepository logAuditoriaRepository, UsuarioRepository usuarioRepository,
             PessoaRepository pessoaRepository, IsolamentoEscola isolamentoEscola, Clock clock) {
         this.cobrancaRepository = cobrancaRepository;
         this.pagamentoRepository = pagamentoRepository;
         this.despesaRepository = despesaRepository;
+        this.estornoRepository = estornoRepository;
         this.logAuditoriaRepository = logAuditoriaRepository;
         this.usuarioRepository = usuarioRepository;
         this.pessoaRepository = pessoaRepository;
@@ -107,29 +137,45 @@ public class DashboardFinanceiroService {
         LocalDate hoje = LocalDate.now(clock.withZone(FUSO_ESCOLA));
         YearMonth mesAtual = YearMonth.from(hoje);
 
-        List<Cobranca> cobrancas = cobrancaRepository.findAllByEscolaId(escolaId);
-        Map<UUID, StatusCobranca> status = cobrancas.stream().collect(Collectors.toMap(Cobranca::getId,
-                c -> StatusCobranca.efetivo(c.getStatus(), c.getDataVencimento(), hoje)));
-        List<Cobranca> emAberto = cobrancas.stream().filter(c -> status.get(c.getId()).emAberto()).toList();
-        List<Cobranca> emAtraso = emAberto.stream()
-                .filter(c -> status.get(c.getId()) == StatusCobranca.EM_ATRASO)
+        // So o dinheiro dos meses do grafico: o mes atual sai dele tambem.
+        YearMonth primeiroDoGrafico = mesAtual.minusMonths(MESES_NO_GRAFICO - 1L);
+        Instant inicioDoGrafico = inicioDe(primeiroDoGrafico.atDay(1));
+        Instant fimDoGrafico = inicioDe(mesAtual.plusMonths(1).atDay(1));
+        List<Movimento> recebidos = cobrancaRepository.recebidosEntre(escolaId, inicioDoGrafico, fimDoGrafico);
+        List<Movimento> entradas = comEstornos(recebidos, escolaId, inicioDoGrafico, fimDoGrafico);
+        long pagamentosNoMes = recebidos.stream().filter(r -> mesDe(r.getPagaEm()).equals(mesAtual)).count();
+        List<Movimento> entradasNoMes = entradas.stream()
+                .filter(r -> mesDe(r.getPagaEm()).equals(mesAtual))
                 .toList();
 
-        List<Recebido> recebidos = recebidos(cobrancas, escolaId);
-        List<Recebido> recebidosNoMes = recebidos.stream().filter(r -> mesDe(r.pagoEm()).equals(mesAtual)).toList();
+        // Em aberto, em atraso e pago ja vencido saem dos totais agrupados, sem ler cada cobranca.
+        Map<StatusCobranca, Total> porStatus = new EnumMap<>(StatusCobranca.class);
+        BigDecimal pagoJaVencido = BigDecimal.ZERO;
+        for (CobrancaTotaisRepository.Grupo grupo : cobrancaRepository
+                .agruparPorStatusEVencimento(TODAS.daEscolaEmQualquerStatus(escolaId))) {
+            StatusCobranca status = StatusCobranca.efetivo(grupo.status(), grupo.dataVencimento(), hoje);
+            porStatus.merge(status, new Total(grupo.valor(), grupo.quantidade()),
+                    (a, b) -> new Total(a.valor().add(b.valor()), a.quantidade() + b.quantidade()));
+            if (status == StatusCobranca.PAGA && grupo.dataVencimento().isBefore(hoje)) {
+                pagoJaVencido = pagoJaVencido.add(grupo.valor());
+            }
+        }
+        Total pendentes = porStatus.getOrDefault(StatusCobranca.PENDENTE, NADA);
+        Total emAtraso = porStatus.getOrDefault(StatusCobranca.EM_ATRASO, NADA);
 
-        List<Despesa> despesas = despesaRepository.findAllByEscolaId(escolaId);
-
-        List<Cobranca> daSemana = emAberto.stream()
-                .filter(c -> !c.getDataVencimento().isAfter(hoje.plusDays(DIAS_DA_SEMANA)))
-                .sorted(Comparator.comparing(Cobranca::getDataVencimento))
-                .limit(LIMITE_LISTA)
-                .toList();
-        List<Recebido> ultimosRecebidos = recebidos.stream()
-                .sorted(Comparator.comparing(Recebido::pagoEm).reversed())
-                .limit(LIMITE_LISTA)
-                .toList();
-        List<LogAuditoria> acoes = logAuditoriaRepository.findTop10ByEscolaIdOrderByDataHoraDesc(escolaId);
+        // As em atraso e as que vencem na semana, ate LIMITE_LISTA de cada, o vencimento mais antigo primeiro.
+        // Separadas: numa lista so, atrasos antigos ocupariam todas as vagas e a semana sumiria da tela.
+        PageRequest porVencimento = PageRequest.of(0, LIMITE_LISTA, Sort.by("dataVencimento", "id"));
+        List<Cobranca> daSemana = new ArrayList<>(
+                cobrancaRepository.findAll(ATRASADAS.daEscola(escolaId, hoje), porVencimento).getContent());
+        daSemana.addAll(cobrancaRepository.findAll(new CobrancaFiltro(null, null, StatusCobranca.PENDENTE, hoje,
+                hoje.plusDays(DIAS_DA_SEMANA)).daEscola(escolaId, hoje), porVencimento).getContent());
+        List<Recebido> ultimosRecebidos = recebidos(cobrancaRepository.findAll(
+                PAGAS.daEscola(escolaId, hoje).and(COM_DATA_DE_PAGAMENTO),
+                PageRequest.of(0, LIMITE_LISTA, Sort.by(Sort.Direction.DESC, "pagaEm", "id"))).getContent(),
+                escolaId);
+        List<LogAuditoria> acoes = logAuditoriaRepository.findTop10ByEscolaIdAndEntidadeInOrderByDataHoraDesc(escolaId,
+                ENTIDADES_FINANCEIRAS);
         Map<UUID, Usuario> autores = usuarioRepository
                 .findAllById(acoes.stream().map(LogAuditoria::getUsuarioId).collect(Collectors.toSet())).stream()
                 .collect(Collectors.toMap(Usuario::getId, Function.identity()));
@@ -144,15 +190,21 @@ public class DashboardFinanceiroService {
                         .collect(Collectors.toMap(Pessoa::getId, Pessoa::getNome));
         Function<Cobranca, String> nomeDoAluno = c -> nomes.get(c.getAluno().getPessoaId());
 
+        long alunosEmAtraso = emAtraso.quantidade() == 0 ? 0
+                : cobrancaRepository.contarAlunos(ATRASADAS.daEscola(escolaId, hoje));
+
         return new DashboardFinanceiroResponse(
-                new Total(somar(recebidosNoMes.stream().map(Recebido::valor)), recebidosNoMes.size()),
-                new Total(somar(emAberto.stream().map(Cobranca::getValor)), emAberto.size()),
-                atraso(cobrancas, emAtraso, status, hoje),
-                despesasAPagar(despesas, hoje),
-                ultimosMeses(recebidos, despesas, mesAtual),
+                new Total(somar(entradasNoMes.stream().map(Movimento::getValor)), pagamentosNoMes),
+                new Total(pendentes.valor().add(emAtraso.valor()), pendentes.quantidade() + emAtraso.quantidade()),
+                new Atraso(alunosEmAtraso, emAtraso.quantidade(), emAtraso.valor(),
+                        percentual(emAtraso.valor(), emAtraso.valor().add(pagoJaVencido))),
+                despesasAPagar(escolaId, hoje),
+                porMes(entradas, despesaRepository.pagasEntre(escolaId, inicioDoGrafico, fimDoGrafico),
+                        primeiroDoGrafico, mesAtual),
                 daSemana.stream()
                         .map(c -> new CobrancaDaSemana(c.getId(), c.getAluno().getId(), nomeDoAluno.apply(c),
-                                c.getDescricao(), c.getValor(), c.getDataVencimento(), status.get(c.getId())))
+                                c.getDescricao(), c.getValor(), c.getDataVencimento(),
+                                StatusCobranca.efetivo(c.getStatus(), c.getDataVencimento(), hoje)))
                         .toList(),
                 ultimosRecebidos.stream()
                         .map(r -> new PagamentoRecente(r.cobranca().getId(), nomeDoAluno.apply(r.cobranca()),
@@ -174,6 +226,7 @@ public class DashboardFinanceiroService {
             Instant pagoEm) {
     }
 
+    /** Na ordem de {@code cobrancas}; as que nao estao pagas ficam de fora. */
     private List<Recebido> recebidos(List<Cobranca> cobrancas, UUID escolaId) {
         List<Cobranca> pagas = cobrancas.stream()
                 .filter(c -> c.getStatus() == StatusCobranca.PAGA && c.getPagaEm() != null)
@@ -193,41 +246,56 @@ public class DashboardFinanceiroService {
         }).toList();
     }
 
-    private static Atraso atraso(List<Cobranca> cobrancas, List<Cobranca> emAtraso, Map<UUID, StatusCobranca> status,
-            LocalDate hoje) {
-        BigDecimal valorEmAtraso = somar(emAtraso.stream().map(Cobranca::getValor));
-        BigDecimal pagoJaVencido = somar(cobrancas.stream()
-                .filter(c -> status.get(c.getId()) == StatusCobranca.PAGA && c.getDataVencimento().isBefore(hoje))
-                .map(Cobranca::getValor));
-        long alunos = emAtraso.stream().map(c -> c.getAluno().getId()).distinct().count();
-        return new Atraso(alunos, emAtraso.size(), valorEmAtraso, percentual(valorEmAtraso,
-                valorEmAtraso.add(pagoJaVencido)));
+    /** A pagar ate o fim do mes, e o proximo vencimento de hoje em diante (pode ser de outro mes). */
+    private DespesasAPagar despesasAPagar(UUID escolaId, LocalDate hoje) {
+        DespesaRepository.Soma ateOFimDoMes = despesaRepository.somarAPagarAte(escolaId,
+                YearMonth.from(hoje).atEndOfMonth());
+        LocalDate proximo = despesaRepository.proximoVencimentoAPagar(escolaId, hoje).orElse(null);
+        BigDecimal valor = ateOFimDoMes.getValor() != null ? ateOFimDoMes.getValor() : BigDecimal.ZERO;
+        return new DespesasAPagar(valor, ateOFimDoMes.getQuantidade(), proximo);
     }
 
-    private static DespesasAPagar despesasAPagar(List<Despesa> despesas, LocalDate hoje) {
-        LocalDate fimDoMes = YearMonth.from(hoje).atEndOfMonth();
-        List<Despesa> aPagar = despesas.stream().filter(d -> d.getSituacao() == SituacaoDespesa.A_PAGAR).toList();
-        List<Despesa> ateOFimDoMes = aPagar.stream().filter(d -> !d.getDataVencimento().isAfter(fimDoMes)).toList();
-        LocalDate proximo = aPagar.stream()
-                .map(Despesa::getDataVencimento)
-                .filter(v -> !v.isBefore(hoje))
-                .min(Comparator.naturalOrder())
-                .orElse(null);
-        return new DespesasAPagar(somar(ateOFimDoMes.stream().map(Despesa::getValor)), ateOFimDoMes.size(), proximo);
+    /**
+     * Entrou e saiu de cada mes de {@code de} a {@code ate} (inclusive), pelo
+     * dia em que foi pago, no fuso da escola: o filtro com calendario do
+     * grafico. Os meses das pontas contam so os dias do periodo.
+     *
+     * @throws IllegalArgumentException se o periodo for invalido (ver {@link PeriodoFinanceiro})
+     */
+    public List<Mes> movimento(LocalDate de, LocalDate ate) {
+        PeriodoFinanceiro periodo = new PeriodoFinanceiro(de, ate);
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        return porMes(comEstornos(cobrancaRepository.recebidosEntre(escolaId, periodo.inicio(), periodo.fim()), escolaId,
+                periodo.inicio(), periodo.fim()),
+                despesaRepository.pagasEntre(escolaId, periodo.inicio(), periodo.fim()), periodo.primeiroMes(),
+                periodo.ultimoMes());
     }
 
-    private static List<Mes> ultimosMeses(List<Recebido> recebidos, List<Despesa> despesas, YearMonth mesAtual) {
-        Map<YearMonth, BigDecimal> entrou = recebidos.stream()
-                .collect(Collectors.groupingBy(r -> mesDe(r.pagoEm()),
-                        Collectors.reducing(BigDecimal.ZERO, Recebido::valor, BigDecimal::add)));
-        Map<YearMonth, BigDecimal> saiu = despesas.stream()
-                .filter(d -> d.getSituacao() == SituacaoDespesa.PAGA && d.getPagaEm() != null)
-                .collect(Collectors.groupingBy(d -> mesDe(d.getPagaEm()),
-                        Collectors.reducing(BigDecimal.ZERO, Despesa::getValor, BigDecimal::add)));
-        return Stream.iterate(mesAtual.minusMonths(MESES_NO_GRAFICO - 1L), m -> m.plusMonths(1))
-                .limit(MESES_NO_GRAFICO)
+    /** Os recebidos e, com valor negativo, os estornos do mesmo intervalo. */
+    private List<Movimento> comEstornos(List<Movimento> recebidos, UUID escolaId, Instant desde, Instant antes) {
+        return Stream.concat(recebidos.stream(), estornoRepository.estornosEntre(escolaId, desde, antes).stream())
+                .toList();
+    }
+
+    /** Um {@link Mes} para cada mes de {@code primeiro} a {@code ultimo}, mesmo os sem movimento. */
+    private static List<Mes> porMes(List<Movimento> recebidos, List<Movimento> despesasPagas, YearMonth primeiro,
+            YearMonth ultimo) {
+        Map<YearMonth, BigDecimal> entrou = somarPorMes(recebidos);
+        Map<YearMonth, BigDecimal> saiu = somarPorMes(despesasPagas);
+        return Stream.iterate(primeiro, m -> !m.isAfter(ultimo), m -> m.plusMonths(1))
                 .map(m -> new Mes(m, entrou.getOrDefault(m, BigDecimal.ZERO), saiu.getOrDefault(m, BigDecimal.ZERO)))
                 .toList();
+    }
+
+    /** Meia-noite do dia no fuso da escola. */
+    private static Instant inicioDe(LocalDate dia) {
+        return dia.atStartOfDay(FUSO_ESCOLA).toInstant();
+    }
+
+    /** Pelo mes de {@code PAGA_EM} no fuso da escola. */
+    private static Map<YearMonth, BigDecimal> somarPorMes(List<Movimento> movimentos) {
+        return movimentos.stream().collect(Collectors.groupingBy(m -> mesDe(m.getPagaEm()),
+                Collectors.reducing(BigDecimal.ZERO, Movimento::getValor, BigDecimal::add)));
     }
 
     private static YearMonth mesDe(Instant instante) {

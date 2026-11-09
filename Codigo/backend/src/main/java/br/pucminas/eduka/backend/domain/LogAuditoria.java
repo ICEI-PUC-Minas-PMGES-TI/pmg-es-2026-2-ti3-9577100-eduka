@@ -44,7 +44,7 @@ public class LogAuditoria {
     @Column(name = "ESCOLA_ID", updatable = false)
     private UUID escolaId;
 
-    /** Quem fez a operacao. Nulo so na origem {@link OrigemAuditoria#PROVEDOR}. */
+    /** Quem fez a operacao. Nulo so nas origens PROVEDOR e SISTEMA. */
     @Column(name = "USUARIO_ID", updatable = false)
     private UUID usuarioId;
 

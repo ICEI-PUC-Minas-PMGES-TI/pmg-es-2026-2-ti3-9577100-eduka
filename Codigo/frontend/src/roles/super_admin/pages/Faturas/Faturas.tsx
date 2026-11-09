@@ -22,6 +22,7 @@ import { ModalLancarFatura } from '../../components/ModalLancarFatura/ModalLanca
 import { SuperAdminLayout } from '../../layouts/SuperAdminLayout'
 import estilosEdicao from '../EditarEscola/EditarEscola.module.css'
 import estilosPainel from '../PainelEscolas/PainelEscolas.module.css'
+import { Dica } from '../../../../components/Dica/Dica'
 
 const SEM_FATURAS: FaturaPlataforma[] = []
 
@@ -76,18 +77,19 @@ export function Faturas() {
         </Link>
       }
       acao={
-        <Button
-          variant="primary"
-          icon="plus"
-          disabled={!escola?.ativo}
-          title={escola && !escola.ativo ? 'Escola suspensa não recebe fatura' : undefined}
-          onClick={() => {
-            setSucesso(null)
-            setLancando(true)
-          }}
-        >
-          Lançar fatura
-        </Button>
+        <Dica texto={escola && !escola.ativo ? 'Escola suspensa não recebe fatura' : null}>
+          <Button
+            variant="primary"
+            icon="plus"
+            disabled={!escola?.ativo}
+            onClick={() => {
+              setSucesso(null)
+              setLancando(true)
+            }}
+          >
+            Lançar fatura
+          </Button>
+        </Dica>
       }
     >
       {sucesso && (

@@ -49,6 +49,7 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.MatriculaTurmaService;
+import br.pucminas.eduka.backend.service.AuditoriaService;
 
 /**
  * Contrato das matriculas, ponta a ponta: filter chain, tokens,
@@ -71,6 +72,8 @@ class MatriculaTurmaControllerSecurityTest {
     @MockitoBean
     private MatriculaTurmaRepository matriculaRepository;
     @MockitoBean
+    private AuditoriaService auditoriaService;
+    @MockitoBean
     private AlunoRepository alunoRepository;
     @MockitoBean
     private TurmaRepository turmaRepository;
@@ -87,7 +90,9 @@ class MatriculaTurmaControllerSecurityTest {
         pessoaAna = Pessoa.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).nome("Ana").ativo(true).build();
         ana = Aluno.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).pessoaId(pessoaAna.getId())
                 .matricula("2026001").build();
-        PeriodoLetivo periodo = PeriodoLetivo.builder().id(5L).nome("2026").build();
+        // Em andamento: periodo planejado ou encerrado nao recebe matricula (IU09).
+        PeriodoLetivo periodo = PeriodoLetivo.builder().id(5L).nome("2026").dataInicio(LocalDate.now().minusMonths(1))
+                .dataFim(LocalDate.now().plusMonths(5)).build();
         Curso curso = Curso.builder().id(2L).nome("Fundamental II").build();
         turma1A = Turma.builder().id(1L).nome("6A").turno(Turno.MATUTINO).vagas(30).ativa(true)
                 .periodoLetivo(periodo).curso(curso).build();
@@ -154,11 +159,15 @@ class MatriculaTurmaControllerSecurityTest {
     }
 
     @Test
-    void professorConsultaMasAlunoNao() throws Exception {
-        mockMvc.perform(com(get("/matriculas"), accessToken("PROFESSOR", ESCOLA_A)))
+    void financeiroConsultaMasProfessorEAlunoNao() throws Exception {
+        mockMvc.perform(com(get("/matriculas"), accessToken("FINANCEIRO", ESCOLA_A)))
                 .andExpect(status().isOk());
-        mockMvc.perform(com(get("/matriculas"), accessToken("ALUNO", ESCOLA_A)))
-                .andExpect(status().isForbidden());
+        for (String perfil : List.of("PROFESSOR", "ALUNO")) {
+            String token = accessToken(perfil, ESCOLA_A);
+            mockMvc.perform(com(get("/matriculas"), token)).andExpect(status().isForbidden());
+            mockMvc.perform(com(get("/matriculas/pagina"), token)).andExpect(status().isForbidden());
+            mockMvc.perform(com(get("/matriculas/" + UUID.randomUUID()), token)).andExpect(status().isForbidden());
+        }
     }
 
     // ---------- Realizar matricula ----------

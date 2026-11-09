@@ -7,6 +7,7 @@ import java.util.List;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -26,6 +27,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -35,6 +37,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
+
+import br.pucminas.eduka.backend.logging.EscolaLogFilter;
+import br.pucminas.eduka.backend.repository.EscolaRepository;
 
 @Configuration
 @EnableWebSecurity
@@ -109,6 +114,8 @@ public class JwtConfig {
 		config.setAllowedOrigins(allowedOrigins);
 		config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 		config.setAllowedHeaders(List.of(HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE));
+		// Traz o nome do arquivo baixado; sem isto, o browser o esconde da tela.
+		config.setExposedHeaders(List.of(HttpHeaders.CONTENT_DISPOSITION));
 		config.setMaxAge(3600L);
 
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -149,7 +156,8 @@ public class JwtConfig {
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http, SecretKey jwtSecretKey,
 			AuthenticationEntryPoint authenticationEntryPoint,
-			AccessDeniedHandler accessDeniedHandler) throws Exception {
+			AccessDeniedHandler accessDeniedHandler, ObjectProvider<EscolaRepository> escolaRepository,
+			@Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver) throws Exception {
 		return http
 				.csrf(csrf -> csrf.disable())
 				.cors(Customizer.withDefaults())
@@ -179,6 +187,10 @@ public class JwtConfig {
 				.exceptionHandling(handling -> handling
 						.authenticationEntryPoint(authenticationEntryPoint)
 						.accessDeniedHandler(accessDeniedHandler))
+				// Logo depois do JWT validado: o escolaId do usuario passa a sair em todo log da requisicao.
+				.addFilterAfter(new EscolaLogFilter(), BearerTokenAuthenticationFilter.class)
+				// Escola suspensa depois do login: o token ainda vale, a escola nao (RF24).
+				.addFilterAfter(new EscolaSuspensaFilter(escolaRepository, resolver), EscolaLogFilter.class)
 				.build();
 	}
 }

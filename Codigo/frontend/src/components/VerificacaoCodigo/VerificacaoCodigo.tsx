@@ -6,7 +6,8 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react'
-import { ApiError } from '../../services/api'
+import { useNavigate } from 'react-router'
+import { ApiError, ehEscolaSuspensa, motivoDaSuspensao, rotaAcessoSuspenso } from '../../services/api'
 import {
   confirmarCodigo,
   reenviarCodigo,
@@ -55,6 +56,7 @@ export function VerificacaoCodigo({
   onAutenticado,
   onVoltar,
 }: VerificacaoCodigoProps) {
+  const navigate = useNavigate()
   const [digitos, setDigitos] = useState(CODIGO_VAZIO)
   const [prazos, setPrazos] = useState(() => prazosDe(verificacao))
   const [agora, setAgora] = useState(() => Date.now())
@@ -141,7 +143,10 @@ export function VerificacaoCodigo({
   // Os status são os do ApiExceptionHandler: 401 código errado, 410 expirado,
   // 404 verificação encerrada e 429 reenvio fora de hora.
   function tratarErro(err: unknown, mensagem401: string) {
-    if (!(err instanceof ApiError)) {
+    if (ehEscolaSuspensa(err)) {
+      // A escola foi suspensa entre a senha e o código.
+      navigate(rotaAcessoSuspenso(motivoDaSuspensao(err)), { replace: true })
+    } else if (!(err instanceof ApiError)) {
       setErro('Ocorreu um erro inesperado. Tente novamente.')
     } else if (err.status === 0) {
       setErro('Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.')

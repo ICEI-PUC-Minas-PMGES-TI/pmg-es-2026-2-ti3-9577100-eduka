@@ -9,15 +9,16 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -33,12 +34,15 @@ import br.pucminas.eduka.backend.domain.MatriculaTurma;
 import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
+import br.pucminas.eduka.backend.domain.StatusMatricula;
+import br.pucminas.eduka.backend.domain.TipoCobranca;
 import br.pucminas.eduka.backend.dto.AtualizarCobrancaRequest;
 import br.pucminas.eduka.backend.dto.CobrancaAlunoResponse;
 import br.pucminas.eduka.backend.dto.CobrancaRequest;
 import br.pucminas.eduka.backend.dto.CobrancaResponse;
 import br.pucminas.eduka.backend.dto.HistoricoFinanceiroResponse;
 import br.pucminas.eduka.backend.dto.PaginaCobrancasResponse;
+import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.exception.CobrancaJaPagaException;
 import br.pucminas.eduka.backend.exception.CobrancaNaoEditavelException;
 import br.pucminas.eduka.backend.exception.PagamentoEmProcessamentoException;
@@ -93,8 +97,6 @@ public class CobrancaService {
 
     /** Com quantos dias de antecedencia sai o lembrete de vencimento. */
     static final int DIAS_LEMBRETE_VENCIMENTO = 3;
-
-    static final int TAMANHO_MAXIMO_PAGINA = 100;
 
     /** O id desempata vencimentos iguais, para a pagina seguinte nao repetir nem pular cobranca. */
     private static final Sort ORDEM_DA_LISTAGEM = Sort.by("dataVencimento", "id");
@@ -163,18 +165,19 @@ public class CobrancaService {
      * {@link PaginaCobrancasResponse#totaisPorStatus}). Filtro de aluno ou de
      * periodo de outra escola devolve pagina vazia.
      *
+     * <p>
+     * {@code nome} (opcional) e parte do nome do aluno, sem diferenciar
+     * maiusculas. So restringe a pagina: os totais por situacao continuam sem
+     * ele, para as abas mostrarem o tamanho de cada situacao na escola.
+     * </p>
+     *
      * @throws IllegalArgumentException se a pagina ou o tamanho estao fora dos
      *                                  limites, ou se o intervalo de
      *                                  vencimento esta invertido
      */
     @Transactional(readOnly = true)
-    public PaginaCobrancasResponse listarPaginado(CobrancaFiltro filtro, int pagina, int tamanho) {
-        if (pagina < 0) {
-            throw new IllegalArgumentException("Pagina deve ser zero ou maior");
-        }
-        if (tamanho < 1 || tamanho > TAMANHO_MAXIMO_PAGINA) {
-            throw new IllegalArgumentException("Tamanho deve ser de 1 a " + TAMANHO_MAXIMO_PAGINA);
-        }
+    public PaginaCobrancasResponse listarPaginado(CobrancaFiltro filtro, String nome, int pagina, int tamanho) {
+        Paginacao paginacao = new Paginacao(pagina, tamanho);
         if (filtro.vencimentoDe() != null && filtro.vencimentoAte() != null
                 && filtro.vencimentoDe().isAfter(filtro.vencimentoAte())) {
             throw new IllegalArgumentException("vencimentoDe nao pode ser depois de vencimentoAte");
@@ -182,8 +185,11 @@ public class CobrancaService {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         LocalDate hoje = hoje();
 
-        Page<Cobranca> resultado = cobrancaRepository.findAll(filtro.daEscola(escolaId, hoje),
-                PageRequest.of(pagina, tamanho, ORDEM_DA_LISTAGEM));
+        Specification<Cobranca> daPagina = filtro.daEscola(escolaId, hoje);
+        if (nome != null && !nome.isBlank()) {
+            daPagina = daPagina.and(CobrancaFiltro.deAlgumDosAlunos(alunosComNome(nome, escolaId)));
+        }
+        Page<Cobranca> resultado = cobrancaRepository.findAll(daPagina, paginacao.comOrdem(ORDEM_DA_LISTAGEM));
         return new PaginaCobrancasResponse(paraRespostas(resultado.getContent(), escolaId, hoje), pagina, tamanho,
                 resultado.getTotalElements(), resultado.getTotalPages(),
                 totaisPorStatus(filtro.daEscolaEmQualquerStatus(escolaId), hoje));
@@ -259,9 +265,10 @@ public class CobrancaService {
         Cobranca cobranca = Cobranca.builder()
                 .escolaId(escolaId)
                 .aluno(aluno)
-                .matricula(buscarMatriculaDoAluno(request.matriculaId(), aluno, escolaId))
+                .matricula(matriculaDaNovaCobranca(request.matriculaId(), aluno, escolaId))
                 .responsavelId(exigirResponsavelDoAluno(request.responsavelId(), aluno, escolaId))
                 .descricao(request.descricao().trim())
+                .tipo(request.tipo() != null ? request.tipo() : TipoCobranca.OUTRO)
                 .valor(request.valor())
                 .dataVencimento(request.dataVencimento())
                 .status(StatusCobranca.PENDENTE)
@@ -447,6 +454,25 @@ public class CobrancaService {
                 HistoricoFinanceiroResponse.Resumo.de(respostas), respostas);
     }
 
+    /**
+     * Alunos da escola com {@code nome} em parte do nome. O nome e cifrado no
+     * banco, entao a comparacao e aqui: decifra so os alunos, que sao bem
+     * menos que as cobrancas.
+     */
+    private Set<UUID> alunosComNome(String nome, UUID escolaId) {
+        String termo = nome.trim().toLowerCase(Locale.ROOT);
+        List<Aluno> alunos = alunoRepository.findAllByEscolaId(escolaId);
+        Set<UUID> pessoas = pessoaRepository
+                .findAllByIdInAndEscolaId(alunos.stream().map(Aluno::getPessoaId).toList(), escolaId).stream()
+                .filter(pessoa -> pessoa.getNome().toLowerCase(Locale.ROOT).contains(termo))
+                .map(Pessoa::getId)
+                .collect(Collectors.toSet());
+        return alunos.stream()
+                .filter(aluno -> pessoas.contains(aluno.getPessoaId()))
+                .map(Aluno::getId)
+                .collect(Collectors.toSet());
+    }
+
     /** Junta os grupos (situacao gravada, vencimento) do banco por situacao efetiva. */
     private List<PaginaCobrancasResponse.TotalPorStatus> totaisPorStatus(Specification<Cobranca> filtro,
             LocalDate hoje) {
@@ -502,6 +528,20 @@ public class CobrancaService {
             throw new IllegalArgumentException(
                     "Cobranca %s nao pode ser %s".formatted(cobranca.getStatus(), acao));
         }
+    }
+
+    /**
+     * A matricula informada; sem ela, a unica ATIVA do aluno, para a cobranca
+     * contar no curso dele nos relatorios. Com nenhuma ou com mais de uma, nao ha
+     * como saber o curso e a cobranca fica avulsa.
+     */
+    private MatriculaTurma matriculaDaNovaCobranca(UUID matriculaId, Aluno aluno, UUID escolaId) {
+        if (matriculaId != null) {
+            return buscarMatriculaDoAluno(matriculaId, aluno, escolaId);
+        }
+        List<MatriculaTurma> ativas = matriculaRepository.findAllByEscolaIdAndAlunoIdAndStatus(escolaId, aluno.getId(),
+                StatusMatricula.ATIVA);
+        return ativas.size() == 1 ? ativas.getFirst() : null;
     }
 
     private MatriculaTurma buscarMatriculaDoAluno(UUID matriculaId, Aluno aluno, UUID escolaId) {

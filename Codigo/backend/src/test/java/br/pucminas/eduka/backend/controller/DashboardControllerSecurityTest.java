@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -129,6 +130,39 @@ class DashboardControllerSecurityTest {
         for (String perfil : List.of("SECRETARIA", "PROFESSOR", "ALUNO", "SUPER_ADMIN")) {
             mockMvc.perform(como("/dashboard/financeiro", perfil)).andExpect(status().isForbidden());
         }
+    }
+
+    @Test
+    void movimentoDoPeriodoSoParaMasterEFinanceiroEComDatasValidas() throws Exception {
+        LocalDate de = LocalDate.of(2026, 8, 15);
+        LocalDate ate = LocalDate.of(2026, 10, 20);
+        when(dashboardFinanceiroService.movimento(de, ate)).thenReturn(List.of(
+                new DashboardFinanceiroResponse.Mes(YearMonth.of(2026, 8), new BigDecimal("100.00"), BigDecimal.ZERO),
+                new DashboardFinanceiroResponse.Mes(YearMonth.of(2026, 9), BigDecimal.ZERO, new BigDecimal("40.00")),
+                new DashboardFinanceiroResponse.Mes(YearMonth.of(2026, 10), BigDecimal.ZERO, BigDecimal.ZERO)));
+        String url = "/dashboard/financeiro/movimento?de=2026-08-15&ate=2026-10-20";
+
+        for (String perfil : List.of("MASTER", "FINANCEIRO")) {
+            mockMvc.perform(como(url, perfil))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(3))
+                    .andExpect(jsonPath("$[0].mes").value("2026-08"))
+                    .andExpect(jsonPath("$[1].saiu").value(40.00));
+        }
+        for (String perfil : List.of("SECRETARIA", "PROFESSOR", "ALUNO", "SUPER_ADMIN")) {
+            mockMvc.perform(como(url, perfil)).andExpect(status().isForbidden());
+        }
+
+        when(dashboardFinanceiroService.movimento(ate, de))
+                .thenThrow(new IllegalArgumentException("de nao pode ser depois de ate"));
+        mockMvc.perform(como("/dashboard/financeiro/movimento?de=2026-10-20&ate=2026-08-15", "FINANCEIRO"))
+                .andExpect(status().isBadRequest());
+        // Sem o formato fixo, o Spring leria a data pelo idioma do navegador.
+        mockMvc.perform(como("/dashboard/financeiro/movimento?de=15/08/2026&ate=2026-10-20", "FINANCEIRO")
+                .locale(Locale.of("pt", "BR")))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(como("/dashboard/financeiro/movimento?de=2026-08-15", "FINANCEIRO"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

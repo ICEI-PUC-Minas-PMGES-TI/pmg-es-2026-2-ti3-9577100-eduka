@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { PainelLayout, type ItemMenu } from '../../../components/PainelLayout/PainelLayout'
+import { useAreaMaster } from '../../../routes/areas'
 import { paths } from '../../../routes/paths'
+import { MasterLayout } from '../../master/layouts/MasterLayout'
 
 const MENU: ItemMenu[] = [
   { label: 'Início', icon: 'home', to: paths.secretaria.inicio },
@@ -17,6 +19,8 @@ type SecretariaLayoutProps = {
   children: ReactNode
 }
 
+/** Na área do MASTER (/master/alunos, ...), a mesma tela vem com o menu da gestão. */
 export function SecretariaLayout(props: SecretariaLayoutProps) {
+  if (useAreaMaster()) return <MasterLayout {...props} />
   return <PainelLayout contexto="Secretaria" menu={MENU} menuRotulo="Navegação da secretaria" {...props} />
 }

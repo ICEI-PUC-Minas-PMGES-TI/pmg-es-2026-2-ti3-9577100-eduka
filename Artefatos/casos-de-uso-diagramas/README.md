@@ -91,6 +91,10 @@ Decisões de escopo refletidas nos diagramas:
   de um pagamento feito fora do Eduka (dinheiro, transferência direta etc.), ao lado do
   pagamento online. O Documento de Interface de Usuário (IU20, revisão de 15/10) ainda diz que
   não há pagamento manual e precisa ser ajustado.
+- **Relatórios e estorno (decisões do grupo, 05/11):** o saldo de UC15 usa despesas pagas; o estorno sai do recebido no
+  período em que aconteceu e a cobrança fica encerrada; UC09 pergunta a matrícula quando o aluno tem mais de uma ativa.
+  O que falta refletir nos documentos em PDF está em
+  [`revisoes-pendentes-documentos.md`](../visão-requisitos/revisoes-pendentes-documentos.md).
 - **Adiados para a Sprint 4 (Documento de Interface, revisão de 15/10):** UC15 *Consultar
   Relatórios Financeiros* e *Exportar Relatório em CSV* (IU19 e IU19-A). Continuam nos
   diagramas, marcados como Sprint 4.

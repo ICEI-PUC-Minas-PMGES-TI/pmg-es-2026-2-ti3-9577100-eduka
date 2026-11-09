@@ -3,8 +3,10 @@ package br.pucminas.eduka.backend.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -21,14 +23,18 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import br.pucminas.eduka.backend.domain.Escola;
 import br.pucminas.eduka.backend.domain.PerfilUsuario;
+import br.pucminas.eduka.backend.domain.PlanoEscola;
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.LoginResponse;
 import br.pucminas.eduka.backend.dto.VerificacaoLoginResponse;
 import br.pucminas.eduka.backend.exception.CredenciaisInvalidasException;
+import br.pucminas.eduka.backend.exception.EscolaSuspensaException;
 import br.pucminas.eduka.backend.exception.SenhaInvalidaException;
 import br.pucminas.eduka.backend.exception.SenhaProvisoriaExpiradaException;
 import br.pucminas.eduka.backend.exception.VerificacaoLoginEncerradaException;
+import br.pucminas.eduka.backend.repository.EscolaRepository;
 import br.pucminas.eduka.backend.repository.UsuarioRepository;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.security.PasswordEncoderConfig;
@@ -50,6 +56,9 @@ class AuthServiceTest {
     @Mock
     private VerificacaoLoginService verificacaoLoginService;
 
+    @Mock
+    private EscolaRepository escolaRepository;
+
     private final PasswordEncoder passwordEncoder = new PasswordEncoderConfig().passwordEncoder();
 
     private AuthService authService;
@@ -61,7 +70,7 @@ class AuthServiceTest {
         // O mock devolve Optional vazio em iniciar(): sem codigo de verificacao,
         // como com o recurso desligado. Os testes do codigo ligam explicitamente.
         authService = new AuthService(usuarioRepository, passwordEncoder, jwtService, verificacaoLoginService,
-                RELOGIO);
+                escolaRepository, RELOGIO);
         usuario = Usuario.builder()
                 .id(UUID.randomUUID())
                 .escolaId(UUID.randomUUID())
@@ -71,6 +80,31 @@ class AuthServiceTest {
                 .perfil(PerfilUsuario.FINANCEIRO)
                 .ativo(true)
                 .build();
+        // Por padrao a escola do usuario esta ativa; os testes de suspensao trocam.
+        lenient().when(escolaRepository.findById(usuario.getEscolaId())).thenReturn(Optional.of(escola(true)));
+    }
+
+    private static Escola escola(boolean ativa) {
+        return Escola.cadastrar("Escola", "11222333000181", null, "escola@eduka.com", null, PlanoEscola.values()[0],
+                ativa);
+    }
+
+    @Test
+    void loginDeEscolaSuspensaERecusadoDepoisDaSenha() {
+        when(usuarioRepository.findByLogin("maria")).thenReturn(Optional.of(usuario));
+        when(escolaRepository.findById(usuario.getEscolaId())).thenReturn(Optional.of(escola(false)));
+
+        assertThatThrownBy(() -> authService.login("maria", SENHA)).isInstanceOf(EscolaSuspensaException.class);
+        verifyNoInteractions(jwtService);
+    }
+
+    @Test
+    void senhaErradaDeEscolaSuspensaNaoRevelaASuspensao() {
+        when(usuarioRepository.findByLogin("maria")).thenReturn(Optional.of(usuario));
+
+        assertThatThrownBy(() -> authService.login("maria", "senha-errada"))
+                .isInstanceOf(CredenciaisInvalidasException.class);
+        verifyNoInteractions(escolaRepository);
     }
 
     @Test
@@ -86,6 +120,8 @@ class AuthServiceTest {
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
         assertThat(response.usuarioId()).isEqualTo(usuario.getId());
         assertThat(response.perfil()).isEqualTo(PerfilUsuario.FINANCEIRO);
+        // O acesso conta como atividade da escola no Painel de Escolas.
+        verify(usuarioRepository).registrarAcesso(usuario.getId(), AGORA);
     }
 
     @Test
@@ -258,6 +294,8 @@ class AuthServiceTest {
         assertThat(response.refreshToken()).isNull();
         assertThat(response.trocaSenhaObrigatoria()).isFalse();
         verify(jwtService, never()).generateAccessToken(any(), any(), any());
+        // So conta como acesso quando o codigo e confirmado.
+        verify(usuarioRepository, never()).registrarAcesso(any(), any());
     }
 
     @Test
@@ -279,6 +317,7 @@ class AuthServiceTest {
         authService.login("maria", SENHA);
 
         verify(verificacaoLoginService, never()).iniciar(any());
+        verify(usuarioRepository, never()).registrarAcesso(any(), any());
     }
 
     @Test
@@ -295,6 +334,7 @@ class AuthServiceTest {
         assertThat(response.accessToken()).isEqualTo("access-token");
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
         assertThat(response.verificacao()).isNull();
+        verify(usuarioRepository).registrarAcesso(usuario.getId(), AGORA);
     }
 
     @Test

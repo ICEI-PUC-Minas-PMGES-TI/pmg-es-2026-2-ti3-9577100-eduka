@@ -44,6 +44,7 @@ import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.security.PasswordEncoderConfig;
 import br.pucminas.eduka.backend.service.AcessoService;
 import br.pucminas.eduka.backend.service.ProfessorService;
+import br.pucminas.eduka.backend.service.AuditoriaService;
 
 /**
  * Contrato de seguranca de {@code /professores}, ponta a ponta: filter chain,
@@ -68,6 +69,8 @@ class ProfessorControllerSecurityTest {
 
     @MockitoBean
     private ProfessorRepository professorRepository;
+    @MockitoBean
+    private AuditoriaService auditoriaService;
     @MockitoBean
     private PessoaRepository pessoaRepository;
     @MockitoBean

@@ -22,5 +22,7 @@ public class TurmaResponse {
     private Turno turno;
     private Boolean ativa;
     private Set<DisciplinaResponse> disciplinas;
+    /** Vagas ocupadas: so matricula ATIVA conta. */
+    private long matriculasAtivas;
 }
 

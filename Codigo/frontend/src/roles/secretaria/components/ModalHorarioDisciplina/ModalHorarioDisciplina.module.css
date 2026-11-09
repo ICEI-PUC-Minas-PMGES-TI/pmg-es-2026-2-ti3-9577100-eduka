@@ -1,0 +1,59 @@
+.linhas {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.linha {
+  display: grid;
+  grid-template-columns: 1fr 120px 120px auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.campo {
+  min-height: 42px;
+  padding: 8px 12px;
+  border: var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  font: inherit;
+}
+
+.vazio {
+  margin-bottom: 12px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.erro {
+  margin-top: 10px;
+  color: var(--color-danger);
+  font-size: 13.5px;
+}
+
+/* Celular: o dia em cima, início e fim lado a lado, e o remover ao lado do dia. */
+@media (max-width: 520px) {
+  .linha {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .linha > :first-child {
+    grid-column: 1 / 3;
+  }
+
+  .linha > :last-child {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .campo {
+    min-width: 0;
+    width: 100%;
+  }
+}

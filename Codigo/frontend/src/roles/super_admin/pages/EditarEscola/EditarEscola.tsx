@@ -96,7 +96,7 @@ export function EditarEscola() {
         </div>
       )}
 
-      {!erro && !escola && <p className={styles.carregando}>Carregando escola…</p>}
+      {!erro && !escola && <p className={styles.carregando} role="status">Carregando escola…</p>}
 
       {escola && (
         <FormularioEdicao

@@ -1,6 +1,7 @@
 package br.pucminas.eduka.backend.integracao;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -10,6 +11,7 @@ import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -112,13 +114,14 @@ class DashboardFinanceiroBancoRealTest extends BancoRealTest {
         assertThat(painel.despesasAPagar().quantidade()).isEqualTo(2);
         assertThat(painel.despesasAPagar().proximoVencimento()).isEqualTo(mesAtual.atEndOfMonth());
 
+        // Os 12 ultimos meses, do mais antigo ao atual: a tela escolhe quantos mostra.
         assertThat(painel.ultimosMeses()).extracting(Mes::mes)
-                .containsExactly(mesAtual.minusMonths(5), mesAtual.minusMonths(4), mesAtual.minusMonths(3),
-                        mesAtual.minusMonths(2), mesAtual.minusMonths(1), mesAtual);
+                .containsExactlyElementsOf(Stream.iterate(mesAtual.minusMonths(11), m -> m.plusMonths(1)).limit(12)
+                        .toList());
         Mes atual = painel.ultimosMeses().getLast();
         assertThat(atual.entrou()).isEqualByComparingTo("295.00");
         assertThat(atual.saiu()).isEqualByComparingTo("40.00");
-        assertThat(painel.ultimosMeses().get(4).entrou()).isEqualByComparingTo("50.00");
+        assertThat(painel.ultimosMeses().get(10).entrou()).isEqualByComparingTo("50.00");
 
         assertThat(painel.vencemNaSemana()).extracting(CobrancaDaSemana::id).containsExactly(atrasada, naSemana);
         CobrancaDaSemana primeira = painel.vencemNaSemana().getFirst();
@@ -146,6 +149,96 @@ class DashboardFinanceiroBancoRealTest extends BancoRealTest {
     }
 
     @Test
+    void pagamentoAntigoFicaForaDoGraficoMasNaoDasOutrasContas() {
+        UUID escola = dados.escola();
+        UUID aluno = dados.aluno(escola, "Davi Alves");
+        Instant haUmAno = mesAtual.minusMonths(12).atDay(10).atStartOfDay(FUSO_ESCOLA).toInstant();
+        UUID antiga = dados.cobrancaPaga(escola, aluno, reais("80.00"), hoje.minusYears(1), haUmAno);
+
+        autenticarComo("FINANCEIRO", escola);
+        DashboardFinanceiroResponse painel = dashboardFinanceiroService.painel();
+
+        // O grafico so le os seus 12 meses...
+        assertThat(painel.ultimosMeses()).allSatisfy(m -> assertThat(m.entrou()).isZero());
+        assertThat(painel.recebidoNoMes().quantidade()).isZero();
+        // ...mas os ultimos pagamentos e a inadimplencia olham o historico inteiro.
+        assertThat(painel.ultimosPagamentos()).extracting(PagamentoRecente::cobrancaId).containsExactly(antiga);
+        assertThat(painel.emAtraso().inadimplencia()).isZero();
+    }
+
+    /** Esse horario de {@code dia} no fuso da escola. */
+    private static Instant em(LocalDate dia, int hora, int minuto) {
+        return dia.atTime(hora, minuto).atZone(FUSO_ESCOLA).toInstant();
+    }
+
+    @Test
+    void movimentoDoPeriodoContaSoOsDiasEscolhidosDosMesesDasPontas() {
+        UUID escola = dados.escola();
+        UUID aluno = dados.aluno(escola);
+        UUID categoria = dados.categoriaDespesa(escola);
+        LocalDate de = LocalDate.of(2025, 3, 5);
+        LocalDate ate = LocalDate.of(2025, 5, 31);
+        // Antes do primeiro dia e depois do ultimo (meia-noite e meia no fuso da escola): ficam de fora.
+        dados.cobrancaPaga(escola, aluno, reais("1.00"), de, em(de.minusDays(1), 23, 59));
+        dados.cobrancaPaga(escola, aluno, reais("2.00"), de, em(ate.plusDays(1), 0, 30));
+        // Dentro, nas duas pontas e no meio.
+        dados.cobrancaPaga(escola, aluno, reais("100.00"), de, em(de, 0, 0));
+        UUID online = dados.cobrancaPaga(escola, aluno, reais("200.00"), de, em(LocalDate.of(2025, 4, 10), 12, 0));
+        dados.pagamentoOnline(escola, online, reais("195.00"), FormaPagamento.PIX);
+        dados.cobrancaPaga(escola, aluno, reais("50.00"), de, em(ate, 23, 59));
+        dados.despesa(escola, categoria, reais("30.00"), de, SituacaoDespesa.PAGA, em(LocalDate.of(2025, 4, 2), 9, 0));
+        dados.despesa(escola, categoria, reais("70.00"), de, SituacaoDespesa.PAGA, em(de.minusDays(3), 9, 0));
+        UUID outra = dados.escola();
+        dados.cobrancaPaga(outra, dados.aluno(outra), reais("999.00"), de, em(LocalDate.of(2025, 4, 10), 12, 0));
+
+        autenticarComo("FINANCEIRO", escola);
+        List<Mes> meses = dashboardFinanceiroService.movimento(de, ate);
+
+        assertThat(meses).extracting(Mes::mes)
+                .containsExactly(YearMonth.of(2025, 3), YearMonth.of(2025, 4), YearMonth.of(2025, 5));
+        assertThat(meses.get(0).entrou()).isEqualByComparingTo("100.00");
+        // No mes do meio vale o valor pago no provedor, como no painel.
+        assertThat(meses.get(1).entrou()).isEqualByComparingTo("195.00");
+        assertThat(meses.get(1).saiu()).isEqualByComparingTo("30.00");
+        assertThat(meses.get(2).entrou()).isEqualByComparingTo("50.00");
+        assertThat(meses.get(0).saiu()).isZero();
+    }
+
+    @Test
+    void movimentoRecusaPeriodoInvertidoOuMaiorQue24Meses() {
+        autenticarComo("FINANCEIRO", dados.escola());
+        LocalDate janeiro = LocalDate.of(2025, 1, 1);
+
+        assertThatThrownBy(() -> dashboardFinanceiroService.movimento(janeiro, janeiro.minusDays(1)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> dashboardFinanceiroService.movimento(janeiro, LocalDate.of(2027, 1, 1)))
+                .isInstanceOf(IllegalArgumentException.class);
+        // De janeiro de 2025 a dezembro de 2026 sao 24 meses: cabe.
+        assertThat(dashboardFinanceiroService.movimento(janeiro, LocalDate.of(2026, 12, 31))).hasSize(24);
+    }
+
+    @Test
+    void atrasosAntigosNaoEscondemOQueVenceNaSemana() {
+        UUID escola = dados.escola();
+        UUID ana = dados.aluno(escola, "Ana Souza");
+        for (int dias = 30; dias < 42; dias++) {
+            dados.cobranca(escola, ana, StatusCobranca.PENDENTE, hoje.minusDays(dias), reais("100.00"));
+        }
+        UUID naSemana = dados.cobranca(escola, ana, StatusCobranca.PENDENTE, hoje.plusDays(2), reais("150.00"));
+        dados.cobranca(escola, ana, StatusCobranca.PENDENTE, hoje.plusDays(7), reais("150.00"));
+
+        autenticarComo("FINANCEIRO", escola);
+        List<CobrancaDaSemana> lista = dashboardFinanceiroService.painel().vencemNaSemana();
+
+        // 10 das 12 em atraso, as mais antigas primeiro, e depois a da semana; a de daqui a 7 dias fica fora.
+        assertThat(lista).hasSize(11);
+        assertThat(lista.subList(0, 10)).allMatch(c -> c.status() == StatusCobranca.EM_ATRASO);
+        assertThat(lista.getFirst().dataVencimento()).isEqualTo(hoje.minusDays(41));
+        assertThat(lista.getLast().id()).isEqualTo(naSemana);
+        assertThat(lista.getLast().status()).isEqualTo(StatusCobranca.PENDENTE);
+    }
+
+    @Test
     void escolaSemMovimentoTemPainelZerado() {
         autenticarComo("MASTER", dados.escola());
 
@@ -155,7 +248,7 @@ class DashboardFinanceiroBancoRealTest extends BancoRealTest {
         assertThat(painel.faltaReceber().quantidade()).isZero();
         assertThat(painel.emAtraso().inadimplencia()).isNull();
         assertThat(painel.despesasAPagar().proximoVencimento()).isNull();
-        assertThat(painel.ultimosMeses()).hasSize(6)
+        assertThat(painel.ultimosMeses()).hasSize(12)
                 .allSatisfy(m -> assertThat(m.entrou().add(m.saiu())).isZero());
         assertThat(painel.vencemNaSemana()).isEmpty();
         assertThat(painel.ultimosPagamentos()).isEmpty();

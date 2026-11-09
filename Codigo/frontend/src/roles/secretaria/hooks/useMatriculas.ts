@@ -1,29 +1,26 @@
 import { useCallback, useEffect, useState } from 'react'
 import { listarTurmasAcademicas } from '../../../services/academicoService'
 import { ApiError } from '../../../services/api'
-import {
-  atualizarMatricula,
-  listarAlunos,
-  listarMatriculas,
-  matricularAluno,
-} from '../../../services/matriculaService'
+import { obterDashboardSecretaria } from '../../../services/dashboardService'
+import { listarAlunos } from '../../../services/matriculaService'
 import type { TurmaAcademica } from '../../../types/academico'
-import type { AlunoResumo } from '../../../types/aluno'
-import type { AtualizarMatriculaRequest, Matricula, MatriculaRequest } from '../../../types/matricula'
+import type { AlunoDaLista } from '../../../types/aluno'
+import type { DashboardSecretaria } from '../../../types/dashboard'
 
 function mensagemDeErro(erro: unknown): string {
   return erro instanceof ApiError ? erro.message : 'Erro inesperado ao carregar as matrículas.'
 }
 
 /**
- * Dados da tela de matrículas: as turmas da escola (com as vagas), os alunos
- * e todas as matrículas, numa consulta cada. Os contadores de vaga saem das
- * matrículas carregadas aqui.
+ * Dados da tela de matrículas que não dependem da turma escolhida, numa
+ * consulta cada: as turmas (com as vagas ocupadas), os alunos (com a turma
+ * atual de cada um) e o resumo da escola. Nenhum traz o histórico de
+ * matrículas; as da turma escolhida a tela busca à parte.
  */
 export function useMatriculas() {
   const [turmas, setTurmas] = useState<TurmaAcademica[]>([])
-  const [alunos, setAlunos] = useState<AlunoResumo[]>([])
-  const [matriculas, setMatriculas] = useState<Matricula[]>([])
+  const [alunos, setAlunos] = useState<AlunoDaLista[]>([])
+  const [resumo, setResumo] = useState<DashboardSecretaria | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
   const [versao, setVersao] = useState(0)
@@ -32,13 +29,19 @@ export function useMatriculas() {
     const controller = new AbortController()
     const { signal } = controller
 
-    Promise.all([listarTurmasAcademicas(signal), listarAlunos(signal), listarMatriculas(signal)])
-      .then(([turmasDaEscola, alunosDaEscola, matriculasDaEscola]) => {
+    Promise.all([listarTurmasAcademicas(signal), listarAlunos(signal), obterDashboardSecretaria(signal)])
+      .then(([turmasDaEscola, alunosDaEscola, resumoDaEscola]) => {
         setTurmas(
           [...turmasDaEscola].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { numeric: true })),
         )
-        setAlunos([...alunosDaEscola].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')))
-        setMatriculas(matriculasDaEscola)
+        // O anonimizado saiu da escola: não volta a ser matriculado.
+        setAlunos(
+          alunosDaEscola
+            .filter((a) => a.situacao !== 'ANONIMIZADO')
+            .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
+        )
+        setResumo(resumoDaEscola)
+        setErro(null)
       })
       .catch((e: unknown) => {
         if (signal.aborted) return
@@ -57,19 +60,8 @@ export function useMatriculas() {
     setVersao((v) => v + 1)
   }, [])
 
-  /** Matricula um aluno; lança ApiError se o backend recusar. */
-  const matricular = useCallback(async (dados: MatriculaRequest) => {
-    const criada = await matricularAluno(dados)
-    setMatriculas((atuais) => [...atuais, criada])
-    return criada
-  }, [])
+  /** Lê de novo vagas, situações e resumo depois de uma mudança, sem voltar ao "Carregando". */
+  const atualizarContagens = useCallback(() => setVersao((v) => v + 1), [])
 
-  /** Muda situação, turma e/ou observação; lança ApiError se o backend recusar. */
-  const atualizar = useCallback(async (id: string, dados: AtualizarMatriculaRequest) => {
-    const atualizada = await atualizarMatricula(id, dados)
-    setMatriculas((atuais) => atuais.map((m) => (m.id === atualizada.id ? atualizada : m)))
-    return atualizada
-  }, [])
-
-  return { turmas, alunos, matriculas, carregando, erro, recarregar, matricular, atualizar }
+  return { turmas, alunos, resumo, carregando, erro, recarregar, atualizarContagens }
 }

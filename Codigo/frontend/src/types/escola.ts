@@ -94,3 +94,17 @@ export type EscolaUpdateRequest = {
   limiteUsuarios?: number
   modulos?: ModuloEscola[]
 }
+
+/** Uso de uma escola no Painel de Escolas (IU02). Espelha o UsoEscolaResponse do backend (GET /escolas/uso). */
+export type UsoEscola = {
+  escolaId: string
+  alunos: number
+  /** Logins ativos da escola, de todos os perfis. */
+  usuariosAtivos: number
+  /** Mês de `cobrancasNoMes` (yyyy-MM), no fuso da escola. */
+  mes: string
+  /** Cobranças lançadas no mês, canceladas ou não. */
+  cobrancasNoMes: number
+  /** Instante (ISO) do último login ou da última ação de um usuário da escola; nulo se nunca houve. */
+  ultimaAtividade: string | null
+}

@@ -22,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.pucminas.eduka.backend.domain.AlocacaoProfessor;
 import br.pucminas.eduka.backend.domain.Avaliacao;
-import br.pucminas.eduka.backend.domain.MatriculaTurma;
 import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.PeriodoLetivo;
 import br.pucminas.eduka.backend.domain.Professor;
@@ -54,9 +53,10 @@ import br.pucminas.eduka.backend.security.UsuarioAutenticado;
  * token; o do professor, so nas turmas/disciplinas alocadas a ele.
  *
  * <p>
- * As contagens sao feitas em memoria sobre as listas da escola: o volume de
- * uma escola (centenas de alunos e turmas) cabe com folga e evita uma query
- * agregada por numero. Se crescer, cada metrica vira uma consulta propria.
+ * Alunos, professores, cursos, disciplinas, matriculas, avaliacoes e notas
+ * sao contados e somados no banco: matriculas e notas acumulam de periodo em
+ * periodo, e carregar o historico so para contar pesaria cada vez mais.
+ * Turmas e periodos, que a conta precisa ver um a um, continuam em memoria.
  * </p>
  *
  * <p>
@@ -112,17 +112,16 @@ public class DashboardService {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         LocalDate hoje = hoje();
 
-        List<MatriculaTurma> matriculas = matriculaRepository.findAllByEscolaId(escolaId);
-        List<Professor> professores = professorRepository.findAllByEscolaId(escolaId);
-        long professoresAtivos = professores.stream().filter(Professor::isAtivo).count();
-        long alunos = alunoRepository.findAllByEscolaId(escolaId).size();
-        Set<UUID> alunosAtivos = alunosComMatriculaAtiva(matriculas);
+        long professores = professorRepository.countByEscolaId(escolaId);
+        long professoresAtivos = professorRepository.countByEscolaIdAndAtivoTrue(escolaId);
+        long alunos = alunoRepository.countByEscolaIdAndAnonimizadoEmIsNull(escolaId);
+        long alunosAtivos = matriculaRepository.contarAlunosComMatriculaAtiva(escolaId);
         var pessoas = new DashboardEscolaResponse.Pessoas(
                 alunos,
-                alunosAtivos.size(),
+                alunosAtivos,
                 alunosSemTurma(alunos, alunosAtivos),
                 professoresAtivos,
-                professores.size() - professoresAtivos,
+                professores - professoresAtivos,
                 usuariosAtivos(escolaId, PerfilUsuario.SECRETARIA),
                 usuariosAtivos(escolaId, PerfilUsuario.FINANCEIRO));
 
@@ -135,14 +134,14 @@ public class DashboardService {
                 .map(PeriodoLetivo::getNome)
                 .orElse(null);
         var estrutura = new DashboardEscolaResponse.Estrutura(
-                cursoRepository.findAllByEscolaId(escolaId).size(),
-                disciplinaRepository.findAllByEscolaId(escolaId).size(),
+                cursoRepository.countByEscolaId(escolaId),
+                disciplinaRepository.countByEscolaId(escolaId),
                 ativas.size(),
                 turmas.size(),
                 periodoAtual);
 
         long vagas = ativas.stream().mapToLong(Turma::getVagas).sum();
-        Map<Long, Long> ativasPorTurma = ativasPorTurma(matriculas);
+        Map<Long, Long> ativasPorTurma = ativasPorTurma(escolaId);
         long ocupadas = ativas.stream().mapToLong(t -> ativasPorTurma.getOrDefault(t.getId(), 0L)).sum();
         var ocupacao = new DashboardEscolaResponse.Ocupacao(vagas, ocupadas, percentual(ocupadas, vagas));
 
@@ -155,17 +154,17 @@ public class DashboardService {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         LocalDate desde = hoje().minusDays(DIAS_RECENTES);
 
-        List<MatriculaTurma> matriculas = matriculaRepository.findAllByEscolaId(escolaId);
         Map<StatusMatricula, Long> porSituacao = new EnumMap<>(StatusMatricula.class);
         for (StatusMatricula status : StatusMatricula.values()) {
             porSituacao.put(status, 0L);
         }
-        matriculas.forEach(m -> porSituacao.merge(m.getStatus(), 1L, Long::sum));
-        long recentes = matriculas.stream().filter(m -> !m.getDataMatricula().isBefore(desde)).count();
-        long alunosSemTurma = alunosSemTurma(alunoRepository.findAllByEscolaId(escolaId).size(),
-                alunosComMatriculaAtiva(matriculas));
+        matriculaRepository.contarPorSituacao(escolaId)
+                .forEach(s -> porSituacao.put(s.getStatus(), s.getQuantidade()));
+        long recentes = matriculaRepository.countByEscolaIdAndDataMatriculaGreaterThanEqual(escolaId, desde);
+        long alunosSemTurma = alunosSemTurma(alunoRepository.countByEscolaIdAndAnonimizadoEmIsNull(escolaId),
+                matriculaRepository.contarAlunosComMatriculaAtiva(escolaId));
 
-        Map<Long, Long> ativasPorTurma = ativasPorTurma(matriculas);
+        Map<Long, Long> ativasPorTurma = ativasPorTurma(escolaId);
         List<OcupacaoTurma> turmas = turmasAtivas(turmaRepository.findAllByEscolaId(escolaId)).stream()
                 .map(t -> new OcupacaoTurma(t.getId(), t.getNome(), t.getPeriodoLetivo().getNome(),
                         t.getCurso().getNome(), t.getTurno(), t.getVagas(), ativasPorTurma.getOrDefault(t.getId(), 0L)))
@@ -253,45 +252,28 @@ public class DashboardService {
     // ------------------------------------------------------------------ comum
 
     private DashboardEscolaResponse.Desempenho desempenho(UUID escolaId) {
-        Map<UUID, BigDecimal> valorPorAvaliacao = avaliacaoRepository.findAllByEscolaId(escolaId).stream()
-                .collect(Collectors.toMap(Avaliacao::getId, Avaliacao::getValor));
-        long notas = 0;
-        BigDecimal obtido = BigDecimal.ZERO;
-        BigDecimal possivel = BigDecimal.ZERO;
-        for (NotaRepository.SomaPorAvaliacao soma : notaRepository.somarPorAvaliacao(escolaId)) {
-            BigDecimal valor = valorPorAvaliacao.get(soma.getAvaliacaoId());
-            if (valor == null) {
-                continue;
-            }
-            notas += soma.getTotal();
-            obtido = obtido.add(Objects.requireNonNullElse(soma.getSoma(), BigDecimal.ZERO));
-            possivel = possivel.add(valor.multiply(BigDecimal.valueOf(soma.getTotal())));
-        }
+        NotaRepository.Aproveitamento notas = notaRepository.somarAproveitamento(escolaId);
+        BigDecimal obtido = Objects.requireNonNullElse(notas.getObtido(), BigDecimal.ZERO);
+        BigDecimal possivel = Objects.requireNonNullElse(notas.getPossivel(), BigDecimal.ZERO);
         Integer aproveitamento = possivel.signum() == 0 ? null
                 : obtido.multiply(BigDecimal.valueOf(100)).divide(possivel, 0, RoundingMode.HALF_UP).intValue();
-        return new DashboardEscolaResponse.Desempenho(valorPorAvaliacao.size(), notas, aproveitamento);
+        return new DashboardEscolaResponse.Desempenho(avaliacaoRepository.countByEscolaId(escolaId),
+                notas.getTotal(), aproveitamento);
     }
 
     private long usuariosAtivos(UUID escolaId, PerfilUsuario perfil) {
         return usuarioRepository.findAllByEscolaIdAndPerfil(escolaId, perfil).stream().filter(Usuario::isAtivo).count();
     }
 
-    private static Set<UUID> alunosComMatriculaAtiva(List<MatriculaTurma> matriculas) {
-        return matriculas.stream()
-                .filter(m -> m.getStatus() == StatusMatricula.ATIVA)
-                .map(m -> m.getAluno().getId())
-                .collect(Collectors.toSet());
-    }
-
     /** Alunos cadastrados sem nenhuma matricula ATIVA; a mesma conta no MASTER e na SECRETARIA. */
-    private static long alunosSemTurma(long alunos, Set<UUID> comMatriculaAtiva) {
-        return alunos - comMatriculaAtiva.size();
+    private static long alunosSemTurma(long alunos, long comMatriculaAtiva) {
+        return alunos - comMatriculaAtiva;
     }
 
-    private static Map<Long, Long> ativasPorTurma(List<MatriculaTurma> matriculas) {
-        return matriculas.stream()
-                .filter(m -> m.getStatus() == StatusMatricula.ATIVA)
-                .collect(Collectors.groupingBy(m -> m.getTurma().getId(), Collectors.counting()));
+    private Map<Long, Long> ativasPorTurma(UUID escolaId) {
+        return matriculaRepository.contarAtivasPorTurma(escolaId).stream()
+                .collect(Collectors.toMap(MatriculaTurmaRepository.AtivasNaTurma::getTurmaId,
+                        MatriculaTurmaRepository.AtivasNaTurma::getQuantidade));
     }
 
     private static List<Turma> turmasAtivas(List<Turma> turmas) {

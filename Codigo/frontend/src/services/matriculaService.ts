@@ -1,15 +1,25 @@
-import type { AlunoResumo } from '../types/aluno'
+import type { AlunoDaLista } from '../types/aluno'
 import type { AtualizarMatriculaRequest, Matricula, MatriculaRequest } from '../types/matricula'
 import { ApiError, apiRequest } from './api'
 
 // O backend já limita alunos e matrículas à escola de quem está logado.
 
-export function listarAlunos(signal?: AbortSignal): Promise<AlunoResumo[]> {
-  return apiRequest<AlunoResumo[]>('/alunos', { signal })
+/** Com a situação e a turma atual de cada aluno. */
+export function listarAlunos(signal?: AbortSignal): Promise<AlunoDaLista[]> {
+  return apiRequest<AlunoDaLista[]>('/alunos', { signal })
 }
 
-export function listarMatriculas(signal?: AbortSignal): Promise<Matricula[]> {
-  return apiRequest<Matricula[]>('/matriculas', { signal })
+/**
+ * As matrículas de uma turma ou de um aluno, em qualquer situação. O filtro
+ * evita trazer o histórico da escola inteira.
+ */
+export function listarMatriculas(
+  filtro: { turmaId: number } | { alunoId: string },
+  signal?: AbortSignal,
+): Promise<Matricula[]> {
+  const params: Record<string, string> =
+    'turmaId' in filtro ? { turmaId: String(filtro.turmaId) } : { alunoId: filtro.alunoId }
+  return apiRequest<Matricula[]>(`/matriculas?${new URLSearchParams(params)}`, { signal })
 }
 
 /** 409 se o aluno já tem matrícula na turma ou se a turma está cheia. */
@@ -32,6 +42,10 @@ export function mensagemErroMatricula(erro: unknown): string {
   if (detalhe.includes('sem vagas')) return 'A turma não tem mais vagas.'
   if (detalhe.includes('ja possui matricula')) return 'O aluno já tem matrícula nesta turma.'
   if (detalhe.includes('turma inativa')) return 'A turma está inativa e não recebe matrícula.'
+  if (detalhe.includes('periodo letivo encerrado')) return 'O período letivo da turma foi encerrado e não recebe matrícula.'
+  if (detalhe.includes('ainda nao foram abertas')) {
+    return 'As matrículas deste período ainda não foram abertas. Abra em Acadêmico, na aba Períodos letivos.'
+  }
   if (detalhe.includes('transferida')) return 'Só matrícula ativa pode ser transferida de turma.'
   if (detalhe.includes('nao pode passar')) return 'Essa mudança de situação não é permitida.'
   if (erro.status === 404) return 'O aluno, a turma ou a matrícula não existe mais. Recarregue a página.'

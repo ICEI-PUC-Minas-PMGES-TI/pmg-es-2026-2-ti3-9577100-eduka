@@ -2,10 +2,11 @@ import { useEffect, useId, useState, type ChangeEvent, type KeyboardEvent } from
 import { DayPicker, type DropdownProps } from 'react-day-picker'
 import { ptBR } from 'react-day-picker/locale'
 import 'react-day-picker/style.css'
-import { usePopoverFlutuante } from '../../hooks/usePopoverFlutuante'
+import { POPOVER, usePopoverFlutuante } from '../../hooks/usePopoverFlutuante'
 import { Icon } from '../Icon/Icon'
 import { Select } from '../Select/Select'
 import styles from './CampoData.module.css'
+import { formatarIso as formatar, paraData, paraIso } from './datas'
 
 type CampoDataProps = {
   /** Data no formato ISO (AAAA-MM-DD), ou '' quando vazia. */
@@ -14,6 +15,10 @@ type CampoDataProps = {
   onChange?: (valor: string) => void
   /** Primeira data permitida, em ISO. */
   min?: string
+  /** Última data permitida, em ISO. */
+  max?: string
+  /** Mês em que o calendário abre quando vazio, em ISO; sem ele, abre no mês de min. */
+  mesInicial?: string
   /** Só exibe a data, sem abrir o calendário (ex.: início da vigência). */
   somenteLeitura?: boolean
   placeholder?: string
@@ -27,23 +32,6 @@ type CampoDataProps = {
   'aria-describedby'?: string
 }
 
-// "AAAA-MM-DD" <-> Date no fuso local. new Date("AAAA-MM-DD") seria UTC e,
-// no Brasil, cairia no dia anterior.
-function paraData(iso: string): Date | undefined {
-  const [ano, mes, dia] = iso.split('-').map(Number)
-  return ano && mes && dia ? new Date(ano, mes - 1, dia) : undefined
-}
-
-function paraIso(data: Date): string {
-  const mes = String(data.getMonth() + 1).padStart(2, '0')
-  const dia = String(data.getDate()).padStart(2, '0')
-  return `${data.getFullYear()}-${mes}-${dia}`
-}
-
-function formatar(iso: string): string {
-  return paraData(iso)?.toLocaleDateString('pt-BR') ?? ''
-}
-
 /** Anos oferecidos antes e depois da data de referência na seleção de ano. */
 const ANOS_NA_LISTA = 10
 
@@ -51,7 +39,7 @@ const ANOS_NA_LISTA = 10
  * Seleção de mês e ano do calendário com o nosso Select, no lugar do <select>
  * nativo da biblioteca. O DayPicker só lê `event.target.value` no onChange.
  */
-function DropdownCalendario({ options = [], value, onChange, 'aria-label': ariaLabel }: DropdownProps) {
+export function DropdownCalendario({ options = [], value, onChange, 'aria-label': ariaLabel }: DropdownProps) {
   return (
     <Select
       className={styles.dropdown}
@@ -74,6 +62,8 @@ export function CampoData({
   valor,
   onChange,
   min,
+  max,
+  mesInicial,
   somenteLeitura = false,
   placeholder = 'dd/mm/aaaa',
   className,
@@ -84,21 +74,22 @@ export function CampoData({
   'aria-describedby': ariaDescribedby,
 }: CampoDataProps) {
   const [aberto, setAberto] = useState(false)
-  const { ancoraRef, popoverRef, estilo } = usePopoverFlutuante<HTMLButtonElement, HTMLDivElement>(
+  const { ancoraRef, popoverRef, estilo, portal } = usePopoverFlutuante<HTMLButtonElement, HTMLDivElement>(
     aberto,
     () => setAberto(false),
-    { alturaMinimaAbaixo: 360 },
+    { alturaMinimaAbaixo: 360, alinhamento: 'auto' },
   )
   const dialogoId = useId()
 
   const selecionada = paraData(valor)
   const minima = min ? paraData(min) : undefined
+  const maxima = max ? paraData(max) : undefined
   // Faixa da seleção de ano: da data mínima (ou 10 anos antes) até 10 anos
   // depois da data escolhida ou de hoje, o que for mais tarde.
   const hoje = new Date()
   const referencia = selecionada && selecionada > hoje ? selecionada : hoje
   const primeiroMes = minima ?? new Date(referencia.getFullYear() - ANOS_NA_LISTA, 0, 1)
-  const ultimoMes = new Date(referencia.getFullYear() + ANOS_NA_LISTA, 11, 1)
+  const ultimoMes = maxima ?? new Date(referencia.getFullYear() + ANOS_NA_LISTA, 11, 1)
 
   // Fecha ao sair do calendário com Tab.
   useEffect(() => {
@@ -163,9 +154,10 @@ export function CampoData({
         <Icon name="calendar" size={16} className={styles.icone} />
       </button>
 
-      {aberto && (
+      {portal(
         <div
           ref={popoverRef}
+          {...POPOVER}
           id={dialogoId}
           role="dialog"
           aria-label="Escolher data"
@@ -178,8 +170,8 @@ export function CampoData({
             locale={ptBR}
             autoFocus
             selected={selecionada}
-            defaultMonth={selecionada ?? minima}
-            disabled={minima ? { before: minima } : undefined}
+            defaultMonth={selecionada ?? (mesInicial ? paraData(mesInicial) : minima)}
+            disabled={[...(minima ? [{ before: minima }] : []), ...(maxima ? [{ after: maxima }] : [])]}
             captionLayout="dropdown"
             startMonth={primeiroMes}
             endMonth={ultimoMes}

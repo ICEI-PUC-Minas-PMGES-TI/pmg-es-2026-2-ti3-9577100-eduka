@@ -24,6 +24,7 @@ public record HistoricoFinanceiroResponse(
      *
      * @param valorEmAberto pendentes + em atraso
      * @param valorEmAtraso parte do em aberto que ja venceu
+     * @param valorPago     cobrancas pagas, sem o que foi estornado
      */
     public record Resumo(
             BigDecimal valorEmAberto,
@@ -56,6 +57,9 @@ public record HistoricoFinanceiroResponse(
                     }
                     case PAGA -> {
                         pago = pago.add(cobranca.valor());
+                        if (cobranca.pagamento() != null) {
+                            pago = pago.subtract(cobranca.pagamento().valorEstornado());
+                        }
                         pagas++;
                     }
                     case CANCELADA -> canceladas++;

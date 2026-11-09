@@ -1,0 +1,126 @@
+@startuml 00-visao-geral
+!include _estilo.puml
+title Eduka — Diagrama de Casos de Uso (visão geral, Sprint 4)
+
+left to right direction
+
+actor "SUPER_ADMIN" as SUPERADMIN
+actor "SECRETARIA" as SECRETARIA
+actor "FINANCEIRO" as FINANCEIRO
+actor "MASTER" as MASTER
+actor "ALUNO" as ALUNO
+actor "Usuário\n(todos os perfis)" as USUARIO
+actor "PROFESSOR" as PROFESSOR
+actor "Gateway de Pagamento\n(Asaas)" as ASAAS <<sistema externo>>
+actor "Tempo" as TEMPO <<rotina agendada>>
+actor "Serviço de E-mail\n(Brevo)" as BREVO <<sistema externo>>
+
+rectangle "Administração da plataforma" {
+  usecase "UC01 Cadastrar Escola" as UC01 <<parcial>>
+  usecase "UC02 Gerenciar Escolas\nCadastradas" as UC02 <<parcial>>
+  usecase "UC27 Gerenciar Faturas\nda Plataforma" as UC27
+  usecase "UC28 Pagar Fatura\nda Plataforma" as UC28
+}
+
+rectangle "Gestão acadêmica" {
+  usecase "UC05 Gerenciar Alunos" as UC05 <<parcial>>
+  usecase "UC29 Gerenciar Responsáveis" as UC29
+  usecase "UC06 Gerenciar Professores" as UC06 <<parcial>>
+  usecase "UC07 Gerenciar Estrutura\nAcadêmica" as UC07
+  usecase "UC18 Alocar Professor em\nTurmas e Disciplinas" as UC18
+  usecase "UC34 Montar Horário\ndas Turmas" as UC34
+  usecase "UC08 Realizar Matrícula\nde Aluno" as UC08
+  usecase "UC39 Exportar e Anonimizar\nDados Pessoais" as UC39
+}
+
+rectangle "Gestão financeira" {
+  usecase "UC09 Gerenciar Cobranças" as UC09
+  usecase "UC11 Consultar e Filtrar\nCobranças" as UC11 <<parcial>>
+  usecase "UC12 Registrar Pagamento\nManual" as UC12 <<parcial>>
+  usecase "UC14 Gerenciar Despesas" as UC14 <<parcial>>
+  usecase "UC13 Consultar Histórico\nFinanceiro do Aluno" as UC13 <<parcial>>
+  usecase "UC15 Consultar Relatórios\nFinanceiros" as UC15 <<planejado>>
+  usecase "UC40 Avaliar Risco\nde Atraso" as UC40 <<planejado>>
+  usecase "UC33 Ativar Recebimento\nOnline" as UC33
+}
+
+rectangle "Acesso e usuários" {
+  usecase "UC03 Autenticar Usuário" as UC03 <<parcial>>
+  usecase "UC38 Aceitar Aviso\nde Privacidade" as UC38 <<planejado>>
+  usecase "UC04 Gerenciar Usuários\nda Escola" as UC04 <<parcial>>
+  usecase "UC16 Visualizar Dashboard" as UC16
+  usecase "UC37 Consultar Registro\nde Atividades" as UC37 <<parcial>>
+}
+
+rectangle "Portal do professor" {
+  usecase "UC19 Consultar Turmas e\nDisciplinas Alocadas" as UC19
+  usecase "UC20 Cadastrar Avaliações" as UC20
+  usecase "UC21 Lançar Notas dos Alunos" as UC21
+  usecase "UC35 Registrar Aula\ne Chamada" as UC35
+}
+
+rectangle "Portal do aluno" {
+  usecase "UC22 Visualizar Meu Perfil" as UC22
+  usecase "UC36 Solicitar Correção\nde Dados" as UC36
+  usecase "UC23 Consultar Boletim\nAcadêmico" as UC23
+  usecase "UC24 Consultar Disciplinas\ne Turmas" as UC24 <<parcial>>
+  usecase "UC25 Consultar Agenda de\nProvas e Tarefas" as UC25
+  usecase "UC26 Pagar Cobrança Online" as UC26
+}
+
+rectangle "Rotinas e integrações" {
+  usecase "UC30 Confirmar Pagamento\npelo Gateway" as UC30
+  usecase "UC31 Marcar Cobranças e\nFaturas em Atraso" as UC31
+  usecase "UC32 Enviar Notificações\npor E-mail" as UC32
+  usecase "UC41 Suspender Escola\npor Inadimplência" as UC41 <<planejado>>
+}
+
+SUPERADMIN --> UC01
+SUPERADMIN --> UC02
+SUPERADMIN --> UC27
+SECRETARIA --> UC05
+SECRETARIA --> UC29
+SECRETARIA --> UC06
+SECRETARIA --> UC07
+SECRETARIA --> UC18
+SECRETARIA --> UC34
+SECRETARIA --> UC08
+SECRETARIA --> UC16
+FINANCEIRO --> UC09
+FINANCEIRO --> UC11
+FINANCEIRO --> UC14
+FINANCEIRO --> UC15
+FINANCEIRO -[#A0A8B4]-> UC12 : API
+FINANCEIRO -[#A0A8B4]-> UC13 : API
+FINANCEIRO --> UC16
+MASTER --> UC28
+MASTER --> UC33
+MASTER -[#A0A8B4]-> UC04 : API
+MASTER -[#A0A8B4]-> UC37 : API
+MASTER --> UC39
+MASTER --> UC16
+ALUNO --> UC13
+ALUNO --> UC22
+ALUNO --> UC36
+ALUNO --> UC23
+ALUNO --> UC24
+ALUNO --> UC25
+ALUNO --> UC26
+ALUNO --> UC16
+USUARIO --> UC03
+USUARIO --> UC38
+PROFESSOR --> UC16
+PROFESSOR --> UC19
+PROFESSOR --> UC20
+PROFESSOR --> UC21
+PROFESSOR --> UC35
+FINANCEIRO --> UC40
+ASAAS --> UC30
+TEMPO --> UC31
+TEMPO --> UC32
+TEMPO --> UC41
+UC32 --> BREVO
+
+note "Visão resumida. Elipse amarela: parcial. Elipse cinza tracejada: planejada para a Sprint 4.\nO MASTER usa também as telas da secretaria e do financeiro (UC05 a UC09, UC11, UC13, UC14, UC18, UC34).\nAs relações include, extend e generalização e os atores secundários estão nos diagramas 01 a 07." as N1
+
+@enduml

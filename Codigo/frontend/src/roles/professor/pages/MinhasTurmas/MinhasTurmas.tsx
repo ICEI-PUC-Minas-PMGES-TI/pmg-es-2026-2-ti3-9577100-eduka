@@ -1,9 +1,15 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
+import { Paginacao } from '../../../../components/Paginacao/Paginacao'
 import { Select, type OpcaoSelect } from '../../../../components/Select/Select'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
+import { usePaginacao } from '../../../../hooks/usePaginacao'
+import { paths, type EstadoNovaAvaliacao } from '../../../../routes/paths'
 import type { TurmaDoProfessor } from '../../../../types/turmaProfessor'
+import { GradeSemanal } from '../../components/GradeSemanal/GradeSemanal'
+import { ModalAlunosDaTurma } from '../../components/ModalAlunosDaTurma/ModalAlunosDaTurma'
 import { TurmaCard } from '../../components/TurmaCard/TurmaCard'
 import { useMinhasTurmas } from '../../hooks/useMinhasTurmas'
 import { ProfessorLayout } from '../../layouts/ProfessorLayout'
@@ -33,8 +39,17 @@ function opcoesDePeriodo(turmas: TurmaDoProfessor[]): OpcaoSelect<string>[] {
   ]
 }
 
+/** Tela de avaliações já na turma, na primeira disciplina do professor nela. */
+function avaliacoesDaTurma(turma: TurmaDoProfessor): string {
+  const params = new URLSearchParams({ turma: String(turma.id) })
+  if (turma.disciplinas[0]) params.set('disciplina', String(turma.disciplinas[0].id))
+  return `${paths.professor.avaliacoes}?${params}`
+}
+
 export function MinhasTurmas() {
+  const navigate = useNavigate()
   const { turmas, carregando, erro, recarregar } = useMinhasTurmas()
+  const [vendoAlunos, setVendoAlunos] = useState<TurmaDoProfessor | null>(null)
   const [busca, setBusca] = useState('')
   const [periodo, setPeriodo] = useState(TODOS_PERIODOS)
 
@@ -44,6 +59,7 @@ export function MinhasTurmas() {
       (periodo === TODOS_PERIODOS || String(t.periodoLetivoId) === periodo) && correspondeBusca(t, busca),
   )
   const temTurmas = !carregando && !erro && turmas.length > 0
+  const { paginacao, topo } = usePaginacao<TurmaDoProfessor, HTMLElement>(visiveis, { reiniciarCom: `${busca}|${periodo}` })
 
   // A mesma disciplina pode ser dada em várias turmas: conta uma vez só.
   const disciplinas = new Set(turmas.flatMap((t) => t.disciplinas.map((d) => d.id))).size
@@ -93,7 +109,7 @@ export function MinhasTurmas() {
         </>
       )}
 
-      {carregando && <div className={styles.mensagem}>Carregando suas turmas…</div>}
+      {carregando && <div className={styles.mensagem} role="status">Carregando suas turmas…</div>}
 
       {!carregando && erro && (
         <div className={styles.mensagem} role="alert">
@@ -116,12 +132,29 @@ export function MinhasTurmas() {
       )}
 
       {temTurmas && visiveis.length > 0 && (
-        <section className={styles.grid} aria-label="Turmas">
-          {visiveis.map((turma) => (
-            <TurmaCard key={turma.id} turma={turma} />
-          ))}
-        </section>
+        <>
+          <section ref={topo} className={styles.grid} aria-label="Turmas">
+            {paginacao.itensDaPagina.map((turma) => (
+              <TurmaCard
+                key={turma.id}
+                turma={turma}
+                onVerAlunos={setVendoAlunos}
+                onLancarNotas={(t) => navigate(avaliacoesDaTurma(t))}
+                onCriarAvaliacao={(t) =>
+                  navigate(avaliacoesDaTurma(t), {
+                    state: { abrirCadastro: true, turmaId: t.id } satisfies EstadoNovaAvaliacao,
+                  })
+                }
+              />
+            ))}
+          </section>
+          <Paginacao paginacao={paginacao} rotulo="Páginas das turmas" />
+        </>
       )}
+
+      {temTurmas && <GradeSemanal turmas={turmas} />}
+
+      {vendoAlunos && <ModalAlunosDaTurma turma={vendoAlunos} onFechar={() => setVendoAlunos(null)} />}
     </ProfessorLayout>
   )
 }

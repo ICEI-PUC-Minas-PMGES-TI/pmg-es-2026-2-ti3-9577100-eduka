@@ -1,9 +1,11 @@
 package br.pucminas.eduka.backend.pagamento;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
@@ -17,6 +19,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.pucminas.eduka.backend.domain.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.EstornoCobranca;
 import br.pucminas.eduka.backend.domain.FaturaPlataforma;
 import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.OrigemPagamento;
@@ -24,6 +27,7 @@ import br.pucminas.eduka.backend.domain.PagamentoCobranca;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.domain.StatusEventoProvedor;
+import br.pucminas.eduka.backend.logging.ContextoLog;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.EventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
@@ -32,6 +36,7 @@ import br.pucminas.eduka.backend.pagamento.tipos.StatusCobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.TipoEventoProvedor;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
 import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
+import br.pucminas.eduka.backend.repository.EstornoCobrancaRepository;
 import br.pucminas.eduka.backend.repository.EventoProvedorRepository;
 import br.pucminas.eduka.backend.repository.FaturaPlataformaRepository;
 import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
@@ -67,6 +72,9 @@ class RoteadorEventos {
 
     private static final int MAX_MOTIVO = 500;
 
+    /** A data do aviso vem sem hora: o estorno conta da meia-noite desse dia, no fuso da escola. */
+    private static final ZoneId FUSO_ESCOLA = ZoneId.of("America/Sao_Paulo");
+
     /** Margem para nao disputar com o webhook o aviso que ele acabou de gravar. */
     static final Duration ESPERA_ANTES_DE_REPROCESSAR = Duration.ofMinutes(1);
 
@@ -81,6 +89,7 @@ class RoteadorEventos {
     private final CobrancaRepository cobrancaRepository;
     private final ContaRecebimentoEscolaRepository contaRepository;
     private final PagamentoCobrancaRepository pagamentoRepository;
+    private final EstornoCobrancaRepository estornoRepository;
     private final FaturaPlataformaRepository faturaRepository;
     private final AvisoCobrancaService avisoCobrancaService;
     private final AuditoriaService auditoriaService;
@@ -94,12 +103,14 @@ class RoteadorEventos {
 
     RoteadorEventos(EventoProvedorRepository eventoRepository, CobrancaRepository cobrancaRepository,
             ContaRecebimentoEscolaRepository contaRepository, PagamentoCobrancaRepository pagamentoRepository,
-            FaturaPlataformaRepository faturaRepository, AvisoCobrancaService avisoCobrancaService,
-            AuditoriaService auditoriaService, GravadorSituacaoConta gravadorSituacao, Clock clock) {
+            EstornoCobrancaRepository estornoRepository, FaturaPlataformaRepository faturaRepository,
+            AvisoCobrancaService avisoCobrancaService, AuditoriaService auditoriaService,
+            GravadorSituacaoConta gravadorSituacao, Clock clock) {
         this.eventoRepository = eventoRepository;
         this.cobrancaRepository = cobrancaRepository;
         this.contaRepository = contaRepository;
         this.pagamentoRepository = pagamentoRepository;
+        this.estornoRepository = estornoRepository;
         this.faturaRepository = faturaRepository;
         this.avisoCobrancaService = avisoCobrancaService;
         this.auditoriaService = auditoriaService;
@@ -462,9 +473,11 @@ class RoteadorEventos {
     }
 
     /**
-     * Estorno ou contestacao feitos no provedor: so ficam no log de auditoria,
-     * sem autor, para a escola acompanhar. A situacao da cobranca nao muda:
-     * o que o estorno faz com uma cobranca PAGA ainda e decisao do grupo.
+     * Estorno ou contestacao feitos no provedor: entram no log de auditoria, sem
+     * autor, para a escola acompanhar, e a situacao da cobranca nao muda. O
+     * estorno tambem registra o valor devolvido, que sai do recebido; a cobranca
+     * fica encerrada, e para cobrar de novo a escola lanca outra. A contestacao
+     * ainda nao devolveu o dinheiro: so fica no log.
      */
     private void aplicarEstornoOuContestacao(br.pucminas.eduka.backend.domain.EventoProvedor registro,
             EventoProvedor evento) {
@@ -475,11 +488,49 @@ class RoteadorEventos {
         CobrancaLocal cobranca = encontrada.get();
         auditoriaService.registrarDoProvedor(operacaoDe(evento.tipo()), EntidadeAuditada.COBRANCA,
                 cobranca.aviso().id(), cobranca.aviso().escolaId());
+        BigDecimal estornado = evento.tipo() == TipoEventoProvedor.ESTORNO
+                ? registrarEstorno(cobranca, evento, registro.getId())
+                : BigDecimal.ZERO;
         log.warn("{} no provedor para a cobranca {} ({}); situacao no Eduka mantida", evento.tipo(),
                 cobranca.aviso().id(), evento.tipoOriginal());
         encerrar(registro, StatusEventoProvedor.PROCESSADO,
-                limitar(evento.tipoOriginal() + " registrado na auditoria; a cobranca continua " + cobranca.status(),
-                        MAX_MOTIVO));
+                limitar(evento.tipoOriginal() + " registrado na auditoria; a cobranca continua " + cobranca.status()
+                        + (estornado.signum() > 0 ? "; estornado agora: " + estornado : ""), MAX_MOTIVO));
+    }
+
+    /**
+     * Grava o que o aviso devolveu alem do ja registrado. O aviso traz o total,
+     * entao repetido, fora de ordem ou com o parcial anterior nao desconta em
+     * dobro. Sem pagamento registrado ou sem o valor no aviso, nao ha o que
+     * descontar e o estorno fica so na auditoria.
+     *
+     * @return o valor registrado agora; zero se nada mudou
+     */
+    private BigDecimal registrarEstorno(CobrancaLocal cobranca, EventoProvedor evento, UUID eventoId) {
+        UUID escolaId = cobranca.aviso().escolaId();
+        UUID cobrancaId = cobranca.aviso().id();
+        Optional<PagamentoCobranca> encontrado = evento.valorEstornado() == null ? Optional.empty()
+                : pagamentoRepository.travar(escolaId, cobrancaId);
+        if (encontrado.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        PagamentoCobranca pagamento = encontrado.get();
+        BigDecimal total = evento.valorEstornado().min(pagamento.getValorPago());
+        BigDecimal novo = total.subtract(pagamento.getValorEstornado());
+        if (novo.signum() <= 0) {
+            return BigDecimal.ZERO;
+        }
+        pagamento.setValorEstornado(total);
+        estornoRepository.save(EstornoCobranca.builder()
+                .escolaId(escolaId)
+                .cobrancaId(cobrancaId)
+                .valor(novo)
+                .estornadoEm(evento.dataEvento() != null
+                        ? evento.dataEvento().atStartOfDay(FUSO_ESCOLA).toInstant()
+                        : clock.instant())
+                .eventoId(eventoId)
+                .build());
+        return novo;
     }
 
     private static OperacaoAuditoria operacaoDe(TipoEventoProvedor tipo) {
@@ -508,6 +559,7 @@ class RoteadorEventos {
         }
         FaturaPlataforma fatura = encontrada.get();
         registro.setEscolaId(fatura.getEscolaId());
+        ContextoLog.definirEscola(fatura.getEscolaId());
         CobrancaProvedor doAviso = evento.cobranca();
         Instant agora = clock.instant();
 
@@ -625,6 +677,7 @@ class RoteadorEventos {
         }
         CobrancaLocal cobranca = encontrada.get();
         registro.setEscolaId(cobranca.aviso().escolaId());
+        ContextoLog.definirEscola(cobranca.aviso().escolaId());
 
         Optional<UUID> escolaDaConta = evento.idContaExterna() == null ? Optional.empty()
                 : contaRepository.buscarEscolaPorIdContaExterna(evento.idContaExterna());

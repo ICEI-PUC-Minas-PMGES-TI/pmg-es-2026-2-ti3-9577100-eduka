@@ -9,6 +9,8 @@ import java.util.Arrays;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+import javax.sql.DataSource;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -18,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import br.pucminas.eduka.backend.controller.HealthController;
@@ -46,6 +49,10 @@ class RotasPorPerfilIntegrationTest {
 
     @Autowired
     private JwtService jwtService;
+
+    // O HealthController (so ele nesta fatia) consulta o banco; aqui nao importa, so precisa de um DataSource.
+    @MockitoBean
+    private DataSource dataSource;
 
     private String bearer(PerfilUsuario perfil) {
         return "Bearer " + jwtService.generateAccessToken(UUID.randomUUID(), perfil.name(), ESCOLA);

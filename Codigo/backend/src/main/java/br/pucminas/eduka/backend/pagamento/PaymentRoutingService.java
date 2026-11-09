@@ -7,10 +7,12 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.stereotype.Service;
 
 import br.pucminas.eduka.backend.domain.Cobranca;
 import br.pucminas.eduka.backend.domain.SituacaoProvedor;
+import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.dto.AtivarRecebimentosRequest;
 import br.pucminas.eduka.backend.dto.ComprovanteResponse;
 import br.pucminas.eduka.backend.dto.ContaRecebimentoResponse;
@@ -18,6 +20,10 @@ import br.pucminas.eduka.backend.dto.DadosPagamentoResponse;
 import br.pucminas.eduka.backend.dto.FaturaPlataformaResponse;
 import br.pucminas.eduka.backend.dto.HabilitacaoRecebimentos;
 import br.pucminas.eduka.backend.dto.LancarFaturaRequest;
+import br.pucminas.eduka.backend.dto.Ordenacao;
+import br.pucminas.eduka.backend.dto.PaginaResponse;
+import br.pucminas.eduka.backend.dto.Paginacao;
+import br.pucminas.eduka.backend.logging.ContextoLog;
 import br.pucminas.eduka.backend.pagamento.tipos.EventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 
@@ -151,6 +157,15 @@ public class PaymentRoutingService {
         return roteadorFatura.listarDaEscola(escolaId);
     }
 
+    public List<FaturaPlataformaResponse> listarFaturasDeTodasAsEscolas() {
+        return roteadorFatura.listarTodas();
+    }
+
+    public PaginaResponse<FaturaPlataformaResponse> listarFaturas(UUID escolaId, StatusCobranca status,
+            Paginacao paginacao, Ordenacao.Faturas ordenarPor, Direction direcao) {
+        return roteadorFatura.listarDaEscola(escolaId, status, paginacao, ordenarPor, direcao);
+    }
+
     /** R26, com a regra do R25 para fatura ja emitida. */
     public FaturaPlataformaResponse cancelarFatura(UUID escolaId, UUID faturaId) {
         return roteadorFatura.cancelar(escolaId, faturaId);
@@ -165,6 +180,11 @@ public class PaymentRoutingService {
 
     public List<FaturaPlataformaResponse> listarMinhasFaturas() {
         return roteadorFatura.listarMinhas();
+    }
+
+    public PaginaResponse<FaturaPlataformaResponse> listarMinhasFaturas(StatusCobranca status, Paginacao paginacao,
+            Ordenacao.Faturas ordenarPor, Direction direcao) {
+        return roteadorFatura.listarMinhas(status, paginacao, ordenarPor, direcao);
     }
 
     // ---- Eventos e consistencia ----
@@ -226,6 +246,9 @@ public class PaymentRoutingService {
             eventos.aplicar(eventoId, evento);
         } catch (RuntimeException e) {
             falhou(eventoId, e);
+        } finally {
+            // O escolaId entra no MDC quando o aviso e ligado a uma escola; nao pode vazar para o proximo aviso.
+            ContextoLog.limparEscola();
         }
     }
 
@@ -300,5 +323,15 @@ public class PaymentRoutingService {
     /** FINANCEIRO da escola do token: confirma no Sandbox o pagamento da cobranca emitida. */
     public void sandboxConfirmarPagamento(UUID cobrancaId) {
         roteadorSandbox.confirmarPagamento(cobrancaId);
+    }
+
+    /** ALUNO dono da cobranca: paga no Sandbox e grava o pagamento sem esperar o aviso. */
+    public void sandboxPagarComoAluno(UUID cobrancaId) {
+        roteadorSandbox.pagarComoAluno(cobrancaId);
+    }
+
+    /** MASTER da escola do token: paga no Sandbox a fatura do Eduka e grava o pagamento sem esperar o aviso. */
+    public void sandboxPagarFatura(UUID faturaId) {
+        roteadorSandbox.pagarFatura(faturaId);
     }
 }

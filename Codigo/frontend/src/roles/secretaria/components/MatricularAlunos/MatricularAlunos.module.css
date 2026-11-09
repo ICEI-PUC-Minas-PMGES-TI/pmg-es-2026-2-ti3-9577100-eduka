@@ -9,7 +9,6 @@
   background: var(--glass-bg);
   box-shadow: var(--glass-shadow);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .topo {
@@ -153,5 +152,18 @@
 @media (max-width: 520px) {
   .rodape > button {
     width: 100%;
+  }
+
+  /* O nome ocupa a linha ao lado do avatar; etiqueta e ação descem para a de baixo. */
+  .linha {
+    flex-wrap: wrap;
+  }
+
+  .aluno {
+    flex-basis: calc(100% - 50px);
+  }
+
+  .detalhe {
+    white-space: normal;
   }
 }

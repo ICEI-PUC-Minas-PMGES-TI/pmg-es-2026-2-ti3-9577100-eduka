@@ -4,12 +4,18 @@ import { Icon } from '../../../../components/Icon/Icon'
 import { Modal, ModalAlerta, ModalAviso } from '../../../../components/Modal/Modal'
 import { ApiError } from '../../../../services/api'
 import { baixarBoletoPdf, buscarMinhaCobranca, pagarCobranca } from '../../../../services/pagamentoAlunoService'
+import {
+  atalhosSandboxHabilitados,
+  mensagemErroSandbox,
+  pagarNoSandboxComoAluno,
+} from '../../../../services/sandboxService'
 import type {
   CobrancaDoHistorico,
   DadosBoleto,
   DadosPix,
   FormaPagamento,
 } from '../../../../types/pagamentoAluno'
+import { salvarArquivo } from '../../../../utils/arquivos'
 import { formatarMoeda } from '../../../../utils/formatters'
 import { formatarData } from '../../../secretaria/components/PainelSecretaria/formatacao'
 import { formatarLinhaDigitavel } from '../../formatacao'
@@ -75,19 +81,6 @@ function formatarValidade(iso: string): string {
   })
 }
 
-/** Dispara o download do PDF no navegador sem abrir nova aba. */
-function salvarArquivo(conteudo: Blob, nome: string) {
-  const url = URL.createObjectURL(conteudo)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = nome
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  // Dá tempo de o navegador começar o download antes de liberar a memória.
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
-
 /** Nome do arquivo a partir da descrição: "Mensalidade de março" -> boleto-mensalidade-de-marco.pdf. */
 function nomeDoArquivo(descricao: string): string {
   const base = descricao
@@ -137,6 +130,9 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
   const [verificando, setVerificando] = useState(false)
   const [baixando, setBaixando] = useState(false)
   const [erroDownload, setErroDownload] = useState<string | null>(null)
+  const [pagandoNoSandbox, setPagandoNoSandbox] = useState(false)
+  const [pagoNoSandbox, setPagoNoSandbox] = useState(false)
+  const [erroSandbox, setErroSandbox] = useState<string | null>(null)
   const montado = useRef(true)
   const consultando = useRef(false)
   const pedidos = useRef(0)
@@ -227,6 +223,8 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
   function trocarForma() {
     setCopiado(null)
     setErroDownload(null)
+    setErroSandbox(null)
+    setPagoNoSandbox(false)
     setEtapa({ tipo: 'escolhendo' })
   }
 
@@ -256,8 +254,9 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
     [cobranca.id, forma, gerar],
   )
 
-  // PIX pronto: espera a confirmação. Boleto pronto: nada a esperar (compensa em dias úteis).
-  const aguardaConfirmacao = etapa.tipo === 'pronto' && etapa.dados.forma === 'PIX'
+  // PIX pronto: espera a confirmação. Boleto pronto: nada a esperar (compensa em dias úteis),
+  // a não ser que tenha sido pago no Sandbox.
+  const aguardaConfirmacao = etapa.tipo === 'pronto' && (etapa.dados.forma === 'PIX' || pagoNoSandbox)
 
   useEffect(() => {
     if (!aguardaConfirmacao && etapa.tipo !== 'processando') return
@@ -271,6 +270,29 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
     setVerificando(true)
     await consultar(etapa.tipo)
     if (montado.current) setVerificando(false)
+  }
+
+  /**
+   * Ambiente de teste: paga no Sandbox como se o aluno tivesse pago no banco.
+   * O backend já grava o pagamento; a consulta logo em seguida mostra "pago".
+   */
+  async function pagarNoSandbox() {
+    setPagandoNoSandbox(true)
+    setErroSandbox(null)
+    try {
+      await pagarNoSandboxComoAluno(cobranca.id)
+      if (!montado.current) return
+      setPagoNoSandbox(true)
+      await consultar(etapa.tipo)
+    } catch (e) {
+      if (montado.current) {
+        setErroSandbox(
+          mensagemErroSandbox(e, 'O pagamento ainda não foi registrado no Asaas. Tente de novo em instantes.'),
+        )
+      }
+    } finally {
+      if (montado.current) setPagandoNoSandbox(false)
+    }
   }
 
   async function copiar(codigo: string) {
@@ -468,6 +490,29 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
               onCopiar={copiar}
             />
           </>
+        )}
+
+        {etapa.tipo === 'pronto' && atalhosSandboxHabilitados && (
+          <div className={styles.sandbox}>
+            <span className={styles.sandboxSelo}>Ambiente de teste</span>
+            <p>
+              Ninguém paga de verdade aqui. Clique em Pagar para simular no Asaas o pagamento{' '}
+              {forma === 'PIX' ? 'do PIX' : 'do boleto'}, como se tivesse pago no banco.
+            </p>
+            {pagoNoSandbox ? (
+              <span className={styles.validade}>Pagamento enviado ao Asaas. Aguardando a confirmação…</span>
+            ) : (
+              <Button
+                variant="accent"
+                icon="check"
+                onClick={() => void pagarNoSandbox()}
+                disabled={pagandoNoSandbox}
+              >
+                {pagandoNoSandbox ? 'Pagando…' : 'Pagar'}
+              </Button>
+            )}
+            {erroSandbox && <ModalAlerta>{erroSandbox}</ModalAlerta>}
+          </div>
         )}
       </div>
     </Modal>

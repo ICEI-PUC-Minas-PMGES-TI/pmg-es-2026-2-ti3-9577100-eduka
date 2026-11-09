@@ -50,6 +50,8 @@ import br.pucminas.eduka.backend.domain.Escola;
 import br.pucminas.eduka.backend.domain.MatriculaTurma;
 import br.pucminas.eduka.backend.domain.ModuloEscola;
 import br.pucminas.eduka.backend.domain.Nota;
+import br.pucminas.eduka.backend.domain.OrigemPagamento;
+import br.pucminas.eduka.backend.domain.PagamentoCobranca;
 import br.pucminas.eduka.backend.domain.PapelPessoa;
 import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.PeriodoLetivo;
@@ -62,10 +64,12 @@ import br.pucminas.eduka.backend.domain.SituacaoDespesa;
 import br.pucminas.eduka.backend.domain.StatusCobranca;
 import br.pucminas.eduka.backend.domain.StatusMatricula;
 import br.pucminas.eduka.backend.domain.TipoAvaliacao;
+import br.pucminas.eduka.backend.domain.TipoCobranca;
 import br.pucminas.eduka.backend.domain.Turma;
 import br.pucminas.eduka.backend.domain.Turno;
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.domain.VinculoProfessor;
+import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 import br.pucminas.eduka.backend.repository.AlocacaoProfessorRepository;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
@@ -78,6 +82,7 @@ import br.pucminas.eduka.backend.repository.DisciplinaRepository;
 import br.pucminas.eduka.backend.repository.EscolaRepository;
 import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.NotaRepository;
+import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
 import br.pucminas.eduka.backend.repository.PeriodoLetivoRepository;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
@@ -231,6 +236,7 @@ public class MockDataSeeder implements ApplicationRunner {
     private final AvaliacaoRepository avaliacaoRepository;
     private final NotaRepository notaRepository;
     private final CobrancaRepository cobrancaRepository;
+    private final PagamentoCobrancaRepository pagamentoRepository;
     private final CategoriaDespesaService categoriaDespesaService;
     private final CategoriaDespesaRepository categoriaDespesaRepository;
     private final DespesaRepository despesaRepository;
@@ -247,7 +253,8 @@ public class MockDataSeeder implements ApplicationRunner {
             AlunoRepository alunoRepository, ResponsavelRepository responsavelRepository,
             AlunoResponsavelRepository alunoResponsavelRepository, MatriculaTurmaRepository matriculaRepository,
             AvaliacaoRepository avaliacaoRepository, NotaRepository notaRepository,
-            CobrancaRepository cobrancaRepository, CategoriaDespesaService categoriaDespesaService,
+            CobrancaRepository cobrancaRepository, PagamentoCobrancaRepository pagamentoRepository,
+            CategoriaDespesaService categoriaDespesaService,
             CategoriaDespesaRepository categoriaDespesaRepository, DespesaRepository despesaRepository,
             PasswordEncoder passwordEncoder, Clock clock, PlatformTransactionManager transactionManager,
             @Value("${app.mock.senha:" + SENHA + "}") String senha) {
@@ -268,6 +275,7 @@ public class MockDataSeeder implements ApplicationRunner {
         this.avaliacaoRepository = avaliacaoRepository;
         this.notaRepository = notaRepository;
         this.cobrancaRepository = cobrancaRepository;
+        this.pagamentoRepository = pagamentoRepository;
         this.categoriaDespesaService = categoriaDespesaService;
         this.categoriaDespesaRepository = categoriaDespesaRepository;
         this.despesaRepository = despesaRepository;
@@ -297,8 +305,9 @@ public class MockDataSeeder implements ApplicationRunner {
                 .executeWithoutResult(status -> semear(master.getEscolaId(), hoje, gerador, senhaHash)));
 
         // A senha padrao de dev esta no README; uma senha propria (demo) nunca vai para o log.
-        log.info("Mock: {} semeado. Logins em @{} com a senha {} (diretora: {})", NOME_ESCOLA,
-                GeradorMock.DOMINIO, SENHA.equals(senha) ? SENHA : "de MOCK_SENHA", master.getLogin());
+        // Sem o login da diretora: login e dado pessoal, mesmo no mock. Os logins estao no README.
+        log.info("Mock: {} semeado. Logins em @{} com a senha {}", NOME_ESCOLA,
+                GeradorMock.DOMINIO, SENHA.equals(senha) ? SENHA : "de MOCK_SENHA");
     }
 
     private Usuario criarEscolaEEquipe(LocalDate hoje, GeradorMock gerador, String senhaHash) {
@@ -582,10 +591,10 @@ public class MockDataSeeder implements ApplicationRunner {
                 String descricao = "Mensalidade %s/%d".formatted(
                         vencimento.getMonth().getDisplayName(TextStyle.FULL, PT_BR), ano);
                 boolean atrasa = inadimplentes.contains(aluno) && !vencimento.isBefore(hoje.minusMonths(2));
-                cobrancas.add(cobranca(escolaId, aluno, descricao, aluno.turma().mensalidade(), vencimento, hoje,
-                        atrasa || gerador.chance(0.03), gerador));
+                cobrancas.add(cobranca(escolaId, aluno, TipoCobranca.MENSALIDADE, descricao, aluno.turma().mensalidade(),
+                        vencimento, hoje, atrasa || gerador.chance(0.03), gerador));
             }
-            cobrancas.add(cobranca(escolaId, aluno, "Material didático - %s".formatted(semestre.nome()),
+            cobrancas.add(cobranca(escolaId, aluno, TipoCobranca.MATERIAL, "Material didático - %s".formatted(semestre.nome()),
                     new BigDecimal("420.00"), semestre.inicio().withDayOfMonth(20), hoje, gerador.chance(0.03),
                     gerador));
         }
@@ -593,8 +602,9 @@ public class MockDataSeeder implements ApplicationRunner {
         List<AlunoMock> sextoAno = alunos.stream().filter(a -> a.turma() == TURMAS.getFirst()).toList();
         LocalDate passeio = semestre.inicio().plusDays(52);
         for (int i = 0; i < sextoAno.size(); i++) {
-            Cobranca cobranca = cobranca(escolaId, sextoAno.get(i), "Passeio pedagógico - Museu de Ciências Naturais",
-                    new BigDecimal("95.00"), passeio, hoje, false, gerador);
+            Cobranca cobranca = cobranca(escolaId, sextoAno.get(i), TipoCobranca.OUTRO,
+                    "Passeio pedagógico - Museu de Ciências Naturais", new BigDecimal("95.00"), passeio, hoje, false,
+                    gerador);
             if (i < 2) {
                 // Desistiram do passeio antes do vencimento.
                 cobranca.setStatus(StatusCobranca.CANCELADA);
@@ -603,10 +613,48 @@ public class MockDataSeeder implements ApplicationRunner {
             }
             cobrancas.add(cobranca);
         }
+        escolherFormaDasPagasOnline(cobrancas);
         cobrancaRepository.saveAll(cobrancas);
+        pagamentoRepository.saveAll(pagamentosOnline(escolaId, cobrancas));
     }
 
-    private Cobranca cobranca(UUID escolaId, AlunoMock aluno, String descricao, BigDecimal valor,
+    /**
+     * De cada dez pagas, seis foram por PIX, tres por boleto e uma teve baixa
+     * manual, para os numeros por forma terem o que mostrar. Pela posicao, sem
+     * sortear: o resto da escola sai igual ao de antes.
+     *
+     * <p>
+     * A cobranca fica NAO_EMITIDA de proposito: ela nao existe no provedor, e
+     * assim nada tenta busca-la la. O comprovante sai so do pagamento, e o
+     * boleto responde BOLETO_NAO_GERADO.
+     * </p>
+     */
+    private static void escolherFormaDasPagasOnline(List<Cobranca> cobrancas) {
+        List<Cobranca> pagas = cobrancas.stream().filter(c -> c.getStatus() == StatusCobranca.PAGA).toList();
+        for (int i = 0; i < pagas.size(); i++) {
+            int posicao = i % 10;
+            if (posicao < 9) {
+                pagas.get(i).setFormaPagamento(posicao < 6 ? FormaPagamento.PIX : FormaPagamento.BOLETO);
+            }
+        }
+    }
+
+    private static List<PagamentoCobranca> pagamentosOnline(UUID escolaId, List<Cobranca> cobrancas) {
+        return cobrancas.stream()
+                .filter(c -> c.getStatus() == StatusCobranca.PAGA && c.getFormaPagamento() != null)
+                .map(c -> PagamentoCobranca.builder()
+                        .escolaId(escolaId)
+                        .cobrancaId(c.getId())
+                        .valorPago(c.getValor())
+                        .dataPagamento(LocalDate.ofInstant(c.getPagaEm(), ZONA))
+                        .formaPagamento(c.getFormaPagamento())
+                        .origem(OrigemPagamento.ONLINE)
+                        .idTransacaoExterna("mock_" + c.getId())
+                        .build())
+                .toList();
+    }
+
+    private Cobranca cobranca(UUID escolaId, AlunoMock aluno, TipoCobranca tipo, String descricao, BigDecimal valor,
             LocalDate vencimento, LocalDate hoje, boolean atrasa, GeradorMock gerador) {
         Cobranca cobranca = Cobranca.builder()
                 .escolaId(escolaId)
@@ -614,6 +662,7 @@ public class MockDataSeeder implements ApplicationRunner {
                 .matricula(aluno.matricula())
                 .responsavelId(aluno.financeiroId())
                 .descricao(descricao)
+                .tipo(tipo)
                 .valor(valor)
                 .dataVencimento(vencimento)
                 .status(StatusCobranca.PENDENTE)

@@ -1,7 +1,8 @@
 import { Badge } from '../../../../components/Badge/Badge'
 import { ModalAlerta, ModalAviso } from '../../../../components/Modal/Modal'
 import { useDetalhe } from '../../../../hooks/useDetalhe'
-import { buscarHistoricoFinanceiroDoAluno } from '../../../../services/alunoService'
+import { RiscoDoAluno } from '../../../../components/RiscoAtraso/RiscoAtraso'
+import { buscarHistoricoFinanceiroDoAluno, buscarRiscoAtrasoDoAluno } from '../../../../services/alunoService'
 import {
   ROTULOS_FORMA_PAGAMENTO,
   ROTULOS_STATUS_COBRANCA_ALUNO,
@@ -23,7 +24,9 @@ const TOM_STATUS: Record<StatusCobrancaAluno, 'success' | 'danger' | 'neutral' |
 function descreverPagamento(c: CobrancaDoHistorico): string | null {
   if (c.pagamento) {
     const como = c.pagamento.forma ? ROTULOS_FORMA_PAGAMENTO[c.pagamento.forma] : 'Baixa manual'
-    return `${como} · ${formatarData(c.pagamento.dataPagamento)} · ${formatarMoeda(c.pagamento.valorPago)}`
+    const estornado =
+      c.pagamento.valorEstornado > 0 ? ` · ${formatarMoeda(c.pagamento.valorEstornado)} estornados` : ''
+    return `${como} · ${formatarData(c.pagamento.dataPagamento)} · ${formatarMoeda(c.pagamento.valorPago)}${estornado}`
   }
   if (c.pagaEm) {
     return `Baixa manual · ${new Date(c.pagaEm).toLocaleDateString('pt-BR')}`
@@ -32,12 +35,15 @@ function descreverPagamento(c: CobrancaDoHistorico): string | null {
 }
 
 /**
- * Aba "Financeiro" do cadastro do aluno: resumo e todas as cobranças, com o
+ * Aba "Financeiro" do cadastro do aluno: risco de atraso com o motivo
+ * (GET /alunos/{id}/financeiro/risco), resumo e todas as cobranças, com o
  * pagamento de cada uma (GET /alunos/{id}/financeiro). Só leitura: lançar,
  * editar e dar baixa ficam na tela de Cobranças do financeiro.
  */
 export function FinanceiroAluno({ alunoId }: { alunoId: string }) {
   const { dados, carregando, erro } = useDetalhe(buscarHistoricoFinanceiroDoAluno, alunoId)
+  // O risco é um extra: se falhar, o histórico aparece sem ele.
+  const { dados: risco } = useDetalhe(buscarRiscoAtrasoDoAluno, alunoId)
 
   if (carregando) return <ModalAviso>Carregando o histórico financeiro…</ModalAviso>
   if (erro) return <ModalAlerta>{erro}</ModalAlerta>
@@ -47,6 +53,8 @@ export function FinanceiroAluno({ alunoId }: { alunoId: string }) {
 
   return (
     <div className={styles.conteudo}>
+      {risco && <RiscoDoAluno risco={risco} />}
+
       <dl className={styles.resumo} aria-label="Resumo financeiro">
         <div className={styles.indicador}>
           <dt>Em aberto</dt>
@@ -86,16 +94,16 @@ export function FinanceiroAluno({ alunoId }: { alunoId: string }) {
             <tbody>
               {cobrancas.map((c) => (
                 <tr key={c.id}>
-                  <td>
+                  <td className={styles.colPrincipal}>
                     <span className={styles.descricao}>{c.descricao}</span>
                     {c.turmaNome && <span className={styles.secundario}>{c.turmaNome}</span>}
                   </td>
-                  <td className={styles.data}>{formatarData(c.dataVencimento)}</td>
-                  <td className={styles.numero}>{formatarMoeda(c.valor)}</td>
-                  <td>
+                  <td data-rotulo="Vencimento" className={styles.data}>{formatarData(c.dataVencimento)}</td>
+                  <td data-rotulo="Valor" className={styles.numero}>{formatarMoeda(c.valor)}</td>
+                  <td data-rotulo="Situação">
                     <Badge tone={TOM_STATUS[c.status]}>{ROTULOS_STATUS_COBRANCA_ALUNO[c.status]}</Badge>
                   </td>
-                  <td className={styles.secundario}>{descreverPagamento(c) ?? '—'}</td>
+                  <td data-rotulo="Pagamento" className={styles.secundario}>{descreverPagamento(c) ?? '—'}</td>
                 </tr>
               ))}
             </tbody>

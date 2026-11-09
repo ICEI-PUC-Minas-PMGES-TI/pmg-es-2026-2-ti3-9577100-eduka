@@ -26,6 +26,10 @@ public interface AlocacaoProfessorRepository extends JpaRepository<AlocacaoProfe
     @EntityGraph(attributePaths = { "professor" })
     List<AlocacaoProfessor> findAllComProfessorByEscolaIdAndTurmaIdIn(UUID escolaId, Collection<Long> turmaIds);
 
+    /** A alocacao da escola, ja com a disciplina; turma e professor sao so referencias. */
+    @EntityGraph(attributePaths = { "disciplina" })
+    Optional<AlocacaoProfessor> findByIdAndEscolaId(UUID id, UUID escolaId);
+
     Optional<AlocacaoProfessor> findByIdAndEscolaIdAndProfessorId(UUID id, UUID escolaId, UUID professorId);
 
     boolean existsByEscolaIdAndTurmaIdAndDisciplinaId(UUID escolaId, Long turmaId, Long disciplinaId);

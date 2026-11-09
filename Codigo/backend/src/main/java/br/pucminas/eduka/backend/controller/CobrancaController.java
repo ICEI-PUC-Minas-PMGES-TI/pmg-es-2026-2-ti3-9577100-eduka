@@ -30,6 +30,7 @@ import br.pucminas.eduka.backend.repository.CobrancaFiltro;
 import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.CobrancaService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -68,9 +69,9 @@ public class CobrancaController {
     @Operation(summary = "Lista as cobrancas em paginas, com os totais por situacao",
             description = "Filtros opcionais por aluno, periodo letivo (pela turma da matricula; cobranca avulsa "
                     + "fica de fora), situacao (PENDENTE, EM_ATRASO, PAGA, CANCELADA) e intervalo de vencimento "
-                    + "(inclusivo). Ordenado pelo vencimento. `pagina` comeca em 0; `tamanho` vai de 1 a 100. "
-                    + "`totaisPorStatus` traz quantidade e valor de cada situacao com os mesmos filtros, menos o "
-                    + "de situacao.")
+                    + "(inclusivo), e `nome`, parte do nome do aluno. Ordenado pelo vencimento. `pagina` comeca "
+                    + "em 0; `tamanho` vai de 1 a 100. `totaisPorStatus` traz quantidade e valor de cada situacao "
+                    + "com os mesmos filtros, menos os de situacao e de nome.")
     @ApiResponse(responseCode = "200", description = "A pagina de cobrancas, com os totais por situacao.")
     @ApiResponse(responseCode = "400", description = "Pagina, tamanho ou intervalo de vencimento invalidos.")
     public PaginaCobrancasResponse listarPaginado(@RequestParam(required = false) UUID alunoId,
@@ -78,10 +79,12 @@ public class CobrancaController {
             @RequestParam(required = false) StatusCobranca status,
             @RequestParam(required = false) LocalDate vencimentoDe,
             @RequestParam(required = false) LocalDate vencimentoAte,
+            @Parameter(description = "Parte do nome do aluno") @RequestParam(required = false) String nome,
             @RequestParam(defaultValue = "0") int pagina,
             @RequestParam(defaultValue = "20") int tamanho) {
         return cobrancaService.listarPaginado(
-                new CobrancaFiltro(alunoId, periodoLetivoId, status, vencimentoDe, vencimentoAte), pagina, tamanho);
+                new CobrancaFiltro(alunoId, periodoLetivoId, status, vencimentoDe, vencimentoAte), nome, pagina,
+                tamanho);
     }
 
     @GetMapping("/{id}")

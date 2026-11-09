@@ -31,13 +31,16 @@ import br.pucminas.eduka.backend.security.JwtService;
 
 /**
  * Atalhos de Sandbox (NOVA-6, spec §10.1 S1 e S2): MASTER aprova a conta,
- * FINANCEIRO confirma o pagamento; fora do perfil dev as rotas nao existem (S04).
+ * FINANCEIRO confirma o pagamento e o ALUNO paga a propria cobranca; fora do
+ * perfil dev as rotas nao existem (S04).
  */
 class SandboxControllerSecurityTest {
 
     private static final UUID ESCOLA = UUID.randomUUID();
     private static final String APROVAR = "/config-pagamento/conta/sandbox/aprovar";
     private static final String CONFIRMAR = "/cobrancas/" + UUID.randomUUID() + "/sandbox/confirmar-pagamento";
+    private static final String PAGAR_ALUNO = "/portal/aluno/cobrancas/" + UUID.randomUUID() + "/sandbox/pagar";
+    private static final String PAGAR_FATURA = "/config-pagamento/faturas/" + UUID.randomUUID() + "/sandbox/pagar";
 
     private static MockHttpServletRequestBuilder comToken(MockHttpServletRequestBuilder pedido, String token) {
         return pedido.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
@@ -86,6 +89,38 @@ class SandboxControllerSecurityTest {
             }
             verify(paymentRoutingService, never()).sandboxAprovarConta();
             verify(paymentRoutingService, never()).sandboxConfirmarPagamento(any());
+        }
+
+        @Test
+        void alunoPagaAPropriaCobranca() throws Exception {
+            mockMvc.perform(comToken(post(PAGAR_ALUNO), token(jwtService, "ALUNO")))
+                    .andExpect(status().isAccepted());
+            verify(paymentRoutingService).sandboxPagarComoAluno(any());
+        }
+
+        @Test
+        void soOAlunoPagaPeloPortal() throws Exception {
+            for (String perfil : List.of("MASTER", "SECRETARIA", "FINANCEIRO", "PROFESSOR")) {
+                mockMvc.perform(comToken(post(PAGAR_ALUNO), token(jwtService, perfil)))
+                        .andExpect(status().isForbidden());
+            }
+            verify(paymentRoutingService, never()).sandboxPagarComoAluno(any());
+        }
+
+        @Test
+        void masterPagaAFaturaDoEduka() throws Exception {
+            mockMvc.perform(comToken(post(PAGAR_FATURA), token(jwtService, "MASTER")))
+                    .andExpect(status().isAccepted());
+            verify(paymentRoutingService).sandboxPagarFatura(any());
+        }
+
+        @Test
+        void soOMasterPagaAFatura() throws Exception {
+            for (String perfil : List.of("SECRETARIA", "FINANCEIRO", "PROFESSOR", "ALUNO")) {
+                mockMvc.perform(comToken(post(PAGAR_FATURA), token(jwtService, perfil)))
+                        .andExpect(status().isForbidden());
+            }
+            verify(paymentRoutingService, never()).sandboxPagarFatura(any());
         }
 
         @Test
@@ -140,7 +175,13 @@ class SandboxControllerSecurityTest {
             mockMvc.perform(comToken(post(APROVAR), token(jwtService, "MASTER"))).andExpect(status().isNotFound());
             mockMvc.perform(comToken(post(CONFIRMAR), token(jwtService, "FINANCEIRO")))
                     .andExpect(status().isNotFound());
+            mockMvc.perform(comToken(post(PAGAR_ALUNO), token(jwtService, "ALUNO")))
+                    .andExpect(status().isNotFound());
+            mockMvc.perform(comToken(post(PAGAR_FATURA), token(jwtService, "MASTER")))
+                    .andExpect(status().isNotFound());
             verify(paymentRoutingService, never()).sandboxAprovarConta();
+            verify(paymentRoutingService, never()).sandboxPagarComoAluno(any());
+            verify(paymentRoutingService, never()).sandboxPagarFatura(any());
         }
     }
 }

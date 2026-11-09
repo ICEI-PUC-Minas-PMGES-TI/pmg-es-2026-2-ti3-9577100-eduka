@@ -1,29 +1,43 @@
 // Codigo/backend/src/main/java/br/pucminas/eduka/backend/service/AlunoService.java
 package br.pucminas.eduka.backend.service;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.pucminas.eduka.backend.domain.Aluno;
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.PapelPessoa;
 import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.PessoaPapel;
+import br.pucminas.eduka.backend.domain.StatusMatricula;
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.AlunoRequest;
 import br.pucminas.eduka.backend.dto.AlunoResponse;
 import br.pucminas.eduka.backend.dto.EnderecoRequest;
+import br.pucminas.eduka.backend.dto.Ordenacao;
+import br.pucminas.eduka.backend.dto.PaginaResponse;
+import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.dto.ResponsavelResponse;
 import br.pucminas.eduka.backend.exception.NumeroMatriculaJaCadastradoException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.exception.RegistroEmUsoException;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
+import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
@@ -53,22 +67,51 @@ import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 @Service
 public class AlunoService {
 
+    private static final ZoneId FUSO_ESCOLA = ZoneId.of("America/Sao_Paulo");
+
     private final AlunoRepository alunoRepository;
     private final PessoaRepository pessoaRepository;
     private final PessoaPapelRepository pessoaPapelRepository;
     private final ResponsavelService responsavelService;
     private final IsolamentoEscola isolamentoEscola;
     private final AcessoService acessoService;
+    private final MatriculaTurmaRepository matriculaRepository;
+    private final Clock clock;
+    private final AuditoriaService auditoriaService;
 
     public AlunoService(AlunoRepository alunoRepository, PessoaRepository pessoaRepository,
             PessoaPapelRepository pessoaPapelRepository, ResponsavelService responsavelService,
-            IsolamentoEscola isolamentoEscola, AcessoService acessoService) {
+            IsolamentoEscola isolamentoEscola, AcessoService acessoService,
+            MatriculaTurmaRepository matriculaRepository, Clock clock, AuditoriaService auditoriaService) {
         this.alunoRepository = alunoRepository;
         this.pessoaRepository = pessoaRepository;
         this.pessoaPapelRepository = pessoaPapelRepository;
         this.responsavelService = responsavelService;
         this.isolamentoEscola = isolamentoEscola;
         this.acessoService = acessoService;
+        this.matriculaRepository = matriculaRepository;
+        this.clock = clock;
+        this.auditoriaService = auditoriaService;
+    }
+
+    /**
+     * Pagina dos alunos da escola, opcionalmente filtrados por parte do nome e
+     * pela situacao. O nome e cifrado, entao filtro e ordem por nome sao feitos
+     * em memoria sobre os alunos da escola, e so a pagina vai na resposta.
+     */
+    public PaginaResponse<AlunoResponse> listarPaginado(String nome, AlunoResponse.Situacao situacao,
+            Paginacao paginacao, Ordenacao.Alunos ordenarPor, Direction direcao) {
+        Comparator<AlunoResponse> campo = switch (ordenarPor) {
+            case NOME -> Comparator.comparing(AlunoResponse::nome, Paginacao.ORDEM_DE_NOME);
+            case MATRICULA -> Comparator.comparing(AlunoResponse::matricula,
+                    Comparator.nullsLast(Comparator.naturalOrder()));
+        };
+        List<AlunoResponse> ordenados = listar(nome).stream()
+                .filter(aluno -> situacao == null || aluno.situacao() == situacao)
+                .sorted(Ordenacao.emMemoria(campo, Ordenacao.ou(direcao, Direction.ASC),
+                        Comparator.comparing(AlunoResponse::id)))
+                .toList();
+        return PaginaResponse.recortar(ordenados, paginacao);
     }
 
     public List<AlunoResponse> listar(String nome) {
@@ -78,12 +121,30 @@ public class AlunoService {
                 .findAllByIdInAndEscolaId(alunos.stream().map(Aluno::getPessoaId).toList(), escolaId)
                 .stream().collect(Collectors.toMap(Pessoa::getId, pessoa -> pessoa));
 
+        // A ATIVA vale mais que a TRANCADA: o aluno com as duas esta matriculado.
+        Map<UUID, MatriculaTurmaRepository.Vigente> vigentes = matriculaRepository.listarVigentes(escolaId).stream()
+                .collect(Collectors.toMap(MatriculaTurmaRepository.Vigente::getAlunoId, Function.identity(),
+                        (a, b) -> b.getStatus() == StatusMatricula.ATIVA ? b : a));
+
         String filtro = nome == null || nome.isBlank() ? null : nome.trim().toLowerCase(Locale.ROOT);
         return alunos.stream()
                 .filter(aluno -> filtro == null
                         || pessoasPorId.get(aluno.getPessoaId()).getNome().toLowerCase(Locale.ROOT).contains(filtro))
-                .map(aluno -> AlunoResponse.deResumo(aluno, pessoasPorId.get(aluno.getPessoaId())))
+                .map(aluno -> resumo(aluno, pessoasPorId.get(aluno.getPessoaId()), vigentes.get(aluno.getId())))
                 .toList();
+    }
+
+    private static AlunoResponse resumo(Aluno aluno, Pessoa pessoa, MatriculaTurmaRepository.Vigente vigente) {
+        if (aluno.isAnonimizado()) {
+            return AlunoResponse.deResumo(aluno, pessoa, AlunoResponse.Situacao.ANONIMIZADO, null, null);
+        }
+        if (vigente == null) {
+            return AlunoResponse.deResumo(aluno, pessoa, AlunoResponse.Situacao.SEM_TURMA, null, null);
+        }
+        AlunoResponse.Situacao situacao = vigente.getStatus() == StatusMatricula.ATIVA
+                ? AlunoResponse.Situacao.MATRICULADO
+                : AlunoResponse.Situacao.TRANCADO;
+        return AlunoResponse.deResumo(aluno, pessoa, situacao, vigente.getTurmaId(), vigente.getTurmaNome());
     }
 
     public AlunoResponse buscarPorId(UUID id) {
@@ -142,6 +203,7 @@ public class AlunoService {
                 .build());
 
         List<ResponsavelResponse> responsaveis = responsavelService.vincularAoNovoAluno(aluno, request.responsaveis());
+        auditoriaService.registrar(OperacaoAuditoria.CRIAR, EntidadeAuditada.ALUNO, aluno.getId());
         return AlunoResponse.de(aluno, pessoaAluno, responsaveis);
     }
 
@@ -156,6 +218,7 @@ public class AlunoService {
         validar(request);
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         Aluno aluno = alunoRepository.findByIdAndEscolaId(id, escolaId).orElseThrow(AlunoService::naoEncontrado);
+        exigirNaoAnonimizado(aluno);
         Pessoa pessoa = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
                 .orElseThrow(AlunoService::naoEncontrado);
         String matricula = request.matricula().trim();
@@ -180,6 +243,7 @@ public class AlunoService {
 
         acessoService.sincronizarLogin(pessoa);
         Pessoa pessoaSalva = pessoaRepository.save(pessoa);
+        auditoriaService.registrar(OperacaoAuditoria.EDITAR, EntidadeAuditada.ALUNO, aluno.getId());
         return AlunoResponse.de(alunoRepository.save(aluno), pessoaSalva, responsavelService.responsaveisDoAluno(aluno.getId(), escolaId));
     }
 
@@ -193,6 +257,7 @@ public class AlunoService {
     public void reenviarAcesso(UUID id) {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         Aluno aluno = alunoRepository.findByIdAndEscolaId(id, escolaId).orElseThrow(AlunoService::naoEncontrado);
+        exigirNaoAnonimizado(aluno);
         Pessoa pessoa = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
                 .orElseThrow(AlunoService::naoEncontrado);
         Usuario usuario = acessoService.enviarAcessoInicial(pessoa, PerfilUsuario.ALUNO);
@@ -200,6 +265,7 @@ public class AlunoService {
             aluno.setUsuarioId(usuario.getId());
             alunoRepository.save(aluno);
         }
+        auditoriaService.registrar(OperacaoAuditoria.REENVIAR_ACESSO, EntidadeAuditada.ALUNO, aluno.getId());
     }
 
     private Pessoa criarPessoa(UUID escolaId, String nome, String cpf, java.time.LocalDate dataNascimento,
@@ -221,12 +287,24 @@ public class AlunoService {
                 .build());
     }
 
-    private static void validar(AlunoRequest request) {
+    private void validar(AlunoRequest request) {
         if (request.nome() == null || request.nome().isBlank()) {
             throw new IllegalArgumentException("Nome do aluno e obrigatorio");
         }
         if (request.matricula() == null || request.matricula().isBlank()) {
             throw new IllegalArgumentException("Matricula do aluno e obrigatoria");
+        }
+        // Qualquer data passada vale; "hoje" e o dia na escola, nao em UTC.
+        if (request.dataNascimento() != null
+                && request.dataNascimento().isAfter(LocalDate.now(clock.withZone(FUSO_ESCOLA)))) {
+            throw new IllegalArgumentException("Data de nascimento nao pode ser futura");
+        }
+    }
+
+    /** Aluno anonimizado nao tem mais dado pessoal: nao e editado nem ganha acesso (409). */
+    static void exigirNaoAnonimizado(Aluno aluno) {
+        if (aluno.isAnonimizado()) {
+            throw new RegistroEmUsoException("Aluno anonimizado: os dados pessoais foram apagados");
         }
     }
 

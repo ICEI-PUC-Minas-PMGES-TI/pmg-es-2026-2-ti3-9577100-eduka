@@ -50,6 +50,18 @@ export type AvaliacaoDoAluno = {
   observacao: string | null
 }
 
+// Espelha o BoletimTurmaResponse.Frequencia. Fica nula ("sem aulas") enquanto
+// não há aula com chamada: nunca é 0% nem 100%.
+export type FrequenciaBoletim = {
+  /** Aulas com chamada em que o aluno consta. */
+  totalAulas: number
+  faltas: number
+  /** Presença em %, com uma casa decimal. */
+  percentualFrequencia: number
+  /** Faltas acima do limite (`limiteFaltasPercentual` da turma) das aulas dadas. */
+  alertaFaltas: boolean
+}
+
 export type BoletimDisciplina = {
   disciplinaId: number
   disciplinaNome: string
@@ -61,6 +73,8 @@ export type BoletimDisciplina = {
   pontosAvaliados: number
   /** Soma do valor de todas as avaliações. */
   pontosDistribuidos: number
+  /** Nula quando a disciplina ainda não teve aula com chamada. */
+  frequencia: FrequenciaBoletim | null
 }
 
 // Espelha o BoletimTurmaResponse (GET /portal/aluno/boletim).
@@ -71,4 +85,8 @@ export type BoletimTurma = {
   cursoNome: string
   situacaoMatricula: StatusMatricula
   disciplinas: BoletimDisciplina[]
+  /** Frequência da turma toda (soma das disciplinas); nula se nenhuma teve aula. */
+  frequencia: FrequenciaBoletim | null
+  /** Limite de faltas (% das aulas dadas) que dispara o alerta; vem do backend para a tela não repetir o número. */
+  limiteFaltasPercentual: number
 }

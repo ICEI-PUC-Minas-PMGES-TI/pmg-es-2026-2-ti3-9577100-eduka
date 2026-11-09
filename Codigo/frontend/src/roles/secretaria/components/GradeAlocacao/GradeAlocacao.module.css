@@ -7,7 +7,6 @@
   background: var(--glass-bg);
   box-shadow: var(--glass-shadow);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 /* Faixa lavanda no topo: quem é a turma e quanto da grade já tem professor. */
@@ -190,7 +189,6 @@
   border-radius: 0 0 var(--radius-xl) var(--radius-xl);
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .situacao {
@@ -222,4 +220,43 @@
     align-items: flex-start;
     width: 100%;
   }
+
+  .rodape {
+    padding: 14px 16px;
+  }
+
+  .acoes {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .acoes > button {
+    flex: 1;
+    min-width: 0;
+    padding-inline: 12px;
+  }
+}
+
+.horario {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  color: var(--color-text-subtle);
+  font-size: 12.5px;
+}
+
+.editarHorario {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--color-primary, #7c4dff);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.editarHorario:hover {
+  text-decoration: underline;
 }

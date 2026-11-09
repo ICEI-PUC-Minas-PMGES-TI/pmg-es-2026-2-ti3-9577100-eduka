@@ -1,8 +1,11 @@
 package br.pucminas.eduka.backend.dto;
 
+import java.time.LocalTime;
 import java.util.List;
 
+import br.pucminas.eduka.backend.domain.DiaSemana;
 import br.pucminas.eduka.backend.domain.Disciplina;
+import br.pucminas.eduka.backend.domain.HorarioTurma;
 import br.pucminas.eduka.backend.domain.Turma;
 import br.pucminas.eduka.backend.domain.Turno;
 
@@ -26,11 +29,21 @@ public record TurmaDoProfessorResponse(
             Long id,
             String nome,
             String codigo,
-            Integer cargaHoraria) {
+            Integer cargaHoraria,
+            /** Aulas da disciplina na grade da turma, por dia e hora (IU13); vazia sem horario montado. */
+            List<HorarioDaDisciplina> horarios) {
 
-        public static DisciplinaDoProfessor de(Disciplina disciplina) {
+        public static DisciplinaDoProfessor de(Disciplina disciplina, List<HorarioDaDisciplina> horarios) {
             return new DisciplinaDoProfessor(disciplina.getId(), disciplina.getNome(), disciplina.getCodigo(),
-                    disciplina.getCargaHoraria());
+                    disciplina.getCargaHoraria(), horarios);
+        }
+    }
+
+    /** Uma aula da disciplina na grade semanal da turma (HORARIO_TURMA). */
+    public record HorarioDaDisciplina(DiaSemana diaSemana, LocalTime horaInicio, LocalTime horaFim) {
+
+        public static HorarioDaDisciplina de(HorarioTurma horario) {
+            return new HorarioDaDisciplina(horario.getDiaSemana(), horario.getHoraInicio(), horario.getHoraFim());
         }
     }
 

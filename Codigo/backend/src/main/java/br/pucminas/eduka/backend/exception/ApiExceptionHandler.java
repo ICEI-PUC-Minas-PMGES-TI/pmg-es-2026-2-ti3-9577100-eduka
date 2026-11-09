@@ -55,6 +55,13 @@ public class ApiExceptionHandler {
                 .body(problema(HttpStatus.UNAUTHORIZED, ex.getMessage()));
     }
 
+    /** O front reconhece pelo {@code codigo} e mostra o aviso de suspensao (IU04). */
+    @ExceptionHandler(EscolaSuspensaException.class)
+    public ResponseEntity<ProblemDetail> escolaSuspensa(EscolaSuspensaException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(comMotivo(problema(HttpStatus.FORBIDDEN, ex.getMessage(), "ESCOLA_SUSPENSA"), ex));
+    }
+
     @ExceptionHandler(SenhaProvisoriaExpiradaException.class)
     public ResponseEntity<ProblemDetail> senhaProvisoriaExpirada(SenhaProvisoriaExpiradaException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -203,6 +210,12 @@ public class ApiExceptionHandler {
                 .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "RECEBIMENTOS_INDISPONIVEIS"));
     }
 
+    @ExceptionHandler(SolicitacaoCorrecaoAbertaException.class)
+    public ResponseEntity<ProblemDetail> solicitacaoCorrecaoAberta(SolicitacaoCorrecaoAbertaException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), "SOLICITACAO_ABERTA"));
+    }
+
     @ExceptionHandler(PagamentoEmProcessamentoException.class)
     public ResponseEntity<ProblemDetail> pagamentoEmProcessamento(PagamentoEmProcessamentoException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
@@ -211,6 +224,13 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(ContaRecebimentoNaoAtivavelException.class)
     public ResponseEntity<ProblemDetail> contaNaoAtivavel(ContaRecebimentoNaoAtivavelException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(problema(HttpStatus.CONFLICT, ex.getMessage(), ex.getCodigo()));
+    }
+
+    /** Grade de horarios: o {@code codigo} diz se o choque e na turma ou no professor. */
+    @ExceptionHandler(HorarioConflitanteException.class)
+    public ResponseEntity<ProblemDetail> horarioConflitante(HorarioConflitanteException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(problema(HttpStatus.CONFLICT, ex.getMessage(), ex.getCodigo()));
     }
@@ -281,6 +301,14 @@ public class ApiExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatus(status);
         problem.setTitle(status.getReasonPhrase());
         problem.setDetail(detalhe);
+        return problem;
+    }
+
+    /** O front explica a suspensao pelo {@code motivo} (MANUAL ou FATURA_EM_ATRASO). */
+    private static ProblemDetail comMotivo(ProblemDetail problem, EscolaSuspensaException ex) {
+        if (ex.getMotivo() != null) {
+            problem.setProperty("motivo", ex.getMotivo().name());
+        }
         return problem;
     }
 

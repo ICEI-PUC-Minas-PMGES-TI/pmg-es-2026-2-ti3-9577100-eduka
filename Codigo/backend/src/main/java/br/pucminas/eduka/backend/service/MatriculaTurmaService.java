@@ -11,17 +11,24 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.pucminas.eduka.backend.domain.Aluno;
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.MatriculaTurma;
+import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.PeriodoLetivo;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.StatusMatricula;
 import br.pucminas.eduka.backend.domain.Turma;
 import br.pucminas.eduka.backend.dto.AtualizarMatriculaRequest;
 import br.pucminas.eduka.backend.dto.MatriculaTurmaRequest;
 import br.pucminas.eduka.backend.dto.MatriculaTurmaResponse;
+import br.pucminas.eduka.backend.dto.Ordenacao;
+import br.pucminas.eduka.backend.dto.PaginaResponse;
+import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.exception.MatriculaJaExisteException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.exception.TurmaSemVagasException;
@@ -55,7 +62,8 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 public class MatriculaTurmaService {
 
     /** A data da matricula e a do calendario da escola, nao a de UTC. */
-    private static final ZoneId FUSO_ESCOLA = ZoneId.of("America/Sao_Paulo");
+    /** Fuso das datas da escola; o servico academico usa o mesmo. */
+    static final ZoneId FUSO_ESCOLA = ZoneId.of("America/Sao_Paulo");
 
     private final MatriculaTurmaRepository matriculaRepository;
     private final AlunoRepository alunoRepository;
@@ -63,16 +71,18 @@ public class MatriculaTurmaService {
     private final PessoaRepository pessoaRepository;
     private final IsolamentoEscola isolamentoEscola;
     private final Clock clock;
+    private final AuditoriaService auditoriaService;
 
     public MatriculaTurmaService(MatriculaTurmaRepository matriculaRepository, AlunoRepository alunoRepository,
             TurmaRepository turmaRepository, PessoaRepository pessoaRepository, IsolamentoEscola isolamentoEscola,
-            Clock clock) {
+            Clock clock, AuditoriaService auditoriaService) {
         this.matriculaRepository = matriculaRepository;
         this.alunoRepository = alunoRepository;
         this.turmaRepository = turmaRepository;
         this.pessoaRepository = pessoaRepository;
         this.isolamentoEscola = isolamentoEscola;
         this.clock = clock;
+        this.auditoriaService = auditoriaService;
     }
 
     /**
@@ -80,6 +90,26 @@ public class MatriculaTurmaService {
      * situacao. Filtro de turma ou aluno de outra escola devolve lista vazia.
      * Ordenado pelo nome do aluno.
      */
+    /**
+     * Pagina das matriculas, com os mesmos filtros de {@link #listar}. O nome
+     * do aluno e cifrado, entao a ordem por ele e feita em memoria, e so a
+     * pagina vai na resposta.
+     */
+    @Transactional(readOnly = true)
+    public PaginaResponse<MatriculaTurmaResponse> listarPaginado(Long turmaId, UUID alunoId, StatusMatricula status,
+            Paginacao paginacao, Ordenacao.Matriculas ordenarPor, Direction direcao) {
+        Comparator<MatriculaTurmaResponse> campo = switch (ordenarPor) {
+            case ALUNO -> Comparator.comparing(MatriculaTurmaResponse::alunoNome, Paginacao.ORDEM_DE_NOME);
+            case DATA_MATRICULA -> Comparator.comparing(MatriculaTurmaResponse::dataMatricula,
+                    Comparator.nullsLast(Comparator.naturalOrder()));
+        };
+        List<MatriculaTurmaResponse> ordenadas = listar(turmaId, alunoId, status).stream()
+                .sorted(Ordenacao.emMemoria(campo, Ordenacao.ou(direcao, Direction.ASC),
+                        Comparator.comparing(MatriculaTurmaResponse::id)))
+                .toList();
+        return PaginaResponse.recortar(ordenadas, paginacao);
+    }
+
     @Transactional(readOnly = true)
     public List<MatriculaTurmaResponse> listar(Long turmaId, UUID alunoId, StatusMatricula status) {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
@@ -127,6 +157,7 @@ public class MatriculaTurmaService {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         Aluno aluno = alunoRepository.findByIdAndEscolaId(request.alunoId(), escolaId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Aluno nao encontrado"));
+        AlunoService.exigirNaoAnonimizado(aluno);
         Turma turma = buscarTurmaParaOcupar(request.turmaId(), escolaId);
         if (matriculaRepository.existsByEscolaIdAndAlunoIdAndTurmaId(escolaId, aluno.getId(), turma.getId())) {
             throw new MatriculaJaExisteException();
@@ -141,7 +172,9 @@ public class MatriculaTurmaService {
                 .dataMatricula(request.dataMatricula() != null ? request.dataMatricula() : hoje())
                 .observacao(opcional(request.observacao()))
                 .build();
-        return paraResposta(salvar(matricula), escolaId);
+        MatriculaTurma salva = salvar(matricula);
+        auditoriaService.registrar(OperacaoAuditoria.CRIAR, EntidadeAuditada.MATRICULA, salva.getId());
+        return paraResposta(salva, escolaId);
     }
 
     /**
@@ -187,7 +220,12 @@ public class MatriculaTurmaService {
             matricula.setObservacao(opcional(request.observacao()));
         }
         matricula.setAtualizadoEm(clock.instant());
-        return paraResposta(salvar(matricula), escolaId);
+        MatriculaTurma salva = salvar(matricula);
+        // Cancelar fica como CANCELAR; trancar, concluir, reativar e transferir sao edicoes.
+        boolean cancelou = novo == StatusMatricula.CANCELADA && atual != StatusMatricula.CANCELADA;
+        auditoriaService.registrar(cancelou ? OperacaoAuditoria.CANCELAR : OperacaoAuditoria.EDITAR,
+                EntidadeAuditada.MATRICULA, salva.getId());
+        return paraResposta(salva, escolaId);
     }
 
     private MatriculaTurma buscarMatricula(UUID id, UUID escolaId) {
@@ -201,6 +239,14 @@ public class MatriculaTurmaService {
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Turma nao encontrada"));
         if (!Boolean.TRUE.equals(turma.getAtiva())) {
             throw new IllegalArgumentException("Turma inativa nao recebe matricula");
+        }
+        // IU09: periodo encerrado nao recebe matricula; planejado, so depois de Abrir matriculas.
+        PeriodoLetivo periodo = turma.getPeriodoLetivo();
+        if (periodo.getEncerradoEm() != null) {
+            throw new IllegalArgumentException("Periodo letivo encerrado nao recebe matricula");
+        }
+        if (hoje().isBefore(periodo.getDataInicio()) && !periodo.isMatriculasAbertas()) {
+            throw new IllegalArgumentException("As matriculas deste periodo letivo ainda nao foram abertas");
         }
         return turma;
     }

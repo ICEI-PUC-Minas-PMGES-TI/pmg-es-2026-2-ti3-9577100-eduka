@@ -46,6 +46,8 @@ import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.AlocacaoProfessorRepository;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AvaliacaoRepository;
+import br.pucminas.eduka.backend.repository.FrequenciaRepository;
+import br.pucminas.eduka.backend.repository.FrequenciaRepository.FrequenciaDaDisciplina;
 import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.NotaRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
@@ -73,6 +75,8 @@ class PortalAlunoServiceTest {
     @Mock
     private NotaRepository notaRepository;
     @Mock
+    private FrequenciaRepository frequenciaRepository;
+    @Mock
     private PessoaRepository pessoaRepository;
 
     private PortalAlunoService service;
@@ -85,7 +89,7 @@ class PortalAlunoServiceTest {
     @BeforeEach
     void setUp() {
         service = new PortalAlunoService(alunoRepository, matriculaRepository, alocacaoRepository,
-                avaliacaoRepository, notaRepository, pessoaRepository, new IsolamentoEscola());
+                avaliacaoRepository, notaRepository, frequenciaRepository, pessoaRepository, new IsolamentoEscola());
         SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
                 new UsuarioAutenticado(USUARIO, "ALUNO", ESCOLA), null, "ROLE_ALUNO"));
 
@@ -170,6 +174,92 @@ class PortalAlunoServiceTest {
         assertThat(mat.pontosObtidos()).isEqualByComparingTo("13.5");
         assertThat(mat.pontosAvaliados()).isEqualByComparingTo("15");
         assertThat(mat.pontosDistribuidos()).isEqualByComparingTo("30");
+    }
+
+    @Test
+    void notaDeAvaliacaoEmRascunhoNaoApareceParaOAluno() {
+        when(matriculaRepository.findAllByEscolaIdAndAlunoId(ESCOLA, aluno.getId()))
+                .thenReturn(List.of(matricula(turma, StatusMatricula.ATIVA)));
+        Avaliacao publicada = avaliacao(matematica, "Prova 1", LocalDate.of(2026, 3, 10), "10");
+        Avaliacao rascunho = avaliacao(matematica, "Prova 2", LocalDate.of(2026, 5, 10), "10");
+        rascunho.setNotasPublicadas(false);
+        when(avaliacaoRepository.findAllByEscolaIdAndTurmaIdIn(ESCOLA, List.of(1L)))
+                .thenReturn(List.of(publicada, rascunho));
+        when(notaRepository.findAllByEscolaIdAndAlunoId(ESCOLA, aluno.getId()))
+                .thenReturn(List.of(nota(publicada, "8"), nota(rascunho, "3")));
+
+        List<AvaliacaoDoAlunoResponse> agenda = service.agenda();
+
+        assertThat(agenda.get(0).nota()).isEqualByComparingTo("8");
+        assertThat(agenda.get(1).nota()).isNull();
+    }
+
+    @Test
+    void boletimTrazFrequenciaPorDisciplinaEGeralComSemAulasNulo() {
+        when(matriculaRepository.findAllByEscolaIdAndAlunoId(ESCOLA, aluno.getId()))
+                .thenReturn(List.of(matricula(turma, StatusMatricula.ATIVA)));
+        // Matematica com 25,1% de faltas; Fisica sem aula registrada (fora do resumo).
+        when(frequenciaRepository.resumirPorDisciplina(ESCOLA, aluno.getId(), 1L))
+                .thenReturn(List.of(resumo(matematica.getId(), 1000, 251)));
+
+        BoletimTurmaResponse boletim = service.boletim().get(0);
+
+        assertThat(boletim.limiteFaltasPercentual()).isEqualTo(25);
+        BoletimDisciplina fis = boletim.disciplinas().get(0);
+        assertThat(fis.disciplinaNome()).isEqualTo("Fisica");
+        assertThat(fis.frequencia()).isNull();
+        BoletimDisciplina mat = boletim.disciplinas().get(1);
+        assertThat(mat.frequencia().totalAulas()).isEqualTo(1000);
+        assertThat(mat.frequencia().faltas()).isEqualTo(251);
+        assertThat(mat.frequencia().percentualFrequencia()).isEqualByComparingTo("74.9");
+        assertThat(mat.frequencia().alertaFaltas()).isTrue();
+        assertThat(boletim.frequencia().totalAulas()).isEqualTo(1000);
+        assertThat(boletim.frequencia().alertaFaltas()).isTrue();
+    }
+
+    @Test
+    void boletimSemNenhumaAulaNaoTemFrequenciaNemAlerta() {
+        when(matriculaRepository.findAllByEscolaIdAndAlunoId(ESCOLA, aluno.getId()))
+                .thenReturn(List.of(matricula(turma, StatusMatricula.ATIVA)));
+        when(frequenciaRepository.resumirPorDisciplina(ESCOLA, aluno.getId(), 1L)).thenReturn(List.of());
+
+        BoletimTurmaResponse boletim = service.boletim().get(0);
+
+        assertThat(boletim.frequencia()).isNull();
+        assertThat(boletim.disciplinas()).extracting(BoletimDisciplina::frequencia).containsOnlyNulls();
+    }
+
+    @Test
+    void boletimComExatamente25PorCentoDeFaltasNaoAlerta() {
+        when(matriculaRepository.findAllByEscolaIdAndAlunoId(ESCOLA, aluno.getId()))
+                .thenReturn(List.of(matricula(turma, StatusMatricula.ATIVA)));
+        when(frequenciaRepository.resumirPorDisciplina(ESCOLA, aluno.getId(), 1L))
+                .thenReturn(List.of(resumo(matematica.getId(), 20, 5), resumo(fisica.getId(), 20, 5)));
+
+        BoletimTurmaResponse boletim = service.boletim().get(0);
+
+        assertThat(boletim.disciplinas()).extracting(d -> d.frequencia().alertaFaltas()).containsOnly(false);
+        assertThat(boletim.frequencia().alertaFaltas()).isFalse();
+        assertThat(boletim.frequencia().percentualFrequencia()).isEqualByComparingTo("75");
+    }
+
+    private static FrequenciaDaDisciplina resumo(Long disciplinaId, long aulas, long faltas) {
+        return new FrequenciaDaDisciplina() {
+            @Override
+            public Long getDisciplinaId() {
+                return disciplinaId;
+            }
+
+            @Override
+            public long getAulas() {
+                return aulas;
+            }
+
+            @Override
+            public long getFaltas() {
+                return faltas;
+            }
+        };
     }
 
     @Test

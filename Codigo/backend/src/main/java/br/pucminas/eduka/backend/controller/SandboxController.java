@@ -22,7 +22,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @RestController
 @Profile({ "dev", "demo" })
 @Tag(name = "Sandbox", description = "Atalhos de teste do provedor de pagamento, so em desenvolvimento. "
-        + "Perfis: MASTER (conta) e FINANCEIRO (cobranca).")
+        + "Perfis: MASTER (conta e fatura do Eduka), FINANCEIRO e ALUNO (cobranca).")
 public class SandboxController {
 
     private final PaymentRoutingService paymentRoutingService;
@@ -49,5 +49,28 @@ public class SandboxController {
             + "outra escola; 400 cobranca ainda nao emitida; 409 SANDBOX_INDISPONIVEL fora do Sandbox.")
     public void confirmarPagamento(@PathVariable UUID id) {
         paymentRoutingService.sandboxConfirmarPagamento(id);
+    }
+
+    @PostMapping("/portal/aluno/cobrancas/{id}/sandbox/pagar")
+    @PreAuthorize(Perfis.ALUNO)
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @Operation(summary = "Pagar a propria cobranca no Sandbox", description = "Perfil: ALUNO, dono da cobranca. "
+            + "Depois de Pagar com PIX ou boleto, confirma o pagamento no Sandbox como se o banco tivesse pago; a "
+            + "cobranca fica paga sem esperar o aviso do provedor. 404 cobranca de outro aluno; 400 cobranca "
+            + "ainda nao emitida; 409 SANDBOX_INDISPONIVEL fora do Sandbox.")
+    public void pagarComoAluno(@PathVariable UUID id) {
+        paymentRoutingService.sandboxPagarComoAluno(id);
+    }
+
+    @PostMapping("/config-pagamento/faturas/{id}/sandbox/pagar")
+    @PreAuthorize(Perfis.GESTAO)
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @Operation(summary = "Pagar a fatura do Eduka no Sandbox", description = "Perfil: MASTER. Depois de Pagar com "
+            + "PIX ou boleto, confirma o pagamento da fatura no Sandbox como se o banco tivesse pago; o valor cai na "
+            + "conta-pai do Eduka e a fatura fica paga sem esperar o aviso do provedor. 404 fatura de outra escola; "
+            + "400 fatura ainda nao emitida; 409 COBRANCA_NAO_PAGAVEL se cancelada ou SANDBOX_INDISPONIVEL fora do "
+            + "Sandbox.")
+    public void pagarFatura(@PathVariable UUID id) {
+        paymentRoutingService.sandboxPagarFatura(id);
     }
 }

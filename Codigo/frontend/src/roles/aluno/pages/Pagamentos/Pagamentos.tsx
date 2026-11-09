@@ -1,8 +1,11 @@
 import { useCallback, useState } from 'react'
 import { Badge } from '../../../../components/Badge/Badge'
 import { Button } from '../../../../components/Button/Button'
+import { CampoPeriodo, type Periodo } from '../../../../components/CampoPeriodo/CampoPeriodo'
 import { ModalComprovante } from '../../../../components/Comprovante/ModalComprovante'
+import { Paginacao } from '../../../../components/Paginacao/Paginacao'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
+import { usePaginacao } from '../../../../hooks/usePaginacao'
 import { buscarComprovante, buscarHistoricoFinanceiro } from '../../../../services/pagamentoAlunoService'
 import {
   podePagar,
@@ -40,16 +43,48 @@ function prazo(vencimento: string): string {
 function descreverPagamento(c: CobrancaDoHistorico): string | null {
   if (c.pagamento) {
     const como = c.pagamento.forma ? ROTULOS_FORMA_PAGAMENTO[c.pagamento.forma] : 'Baixa pela escola'
-    return `${como} em ${formatarData(c.pagamento.dataPagamento)}`
+    const devolvido =
+      c.pagamento.valorEstornado > 0 ? ` · ${formatarMoeda(c.pagamento.valorEstornado)} devolvidos` : ''
+    return `${como} em ${formatarData(c.pagamento.dataPagamento)}${devolvido}`
   }
   if (c.pagaEm) return `Baixa pela escola em ${new Date(c.pagaEm).toLocaleDateString('pt-BR')}`
   return null
 }
 
+type FiltroHistorico = 'TODAS' | 'EM_ABERTO' | 'PAGAS' | 'CANCELADAS'
+
+const FILTROS: FiltroHistorico[] = ['TODAS', 'EM_ABERTO', 'PAGAS', 'CANCELADAS']
+
+const ROTULOS_FILTRO: Record<FiltroHistorico, string> = {
+  TODAS: 'Todas',
+  EM_ABERTO: 'Em aberto',
+  PAGAS: 'Pagas',
+  CANCELADAS: 'Canceladas',
+}
+
+function passaNaSituacao(cobranca: CobrancaDoHistorico, filtro: FiltroHistorico): boolean {
+  switch (filtro) {
+    case 'TODAS':
+      return true
+    case 'EM_ABERTO':
+      return podePagar(cobranca.status)
+    case 'PAGAS':
+      return cobranca.status === 'PAGA'
+    case 'CANCELADAS':
+      return cobranca.status === 'CANCELADA'
+  }
+}
+
+/** Datas ISO: a comparação de texto já segue a ordem do calendário. */
+function passaNoPeriodo(cobranca: CobrancaDoHistorico, periodo: Periodo | null): boolean {
+  return !periodo || (cobranca.dataVencimento >= periodo.de && cobranca.dataVencimento <= periodo.ate)
+}
+
 /**
- * Pagamentos do aluno: a próxima mensalidade em destaque e o botão Pagar
- * (escolhe PIX ou boleto e vê o QR Code ou a linha digitável no Eduka), as demais em aberto, as pagas com o
- * comprovante de cada pagamento online e as canceladas.
+ * Pagamentos do aluno (IU17): a próxima mensalidade em destaque, os cards de
+ * resumo e o histórico de todas as cobranças, com filtros de situação e de
+ * período de vencimento. Em aberto tem Pagar (escolhe PIX ou boleto e vê o QR
+ * Code ou a linha digitável no Eduka); paga online tem Ver comprovante.
  */
 export function Pagamentos() {
   const { dados: historico, carregando, erro, recarregar } = useDadosDoAluno<HistoricoFinanceiro | null>(
@@ -61,16 +96,23 @@ export function Pagamentos() {
   const [pagouAlguma, setPagouAlguma] = useState(false)
   /** `comprovanteUrl` do pagamento cujo comprovante está aberto. */
   const [comprovanteDe, setComprovanteDe] = useState<string | null>(null)
+  const [filtro, setFiltro] = useState<FiltroHistorico>('TODAS')
+  const [periodo, setPeriodo] = useState<Periodo | null>(null)
 
   const cobrancas = historico?.cobrancas ?? []
   // Em aberto: a que vence (ou venceu) primeiro vem antes. A primeira é a "próxima".
   const emAberto = cobrancas
     .filter((c) => podePagar(c.status))
     .sort((a, b) => a.dataVencimento.localeCompare(b.dataVencimento))
-  const [proxima, ...outrasEmAberto] = emAberto
+  const proxima = emAberto[0]
+  // Os contadores das pílulas respeitam o período: mostram o que aparece ao clicar.
   // O histórico já vem do vencimento mais recente para o mais antigo.
-  const pagas = cobrancas.filter((c) => c.status === 'PAGA')
-  const canceladas = cobrancas.filter((c) => c.status === 'CANCELADA')
+  const noPeriodo = (historico?.cobrancas ?? []).filter((c) => passaNoPeriodo(c, periodo))
+  const filtradas = noPeriodo.filter((c) => passaNaSituacao(c, filtro))
+  const { paginacao: paginasHistorico, topo: topoHistorico } = usePaginacao<CobrancaDoHistorico, HTMLElement>(
+    filtradas,
+    { reiniciarCom: `${filtro}|${periodo?.de ?? ''}|${periodo?.ate ?? ''}` },
+  )
 
   const buscarComprovanteAberto = useCallback(() => buscarComprovante(comprovanteDe ?? ''), [comprovanteDe])
 
@@ -89,7 +131,7 @@ export function Pagamentos() {
 
   return (
     <AlunoLayout titulo="Pagamentos" subtitulo="Suas mensalidades e taxas. Pague com PIX ou boleto sem sair do Eduka.">
-      {carregando && <div className={styles.mensagem}>Carregando seus pagamentos…</div>}
+      {carregando && <div className={styles.mensagem} role="status">Carregando seus pagamentos…</div>}
 
       {!carregando && erro && (
         <div className={styles.mensagem} role="alert">
@@ -145,137 +187,90 @@ export function Pagamentos() {
             </div>
           )}
 
-          {outrasEmAberto.length > 0 && (
-            <section className={styles.cartao} aria-labelledby="titulo-outras">
-              <h2 id="titulo-outras" className={styles.tituloSecao}>
-                Outras cobranças em aberto
+          {cobrancas.length > 0 && (
+            <section ref={topoHistorico} className={styles.cartao} aria-labelledby="titulo-historico">
+              <h2 id="titulo-historico" className={styles.tituloSecao}>
+                Histórico
               </h2>
-              <div className={styles.rolagem}>
-                <table className={styles.tabela}>
-                  <thead>
-                    <tr>
-                      <th scope="col">Descrição</th>
-                      <th scope="col">Vencimento</th>
-                      <th scope="col" className={styles.numero}>
-                        Valor
-                      </th>
-                      <th scope="col">Situação</th>
-                      <th scope="col" className={styles.acao}>
-                        <span className={styles.somenteLeitor}>Pagar</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {outrasEmAberto.map((c) => (
-                      <tr key={c.id}>
-                        <td>
-                          <span className={styles.descricao}>{c.descricao}</span>
-                          {c.turmaNome && <span className={styles.secundario}>{c.turmaNome}</span>}
-                        </td>
-                        <td className={styles.data}>{formatarData(c.dataVencimento)}</td>
-                        <td className={styles.numero}>{formatarMoeda(c.valor)}</td>
-                        <td>
-                          <Badge tone={TOM_STATUS[c.status]}>{ROTULOS_STATUS_COBRANCA_ALUNO[c.status]}</Badge>
-                        </td>
-                        <td className={styles.acao}>
-                          <BotaoPagar cobranca={c} onPagar={pagar} tamanho="sm" />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          )}
 
-          {pagas.length > 0 && (
-            <section className={styles.cartao} aria-labelledby="titulo-pagas">
-              <h2 id="titulo-pagas" className={styles.tituloSecao}>
-                Pagas
-              </h2>
-              <div className={styles.rolagem}>
-                <table className={styles.tabela}>
-                  <thead>
-                    <tr>
-                      <th scope="col">Descrição</th>
-                      <th scope="col">Vencimento</th>
-                      <th scope="col" className={styles.numero}>
-                        Valor pago
-                      </th>
-                      <th scope="col">Pagamento</th>
-                      <th scope="col" className={styles.acao}>
-                        <span className={styles.somenteLeitor}>Comprovante</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagas.map((c) => (
-                      <tr key={c.id}>
-                        <td>
-                          <span className={styles.descricao}>{c.descricao}</span>
-                          {c.turmaNome && <span className={styles.secundario}>{c.turmaNome}</span>}
-                        </td>
-                        <td className={styles.data}>{formatarData(c.dataVencimento)}</td>
-                        <td className={styles.numero}>{formatarMoeda(c.pagamento?.valorPago ?? c.valor)}</td>
-                        <td className={styles.secundario}>{descreverPagamento(c) ?? '—'}</td>
-                        <td className={styles.acao}>
-                          {c.pagamento?.comprovanteUrl ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              icon="eye"
-                              onClick={() => setComprovanteDe(c.pagamento?.comprovanteUrl ?? null)}
-                              aria-label={`Ver o comprovante de ${c.descricao}`}
-                            >
-                              Comprovante
-                            </Button>
-                          ) : (
-                            // Baixa feita pela escola: o Eduka não tem comprovante para mostrar.
-                            <span className={styles.secundario}>Sem comprovante</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className={styles.filtros}>
+                <div className={styles.pilulas} role="group" aria-label="Filtrar por situação">
+                  {FILTROS.map((opcao) => (
+                    <button
+                      key={opcao}
+                      type="button"
+                      aria-pressed={filtro === opcao}
+                      className={`${styles.pilula} ${filtro === opcao ? styles.pilulaAtiva : ''}`}
+                      onClick={() => setFiltro(opcao)}
+                    >
+                      {ROTULOS_FILTRO[opcao]}
+                      <span className={styles.contador}>{noPeriodo.filter((c) => passaNaSituacao(c, opcao)).length}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className={styles.periodo}>
+                  <CampoPeriodo
+                    valor={periodo}
+                    onChange={setPeriodo}
+                    placeholder="Período de vencimento"
+                    // Mensalidades futuras também têm vencimento: o calendário vai até o fim do ano que vem.
+                    max={`${Number(hojeIso().slice(0, 4)) + 1}-12-31`}
+                    mesInicial={hojeIso()}
+                    aria-pressed={periodo !== null}
+                    className={`${styles.pilula} ${periodo ? styles.pilulaAtiva : ''}`}
+                  />
+                  {periodo && (
+                    <Button size="sm" onClick={() => setPeriodo(null)}>
+                      Limpar período
+                    </Button>
+                  )}
+                </div>
               </div>
-            </section>
-          )}
 
-          {canceladas.length > 0 && (
-            <section className={styles.cartao} aria-labelledby="titulo-canceladas">
-              <h2 id="titulo-canceladas" className={styles.tituloSecao}>
-                Canceladas
-              </h2>
-              <div className={styles.rolagem}>
-                <table className={styles.tabela}>
-                  <thead>
-                    <tr>
-                      <th scope="col">Descrição</th>
-                      <th scope="col">Vencimento</th>
-                      <th scope="col" className={styles.numero}>
-                        Valor
-                      </th>
-                      <th scope="col">Situação</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {canceladas.map((c) => (
-                      <tr key={c.id}>
-                        <td>
-                          <span className={styles.descricao}>{c.descricao}</span>
-                          {c.turmaNome && <span className={styles.secundario}>{c.turmaNome}</span>}
-                        </td>
-                        <td className={styles.data}>{formatarData(c.dataVencimento)}</td>
-                        <td className={styles.numero}>{formatarMoeda(c.valor)}</td>
-                        <td>
-                          <Badge tone={TOM_STATUS[c.status]}>{ROTULOS_STATUS_COBRANCA_ALUNO[c.status]}</Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {filtradas.length === 0 ? (
+                <p className={styles.semResultado}>Nenhuma cobrança encontrada para estes filtros.</p>
+              ) : (
+                <>
+                  <div className={styles.rolagem}>
+                    <table className={styles.tabela}>
+                      <thead>
+                        <tr>
+                          <th scope="col">Descrição</th>
+                          <th scope="col">Vencimento</th>
+                          <th scope="col" className={styles.numero}>
+                            Valor
+                          </th>
+                          <th scope="col">Situação</th>
+                          <th scope="col">Pagamento</th>
+                          <th scope="col" className={styles.acao}>
+                            <span className={styles.somenteLeitor}>Ações</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginasHistorico.itensDaPagina.map((c) => (
+                          <tr key={c.id}>
+                            <td className={styles.colPrincipal}>
+                              <span className={styles.descricao}>{c.descricao}</span>
+                              {c.turmaNome && <span className={styles.secundario}>{c.turmaNome}</span>}
+                            </td>
+                            <td data-rotulo="Vencimento" className={styles.data}>{formatarData(c.dataVencimento)}</td>
+                            <td data-rotulo="Valor" className={styles.numero}>{formatarMoeda(c.pagamento?.valorPago ?? c.valor)}</td>
+                            <td data-rotulo="Situação">
+                              <Badge tone={TOM_STATUS[c.status]}>{ROTULOS_STATUS_COBRANCA_ALUNO[c.status]}</Badge>
+                            </td>
+                            <td data-rotulo="Pagamento" className={styles.secundario}>{descreverPagamento(c) ?? '—'}</td>
+                            <td className={styles.acao}>
+                              <AcaoDaCobranca cobranca={c} onPagar={pagar} onVerComprovante={setComprovanteDe} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <Paginacao paginacao={paginasHistorico} rotulo="Páginas do histórico" />
+                </>
+              )}
             </section>
           )}
         </>
@@ -295,6 +290,35 @@ export function Pagamentos() {
 }
 
 type AcaoPagar = (cobranca: CobrancaDoHistorico) => void
+
+/** O que dá para fazer com a cobrança: pagar, ver o comprovante ou nada. */
+function AcaoDaCobranca({
+  cobranca,
+  onPagar,
+  onVerComprovante,
+}: {
+  cobranca: CobrancaDoHistorico
+  onPagar: AcaoPagar
+  onVerComprovante: (comprovanteUrl: string) => void
+}) {
+  if (podePagar(cobranca.status)) return <BotaoPagar cobranca={cobranca} onPagar={onPagar} tamanho="sm" />
+  const comprovanteUrl = cobranca.pagamento?.comprovanteUrl
+  if (comprovanteUrl) {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        icon="eye"
+        onClick={() => onVerComprovante(comprovanteUrl)}
+        aria-label={`Ver o comprovante de ${cobranca.descricao}`}
+      >
+        Ver comprovante
+      </Button>
+    )
+  }
+  // Baixa feita pela escola: o Eduka não tem comprovante para mostrar.
+  return cobranca.status === 'PAGA' ? <span className={styles.secundario}>Sem comprovante</span> : null
+}
 
 /** Cartão de destaque da cobrança em aberto que vence primeiro. */
 function ProximaMensalidade({ cobranca, onPagar }: { cobranca: CobrancaDoHistorico; onPagar: AcaoPagar }) {

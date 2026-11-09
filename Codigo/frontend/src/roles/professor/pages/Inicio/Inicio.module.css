@@ -89,3 +89,18 @@
   font-size: 13px;
   overflow-wrap: anywhere;
 }
+
+/* Celular: o botão Lançar desce para a linha de baixo, para o texto não ficar espremido. */
+@media (max-width: 480px) {
+  .item:has(> .acaoLarga) {
+    flex-wrap: wrap;
+  }
+
+  .item:has(> .acaoLarga) > .corpo {
+    flex-basis: calc(100% - 64px);
+  }
+
+  .item > .acaoLarga {
+    width: 100%;
+  }
+}

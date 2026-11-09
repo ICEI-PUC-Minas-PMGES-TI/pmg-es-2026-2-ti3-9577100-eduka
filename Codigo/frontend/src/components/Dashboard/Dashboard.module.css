@@ -5,6 +5,21 @@
   gap: 18px;
 }
 
+.colunasEsticadas {
+  align-items: stretch;
+}
+
+.pilha {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.pilha > :last-child {
+  flex: 1;
+}
+
 /* Mesmo vidro do StatCard, para o dashboard ler como um conjunto só. */
 .painel {
   display: flex;
@@ -17,7 +32,6 @@
   background: var(--glass-bg);
   box-shadow: var(--glass-shadow);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .cabecalho {
@@ -131,7 +145,17 @@
   flex-wrap: wrap;
 }
 
-.atalhosHorizontal .atalho {
+/* Cada atalho fica dentro do invólucro da dica (o "Em breve"): o invólucro
+   ocupa o lugar do botão na lista, e o botão, o invólucro inteiro. */
+.atalhosLista > .alvoAtalho {
+  display: flex;
+}
+
+.alvoAtalho > .atalho {
+  flex: 1;
+}
+
+.atalhosHorizontal .atalhosLista > .alvoAtalho {
   flex: 1 1 200px;
 }
 
@@ -217,6 +241,11 @@
   transition: height 0.3s var(--curva);
 }
 
+/* O rótulo com dica (só quando cortado) continua limitado à largura da coluna. */
+.colunaGrafico > .alvoRotulo {
+  max-width: 100%;
+}
+
 .rotuloBarra {
   overflow: hidden;
   max-width: 100%;
@@ -228,25 +257,37 @@
 
 /* ---------- Gráfico comparativo (barras lado a lado) ---------- */
 
-/* Par validado para daltonismo e contraste contra o fundo claro. */
+/* Par validado para daltonismo e contraste contra o fundo claro. O brilho no
+   topo da barra é o mesmo do botão principal. */
 .serie1 {
-  background: var(--color-lavender);
+  background: linear-gradient(180deg, #a982ea 0%, var(--color-lavender) 100%);
 }
 
 .serie2 {
-  background: #2a9d8f;
+  background: linear-gradient(180deg, #3bb3a4 0%, #2a9d8f 100%);
 }
 
 .comparativo {
+  /* Altura das barras e do rodapé com os meses: o eixo e a grade se alinham por elas. */
+  --altura-barras: 210px;
+  --rodape-barras: 24px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 18px;
+}
+
+.cabecalhoGrafico {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 18px;
 }
 
 .legenda {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 18px;
+  gap: 8px 22px;
   margin: 0;
   padding: 0;
   color: var(--color-text-muted);
@@ -266,15 +307,253 @@
   border-radius: 3px;
 }
 
+.resumoSerie {
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.areaGrafico {
+  display: flex;
+  gap: 10px;
+}
+
+/* Espaço para o saldo da barra que chega ao topo do eixo. */
+.areaComSaldos {
+  padding-top: 22px;
+}
+
+/* Marcas do eixo, do topo ao zero, centradas nas linhas da grade. */
+.eixo {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: calc(var(--altura-barras) + 16px);
+  margin-top: -8px;
+  color: var(--color-text-subtle);
+  font-size: 11.5px;
+  line-height: 16px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.plotagem {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Atrás das barras, só na altura delas (sem o rodapé dos meses). */
+.grade {
+  position: absolute;
+  inset: 0 0 var(--rodape-barras);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.grade span {
+  border-top: 1px dashed var(--color-border-strong);
+}
+
+.grade span:last-child {
+  border-top-style: solid;
+}
+
+.comparativo .grafico {
+  position: relative;
+  gap: clamp(4px, 1.6vw, 14px);
+  height: calc(var(--altura-barras) + var(--rodape-barras));
+}
+
+.comparativo .colunaGrafico {
+  gap: 0;
+}
+
+.comparativo .trilho {
+  position: relative;
+}
+
+/* Saldo do mês, logo acima da barra mais alta dele. */
+.saldoGrupo {
+  position: absolute;
+  left: 50%;
+  margin-bottom: 4px;
+  color: var(--color-success);
+  font-size: 11.5px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.saldoNegativo {
+  color: var(--color-danger);
+}
+
+/* A coluna é o container: em coluna estreita, o saldo fica só no tooltip. */
+.areaComSaldos .colunaGrafico {
+  container-type: inline-size;
+}
+
+@container (max-width: 54px) {
+  .saldoGrupo {
+    display: none;
+  }
+}
+
+/* O mês sob o mouse ganha um fundo, para ler as duas barras juntas. */
+.comparativo .trilho {
+  border-radius: 10px 10px 0 0;
+  transition: background-color 0.15s;
+}
+
+.comparativo .colunaGrafico:hover .trilho {
+  background: var(--color-mist);
+}
+
+.comparativo .rotuloBarra {
+  height: var(--rodape-barras);
+  line-height: var(--rodape-barras);
+}
+
+.comparativo .colunaGrafico:hover .rotuloBarra {
+  color: var(--color-primary-text);
+  font-weight: 700;
+}
+
+/* A dica da coluna envolve o trilho: o invólucro ocupa a altura e a largura dele. */
+.colunaGrafico > .alvoColuna {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+
+/* Conteúdo da dica do gráfico: o mês e uma linha por série. */
+.dicaGrafico {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 170px;
+}
+
+.dicaTitulo {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+/* "outubro de 2026" -> "Outubro de 2026". */
+.dicaTitulo::first-letter {
+  text-transform: uppercase;
+}
+
+.dicaLinha {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-text-muted);
+}
+
+.dicaLinha strong {
+  margin-left: auto;
+  padding-left: 12px;
+  color: var(--color-text);
+  font-weight: 800;
+}
+
 .trilhoAgrupado {
-  gap: 2px;
+  gap: 3px;
 }
 
 .barraAgrupada {
-  width: min(18px, 45%);
+  width: min(22px, 45%);
   min-height: 3px;
-  border-radius: 4px 4px 0 0;
-  transition: height 0.3s var(--curva);
+  border-radius: 6px 6px 2px 2px;
+  transition: height 0.35s var(--curva);
+}
+
+@media (max-width: 600px) {
+  .comparativo {
+    --altura-barras: 170px;
+  }
+
+  .eixo {
+    font-size: 10.5px;
+  }
+}
+
+/* ---------- Números em grade ---------- */
+
+.numeros {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.numero {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-mist);
+}
+
+.numero dt {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.numero dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: -0.3px;
+  overflow-wrap: anywhere;
+}
+
+.numeroDetalhe {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+/* ---------- Paginação curta no pé do painel ---------- */
+
+.paginas {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  /* Empurra para o pé quando o painel foi esticado pelo vizinho. */
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.paginasResumo {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.paginasBotoes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.paginasAtual {
+  min-width: 48px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
 }
 
 .vazio {

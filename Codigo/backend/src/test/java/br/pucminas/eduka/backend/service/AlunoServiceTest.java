@@ -2,6 +2,7 @@
 package br.pucminas.eduka.backend.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -10,6 +11,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,6 +37,7 @@ import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.PessoaPapel;
 import br.pucminas.eduka.backend.domain.Responsavel;
+import br.pucminas.eduka.backend.domain.StatusMatricula;
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.AlunoRequest;
 import br.pucminas.eduka.backend.dto.AlunoResponse;
@@ -43,6 +49,7 @@ import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
+import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.ResponsavelRepository;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.PessoaRepository;
@@ -64,6 +71,8 @@ class AlunoServiceTest {
     @Mock
     private AlunoRepository alunoRepository;
     @Mock
+    private AuditoriaService auditoriaService;
+    @Mock
     private PessoaRepository pessoaRepository;
     @Mock
     private PessoaPapelRepository pessoaPapelRepository;
@@ -75,6 +84,8 @@ class AlunoServiceTest {
     private CobrancaRepository cobrancaRepository;
     @Mock
     private AcessoService acessoService;
+    @Mock
+    private MatriculaTurmaRepository matriculaRepository;
 
     private AlunoService alunoService;
 
@@ -87,7 +98,7 @@ class AlunoServiceTest {
                 alunoResponsavelRepository, alunoRepository, pessoaRepository, pessoaPapelRepository,
                 cobrancaRepository, isolamentoEscola);
         alunoService = new AlunoService(alunoRepository, pessoaRepository, pessoaPapelRepository,
-                responsavelService, isolamentoEscola, acessoService);
+                responsavelService, isolamentoEscola, acessoService, matriculaRepository, RELOGIO, auditoriaService);
     }
 
     @AfterEach
@@ -108,6 +119,15 @@ class AlunoServiceTest {
 
     private static Pessoa pessoa(String nome) {
         return Pessoa.builder().id(UUID.randomUUID()).nome(nome).cpf("12345678900").ativo(true).build();
+    }
+
+    /** 22h de 07/11/2026 em Brasilia: em UTC ja e dia 08. */
+    private static final Clock RELOGIO = Clock.fixed(Instant.parse("2026-11-08T01:00:00Z"), ZoneOffset.UTC);
+    private static final LocalDate HOJE_NA_ESCOLA = LocalDate.of(2026, 11, 7);
+
+    private static AlunoRequest comNascimento(LocalDate dataNascimento) {
+        return new AlunoRequest("Ana", "12345678900", "ana@example.com", dataNascimento, null, "2026-001", null,
+                null);
     }
 
     private static AlunoRequest request(String nome, String matricula, EnderecoRequest endereco,
@@ -152,6 +172,54 @@ class AlunoServiceTest {
         List<AlunoResponse> resultado = alunoService.listar(" AN ");
 
         assertThat(resultado).extracting(AlunoResponse::nome).containsExactly("Ana Silva");
+    }
+
+    private static MatriculaTurmaRepository.Vigente vigente(Aluno aluno, StatusMatricula status, long turmaId,
+            String turmaNome) {
+        return new MatriculaTurmaRepository.Vigente() {
+            public UUID getAlunoId() {
+                return aluno.getId();
+            }
+
+            public StatusMatricula getStatus() {
+                return status;
+            }
+
+            public Long getTurmaId() {
+                return turmaId;
+            }
+
+            public String getTurmaNome() {
+                return turmaNome;
+            }
+        };
+    }
+
+    @Test
+    void listarTrazASituacaoDeCadaAlunoComAAtivaValendoMaisQueATrancada() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Pessoa pessoaAna = pessoa("Ana");
+        Pessoa pessoaBia = pessoa("Bia");
+        Pessoa pessoaCaio = pessoa("Caio");
+        Aluno ana = aluno(ESCOLA_A, pessoaAna.getId());
+        Aluno bia = aluno(ESCOLA_A, pessoaBia.getId());
+        Aluno caio = aluno(ESCOLA_A, pessoaCaio.getId());
+        when(alunoRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of(ana, bia, caio));
+        when(pessoaRepository.findAllByIdInAndEscolaId(any(), eq(ESCOLA_A)))
+                .thenReturn(List.of(pessoaAna, pessoaBia, pessoaCaio));
+        // Ana tem a trancada antes da ativa; Bia so a trancada; Caio nada.
+        when(matriculaRepository.listarVigentes(ESCOLA_A)).thenReturn(List.of(
+                vigente(ana, StatusMatricula.TRANCADA, 1L, "1A"),
+                vigente(ana, StatusMatricula.ATIVA, 2L, "2B"),
+                vigente(bia, StatusMatricula.TRANCADA, 1L, "1A")));
+
+        List<AlunoResponse> resultado = alunoService.listar(null);
+
+        assertThat(resultado).extracting(AlunoResponse::nome, AlunoResponse::situacao, AlunoResponse::turmaId,
+                AlunoResponse::turmaNome).containsExactly(
+                        tuple("Ana", AlunoResponse.Situacao.MATRICULADO, 2L, "2B"),
+                        tuple("Bia", AlunoResponse.Situacao.TRANCADO, 1L, "1A"),
+                        tuple("Caio", AlunoResponse.Situacao.SEM_TURMA, null, null));
     }
 
     @Test
@@ -245,7 +313,7 @@ class AlunoServiceTest {
         });
 
         AlunoResponse resultado = alunoService.cadastrar(request("Ana", "2026-001", null,
-                List.of(new ResponsavelRequest("Maria Silva", null, "maria@example.com", "31999998888", "MAE", true))));
+                List.of(new ResponsavelRequest("Maria Silva", "52998224725", "maria@example.com", "31999998888", "MAE", true))));
 
         assertThat(resultado.responsaveis()).hasSize(1);
         assertThat(resultado.responsaveis().get(0).nome()).isEqualTo("Maria Silva");
@@ -367,6 +435,42 @@ class AlunoServiceTest {
         verify(alunoRepository, never()).save(any());
         verify(pessoaRepository, never()).save(any());
         verify(acessoService, never()).enviarAcessoInicial(any(), any());
+    }
+
+    @Test
+    void cadastrarComNascimentoFuturoNoFusoDaEscolaEhRejeitado() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+
+        // Dia 08 ja chegou em UTC, mas ainda e futuro na escola.
+        assertThatThrownBy(() -> alunoService.cadastrar(comNascimento(HOJE_NA_ESCOLA.plusDays(1))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("futura");
+        verify(alunoRepository, never()).save(any());
+        verify(pessoaRepository, never()).save(any());
+        verify(acessoService, never()).enviarAcessoInicial(any(), any());
+    }
+
+    @Test
+    void cadastrarAceitaNascimentoHojeOuAntesDe2016() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        when(pessoaRepository.save(any(Pessoa.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(alunoRepository.save(any(Aluno.class))).thenAnswer(inv -> inv.getArgument(0));
+        stubAcessoCriado(UUID.randomUUID());
+
+        assertThat(alunoService.cadastrar(comNascimento(HOJE_NA_ESCOLA)).dataNascimento())
+                .isEqualTo(HOJE_NA_ESCOLA);
+        assertThat(alunoService.cadastrar(comNascimento(LocalDate.of(1985, 5, 20))).dataNascimento())
+                .isEqualTo(LocalDate.of(1985, 5, 20));
+    }
+
+    @Test
+    void atualizarComNascimentoFuturoEhRejeitado() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+
+        assertThatThrownBy(() -> alunoService.atualizar(UUID.randomUUID(),
+                comNascimento(HOJE_NA_ESCOLA.plusDays(1))))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(pessoaRepository, never()).save(any());
     }
 
     @Test

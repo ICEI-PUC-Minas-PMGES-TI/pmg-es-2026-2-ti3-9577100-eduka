@@ -4,6 +4,11 @@ import { Icon } from '../../../../components/Icon/Icon'
 import { Modal, ModalAlerta, ModalAviso } from '../../../../components/Modal/Modal'
 import { ApiError } from '../../../../services/api'
 import { listarMinhasFaturas, pagarFatura } from '../../../../services/faturaPlataformaService'
+import {
+  atalhosSandboxHabilitados,
+  mensagemErroSandbox,
+  pagarFaturaNoSandbox,
+} from '../../../../services/sandboxService'
 import type { FaturaPlataforma } from '../../../../types/faturaPlataforma'
 import type { DadosBoleto, DadosPix, FormaPagamento } from '../../../../types/pagamentoAluno'
 import { formatarMoeda } from '../../../../utils/formatters'
@@ -69,6 +74,9 @@ type ModalPagamentoFaturaProps = {
 export function ModalPagamentoFatura({ fatura, forma, onPago, onFechar }: ModalPagamentoFaturaProps) {
   const [etapa, setEtapa] = useState<Etapa>({ tipo: 'gerando' })
   const [copiado, setCopiado] = useState<'sim' | 'falhou' | null>(null)
+  const [pagandoNoSandbox, setPagandoNoSandbox] = useState(false)
+  const [pagoNoSandbox, setPagoNoSandbox] = useState(false)
+  const [erroSandbox, setErroSandbox] = useState<string | null>(null)
   const montado = useRef(true)
   const consultando = useRef(false)
   const pedidos = useRef(0)
@@ -144,7 +152,8 @@ export function ModalPagamentoFatura({ fatura, forma, onPago, onFechar }: ModalP
     [fatura.id, gerar],
   )
 
-  const aguardaConfirmacao = etapa.tipo === 'pronto' && etapa.dados.forma === 'PIX'
+  // PIX pronto: espera a confirmação. Boleto: só se tiver sido pago no Sandbox.
+  const aguardaConfirmacao = etapa.tipo === 'pronto' && (etapa.dados.forma === 'PIX' || pagoNoSandbox)
 
   useEffect(() => {
     if (!aguardaConfirmacao && etapa.tipo !== 'processando') return
@@ -162,6 +171,29 @@ export function ModalPagamentoFatura({ fatura, forma, onPago, onFechar }: ModalP
     )
     return () => window.clearInterval(timer)
   }, [etapa.tipo, aguardaConfirmacao, consultar])
+
+  /**
+   * Ambiente de teste: paga no Sandbox como se a escola tivesse pago no banco.
+   * O backend já grava o pagamento; a consulta logo em seguida mostra "pago".
+   */
+  async function pagarNoSandbox() {
+    setPagandoNoSandbox(true)
+    setErroSandbox(null)
+    try {
+      await pagarFaturaNoSandbox(fatura.id)
+      if (!montado.current) return
+      setPagoNoSandbox(true)
+      await consultar(etapa.tipo)
+    } catch (e) {
+      if (montado.current) {
+        setErroSandbox(
+          mensagemErroSandbox(e, 'O pagamento ainda não foi registrado no Asaas. Tente de novo em instantes.'),
+        )
+      }
+    } finally {
+      if (montado.current) setPagandoNoSandbox(false)
+    }
+  }
 
   async function copiar(codigo: string) {
     try {
@@ -267,6 +299,24 @@ export function ModalPagamentoFatura({ fatura, forma, onPago, onFechar }: ModalP
               onCopiar={copiar}
             />
           </>
+        )}
+
+        {etapa.tipo === 'pronto' && atalhosSandboxHabilitados && (
+          <div className={styles.sandbox}>
+            <span className={styles.sandboxSelo}>Ambiente de teste</span>
+            <p>
+              Ninguém paga de verdade aqui. Clique em Pagar para simular no Asaas o pagamento {NOME_FORMA[forma]},
+              como se a escola tivesse pago no banco. O valor cai na conta do Eduka.
+            </p>
+            {pagoNoSandbox ? (
+              <span className={styles.validade}>Pagamento enviado ao Asaas. Aguardando a confirmação…</span>
+            ) : (
+              <Button variant="accent" icon="check" onClick={() => void pagarNoSandbox()} disabled={pagandoNoSandbox}>
+                {pagandoNoSandbox ? 'Pagando…' : 'Pagar'}
+              </Button>
+            )}
+            {erroSandbox && <ModalAlerta>{erroSandbox}</ModalAlerta>}
+          </div>
         )}
       </div>
     </Modal>

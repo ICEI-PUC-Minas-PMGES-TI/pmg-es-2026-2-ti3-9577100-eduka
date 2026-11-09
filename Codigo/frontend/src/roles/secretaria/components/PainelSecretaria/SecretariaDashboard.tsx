@@ -1,6 +1,6 @@
 import { useNavigate, useSearchParams } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
-import { paths } from '../../../../routes/paths'
+import { useRotasAcademicas } from '../../../../routes/areas'
 import { useEstruturaAcademica } from '../../hooks/useEstruturaAcademica'
 import { SecretariaLayout } from '../../layouts/SecretariaLayout'
 import { Cursos } from './Cursos'
@@ -25,12 +25,13 @@ function abaValida(valor: string | null): Aba {
 }
 
 /**
- * Painel acadêmico da secretaria (rota paths.secretaria.academico). A aba
+ * Painel acadêmico da secretaria (rota paths.secretaria.academico, ou paths.master.academico na gestão). A aba
  * fica na URL (?aba=cursos), para o recarregar e o voltar do navegador
  * manterem a tela.
  */
 export function SecretariaDashboard() {
   const navigate = useNavigate()
+  const rotas = useRotasAcademicas()
   const [params, setParams] = useSearchParams()
   const aba = abaValida(params.get('aba'))
   const estrutura = useEstruturaAcademica()
@@ -61,13 +62,13 @@ export function SecretariaDashboard() {
             </button>
           ))}
         </div>
-        <Button icon="graduationCap" onClick={() => navigate(paths.secretaria.alocacoes)}>
+        <Button icon="graduationCap" onClick={() => navigate(rotas.alocacoes)}>
           Alocação de professores
         </Button>
       </div>
 
       <section id="painel-academico" role="tabpanel" aria-labelledby={`aba-${aba}`} className={styles.painel}>
-        {estrutura.carregando && <p className={styles.estado}>Carregando a estrutura acadêmica…</p>}
+        {estrutura.carregando && <p className={styles.estado} role="status">Carregando a estrutura acadêmica…</p>}
 
         {!estrutura.carregando && estrutura.erro && (
           <div className={styles.estado}>
@@ -85,6 +86,8 @@ export function SecretariaDashboard() {
                 periodos={estrutura.periodos}
                 onCadastrar={estrutura.cadastrarPeriodo}
                 onAtualizar={estrutura.editarPeriodo}
+                onEncerrar={estrutura.encerrarPeriodo}
+                onAbrirMatriculas={estrutura.abrirMatriculas}
                 onExcluir={estrutura.removerPeriodo}
               />
             )}
