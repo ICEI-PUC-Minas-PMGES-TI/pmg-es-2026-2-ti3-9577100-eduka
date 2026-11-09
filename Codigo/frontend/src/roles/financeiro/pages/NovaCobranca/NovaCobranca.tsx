@@ -83,7 +83,8 @@ export function NovaCobranca() {
     setCarregandoAlunos(true)
     setErroAlunos(null)
     listarAlunos(controller.signal)
-      .then(setAlunos)
+      // O anonimizado saiu da escola: não recebe cobrança nova.
+      .then((lista) => setAlunos(lista.filter((a) => a.situacao !== 'ANONIMIZADO')))
       .catch(() => {
         if (!controller.signal.aborted) setErroAlunos('Não foi possível carregar os alunos da escola.')
       })
