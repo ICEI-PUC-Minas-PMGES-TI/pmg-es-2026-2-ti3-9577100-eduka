@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import { usePaginacao } from '../../hooks/usePaginacao'
+import type { ReactNode, Ref } from 'react'
+import type { EstadoPaginacao } from '../../hooks/usePaginacao'
 import { formatarData } from '../../roles/secretaria/components/PainelSecretaria/formatacao'
 import { ROTULOS_STATUS_FATURA, type FaturaPlataforma, type StatusFatura } from '../../types/faturaPlataforma'
 import { ROTULOS_FORMA_PAGAMENTO } from '../../types/pagamentoAluno'
@@ -29,7 +29,15 @@ function descreverSituacao(fatura: FaturaPlataforma): string | null {
 }
 
 type TabelaFaturasProps = {
-  faturas: FaturaPlataforma[]
+  /**
+   * As faturas já paginadas: do usePaginacao (lista carregada inteira) ou do
+   * useListaPaginada (página do backend).
+   */
+  paginacao: EstadoPaginacao<FaturaPlataforma>
+  /** Recebe o topo da tabela, para onde a troca de página rola. */
+  topo: Ref<HTMLElement>
+  /** Outra página a caminho do backend: a atual fica e a navegação espera. */
+  atualizando?: boolean
   /** Texto quando não há fatura. */
   vazio: string
   /** Botões da linha, a partir das `acoes` que o backend liberou. */
@@ -39,12 +47,18 @@ type TabelaFaturasProps = {
 }
 
 /** Faturas da plataforma (Fluxo A), da competência mais recente para a mais antiga. */
-export function TabelaFaturas({ faturas, vazio, acoes, mostrarEscola = false }: TabelaFaturasProps) {
-  const { paginacao, topo } = usePaginacao<FaturaPlataforma, HTMLElement>(faturas)
+export function TabelaFaturas({
+  paginacao,
+  topo,
+  atualizando = false,
+  vazio,
+  acoes,
+  mostrarEscola = false,
+}: TabelaFaturasProps) {
   return (
     <>
-      <section ref={topo} className={styles.cartao} aria-label="Faturas da plataforma">
-        {faturas.length === 0 ? (
+      <section ref={topo} className={styles.cartao} aria-label="Faturas da plataforma" aria-busy={atualizando}>
+        {paginacao.total === 0 ? (
           <p className={styles.vazio}>{vazio}</p>
         ) : (
           <div className={styles.rolagem}>
@@ -94,7 +108,7 @@ export function TabelaFaturas({ faturas, vazio, acoes, mostrarEscola = false }: 
           </div>
         )}
       </section>
-      <Paginacao paginacao={paginacao} rotulo="Páginas das faturas" />
+      <Paginacao paginacao={paginacao} rotulo="Páginas das faturas" carregando={atualizando} />
     </>
   )
 }

@@ -23,6 +23,12 @@ export type AlunoDaLista = AlunoResumo & {
   turmaNome: string | null
 }
 
+/** Resumo da escola inteira na página de GET /alunos/pagina, sem a busca nem a situação. */
+export type ResumoAlunos = {
+  total: number
+  porSituacao: Record<SituacaoNaEscola, number>
+}
+
 export type Endereco = {
   logradouro: string | null
   numero: string | null

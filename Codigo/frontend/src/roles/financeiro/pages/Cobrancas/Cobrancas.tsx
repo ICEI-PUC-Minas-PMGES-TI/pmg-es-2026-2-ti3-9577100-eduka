@@ -5,7 +5,8 @@ import { ModalComprovante } from '../../../../components/Comprovante/ModalCompro
 import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/ConfirmarExclusao'
 import { Icon } from '../../../../components/Icon/Icon'
 import { Paginacao } from '../../../../components/Paginacao/Paginacao'
-import { paginacaoDoBackend, usePaginaDoBackend } from '../../../../hooks/usePaginacao'
+import { useListaPaginada } from '../../../../hooks/usePaginacao'
+import { useTermoAdiado } from '../../../../hooks/useTermoAdiado'
 import { useRotasFinanceiras } from '../../../../routes/areas'
 import { type EstadoCobrancaCriada } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
@@ -47,21 +48,10 @@ function mensagemErroCancelar(erro: unknown): string {
   return 'Erro inesperado ao cancelar a cobrança.'
 }
 
-/** Espera entre a última tecla da busca e a consulta ao backend. */
-const ESPERA_BUSCA_MS = 300
-
 /** O ?status= da URL (atalho do Início), ou Todas. */
 function filtroDaUrl(status: string | null): FiltroCobranca {
   return FILTROS.find((filtro) => filtro === status) ?? 'TODAS'
 }
-
-/** A consulta que produziu cada resposta: página (a partir de 0), tamanho, filtro e nome buscado. */
-function chaveDa(pagina: number, tamanho: number, filtro: FiltroCobranca, nome: string): string {
-  return `${pagina}|${tamanho}|${filtro}|${nome}`
-}
-
-/** Última resposta do backend e a consulta que a produziu. */
-type Carregado = { chave: string; dados: PaginaCobrancas | null; erro: string | null }
 
 export function Cobrancas() {
   const navigate = useNavigate()
@@ -70,62 +60,36 @@ export function Cobrancas() {
   const [searchParams] = useSearchParams()
   // Volta da Nova cobrança com a confirmação do que foi criado.
   const [sucesso] = useState(() => (location.state as EstadoCobrancaCriada | null)?.cobrancaCriada ?? null)
-  const [carregado, setCarregado] = useState<Carregado | null>(null)
   const [idAberto, setIdAberto] = useState<string | null>(null)
   const [termoBusca, setTermoBusca] = useState('')
   // O termo vai ao backend só quando a digitação para.
-  const [nomeBuscado, setNomeBuscado] = useState('')
+  const nomeBuscado = useTermoAdiado(termoBusca)
   const [filtroStatus, setFiltroStatus] = useState<FiltroCobranca>(() => filtroDaUrl(searchParams.get('status')))
-  const { pagina, setPagina, porPagina, irPara, mudarPorPagina, topo } = usePaginaDoBackend()
   const [editando, setEditando] = useState<Cobranca | null>(null)
   const [cancelando, setCancelando] = useState<Cobranca | null>(null)
   const [comprovanteDe, setComprovanteDe] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [simulando, setSimulando] = useState(false)
   const [mensagemSandbox, setMensagemSandbox] = useState<MensagemSandbox | null>(null)
-  // Cada incremento busca a página de novo, sem voltar ao "Carregando".
-  const [recarga, setRecarga] = useState(0)
 
-  // Busca nova: espera a digitação parar e volta à primeira página.
-  useEffect(() => {
-    const nome = termoBusca.trim()
-    if (nome === nomeBuscado) return
-    const espera = window.setTimeout(() => {
-      setNomeBuscado(nome)
-      setPagina(0)
-    }, ESPERA_BUSCA_MS)
-    return () => window.clearTimeout(espera)
-  }, [termoBusca, nomeBuscado, setPagina])
-
-  useEffect(() => {
-    // Consulta nova cancela a anterior: resposta atrasada não sobrescreve a atual.
-    const controller = new AbortController()
-    const chave = chaveDa(pagina, porPagina, filtroStatus, nomeBuscado)
-    listarCobrancas(
-      {
-        pagina,
-        tamanho: porPagina,
-        status: filtroStatus === 'TODAS' ? undefined : filtroStatus,
-        nome: nomeBuscado || undefined,
-      },
-      controller.signal,
-    )
-      .then((dados) => {
-        // A lista encolheu desde a última leitura (ex.: cobrança que mudou de situação): vai para a última página.
-        if (dados.conteudo.length === 0 && dados.pagina > 0) {
-          setPagina(Math.max(0, dados.totalPaginas - 1))
-          return
-        }
-        setCarregado({ chave, dados, erro: null })
-      })
-      .catch((e: unknown) => {
-        if (controller.signal.aborted) return
-        const erro = e instanceof ApiError ? (e.detalhe ?? e.message) : 'Não foi possível carregar as cobranças.'
-        setCarregado((anterior) => ({ chave, dados: anterior?.dados ?? null, erro }))
-      })
-
-    return () => controller.abort()
-  }, [pagina, porPagina, filtroStatus, nomeBuscado, recarga, setPagina])
+  // Busca ou filtro novo troca a função, e a lista volta à primeira página.
+  const buscarCobrancas = useCallback(
+    (pagina: number, tamanho: number, signal: AbortSignal) =>
+      listarCobrancas(
+        {
+          pagina,
+          tamanho,
+          status: filtroStatus === 'TODAS' ? undefined : filtroStatus,
+          nome: nomeBuscado || undefined,
+        },
+        signal,
+      ),
+    [filtroStatus, nomeBuscado],
+  )
+  const { dados, paginacao, carregando, atualizando, erro, recarregar, topo } = useListaPaginada<PaginaCobrancas>(
+    buscarCobrancas,
+    'Não foi possível carregar as cobranças.',
+  )
 
   // Descarta o estado já lido, para a confirmação não voltar ao recarregar a página.
   useEffect(() => {
@@ -146,7 +110,7 @@ export function Cobrancas() {
         erro: false,
       })
       for (const espera of [4000, 10000]) {
-        window.setTimeout(() => setRecarga((n) => n + 1), espera)
+        window.setTimeout(recarregar, espera)
       }
     } catch (e) {
       setMensagemSandbox({
@@ -166,7 +130,7 @@ export function Cobrancas() {
   /** Depois de editar ou cancelar: confirma e lê a página de novo. */
   function concluir(mensagem: string) {
     setAviso(mensagem)
-    setRecarga((n) => n + 1)
+    recarregar()
   }
 
   /** A seta do card abre os detalhes; clicar de novo fecha. Só um aberto por vez. */
@@ -175,18 +139,7 @@ export function Cobrancas() {
     setMensagemSandbox(null)
   }
 
-  /** Filtro novo: volta à primeira página. */
-  function filtrar(filtro: FiltroCobranca) {
-    setFiltroStatus(filtro)
-    setPagina(0)
-  }
-
-  const carregando = carregado === null
-  const erro = carregado?.erro ?? null
-  const dados = carregado?.dados ?? null
-  // Até a resposta chegar, a página anterior fica na tela e a navegação espera.
-  const atualizando = carregado !== null && carregado.chave !== chaveDa(pagina, porPagina, filtroStatus, nomeBuscado)
-  const cobrancas = dados?.conteudo ?? []
+  const cobrancas = paginacao?.itensDaPagina ?? []
 
   // Pílulas: o backend conta cada situação na escola inteira, sem o filtro de situação nem a busca.
   const quantidade = (status: StatusCobranca) => dados?.totaisPorStatus.find((t) => t.status === status)?.quantidade ?? 0
@@ -235,7 +188,7 @@ export function Cobrancas() {
               type="button"
               aria-pressed={filtroStatus === filtro}
               className={`${styles.pillBtn} ${filtroStatus === filtro ? styles.pillAtivo : ''}`}
-              onClick={() => filtrar(filtro)}
+              onClick={() => setFiltroStatus(filtro)}
             >
               {ROTULOS_FILTRO[filtro]}
               <span className={styles.badge}>{contadores[filtro]}</span>
@@ -282,12 +235,8 @@ export function Cobrancas() {
         )}
       </div>
 
-      {dados && !erro && (
-        <Paginacao
-          paginacao={paginacaoDoBackend(dados, { irPara, mudarPorPagina })}
-          rotulo="Páginas das cobranças"
-          carregando={atualizando}
-        />
+      {paginacao && !erro && (
+        <Paginacao paginacao={paginacao} rotulo="Páginas das cobranças" carregando={atualizando} />
       )}
 
       {editando && (

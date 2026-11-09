@@ -21,7 +21,8 @@ import org.springframework.stereotype.Repository;
 import br.pucminas.eduka.backend.domain.Despesa;
 
 @Repository
-public interface DespesaRepository extends JpaRepository<Despesa, UUID>, JpaSpecificationExecutor<Despesa> {
+public interface DespesaRepository
+        extends JpaRepository<Despesa, UUID>, JpaSpecificationExecutor<Despesa>, DespesaTotaisRepository {
 
     // Os EntityGraph trazem a categoria na mesma query, para montar a resposta sem N+1.
 

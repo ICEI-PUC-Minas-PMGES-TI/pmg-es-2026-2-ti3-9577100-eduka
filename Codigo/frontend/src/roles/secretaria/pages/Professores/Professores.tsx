@@ -1,32 +1,50 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
 import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
+import { useListaPaginada, type PaginaComResumo } from '../../../../hooks/usePaginacao'
+import { useTermoAdiado } from '../../../../hooks/useTermoAdiado'
 import type { EstadoAbrirCadastro } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
-import type { Professor } from '../../../../types/professor'
+import {
+  ativarProfessor,
+  atualizarProfessor,
+  cadastrarProfessor,
+  excluirProfessor,
+  inativarProfessor,
+  listarPaginaDeProfessores,
+} from '../../../../services/professorService'
+import type { Professor, ResumoProfessores } from '../../../../types/professor'
 import { CadastroProfessorModal } from '../../components/CadastroProfessorModal/CadastroProfessorModal'
 import { DetalhesProfessorModal } from '../../components/DetalhesProfessorModal/DetalhesProfessorModal'
 import { ExcluirProfessorModal } from '../../components/ExcluirProfessorModal/ExcluirProfessorModal'
 import { ProfessoresTable } from '../../components/ProfessoresTable/ProfessoresTable'
-import { useProfessores } from '../../hooks/useProfessores'
 import { SecretariaLayout } from '../../layouts/SecretariaLayout'
 import styles from './Professores.module.css'
 
-// Por enquanto só pelo nome: as disciplinas ainda não vêm na listagem.
-function correspondeBusca(professor: Professor, busca: string): boolean {
-  const termo = busca.trim().toLowerCase()
-  if (!termo) return true
-  return professor.nome.toLowerCase().includes(termo)
-}
-
+/**
+ * Professores da secretaria (IU08): a lista vem do backend uma página por vez
+ * (GET /professores/pagina), com a busca pelo nome feita lá. Os cards contam a
+ * escola inteira. Toda ação lê a página de novo, para cards e lista baterem.
+ */
 export function Professores() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { professores, carregando, erro, recarregar, cadastrar, atualizar, alternarSituacao, excluir } =
-    useProfessores()
   const [busca, setBusca] = useState('')
+  // As disciplinas ainda não vêm na listagem: a busca é só pelo nome.
+  const termo = useTermoAdiado(busca)
+  const buscarProfessores = useCallback(
+    (pagina: number, tamanho: number, signal: AbortSignal) =>
+      listarPaginaDeProfessores({ pagina, tamanho, nome: termo || undefined }, signal),
+    [termo],
+  )
+  const lista = useListaPaginada<PaginaComResumo<Professor, ResumoProfessores>, HTMLElement>(
+    buscarProfessores,
+    'Não foi possível carregar os professores.',
+  )
+  const resumo = lista.dados?.resumo ?? null
+  const { recarregar } = lista
   // O atalho "Cadastrar um professor" do Início chega com o modal já aberto.
   const [cadastroAberto, setCadastroAberto] = useState(
     (location.state as EstadoAbrirCadastro | null)?.abrirCadastro === true,
@@ -43,13 +61,32 @@ export function Professores() {
     if (location.state) navigate(location.pathname, { replace: true, state: null })
   }, [location.state, location.pathname, navigate])
 
-  const visiveis = professores.filter((p) => correspondeBusca(p, busca))
-  const ativos = professores.filter((p) => p.ativo).length
-  const semVinculo = professores.filter((p) => p.vinculo === null).length
   const mensagemVazia =
-    professores.length === 0
-      ? 'Nenhum professor cadastrado ainda.'
-      : 'Nenhum professor encontrado para a busca.'
+    resumo?.total === 0 ? 'Nenhum professor cadastrado ainda.' : 'Nenhum professor encontrado para a busca.'
+
+  /** Cadastra ou edita; lança ApiError se o backend recusar (o modal mostra). */
+  async function cadastrar(dados: Parameters<typeof cadastrarProfessor>[0]) {
+    const criado = await cadastrarProfessor(dados)
+    recarregar()
+    return criado
+  }
+
+  async function atualizar(id: string, dados: Parameters<typeof atualizarProfessor>[1]) {
+    const atualizado = await atualizarProfessor(id, dados)
+    recarregar()
+    return atualizado
+  }
+
+  /** Inativa um professor ativo ou reativa um inativo; lança ApiError se falhar. */
+  async function alternarSituacao(professor: Professor) {
+    await (professor.ativo ? inativarProfessor(professor.id) : ativarProfessor(professor.id))
+    recarregar()
+  }
+
+  async function excluir(professor: Professor) {
+    await excluirProfessor(professor.id)
+    recarregar()
+  }
 
   function limparAvisos() {
     setSucesso(null)
@@ -106,20 +143,20 @@ export function Professores() {
       titulo="Professores"
       subtitulo="Cadastre os professores e veja onde cada um dá aula."
     >
-      {!carregando && !erro && (
+      {resumo && (
         <StatCards rotulo="Resumo dos professores">
           <StatCard
             label="Professores ativos"
-            value={ativos}
-            descricao={`De ${professores.length} cadastrados`}
+            value={resumo.ativos}
+            descricao={`De ${resumo.total} cadastrados`}
             destaque
           />
-          <StatCard label="Inativos" value={professores.length - ativos} descricao="Afastados ou de licença" />
+          <StatCard label="Inativos" value={resumo.total - resumo.ativos} descricao="Afastados ou de licença" />
           <StatCard
             label="Sem vínculo informado"
-            value={semVinculo}
-            descricao={semVinculo > 0 ? 'Edite o cadastro para completar' : 'Cadastros completos'}
-            atencao={semVinculo > 0}
+            value={resumo.semVinculo}
+            descricao={resumo.semVinculo > 0 ? 'Edite o cadastro para completar' : 'Cadastros completos'}
+            atencao={resumo.semVinculo > 0}
           />
         </StatCards>
       )}
@@ -129,8 +166,8 @@ export function Professores() {
           <Icon name="search" size={17} />
           <input
             type="search"
-            placeholder="Procurar pelo nome ou disciplina"
-            aria-label="Buscar professor pelo nome ou disciplina"
+            placeholder="Procurar pelo nome"
+            aria-label="Buscar professor pelo nome"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
@@ -153,10 +190,11 @@ export function Professores() {
       )}
 
       <ProfessoresTable
-        professores={visiveis}
-        reiniciarCom={busca}
-        carregando={carregando}
-        erro={erro}
+        paginacao={lista.paginacao}
+        topo={lista.topo}
+        carregando={lista.carregando}
+        atualizando={lista.atualizando}
+        erro={lista.erro}
         mensagemVazia={mensagemVazia}
         alternandoId={alternandoId}
         onTentarNovamente={recarregar}

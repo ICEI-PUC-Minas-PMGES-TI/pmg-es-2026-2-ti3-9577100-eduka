@@ -11,8 +11,9 @@ import br.pucminas.eduka.backend.domain.StatusCobranca;
  * @param pagina          numero da pagina, a partir de 0
  * @param totaisPorStatus uma entrada por situacao, sempre todas e na ordem de
  *                        {@link StatusCobranca}, calculadas com os mesmos
- *                        filtros da listagem exceto o de situacao, para a
- *                        tela mostrar o tamanho de cada aba
+ *                        filtros da listagem exceto o de situacao e a busca
+ *                        pelo nome, para a tela mostrar o tamanho de cada
+ *                        aba
  */
 public record PaginaCobrancasResponse(
         List<CobrancaResponse> conteudo,

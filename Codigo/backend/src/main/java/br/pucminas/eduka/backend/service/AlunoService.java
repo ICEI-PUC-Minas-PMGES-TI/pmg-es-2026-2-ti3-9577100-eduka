@@ -30,9 +30,11 @@ import br.pucminas.eduka.backend.dto.AlunoRequest;
 import br.pucminas.eduka.backend.dto.AlunoResponse;
 import br.pucminas.eduka.backend.dto.EnderecoRequest;
 import br.pucminas.eduka.backend.dto.Ordenacao;
+import br.pucminas.eduka.backend.dto.PaginaComResumoResponse;
 import br.pucminas.eduka.backend.dto.PaginaResponse;
 import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.dto.ResponsavelResponse;
+import br.pucminas.eduka.backend.dto.ResumoAlunosResponse;
 import br.pucminas.eduka.backend.exception.NumeroMatriculaJaCadastradoException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.exception.RegistroEmUsoException;
@@ -95,23 +97,30 @@ public class AlunoService {
     }
 
     /**
-     * Pagina dos alunos da escola, opcionalmente filtrados por parte do nome e
-     * pela situacao. O nome e cifrado, entao filtro e ordem por nome sao feitos
-     * em memoria sobre os alunos da escola, e so a pagina vai na resposta.
+     * Pagina dos alunos da escola, opcionalmente filtrados por parte do nome
+     * ou da matricula ({@code busca}) e pela situacao. O nome e cifrado, entao
+     * filtro e ordem por nome sao feitos em memoria sobre os alunos da escola,
+     * e so a pagina vai na resposta. O resumo conta a escola inteira, sem a
+     * busca nem a situacao ({@link PaginaComResumoResponse}).
      */
-    public PaginaResponse<AlunoResponse> listarPaginado(String nome, AlunoResponse.Situacao situacao,
-            Paginacao paginacao, Ordenacao.Alunos ordenarPor, Direction direcao) {
+    public PaginaComResumoResponse<AlunoResponse, ResumoAlunosResponse> listarPaginado(String busca,
+            AlunoResponse.Situacao situacao, Paginacao paginacao, Ordenacao.Alunos ordenarPor, Direction direcao) {
         Comparator<AlunoResponse> campo = switch (ordenarPor) {
             case NOME -> Comparator.comparing(AlunoResponse::nome, Paginacao.ORDEM_DE_NOME);
             case MATRICULA -> Comparator.comparing(AlunoResponse::matricula,
                     Comparator.nullsLast(Comparator.naturalOrder()));
         };
-        List<AlunoResponse> ordenados = listar(nome).stream()
+        List<AlunoResponse> daEscola = listar(null);
+        String termo = busca == null || busca.isBlank() ? null : busca.trim().toLowerCase(Locale.ROOT);
+        List<AlunoResponse> ordenados = daEscola.stream()
+                .filter(aluno -> termo == null || aluno.nome().toLowerCase(Locale.ROOT).contains(termo)
+                        || (aluno.matricula() != null && aluno.matricula().toLowerCase(Locale.ROOT).contains(termo)))
                 .filter(aluno -> situacao == null || aluno.situacao() == situacao)
                 .sorted(Ordenacao.emMemoria(campo, Ordenacao.ou(direcao, Direction.ASC),
                         Comparator.comparing(AlunoResponse::id)))
                 .toList();
-        return PaginaResponse.recortar(ordenados, paginacao);
+        return PaginaComResumoResponse.de(PaginaResponse.recortar(ordenados, paginacao),
+                ResumoAlunosResponse.de(daEscola));
     }
 
     public List<AlunoResponse> listar(String nome) {

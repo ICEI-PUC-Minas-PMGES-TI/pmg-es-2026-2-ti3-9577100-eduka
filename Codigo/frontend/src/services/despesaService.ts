@@ -1,4 +1,5 @@
-import type { CategoriaDespesa, Despesa, NovaDespesaRequest, SituacaoDespesa } from '../types/despesa'
+import type { PaginaComResumo } from '../hooks/usePaginacao'
+import type { CategoriaDespesa, Despesa, NovaDespesaRequest, ResumoDespesas, SituacaoDespesa } from '../types/despesa'
 import { apiRequest } from './api'
 
 // O backend já limita despesas e categorias à escola de quem está logado.
@@ -6,9 +7,29 @@ import { apiRequest } from './api'
 /** Intervalo de vencimento, AAAA-MM-DD, com as duas pontas. */
 export type PeriodoDespesas = { vencimentoDe: string; vencimentoAte: string }
 
-/** As que vencem no período, ordenadas pelo vencimento. */
-export function listarDespesas(periodo: PeriodoDespesas, signal?: AbortSignal): Promise<Despesa[]> {
-  return apiRequest<Despesa[]>(`/despesas?${new URLSearchParams(periodo)}`, { signal })
+export type ConsultaDespesas = PeriodoDespesas & {
+  pagina: number
+  tamanho: number
+  /** Uma ou mais; sem nenhuma, vêm todas, inclusive as canceladas. */
+  situacoes: SituacaoDespesa[]
+}
+
+/**
+ * Uma página das que vencem no período, ordenadas pelo vencimento, com
+ * quantidade e soma de cada situação no período (sem o filtro de situação).
+ */
+export function listarPaginaDeDespesas(
+  consulta: ConsultaDespesas,
+  signal?: AbortSignal,
+): Promise<PaginaComResumo<Despesa, ResumoDespesas>> {
+  const params = new URLSearchParams({
+    pagina: String(consulta.pagina),
+    tamanho: String(consulta.tamanho),
+    vencimentoDe: consulta.vencimentoDe,
+    vencimentoAte: consulta.vencimentoAte,
+  })
+  for (const situacao of consulta.situacoes) params.append('situacao', situacao)
+  return apiRequest(`/despesas/pagina?${params}`, { signal })
 }
 
 export function listarCategoriasDespesa(signal?: AbortSignal): Promise<CategoriaDespesa[]> {

@@ -107,6 +107,7 @@ class MatrizDeAcessoTest {
                 "POST /config-pagamento/conta/sandbox/aprovar",
                 "GET /config-pagamento/faturas",
                 "GET /config-pagamento/faturas/pagina",
+                "GET /config-pagamento/faturas/{id}",
                 "POST /config-pagamento/faturas/{id}/pagar",
                 "GET /config-pagamento/faturas/{id}/comprovante",
                 "POST /config-pagamento/faturas/{id}/sandbox/pagar",

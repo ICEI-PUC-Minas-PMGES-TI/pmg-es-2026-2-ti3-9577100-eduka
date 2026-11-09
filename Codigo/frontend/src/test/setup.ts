@@ -1,6 +1,9 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
+
+// findBy e waitFor esperam 1 s por padrão: sob carga, a resposta simulada chegava depois disso.
+configure({ asyncUtilTimeout: 4000 })
 
 // O jsdom ainda não abre <dialog> como modal; o Modal só precisa do atributo open.
 if (typeof HTMLDialogElement !== 'undefined' && !HTMLDialogElement.prototype.showModal) {

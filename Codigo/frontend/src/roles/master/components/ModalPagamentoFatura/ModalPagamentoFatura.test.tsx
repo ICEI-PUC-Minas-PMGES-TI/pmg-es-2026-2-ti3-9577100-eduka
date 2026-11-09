@@ -47,12 +47,14 @@ function boleto(): RespostaApi {
   return { corpo: dados }
 }
 
-function listaCom(situacaoPagamento: SituacaoPagamento): RespostaApi {
-  return { corpo: [{ ...FATURA, situacaoPagamento }] }
+/** A fatura como o GET /config-pagamento/faturas/{id} devolve. */
+function faturaCom(situacaoPagamento: SituacaoPagamento): RespostaApi {
+  return { corpo: { ...FATURA, situacaoPagamento } }
 }
 
 const PAGAR = 'POST /config-pagamento/faturas/fatura-1/pagar'
-const LISTAR = 'GET /config-pagamento/faturas'
+// Só a fatura do modal: a lista da escola (GET /config-pagamento/faturas) não é consultada.
+const CONSULTAR = 'GET /config-pagamento/faturas/fatura-1'
 
 /** Responde cada rota com a próxima resposta da fila; a última se repete. */
 function backend(rotas: Record<string, RespostaApi[]>) {
@@ -74,7 +76,7 @@ describe('ModalPagamentoFatura', () => {
   })
 
   it('mostra o QR Code e o copia e cola do PIX e confirma quando o pagamento cai', async () => {
-    const chamadas = backend({ [PAGAR]: [pix()], [LISTAR]: [listaCom('AGUARDANDO_PAGAMENTO'), listaCom('PAGA')] })
+    const chamadas = backend({ [PAGAR]: [pix()], [CONSULTAR]: [faturaCom('AGUARDANDO_PAGAMENTO'), faturaCom('PAGA')] })
     const onPago = vi.fn()
     render(<ModalPagamentoFatura fatura={FATURA} forma="PIX" onPago={onPago} onFechar={vi.fn()} />)
 
@@ -106,7 +108,7 @@ describe('ModalPagamentoFatura', () => {
   it('espera o provedor terminar de gerar e pede de novo', async () => {
     const chamadas = backend({
       [PAGAR]: [problema(409, 'PAGAMENTO_EM_PROCESSAMENTO'), pix()],
-      [LISTAR]: [listaCom('AGUARDANDO_PAGAMENTO')],
+      [CONSULTAR]: [faturaCom('AGUARDANDO_PAGAMENTO')],
     })
     render(<ModalPagamentoFatura fatura={FATURA} forma="PIX" onPago={vi.fn()} onFechar={vi.fn()} />)
 
@@ -139,7 +141,7 @@ describe('ModalPagamentoFatura', () => {
 
   it('fatura cancelada enquanto o PIX está na tela para de esperar o pagamento', async () => {
     const onPago = vi.fn()
-    backend({ [PAGAR]: [pix()], [LISTAR]: [listaCom('CANCELADA')] })
+    backend({ [PAGAR]: [pix()], [CONSULTAR]: [faturaCom('CANCELADA')] })
     render(<ModalPagamentoFatura fatura={FATURA} forma="PIX" onPago={onPago} onFechar={vi.fn()} />)
     await screen.findByAltText('QR Code do PIX para pagar a fatura')
 
@@ -155,7 +157,7 @@ describe('ModalPagamentoFatura', () => {
       ['PIX', pix],
       ['BOLETO', boleto],
     ] as const)('Pagar com %s no Sandbox confirma o pagamento na hora', async (forma, dados) => {
-      const chamadas = backend({ [PAGAR]: [dados()], [PAGAR_NO_SANDBOX]: [{ status: 202 }], [LISTAR]: [listaCom('PAGA')] })
+      const chamadas = backend({ [PAGAR]: [dados()], [PAGAR_NO_SANDBOX]: [{ status: 202 }], [CONSULTAR]: [faturaCom('PAGA')] })
       const onPago = vi.fn()
       const usuario = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       render(<ModalPagamentoFatura fatura={FATURA} forma={forma} onPago={onPago} onFechar={vi.fn()} />)

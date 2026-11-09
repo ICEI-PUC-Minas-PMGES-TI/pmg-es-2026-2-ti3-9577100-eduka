@@ -26,8 +26,9 @@ import br.pucminas.eduka.backend.dto.DespesaRequest;
 import br.pucminas.eduka.backend.dto.DespesaResponse;
 import br.pucminas.eduka.backend.dto.MudarSituacaoDespesaRequest;
 import br.pucminas.eduka.backend.dto.Ordenacao;
-import br.pucminas.eduka.backend.dto.PaginaResponse;
+import br.pucminas.eduka.backend.dto.PaginaComResumoResponse;
 import br.pucminas.eduka.backend.dto.Paginacao;
+import br.pucminas.eduka.backend.dto.ResumoDespesasResponse;
 import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.DespesaService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -67,12 +68,16 @@ public class DespesaController {
     @GetMapping("/pagina")
     @PreAuthorize(Perfis.FINANCEIRO)
     @Operation(summary = "Lista as despesas em paginas",
-            description = "Mesmos filtros da listagem. `pagina` comeca em 0; `tamanho` vai de 1 a 100. "
-                    + "`ordenarPor`: VENCIMENTO (padrao), VALOR ou DESCRICAO; `direcao`: ASC (padrao) ou DESC.")
-    @ApiResponse(responseCode = "200", description = "A pagina de despesas.")
+            description = "Mesmos filtros da listagem; `situacao` aceita mais de uma (`situacao=A_PAGAR&situacao="
+                    + "PAGA` deixa as canceladas de fora). `pagina` comeca em 0; `tamanho` vai de 1 a 100. "
+                    + "`ordenarPor`: VENCIMENTO (padrao), VALOR ou DESCRICAO; `direcao`: ASC (padrao) ou DESC. "
+                    + "O `resumo` traz quantidade e soma de cada situacao com os mesmos filtros, menos o de "
+                    + "situacao.")
+    @ApiResponse(responseCode = "200", description = "A pagina de despesas, com o resumo por situacao.")
     @ApiResponse(responseCode = "400", description = "Pagina, tamanho, ordenacao ou intervalo de vencimento "
             + "invalidos.")
-    public PaginaResponse<DespesaResponse> listarPaginado(@RequestParam(required = false) SituacaoDespesa situacao,
+    public PaginaComResumoResponse<DespesaResponse, ResumoDespesasResponse> listarPaginado(
+            @RequestParam(required = false) List<SituacaoDespesa> situacao,
             @RequestParam(required = false) UUID categoriaId,
             @RequestParam(required = false) LocalDate vencimentoDe,
             @RequestParam(required = false) LocalDate vencimentoAte,

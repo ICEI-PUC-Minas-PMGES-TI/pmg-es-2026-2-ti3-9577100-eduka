@@ -32,6 +32,7 @@ import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
 import br.pucminas.eduka.backend.exception.CobrancaJaPagaException;
 import br.pucminas.eduka.backend.exception.ComprovanteIndisponivelException;
 import br.pucminas.eduka.backend.exception.FaturaDuplicadaException;
+import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.pagamento.PaymentRoutingService;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
@@ -176,6 +177,30 @@ class FaturaPlataformaControllerSecurityTest {
         mockMvc.perform(comToken(get(MINHAS), token("MASTER", ESCOLA)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].acoes[0]").value("PAGAR"));
+    }
+
+    @Test
+    void masterBuscaUmaFaturaSoDaPropriaEscola() throws Exception {
+        for (String perfil : List.of("SECRETARIA", "FINANCEIRO", "PROFESSOR", "ALUNO")) {
+            mockMvc.perform(comToken(get(MINHAS + "/" + FATURA), token(perfil, ESCOLA)))
+                    .andExpect(status().isForbidden());
+        }
+        mockMvc.perform(comToken(get(MINHAS + "/" + FATURA), token("SUPER_ADMIN", null)))
+                .andExpect(status().isForbidden());
+        verify(paymentRoutingService, never()).buscarMinhaFatura(any());
+
+        when(paymentRoutingService.buscarMinhaFatura(FATURA))
+                .thenReturn(resposta(List.of(FaturaPlataformaResponse.PAGAR)));
+        mockMvc.perform(comToken(get(MINHAS + "/" + FATURA), token("MASTER", ESCOLA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(FATURA.toString()))
+                .andExpect(jsonPath("$.situacaoPagamento").value("AGUARDANDO_PAGAMENTO"));
+
+        UUID deOutraEscola = UUID.randomUUID();
+        when(paymentRoutingService.buscarMinhaFatura(deOutraEscola))
+                .thenThrow(new RecursoNaoEncontradoException("Fatura nao encontrada"));
+        mockMvc.perform(comToken(get(MINHAS + "/" + deOutraEscola), token("MASTER", ESCOLA)))
+                .andExpect(status().isNotFound());
     }
 
     @Test

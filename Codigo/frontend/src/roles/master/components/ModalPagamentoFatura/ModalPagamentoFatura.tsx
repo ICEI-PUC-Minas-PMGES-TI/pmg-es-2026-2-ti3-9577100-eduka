@@ -3,7 +3,7 @@ import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
 import { Modal, ModalAlerta, ModalAviso } from '../../../../components/Modal/Modal'
 import { ApiError } from '../../../../services/api'
-import { listarMinhasFaturas, pagarFatura } from '../../../../services/faturaPlataformaService'
+import { buscarMinhaFatura, pagarFatura } from '../../../../services/faturaPlataformaService'
 import {
   atalhosSandboxHabilitados,
   mensagemErroSandbox,
@@ -132,8 +132,9 @@ export function ModalPagamentoFatura({ fatura, forma, onPago, onFechar }: ModalP
       if (consultando.current || document.visibilityState !== 'visible') return
       consultando.current = true
       try {
-        const atual = (await listarMinhasFaturas()).find((f) => f.id === fatura.id)
-        if (!montado.current || !atual) return
+        // Só esta fatura, não a lista da escola: a consulta se repete a cada poucos segundos.
+        const atual = await buscarMinhaFatura(fatura.id)
+        if (!montado.current) return
         if (atual.situacaoPagamento === 'PAGA') {
           setEtapa({ tipo: 'pago' })
           onPagoRef.current()
