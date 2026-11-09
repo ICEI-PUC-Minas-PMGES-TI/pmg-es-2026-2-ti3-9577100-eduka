@@ -6,6 +6,7 @@ import { simularApi } from '../../../../test/api'
 import type { Escola } from '../../../../types/escola'
 import type { FaturaPlataforma } from '../../../../types/faturaPlataforma'
 import { hojeIso } from '../../../../utils/formatters'
+import { competenciaDaReferencia } from '../../components/FormLancarFatura/regrasFatura'
 import { FaturasPlataforma } from './FaturasPlataforma'
 
 function escola(id: string, nome: string, ativo = true): Escola {
@@ -59,6 +60,9 @@ function abrir() {
     if (metodo === 'POST' && caminho === '/escolas/e2/faturas') {
       return { status: 201, corpo: fatura('f9', 'e2', 'Escola Anglo', 'PENDENTE') }
     }
+    if (metodo === 'PATCH' && caminho === '/escolas/e1/faturas/f1/cancelar') {
+      return { corpo: fatura('f1', 'e1', 'Colégio Bandeirantes', 'CANCELADA') }
+    }
     return undefined
   })
   render(
@@ -90,22 +94,58 @@ describe('FaturasPlataforma', () => {
     expect(screen.queryByText('Colégio Bandeirantes')).not.toBeInTheDocument()
   })
 
-  it('lança a fatura para a escola escolhida entre as ativas', async () => {
+  it('sugere referência e valor ao escolher a escola, só entre as ativas, e valida antes de enviar', async () => {
     const chamadas = abrir()
     await screen.findByText('Colégio Bandeirantes')
+    const form = screen.getByRole('form', { name: /lançar fatura/i })
 
-    await userEvent.click(screen.getByRole('button', { name: /lançar fatura/i }))
-    const dialogo = screen.getByRole('dialog')
-    await userEvent.click(within(dialogo).getByRole('combobox', { name: /escola/i }))
+    await userEvent.click(within(form).getByRole('combobox', { name: /escola/i }))
     expect(screen.queryByRole('option', { name: 'Suspensa' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('option', { name: 'Escola Anglo' }))
-    await userEvent.type(within(dialogo).getByLabelText(/competência/i), '2026-12')
-    await userEvent.type(within(dialogo).getByLabelText(/descrição/i), 'Plano Avançado dezembro')
-    await userEvent.type(within(dialogo).getByLabelText(/valor/i), '690,00')
+    expect(within(form).getByLabelText(/valor/i)).toHaveValue('690,00')
+    expect(within(form).getByLabelText(/referência/i)).toHaveDisplayValue(/\/\d{4}$/)
 
     // Sem vencimento: a validação segura e nada vai ao backend.
-    await userEvent.click(within(dialogo).getByRole('button', { name: /lançar fatura/i }))
-    expect(within(dialogo).getByText(/informe o vencimento/i)).toBeInTheDocument()
+    await userEvent.click(within(form).getByRole('button', { name: /lançar fatura/i }))
+    expect(within(form).getByText(/informe o vencimento/i)).toBeInTheDocument()
     expect(chamadas.some((c) => c.metodo === 'POST')).toBe(false)
+  })
+
+  it('recusa referência sem mês e ano', async () => {
+    abrir()
+    await screen.findByText('Colégio Bandeirantes')
+    const form = screen.getByRole('form', { name: /lançar fatura/i })
+
+    await userEvent.type(within(form).getByLabelText(/referência/i), 'Plano Avançado')
+    await userEvent.click(within(form).getByRole('button', { name: /lançar fatura/i }))
+
+    expect(within(form).getByText(/inclua o mês e o ano/i)).toBeInTheDocument()
+  })
+
+  it('cancela a fatura selecionada depois de confirmar; a paga não pode ser selecionada', async () => {
+    const chamadas = abrir()
+    await screen.findByText('Colégio Bandeirantes')
+    const cancelar = screen.getByRole('button', { name: /cancelar fatura selecionada/i })
+    expect(cancelar).toBeDisabled()
+    expect(screen.getByRole('radio', { name: /colégio dom bosco/i })).toBeDisabled()
+
+    await userEvent.click(screen.getByRole('radio', { name: /colégio bandeirantes/i }))
+    await userEvent.click(cancelar)
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^cancelar fatura$/i }))
+
+    expect(chamadas.some((c) => c.metodo === 'PATCH' && c.caminho === '/escolas/e1/faturas/f1/cancelar')).toBe(true)
+  })
+})
+
+describe('competenciaDaReferencia', () => {
+  it.each([
+    ['Plano Avançado · novembro/2026', '2026-11'],
+    ['Plano Básico · Março/2027', '2027-03'],
+    ['Mensalidade 01/2026', '2026-01'],
+    ['Plano Avançado', null],
+    ['Plano · 13/2026', null],
+    ['Plano · marco/2026', null],
+  ])('%s -> %s', (referencia, esperado) => {
+    expect(competenciaDaReferencia(referencia)).toBe(esperado)
   })
 })

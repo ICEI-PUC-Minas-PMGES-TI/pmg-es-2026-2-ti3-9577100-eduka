@@ -1,0 +1,103 @@
+/* Uma coluna por dia; em tela estreita as colunas descem uma embaixo da outra. */
+.semana {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.dia {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.hoje {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.cabecalho {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 14.5px;
+  font-weight: 800;
+}
+
+.data {
+  color: var(--color-text-subtle);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hoje .data {
+  color: var(--color-primary-text);
+  text-transform: uppercase;
+}
+
+.vazio {
+  margin: 0;
+  color: var(--color-text-subtle);
+  font-size: 13px;
+}
+
+.aulas {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.aula {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: rgba(150, 103, 224, 0.1);
+  font-size: 13px;
+}
+
+.hora {
+  color: var(--color-primary-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.turma {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.disciplina {
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+
+.feita {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  color: var(--color-success);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.botao {
+  align-self: stretch;
+  margin-top: 6px;
+}
