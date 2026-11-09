@@ -40,6 +40,7 @@ import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.AcessoService;
 import br.pucminas.eduka.backend.service.EquipeService;
+import br.pucminas.eduka.backend.service.AuditoriaService;
 
 /**
  * Contrato de seguranca de {@code /usuarios/equipe}, ponta a ponta: filter
@@ -63,6 +64,8 @@ class EquipeControllerSecurityTest {
 
     @MockitoBean
     private UsuarioRepository usuarioRepository;
+    @MockitoBean
+    private AuditoriaService auditoriaService;
     @MockitoBean
     private PessoaRepository pessoaRepository;
     @MockitoBean

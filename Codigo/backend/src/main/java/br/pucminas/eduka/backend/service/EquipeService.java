@@ -12,6 +12,8 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.PapelPessoa;
 import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Pessoa;
@@ -58,15 +60,17 @@ public class EquipeService {
     private final PessoaPapelRepository pessoaPapelRepository;
     private final AcessoService acessoService;
     private final IsolamentoEscola isolamentoEscola;
+    private final AuditoriaService auditoriaService;
 
     public EquipeService(UsuarioRepository usuarioRepository, PessoaRepository pessoaRepository,
             PessoaPapelRepository pessoaPapelRepository, AcessoService acessoService,
-            IsolamentoEscola isolamentoEscola) {
+            IsolamentoEscola isolamentoEscola, AuditoriaService auditoriaService) {
         this.usuarioRepository = usuarioRepository;
         this.pessoaRepository = pessoaRepository;
         this.pessoaPapelRepository = pessoaPapelRepository;
         this.acessoService = acessoService;
         this.isolamentoEscola = isolamentoEscola;
+        this.auditoriaService = auditoriaService;
     }
 
     /**
@@ -119,6 +123,7 @@ public class EquipeService {
                 .save(PessoaPapel.builder().pessoaId(pessoa.getId()).papel(PapelPessoa.FUNCIONARIO).build());
 
         Usuario usuario = acessoService.enviarAcessoInicial(pessoa, perfil);
+        auditar(OperacaoAuditoria.CRIAR, usuario);
         return MembroEquipeResponse.de(usuario, pessoa);
     }
 
@@ -136,6 +141,7 @@ public class EquipeService {
         pessoa.setTelefone(request.telefone());
         Pessoa salva = pessoaRepository.save(pessoa);
         acessoService.sincronizarLogin(salva);
+        auditar(OperacaoAuditoria.EDITAR, usuario);
 
         return MembroEquipeResponse.de(usuario, salva);
     }
@@ -154,6 +160,7 @@ public class EquipeService {
             throw new IllegalArgumentException("Quem esta inativo nao recebe acesso");
         }
         acessoService.enviarAcessoInicial(buscarPessoa(usuario, escolaId), usuario.getPerfil());
+        auditar(OperacaoAuditoria.REENVIAR_ACESSO, usuario);
     }
 
     @Transactional
@@ -173,8 +180,13 @@ public class EquipeService {
         if (usuario.isAtivo() != ativo) {
             usuario.setAtivo(ativo);
             usuario = usuarioRepository.save(usuario);
+            auditar(ativo ? OperacaoAuditoria.ATIVAR : OperacaoAuditoria.INATIVAR, usuario);
         }
         return MembroEquipeResponse.de(usuario, pessoa);
+    }
+
+    private void auditar(OperacaoAuditoria operacao, Usuario usuario) {
+        auditoriaService.registrar(operacao, EntidadeAuditada.USUARIO, usuario.getId());
     }
 
     private static PerfilUsuario exigirPerfilDaEquipe(PerfilUsuario perfil) {

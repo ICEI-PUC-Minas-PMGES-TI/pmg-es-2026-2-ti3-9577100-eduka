@@ -35,9 +35,9 @@ import br.pucminas.eduka.backend.domain.AlunoResponsavel;
 import br.pucminas.eduka.backend.domain.PapelPessoa;
 import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Pessoa;
-import br.pucminas.eduka.backend.domain.StatusMatricula;
 import br.pucminas.eduka.backend.domain.PessoaPapel;
 import br.pucminas.eduka.backend.domain.Responsavel;
+import br.pucminas.eduka.backend.domain.StatusMatricula;
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.AlunoRequest;
 import br.pucminas.eduka.backend.dto.AlunoResponse;
@@ -71,6 +71,8 @@ class AlunoServiceTest {
     @Mock
     private AlunoRepository alunoRepository;
     @Mock
+    private AuditoriaService auditoriaService;
+    @Mock
     private PessoaRepository pessoaRepository;
     @Mock
     private PessoaPapelRepository pessoaPapelRepository;
@@ -96,7 +98,7 @@ class AlunoServiceTest {
                 alunoResponsavelRepository, alunoRepository, pessoaRepository, pessoaPapelRepository,
                 cobrancaRepository, isolamentoEscola);
         alunoService = new AlunoService(alunoRepository, pessoaRepository, pessoaPapelRepository,
-                responsavelService, isolamentoEscola, acessoService, matriculaRepository, RELOGIO);
+                responsavelService, isolamentoEscola, acessoService, matriculaRepository, RELOGIO, auditoriaService);
     }
 
     @AfterEach

@@ -54,6 +54,8 @@ class EquipeServiceTest {
     @Mock
     private UsuarioRepository usuarioRepository;
     @Mock
+    private AuditoriaService auditoriaService;
+    @Mock
     private PessoaRepository pessoaRepository;
     @Mock
     private PessoaPapelRepository pessoaPapelRepository;
@@ -65,7 +67,7 @@ class EquipeServiceTest {
     @BeforeEach
     void setUp() {
         equipeService = new EquipeService(usuarioRepository, pessoaRepository, pessoaPapelRepository, acessoService,
-                new IsolamentoEscola());
+                new IsolamentoEscola(), auditoriaService);
         UsuarioAutenticado master = new UsuarioAutenticado(UUID.randomUUID(), "MASTER", ESCOLA_A);
         SecurityContextHolder.getContext().setAuthentication(
                 new TestingAuthenticationToken(master, null, "ROLE_MASTER"));

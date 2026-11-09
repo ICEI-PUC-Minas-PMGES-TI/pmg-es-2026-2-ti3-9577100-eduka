@@ -151,10 +151,17 @@ class SuspensaoPorAtrasoBancoRealTest extends BancoRealTest {
                 cenario.fatura());
         service.suspender();
 
-        autenticarComo("SUPER_ADMIN", null);
+        // O log aponta para o autor: o SUPER_ADMIN precisa existir no banco.
+        UUID suporte = dados.usuario(null, "SUPER_ADMIN", "Suporte Eduka");
+        autenticarComo(suporte, "SUPER_ADMIN", null);
         escolaService.ativar(cenario.escola());
 
         assertThat(ativa(cenario.escola())).isTrue();
+        // A rotina suspendeu sem autor; o SUPER_ADMIN reativou, e as duas ficam na escola.
+        assertThat(jdbc.queryForList("SELECT ORIGEM || ' ' || OPERACAO || ' ' || COALESCE(USUARIO_ID::text, '-') "
+                + "FROM LOG_AUDITORIA WHERE ESCOLA_ID = ? AND ENTIDADE = 'ESCOLA' ORDER BY DATA_HORA",
+                String.class, cenario.escola()))
+                .containsExactly("SISTEMA SUSPENDER -", "USUARIO ATIVAR " + suporte);
         assertThat(motivo(cenario.escola())).isNull();
         assertThat(prevista(cenario.fatura())).isNull();
         // Sem aviso novo, a rotina nao suspende de novo no mesmo dia.

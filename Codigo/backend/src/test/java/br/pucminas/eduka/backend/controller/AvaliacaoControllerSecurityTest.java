@@ -45,6 +45,7 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.AvaliacaoService;
+import br.pucminas.eduka.backend.service.AuditoriaService;
 
 /**
  * Contrato de seguranca e de erros de {@code /portal/professor/avaliacoes},
@@ -70,6 +71,8 @@ class AvaliacaoControllerSecurityTest {
 
     @MockitoBean
     private AvaliacaoRepository avaliacaoRepository;
+    @MockitoBean
+    private AuditoriaService auditoriaService;
     @MockitoBean
     private NotaRepository notaRepository;
     @MockitoBean

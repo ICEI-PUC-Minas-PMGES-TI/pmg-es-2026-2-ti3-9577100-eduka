@@ -17,8 +17,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.Escola;
 import br.pucminas.eduka.backend.domain.MotivoSuspensao;
+import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.TipoNotificacao;
@@ -70,11 +72,12 @@ public class SuspensaoPorAtrasoService {
     private final SuspensaoPorAtrasoProperties prazos;
     private final TransactionTemplate transacao;
     private final Clock clock;
+    private final AuditoriaService auditoriaService;
 
     public SuspensaoPorAtrasoService(SuspensaoPorAtrasoRepository repository, EscolaRepository escolaRepository,
             UsuarioRepository usuarioRepository, PessoaRepository pessoaRepository,
             NotificacaoService notificacaoService, SuspensaoEmail suspensaoEmail, SuspensaoPorAtrasoProperties prazos,
-            PlatformTransactionManager transactionManager, Clock clock) {
+            PlatformTransactionManager transactionManager, Clock clock, AuditoriaService auditoriaService) {
         this.repository = repository;
         this.escolaRepository = escolaRepository;
         this.usuarioRepository = usuarioRepository;
@@ -84,6 +87,7 @@ public class SuspensaoPorAtrasoService {
         this.prazos = prazos;
         this.transacao = new TransactionTemplate(transactionManager);
         this.clock = clock;
+        this.auditoriaService = auditoriaService;
     }
 
     /** @return quantas faturas receberam o aviso */
@@ -126,6 +130,9 @@ public class SuspensaoPorAtrasoService {
                     }
                     escola.suspender(MotivoSuspensao.FATURA_EM_ATRASO);
                     escolaRepository.save(escola);
+                    // Ninguem suspendeu: foi a rotina, pela fatura em atraso.
+                    auditoriaService.registrarDoSistema(OperacaoAuditoria.SUSPENDER, EntidadeAuditada.ESCOLA,
+                            escola.getId(), escola.getId());
                     enviarAosMasters(fatura, TipoNotificacao.ESCOLA_SUSPENSA, fatura.getSuspensaoPrevistaPara());
                     return true;
                 });

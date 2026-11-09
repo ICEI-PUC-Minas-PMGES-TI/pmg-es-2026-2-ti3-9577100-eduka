@@ -40,12 +40,14 @@ class EscolaServiceTest {
 
     @Mock
     private EscolaRepository escolaRepository;
+    @Mock
+    private AuditoriaService auditoriaService;
 
     private EscolaService escolaService;
 
     @BeforeEach
     void setUp() {
-        escolaService = new EscolaService(escolaRepository);
+        escolaService = new EscolaService(escolaRepository, auditoriaService);
     }
 
     private static final Endereco ENDERECO = new Endereco("Rua das Escolas", "100", "Centro", "Belo Horizonte",

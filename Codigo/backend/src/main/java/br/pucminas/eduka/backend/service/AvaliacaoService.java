@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -17,8 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.Avaliacao;
+import br.pucminas.eduka.backend.domain.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.MatriculaTurma;
 import br.pucminas.eduka.backend.domain.Nota;
+import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.Professor;
 import br.pucminas.eduka.backend.domain.StatusMatricula;
@@ -75,12 +78,13 @@ public class AvaliacaoService {
     private final MatriculaTurmaRepository matriculaRepository;
     private final PessoaRepository pessoaRepository;
     private final IsolamentoEscola isolamentoEscola;
+    private final AuditoriaService auditoriaService;
 
     public AvaliacaoService(AvaliacaoRepository avaliacaoRepository, NotaRepository notaRepository,
             ProfessorRepository professorRepository, AlocacaoProfessorRepository alocacaoRepository,
             TurmaRepository turmaRepository, DisciplinaRepository disciplinaRepository,
             MatriculaTurmaRepository matriculaRepository, PessoaRepository pessoaRepository,
-            IsolamentoEscola isolamentoEscola) {
+            IsolamentoEscola isolamentoEscola, AuditoriaService auditoriaService) {
         this.avaliacaoRepository = avaliacaoRepository;
         this.notaRepository = notaRepository;
         this.professorRepository = professorRepository;
@@ -90,6 +94,7 @@ public class AvaliacaoService {
         this.matriculaRepository = matriculaRepository;
         this.pessoaRepository = pessoaRepository;
         this.isolamentoEscola = isolamentoEscola;
+        this.auditoriaService = auditoriaService;
     }
 
     /** Avaliacoes da disciplina na turma, por data e titulo. */
@@ -139,6 +144,7 @@ public class AvaliacaoService {
                 .valor(request.valor())
                 .build();
         Avaliacao salva = avaliacaoRepository.saveAndFlush(avaliacao);
+        auditoriaService.registrar(OperacaoAuditoria.CRIAR, EntidadeAuditada.AVALIACAO, salva.getId());
         // Relida com o EntityGraph para devolver nome da turma e da disciplina.
         return AvaliacaoResponse.de(avaliacaoRepository.findByIdAndEscolaId(salva.getId(), escolaId)
                 .orElseThrow(AvaliacaoService::naoEncontrada), 0);
@@ -165,6 +171,7 @@ public class AvaliacaoService {
         avaliacao.setData(request.data());
         avaliacao.setValor(request.valor());
         avaliacao.setAtualizadoEm(Instant.now());
+        auditoriaService.registrar(OperacaoAuditoria.EDITAR, EntidadeAuditada.AVALIACAO, avaliacao.getId());
         return comContagem(avaliacaoRepository.save(avaliacao), escolaId);
     }
 
@@ -177,6 +184,7 @@ public class AvaliacaoService {
             throw new AvaliacaoComNotasException();
         }
         avaliacaoRepository.delete(avaliacao);
+        auditoriaService.registrar(OperacaoAuditoria.EXCLUIR, EntidadeAuditada.AVALIACAO, avaliacao.getId());
     }
 
     /**
@@ -227,28 +235,40 @@ public class AvaliacaoService {
                 throw new IllegalArgumentException("Aluno sem matricula ativa na turma da avaliacao");
             }
             Nota existente = notasPorAluno.get(item.alunoId());
+            // Uma linha no log por nota que mudou: reenviar o diario igual nao registra nada.
             if (item.valor() == null) {
                 if (existente != null) {
                     notaRepository.delete(existente);
+                    auditoriaService.registrar(OperacaoAuditoria.EXCLUIR, EntidadeAuditada.NOTA, existente.getId());
                 }
                 continue;
             }
+            String observacao = opcional(item.observacao());
             if (existente == null) {
-                notaRepository.save(Nota.builder()
+                Nota nova = Nota.builder()
                         .escolaId(escolaId)
                         .avaliacao(avaliacao)
                         .aluno(matricula.getAluno())
                         .valor(item.valor())
-                        .observacao(opcional(item.observacao()))
-                        .build());
-            } else {
+                        .observacao(observacao)
+                        .build();
+                // Nota nova e persistida nesta mesma instancia, que ja sai daqui com o id.
+                notaRepository.save(nova);
+                auditoriaService.registrar(OperacaoAuditoria.CRIAR, EntidadeAuditada.NOTA, nova.getId());
+            } else if (existente.getValor().compareTo(item.valor()) != 0
+                    || !Objects.equals(existente.getObservacao(), observacao)) {
                 existente.setValor(item.valor());
-                existente.setObservacao(opcional(item.observacao()));
+                existente.setObservacao(observacao);
                 existente.setAtualizadoEm(Instant.now());
                 notaRepository.save(existente);
+                auditoriaService.registrar(OperacaoAuditoria.EDITAR, EntidadeAuditada.NOTA, existente.getId());
             }
         }
         // Rascunho guarda sem publicar; Lancar notas publica a avaliacao inteira no boletim.
+        if (!request.ehRascunho() && !avaliacao.isNotasPublicadas()) {
+            auditoriaService.registrar(OperacaoAuditoria.PUBLICAR_NOTAS, EntidadeAuditada.AVALIACAO,
+                    avaliacao.getId());
+        }
         avaliacao.setNotasPublicadas(!request.ehRascunho());
         avaliacaoRepository.save(avaliacao);
         notaRepository.flush();
