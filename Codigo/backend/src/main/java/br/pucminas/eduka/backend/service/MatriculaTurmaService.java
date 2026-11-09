@@ -157,6 +157,7 @@ public class MatriculaTurmaService {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         Aluno aluno = alunoRepository.findByIdAndEscolaId(request.alunoId(), escolaId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Aluno nao encontrado"));
+        AlunoService.exigirNaoAnonimizado(aluno);
         Turma turma = buscarTurmaParaOcupar(request.turmaId(), escolaId);
         if (matriculaRepository.existsByEscolaIdAndAlunoIdAndTurmaId(escolaId, aluno.getId(), turma.getId())) {
             throw new MatriculaJaExisteException();

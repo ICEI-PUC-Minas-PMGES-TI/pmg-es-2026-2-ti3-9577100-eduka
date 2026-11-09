@@ -15,7 +15,7 @@ const SEM_DADO = '—'
  * só com trancada, ou sem nenhuma das duas.
  */
 export type SituacaoAluno = {
-  tipo: 'matriculado' | 'trancado' | 'semTurma'
+  tipo: 'matriculado' | 'trancado' | 'semTurma' | 'anonimizado'
   /** Turma da matrícula ativa (ou da trancada). */
   turma: string | null
 }
@@ -24,6 +24,7 @@ const BADGE_SITUACAO: Record<SituacaoAluno['tipo'], { rotulo: string; tom: 'succ
   matriculado: { rotulo: 'Matriculado', tom: 'success' },
   trancado: { rotulo: 'Trancado', tom: 'neutral' },
   semTurma: { rotulo: 'Sem turma', tom: 'danger' },
+  anonimizado: { rotulo: 'Anonimizado', tom: 'neutral' },
 }
 
 type AlunosTableProps = {
@@ -81,6 +82,8 @@ export function AlunosTable({
                 paginacao.itensDaPagina.map((aluno) => {
                   const situacao = situacoes.get(aluno.id)
                   const badge = situacao && BADGE_SITUACAO[situacao.tipo]
+                  // Sem dado pessoal, não há o que editar nem acesso para reenviar.
+                  const anonimizado = situacao?.tipo === 'anonimizado'
                   return (
                     <tr key={aluno.id}>
                       <td className={styles.colPrincipal}>
@@ -101,19 +104,23 @@ export function AlunosTable({
                           <Button size="sm" icon="eye" onClick={() => onVer(aluno)}>
                             Ver
                           </Button>
-                          <Button size="sm" icon="edit" onClick={() => onEditar(aluno)}>
-                            Editar
-                          </Button>
-                          <Dica texto="Envia uma nova senha provisória para o e-mail do aluno">
-                            <Button
-                              size="sm"
-                              icon="mail"
-                              disabled={reenviandoId === aluno.id}
-                              onClick={() => onReenviarAcesso(aluno)}
-                            >
-                              Reenviar acesso
-                            </Button>
-                          </Dica>
+                          {!anonimizado && (
+                            <>
+                              <Button size="sm" icon="edit" onClick={() => onEditar(aluno)}>
+                                Editar
+                              </Button>
+                              <Dica texto="Envia uma nova senha provisória para o e-mail do aluno">
+                                <Button
+                                  size="sm"
+                                  icon="mail"
+                                  disabled={reenviandoId === aluno.id}
+                                  onClick={() => onReenviarAcesso(aluno)}
+                                >
+                                  Reenviar acesso
+                                </Button>
+                              </Dica>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -116,7 +116,9 @@ class MatrizDeAcessoTest {
                 "PUT /usuarios/equipe/{id}",
                 "POST /usuarios/equipe/{id}/primeiro-acesso",
                 "PATCH /usuarios/equipe/{id}/inativar",
-                "PATCH /usuarios/equipe/{id}/ativar");
+                "PATCH /usuarios/equipe/{id}/ativar",
+                // LGPD: apagar o dado pessoal nao tem volta.
+                "POST /alunos/{id}/anonimizar");
 
         // Estrutura da escola, sem dado pessoal: quem trabalha nela le.
         libera(matriz, EQUIPE,
@@ -149,6 +151,7 @@ class MatrizDeAcessoTest {
                 "POST /alunos",
                 "PUT /alunos/{id}",
                 "POST /alunos/{id}/primeiro-acesso",
+                "GET /alunos/{id}/dados-pessoais",
                 "GET /alunos/correcoes",
                 "PATCH /alunos/correcoes/{id}/atender",
                 "POST /matriculas",

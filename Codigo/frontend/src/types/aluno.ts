@@ -9,8 +9,11 @@ export type AlunoResumo = {
   genero: string | null
 }
 
-/** Onde o aluno está hoje: com matrícula ativa, só com trancada, ou sem nenhuma das duas. */
-export type SituacaoNaEscola = 'MATRICULADO' | 'TRANCADO' | 'SEM_TURMA'
+/**
+ * Onde o aluno está hoje: com matrícula ativa, só com trancada, ou sem nenhuma
+ * das duas. ANONIMIZADO é quem saiu e teve os dados pessoais apagados (LGPD).
+ */
+export type SituacaoNaEscola = 'MATRICULADO' | 'TRANCADO' | 'SEM_TURMA' | 'ANONIMIZADO'
 
 // A listagem (GET /alunos) traz, além do resumo, a situação e a turma da
 // matrícula ativa (ou da trancada): as telas não precisam ler as matrículas.
@@ -54,6 +57,8 @@ export type Aluno = AlunoResumo & {
   /** Nulo quando nenhum campo do endereço foi preenchido. */
   endereco: Endereco | null
   responsaveis: Responsavel[]
+  /** No detalhe, só vem preenchida para o aluno anonimizado. */
+  situacao?: SituacaoNaEscola | null
 }
 
 export type ResponsavelRequest = {

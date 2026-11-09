@@ -15,7 +15,7 @@ rectangle "Eduka — Gestão acadêmica" {
   usecase "UC18\nAlocar Professor em\nTurmas e Disciplinas" as UC18
   usecase "UC34\nMontar Horário\ndas Turmas" as UC34
   usecase "UC08\nRealizar Matrícula\nde Aluno" as UC08
-  usecase "UC39\nExportar e Anonimizar\nDados Pessoais" as UC39 <<planejado>>
+  usecase "UC39\nExportar e Anonimizar\nDados Pessoais" as UC39
   usecase "Criar Acesso Inicial\n(login e senha provisória)" as ACESSO
   usecase "Reenviar Acesso" as REENVIO
   usecase "Atender Pedido\nde Correção" as CORRECAO
@@ -40,6 +40,7 @@ UC18 <-- MASTER
 UC34 <-- MASTER
 UC08 <-- MASTER
 UC39 <-- MASTER
+UC39 <-- SECRETARIA
 FINANCEIRO -[#A0A8B4]-> UC29 : API
 UC29 ..> UC05 : <<extend>>
 UC05 ..> ACESSO : <<include>>

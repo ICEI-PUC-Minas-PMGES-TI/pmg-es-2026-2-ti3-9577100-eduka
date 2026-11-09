@@ -31,6 +31,7 @@ const FILTROS: { valor: Filtro; rotulo: string }[] = [
   { valor: 'matriculado', rotulo: 'Matriculados' },
   { valor: 'semTurma', rotulo: 'Sem turma' },
   { valor: 'trancado', rotulo: 'Trancados' },
+  { valor: 'anonimizado', rotulo: 'Anonimizados' },
 ]
 
 function correspondeBusca(aluno: AlunoResumo, busca: string): boolean {
@@ -43,6 +44,7 @@ const TIPO_DA_SITUACAO: Record<SituacaoNaEscola, SituacaoAluno['tipo']> = {
   MATRICULADO: 'matriculado',
   TRANCADO: 'trancado',
   SEM_TURMA: 'semTurma',
+  ANONIMIZADO: 'anonimizado',
 }
 
 /** A situação já vem do backend com cada aluno: a matrícula ativa vale mais que a trancada. */
@@ -95,6 +97,9 @@ export function Alunos() {
 
   const encontrados = alunos.filter((a) => correspondeBusca(a, busca))
   const visiveis = filtro === 'todos' ? encontrados : encontrados.filter((a) => situacaoDe(a) === filtro)
+  // O anonimizado já saiu da escola: não conta como aluno cadastrado.
+  const naEscola = alunos.filter((a) => situacaoDe(a) !== 'anonimizado').length
+  const temAnonimizados = naEscola < alunos.length
   const matriculados = alunos.filter((a) => situacaoDe(a) === 'matriculado').length
   const semTurma = alunos.filter((a) => situacaoDe(a) === 'semTurma').length
   const mensagemVazia =
@@ -147,6 +152,13 @@ export function Alunos() {
     }
   }
 
+  function handleAnonimizado(aluno: AlunoResumo) {
+    setVendo(null)
+    limparAvisos()
+    setSucesso(`Os dados pessoais de "${aluno.nome}" foram apagados. O histórico financeiro continua guardado.`)
+    recarregar()
+  }
+
   async function handleReenviarAcesso(aluno: AlunoResumo) {
     limparAvisos()
     setReenviandoId(aluno.id)
@@ -172,7 +184,7 @@ export function Alunos() {
     <SecretariaLayout titulo="Alunos" subtitulo="Cadastre os alunos da escola e mantenha os dados em dia.">
       {resumoPronto && (
         <StatCards rotulo="Resumo dos alunos">
-          <StatCard label="Alunos cadastrados" value={alunos.length} descricao="Na escola" destaque />
+          <StatCard label="Alunos cadastrados" value={naEscola} descricao="Na escola" destaque />
           <StatCard label="Com turma" value={matriculados} descricao="Com matrícula ativa" />
           <StatCard
             label="Sem turma"
@@ -195,7 +207,7 @@ export function Alunos() {
           />
         </label>
         <div className={styles.filtros} role="group" aria-label="Filtrar por situação">
-          {FILTROS.map((f) => {
+          {FILTROS.filter((f) => f.valor !== 'anonimizado' || temAnonimizados).map((f) => {
             const quantidade =
               f.valor === 'todos' ? encontrados.length : encontrados.filter((a) => situacaoDe(a) === f.valor).length
             return (
@@ -243,7 +255,14 @@ export function Alunos() {
         onReenviarAcesso={handleReenviarAcesso}
       />
 
-      {vendo && <DetalhesAlunoModal aluno={vendo} onFechar={() => setVendo(null)} />}
+      {vendo && (
+        <DetalhesAlunoModal
+          aluno={vendo}
+          anonimizado={situacoes.get(vendo.id)?.tipo === 'anonimizado'}
+          onFechar={() => setVendo(null)}
+          onAnonimizado={() => handleAnonimizado(vendo)}
+        />
+      )}
 
       {modal.aberto && (
         <AlunoModal

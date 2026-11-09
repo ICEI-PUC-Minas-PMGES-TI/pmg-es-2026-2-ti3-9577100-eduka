@@ -50,7 +50,7 @@ São 39 casos de uso: 22 completos, 12 parciais e 5 planejados para a Sprint 4.
 | UC18 | Alocar Professor em Turmas e Disciplinas | SECRETARIA, MASTER | RF09, RF10 | Completo | `/secretaria/academico/alocacoes` e edição do professor | RF09.4 |
 | UC34 | Montar Horário das Turmas | SECRETARIA, MASTER | RF10 | Completo | `/secretaria/academico/alocacoes` (IU26) | FR.4 |
 | UC08 | Realizar Matrícula de Aluno | SECRETARIA, MASTER | RF11 | Completo | `/secretaria/matriculas`, `/master/matriculas` | — |
-| UC39 | Exportar e Anonimizar Dados Pessoais | MASTER (a confirmar) | RNF05 | Planejado | — | RNF05.2 |
+| UC39 | Exportar e Anonimizar Dados Pessoais | MASTER, SECRETARIA (exportar); MASTER (anonimizar) | RNF05 | Completo | Detalhe do aluno em `/secretaria/alunos`, `/master/alunos` | RNF05.2 |
 
 ### Gestão financeira ([diagrama](diagramas/png/04-gestao-financeira.png))
 

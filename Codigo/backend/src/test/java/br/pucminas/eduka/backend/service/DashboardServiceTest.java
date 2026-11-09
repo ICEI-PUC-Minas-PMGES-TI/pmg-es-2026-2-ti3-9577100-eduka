@@ -199,7 +199,7 @@ class DashboardServiceTest {
     @Test
     void escolaContaPessoasEstruturaOcupacaoEAproveitamento() {
         // 3 alunos: 2 com matricula ativa (uma em cada turma) e 1 so com matricula concluida.
-        when(alunoRepository.countByEscolaId(ESCOLA)).thenReturn(3L);
+        when(alunoRepository.countByEscolaIdAndAnonimizadoEmIsNull(ESCOLA)).thenReturn(3L);
         when(matriculaRepository.contarAlunosComMatriculaAtiva(ESCOLA)).thenReturn(2L);
         Turma encerrada = turma(3L, "3C", 30, false);
         when(matriculaRepository.contarAtivasPorTurma(ESCOLA)).thenReturn(List.of(ativas(turmaA, 1), ativas(turmaB, 1)));
@@ -247,7 +247,7 @@ class DashboardServiceTest {
     @Test
     void secretariaResumeMatriculasEVagasDaMaisCheiaParaAMaisVazia() {
         // 4 alunos: 3 ativos (2 na 1A, 1 na 2B) e 1 so com matricula cancelada.
-        when(alunoRepository.countByEscolaId(ESCOLA)).thenReturn(4L);
+        when(alunoRepository.countByEscolaIdAndAnonimizadoEmIsNull(ESCOLA)).thenReturn(4L);
         when(matriculaRepository.contarPorSituacao(ESCOLA)).thenReturn(List.of(
                 naSituacao(StatusMatricula.ATIVA, 3), naSituacao(StatusMatricula.CANCELADA, 1)));
         // Ultimos 30 dias incluem o 30o dia para tras.

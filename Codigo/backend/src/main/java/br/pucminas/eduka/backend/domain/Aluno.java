@@ -69,4 +69,15 @@ public class Aluno {
 
     @Column(name = "atualizado_em")
     private Instant atualizadoEm;
+
+    /**
+     * Quando o dado pessoal foi apagado (LGPD, V45). A linha fica, porque
+     * cobrancas, matriculas e notas apontam para ela.
+     */
+    @Column(name = "anonimizado_em")
+    private Instant anonimizadoEm;
+
+    public boolean isAnonimizado() {
+        return anonimizadoEm != null;
+    }
 }

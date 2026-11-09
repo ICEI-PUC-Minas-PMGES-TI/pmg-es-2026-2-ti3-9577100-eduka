@@ -35,6 +35,7 @@ import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.dto.ResponsavelResponse;
 import br.pucminas.eduka.backend.exception.NumeroMatriculaJaCadastradoException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.exception.RegistroEmUsoException;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
@@ -134,6 +135,9 @@ public class AlunoService {
     }
 
     private static AlunoResponse resumo(Aluno aluno, Pessoa pessoa, MatriculaTurmaRepository.Vigente vigente) {
+        if (aluno.isAnonimizado()) {
+            return AlunoResponse.deResumo(aluno, pessoa, AlunoResponse.Situacao.ANONIMIZADO, null, null);
+        }
         if (vigente == null) {
             return AlunoResponse.deResumo(aluno, pessoa, AlunoResponse.Situacao.SEM_TURMA, null, null);
         }
@@ -214,6 +218,7 @@ public class AlunoService {
         validar(request);
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         Aluno aluno = alunoRepository.findByIdAndEscolaId(id, escolaId).orElseThrow(AlunoService::naoEncontrado);
+        exigirNaoAnonimizado(aluno);
         Pessoa pessoa = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
                 .orElseThrow(AlunoService::naoEncontrado);
         String matricula = request.matricula().trim();
@@ -252,6 +257,7 @@ public class AlunoService {
     public void reenviarAcesso(UUID id) {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         Aluno aluno = alunoRepository.findByIdAndEscolaId(id, escolaId).orElseThrow(AlunoService::naoEncontrado);
+        exigirNaoAnonimizado(aluno);
         Pessoa pessoa = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
                 .orElseThrow(AlunoService::naoEncontrado);
         Usuario usuario = acessoService.enviarAcessoInicial(pessoa, PerfilUsuario.ALUNO);
@@ -292,6 +298,13 @@ public class AlunoService {
         if (request.dataNascimento() != null
                 && request.dataNascimento().isAfter(LocalDate.now(clock.withZone(FUSO_ESCOLA)))) {
             throw new IllegalArgumentException("Data de nascimento nao pode ser futura");
+        }
+    }
+
+    /** Aluno anonimizado nao tem mais dado pessoal: nao e editado nem ganha acesso (409). */
+    static void exigirNaoAnonimizado(Aluno aluno) {
+        if (aluno.isAnonimizado()) {
+            throw new RegistroEmUsoException("Aluno anonimizado: os dados pessoais foram apagados");
         }
     }
 
