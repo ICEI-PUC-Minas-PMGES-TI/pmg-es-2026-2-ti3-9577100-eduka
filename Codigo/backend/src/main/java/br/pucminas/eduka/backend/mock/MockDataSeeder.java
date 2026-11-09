@@ -4,9 +4,11 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.TextStyle;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -39,6 +41,7 @@ import br.pucminas.eduka.backend.domain.AlocacaoProfessor;
 import br.pucminas.eduka.backend.domain.Aluno;
 import br.pucminas.eduka.backend.domain.AlunoResponsavel;
 import br.pucminas.eduka.backend.domain.AlunoResponsavelId;
+import br.pucminas.eduka.backend.domain.Aula;
 import br.pucminas.eduka.backend.domain.Avaliacao;
 import br.pucminas.eduka.backend.domain.CategoriaDespesa;
 import br.pucminas.eduka.backend.domain.Cobranca;
@@ -47,6 +50,8 @@ import br.pucminas.eduka.backend.domain.Despesa;
 import br.pucminas.eduka.backend.domain.Disciplina;
 import br.pucminas.eduka.backend.domain.Endereco;
 import br.pucminas.eduka.backend.domain.Escola;
+import br.pucminas.eduka.backend.domain.Frequencia;
+import br.pucminas.eduka.backend.domain.HorarioTurma;
 import br.pucminas.eduka.backend.domain.MatriculaTurma;
 import br.pucminas.eduka.backend.domain.ModuloEscola;
 import br.pucminas.eduka.backend.domain.Nota;
@@ -73,6 +78,7 @@ import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 import br.pucminas.eduka.backend.repository.AlocacaoProfessorRepository;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
 import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
+import br.pucminas.eduka.backend.repository.AulaRepository;
 import br.pucminas.eduka.backend.repository.AvaliacaoRepository;
 import br.pucminas.eduka.backend.repository.CategoriaDespesaRepository;
 import br.pucminas.eduka.backend.repository.CobrancaRepository;
@@ -80,6 +86,8 @@ import br.pucminas.eduka.backend.repository.CursoRepository;
 import br.pucminas.eduka.backend.repository.DespesaRepository;
 import br.pucminas.eduka.backend.repository.DisciplinaRepository;
 import br.pucminas.eduka.backend.repository.EscolaRepository;
+import br.pucminas.eduka.backend.repository.FrequenciaRepository;
+import br.pucminas.eduka.backend.repository.HorarioTurmaRepository;
 import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.NotaRepository;
 import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
@@ -96,7 +104,9 @@ import br.pucminas.eduka.backend.service.CategoriaDespesaService;
 /**
  * Escola de demonstracao com cara de escola de verdade: o "Colegio Ipe
  * Amarelo", com direcao, secretaria, financeiro, 8 professores, 5 turmas e 50
- * alunos com responsaveis, notas, mensalidades e despesas do semestre atual.
+ * alunos com responsaveis, notas, mensalidades e despesas do semestre atual,
+ * mais a grade semanal das turmas, as chamadas desta semana e algumas notas
+ * ainda por lancar.
  *
  * <p>
  * So existe em dev ({@code MOCK_DATA=true} no .env, que o docker-compose.yml
@@ -133,6 +143,13 @@ public class MockDataSeeder implements ApplicationRunner {
     private static final long SEMENTE = 2026L;
     private static final int ALUNOS_POR_TURMA = 10;
     private static final int DIA_VENCIMENTO = 10;
+    /** Horas de carga por aula semanal: 160 h viram 4 aulas por semana, 80 h viram 2. */
+    private static final int HORAS_POR_AULA_SEMANAL = 40;
+    private static final List<String> CONTEUDOS = List.of(
+            "Exposição do conteúdo novo e exercícios em sala",
+            "Correção da lista de exercícios e dúvidas",
+            "Atividade em grupo e discussão dos resultados",
+            "Revisão do capítulo e exercícios do livro");
 
     private record Funcionario(String nome, PerfilUsuario perfil) {
     }
@@ -235,6 +252,9 @@ public class MockDataSeeder implements ApplicationRunner {
     private final MatriculaTurmaRepository matriculaRepository;
     private final AvaliacaoRepository avaliacaoRepository;
     private final NotaRepository notaRepository;
+    private final HorarioTurmaRepository horarioRepository;
+    private final AulaRepository aulaRepository;
+    private final FrequenciaRepository frequenciaRepository;
     private final CobrancaRepository cobrancaRepository;
     private final PagamentoCobrancaRepository pagamentoRepository;
     private final CategoriaDespesaService categoriaDespesaService;
@@ -253,7 +273,8 @@ public class MockDataSeeder implements ApplicationRunner {
             AlunoRepository alunoRepository, ResponsavelRepository responsavelRepository,
             AlunoResponsavelRepository alunoResponsavelRepository, MatriculaTurmaRepository matriculaRepository,
             AvaliacaoRepository avaliacaoRepository, NotaRepository notaRepository,
-            CobrancaRepository cobrancaRepository, PagamentoCobrancaRepository pagamentoRepository,
+            HorarioTurmaRepository horarioRepository, AulaRepository aulaRepository,
+            FrequenciaRepository frequenciaRepository, CobrancaRepository cobrancaRepository, PagamentoCobrancaRepository pagamentoRepository,
             CategoriaDespesaService categoriaDespesaService,
             CategoriaDespesaRepository categoriaDespesaRepository, DespesaRepository despesaRepository,
             PasswordEncoder passwordEncoder, Clock clock, PlatformTransactionManager transactionManager,
@@ -274,6 +295,9 @@ public class MockDataSeeder implements ApplicationRunner {
         this.matriculaRepository = matriculaRepository;
         this.avaliacaoRepository = avaliacaoRepository;
         this.notaRepository = notaRepository;
+        this.horarioRepository = horarioRepository;
+        this.aulaRepository = aulaRepository;
+        this.frequenciaRepository = frequenciaRepository;
         this.cobrancaRepository = cobrancaRepository;
         this.pagamentoRepository = pagamentoRepository;
         this.categoriaDespesaService = categoriaDespesaService;
@@ -351,6 +375,11 @@ public class MockDataSeeder implements ApplicationRunner {
 
         List<Familia> familias = new ArrayList<>();
         List<AlunoMock> alunos = new ArrayList<>();
+        List<GradeMock.Pedido<AlocacaoProfessor>> pedidos = new ArrayList<>();
+        Map<Long, List<AlunoMock>> alunosPorTurma = new LinkedHashMap<>();
+        // Gerador proprio para o que veio depois (grade, chamadas, notas pendentes): o principal
+        // segue a mesma sequencia de antes, e as pessoas e notas ja semeadas nao mudam.
+        GeradorMock extra = new GeradorMock(SEMENTE + 1);
         int sequencia = 1;
         for (TurmaMock turmaMock : TURMAS) {
             List<String> grade = turmaMock.medio() ? GRADE_MEDIO : GRADE_FUNDAMENTAL;
@@ -370,7 +399,24 @@ public class MockDataSeeder implements ApplicationRunner {
             }
             avaliar(alocacoes, daTurma, semestre, hoje, gerador);
             alunos.addAll(daTurma);
+            alunosPorTurma.put(turma.getId(), daTurma);
+            alocacoes.forEach(alocacao -> pedidos.add(new GradeMock.Pedido<>(alocacao, turma.getId(),
+                    alocacao.getProfessor().getId(), turma.getTurno(),
+                    alocacao.getDisciplina().getCargaHoraria() / HORAS_POR_AULA_SEMANAL)));
         }
+
+        List<GradeMock.Aula<AlocacaoProfessor>> grade = GradeMock.montar(pedidos);
+        horarioRepository.saveAll(grade.stream()
+                .map(aula -> HorarioTurma.builder()
+                        .escolaId(escolaId)
+                        .alocacao(aula.alocacao())
+                        .diaSemana(aula.dia())
+                        .horaInicio(aula.inicio())
+                        .horaFim(aula.fim())
+                        .build())
+                .toList());
+        registrarChamadasDaSemana(grade, alunosPorTurma, semestre, hoje, extra);
+        deixarNotasPorLancar(pedidos, alunosPorTurma, semestre, hoje, extra);
 
         lancarCobrancas(escolaId, alunos, semestre, hoje, gerador);
         lancarDespesas(escolaId, semestre, hoje, gerador);
@@ -568,6 +614,86 @@ public class MockDataSeeder implements ApplicationRunner {
         double deZeroADez = Math.clamp(desempenho + gerador.random().nextGaussian() * 0.8, 0, 10);
         double proporcional = deZeroADez * pontos.doubleValue() / 10;
         return BigDecimal.valueOf(Math.round(proporcional * 2) / 2.0).setScale(1, RoundingMode.UNNECESSARY);
+    }
+
+    // ---- Grade e chamada ----
+
+    /**
+     * Chamada das aulas da grade desta semana que ja passaram (de segunda a
+     * ontem), com uma ou outra falta. Uma em cada cinco fica sem chamada,
+     * para o professor ter o que registrar.
+     */
+    private void registrarChamadasDaSemana(List<GradeMock.Aula<AlocacaoProfessor>> grade,
+            Map<Long, List<AlunoMock>> alunosPorTurma, Semestre semestre, LocalDate hoje, GeradorMock gerador) {
+        LocalDate segunda = hoje.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        int contador = 0;
+        for (GradeMock.Aula<AlocacaoProfessor> horario : grade) {
+            LocalDate data = segunda.plusDays(horario.dia().ordinal());
+            if (!data.isBefore(hoje) || data.isBefore(semestre.inicio()) || data.isAfter(semestre.fim())) {
+                continue;
+            }
+            if (contador++ % 5 == 4) {
+                continue;
+            }
+            AlocacaoProfessor alocacao = horario.alocacao();
+            Aula aula = aulaRepository.save(Aula.builder()
+                    .escolaId(alocacao.getEscolaId())
+                    .turma(alocacao.getTurma())
+                    .disciplina(alocacao.getDisciplina())
+                    .professor(alocacao.getProfessor())
+                    .data(data)
+                    .conteudo(CONTEUDOS.get(gerador.random().nextInt(CONTEUDOS.size())))
+                    .build());
+            frequenciaRepository.saveAll(alunosPorTurma.get(alocacao.getTurma().getId()).stream()
+                    .map(aluno -> Frequencia.builder()
+                            .escolaId(alocacao.getEscolaId())
+                            .aula(aula)
+                            .aluno(aluno.aluno())
+                            .presente(!gerador.chance(0.08))
+                            .build())
+                    .toList());
+        }
+    }
+
+    /**
+     * Uma lista de exercicios recente em cada disciplina. Um terco ja tem
+     * todas as notas, um terco tem metade e o resto nenhuma: sao as "notas a
+     * lancar" do professor.
+     */
+    private void deixarNotasPorLancar(List<GradeMock.Pedido<AlocacaoProfessor>> pedidos,
+            Map<Long, List<AlunoMock>> alunosPorTurma, Semestre semestre, LocalDate hoje, GeradorMock gerador) {
+        BigDecimal pontos = new BigDecimal("2");
+        for (int i = 0; i < pedidos.size(); i++) {
+            AlocacaoProfessor alocacao = pedidos.get(i).alocacao();
+            LocalDate data = hoje.minusDays(1 + i % 6L);
+            if (data.isBefore(semestre.inicio()) || data.isAfter(semestre.fim())) {
+                continue;
+            }
+            Avaliacao avaliacao = avaliacaoRepository.save(Avaliacao.builder()
+                    .escolaId(alocacao.getEscolaId())
+                    .turma(alocacao.getTurma())
+                    .disciplina(alocacao.getDisciplina())
+                    .professor(alocacao.getProfessor())
+                    .tipo(TipoAvaliacao.TAREFA)
+                    .titulo("Lista de exercícios")
+                    .data(data)
+                    .valor(pontos)
+                    .build());
+            List<AlunoMock> daTurma = alunosPorTurma.get(alocacao.getTurma().getId());
+            int comNota = switch (i % 3) {
+                case 0 -> daTurma.size();
+                case 1 -> daTurma.size() / 2;
+                default -> 0;
+            };
+            notaRepository.saveAll(daTurma.subList(0, comNota).stream()
+                    .map(aluno -> Nota.builder()
+                            .escolaId(alocacao.getEscolaId())
+                            .avaliacao(avaliacao)
+                            .aluno(aluno.aluno())
+                            .valor(nota(aluno.desempenho(), pontos, gerador))
+                            .build())
+                    .toList());
+        }
     }
 
     // ---- Financeiro ----
