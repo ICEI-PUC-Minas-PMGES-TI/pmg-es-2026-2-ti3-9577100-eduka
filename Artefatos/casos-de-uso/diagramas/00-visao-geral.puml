@@ -30,7 +30,7 @@ rectangle "Gestão acadêmica" {
   usecase "UC18 Alocar Professor em\nTurmas e Disciplinas" as UC18
   usecase "UC34 Montar Horário\ndas Turmas" as UC34
   usecase "UC08 Realizar Matrícula\nde Aluno" as UC08
-  usecase "UC39 Exportar e Anonimizar\nDados Pessoais" as UC39 <<planejado>>
+  usecase "UC39 Exportar e Anonimizar\nDados Pessoais" as UC39
 }
 
 rectangle "Gestão financeira" {
