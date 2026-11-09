@@ -114,7 +114,7 @@ public class DashboardService {
 
         long professores = professorRepository.countByEscolaId(escolaId);
         long professoresAtivos = professorRepository.countByEscolaIdAndAtivoTrue(escolaId);
-        long alunos = alunoRepository.countByEscolaId(escolaId);
+        long alunos = alunoRepository.countByEscolaIdAndAnonimizadoEmIsNull(escolaId);
         long alunosAtivos = matriculaRepository.contarAlunosComMatriculaAtiva(escolaId);
         var pessoas = new DashboardEscolaResponse.Pessoas(
                 alunos,
@@ -161,7 +161,7 @@ public class DashboardService {
         matriculaRepository.contarPorSituacao(escolaId)
                 .forEach(s -> porSituacao.put(s.getStatus(), s.getQuantidade()));
         long recentes = matriculaRepository.countByEscolaIdAndDataMatriculaGreaterThanEqual(escolaId, desde);
-        long alunosSemTurma = alunosSemTurma(alunoRepository.countByEscolaId(escolaId),
+        long alunosSemTurma = alunosSemTurma(alunoRepository.countByEscolaIdAndAnonimizadoEmIsNull(escolaId),
                 matriculaRepository.contarAlunosComMatriculaAtiva(escolaId));
 
         Map<Long, Long> ativasPorTurma = ativasPorTurma(escolaId);

@@ -24,10 +24,12 @@ public record AlunoResponse(
 
     /**
      * Onde o aluno esta hoje, pelas matriculas: com uma ATIVA, so com uma
-     * TRANCADA, ou sem nenhuma das duas. Vem so na listagem.
+     * TRANCADA, ou sem nenhuma das duas. ANONIMIZADO e o aluno que saiu e teve
+     * o dado pessoal apagado (LGPD). Vem na listagem; no detalhe, so o
+     * ANONIMIZADO.
      */
     public enum Situacao {
-        MATRICULADO, TRANCADO, SEM_TURMA
+        MATRICULADO, TRANCADO, SEM_TURMA, ANONIMIZADO
     }
 
     /**
@@ -40,12 +42,13 @@ public record AlunoResponse(
                 aluno.getMatricula(), aluno.getGenero(), List.of(), situacao, turmaId, turmaNome);
     }
 
-    /** Detalhe de um aluno especifico: todo dado pessoal, ja decifrado. Sem a situacao. */
+    /** Detalhe de um aluno especifico: todo dado pessoal, ja decifrado. Situacao so se anonimizado. */
     public static AlunoResponse de(Aluno aluno, Pessoa pessoa, List<ResponsavelResponse> responsaveis) {
         return new AlunoResponse(aluno.getId(), aluno.getEscolaId(), pessoa.getNome(), pessoa.getCpf(),
                 pessoa.getEmail(),
                 pessoa.getDataNascimento() == null ? null : LocalDate.parse(pessoa.getDataNascimento()),
-                enderecoDe(pessoa), aluno.getMatricula(), aluno.getGenero(), responsaveis, null, null, null);
+                enderecoDe(pessoa), aluno.getMatricula(), aluno.getGenero(), responsaveis,
+                aluno.isAnonimizado() ? Situacao.ANONIMIZADO : null, null, null);
     }
 
     private static EnderecoResponse enderecoDe(Pessoa pessoa) {

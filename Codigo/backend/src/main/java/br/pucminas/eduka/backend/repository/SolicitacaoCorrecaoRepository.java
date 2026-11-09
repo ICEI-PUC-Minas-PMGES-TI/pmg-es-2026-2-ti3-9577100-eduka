@@ -19,4 +19,7 @@ public interface SolicitacaoCorrecaoRepository extends JpaRepository<Solicitacao
             StatusSolicitacaoCorrecao status);
 
     Optional<SolicitacaoCorrecao> findByIdAndEscolaId(UUID id, UUID escolaId);
+
+    /** Todos os pedidos do aluno, os mais antigos primeiro (exportacao dos dados pessoais). */
+    List<SolicitacaoCorrecao> findAllByEscolaIdAndAlunoIdOrderByCriadoEmAsc(UUID escolaId, UUID alunoId);
 }
