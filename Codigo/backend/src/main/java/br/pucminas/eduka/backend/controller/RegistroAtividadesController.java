@@ -1,6 +1,7 @@
 package br.pucminas.eduka.backend.controller;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Sort.Direction;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import br.pucminas.eduka.backend.domain.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.dto.AtividadeResponse;
+import br.pucminas.eduka.backend.dto.AutorAtividadeResponse;
 import br.pucminas.eduka.backend.dto.PaginaResponse;
 import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.security.Perfis;
@@ -53,5 +55,13 @@ public class RegistroAtividadesController {
             @RequestParam(required = false) Direction direcao) {
         return registroAtividadesService.listar(usuarioId, de, ate, entidade, operacao,
                 new Paginacao(pagina, tamanho), direcao);
+    }
+
+    @GetMapping("/autores")
+    @PreAuthorize(Perfis.GESTAO)
+    @Operation(summary = "Quem ja fez alguma atividade",
+            description = "As opcoes do filtro por pessoa, por nome. Nome nulo: a pessoa nao e mais da escola.")
+    public List<AutorAtividadeResponse> listarAutores() {
+        return registroAtividadesService.listarAutores();
     }
 }

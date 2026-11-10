@@ -36,6 +36,8 @@ export const paths = {
     planoEFaturas: '/master/plano-e-faturas',
     /** Secretaria e financeiro da escola: cadastrar, editar, inativar e reenviar o acesso. */
     equipe: '/master/equipe',
+    /** Registro de atividades (IU28): quem fez o quê na escola, e quando. */
+    atividades: '/master/atividades',
     // Telas da secretaria e do financeiro que o MASTER também usa (IU05,
     // IU20, IU21): mesmas páginas, com o menu da gestão (ver routes/areas.ts).
     alunos: '/master/alunos',

@@ -17,6 +17,7 @@ import br.pucminas.eduka.backend.domain.VinculoProfessor;
 import br.pucminas.eduka.backend.dto.AlunoRequest;
 import br.pucminas.eduka.backend.dto.AlunoResponse;
 import br.pucminas.eduka.backend.dto.AtualizarMatriculaRequest;
+import br.pucminas.eduka.backend.dto.AutorAtividadeResponse;
 import br.pucminas.eduka.backend.dto.MatriculaTurmaRequest;
 import br.pucminas.eduka.backend.dto.MembroEquipeRequest;
 import br.pucminas.eduka.backend.dto.MembroEquipeResponse;
@@ -27,6 +28,7 @@ import br.pucminas.eduka.backend.service.DashboardFinanceiroService;
 import br.pucminas.eduka.backend.service.EquipeService;
 import br.pucminas.eduka.backend.service.MatriculaTurmaService;
 import br.pucminas.eduka.backend.service.ProfessorService;
+import br.pucminas.eduka.backend.service.RegistroAtividadesService;
 
 /**
  * Auditoria alem do financeiro no Postgres: cada cadastro grava a linha com o
@@ -45,6 +47,8 @@ class AuditoriaAmpliadaBancoRealTest extends BancoRealTest {
     private MatriculaTurmaService matriculaService;
     @Autowired
     private DashboardFinanceiroService dashboardFinanceiroService;
+    @Autowired
+    private RegistroAtividadesService registroAtividadesService;
 
     /** "OPERACAO ENTIDADE" de cada linha do registro, na ordem em que aconteceu. */
     private List<String> log(UUID escola, UUID registro) {
@@ -89,6 +93,29 @@ class AuditoriaAmpliadaBancoRealTest extends BancoRealTest {
                 .containsExactlyInAnyOrder("CRIAR USUARIO", "REENVIAR_ACESSO USUARIO", "INATIVAR USUARIO");
         assertThat(log(escola, matricula)).containsExactlyInAnyOrder("CRIAR MATRICULA", "CANCELAR MATRICULA");
         assertThat(autores(escola)).containsExactly(master);
+    }
+
+    @Test
+    void filtroPorPessoaListaSoQuemFezAlgoNaEscolaPorNome() {
+        UUID escola = dados.escola();
+        UUID outraEscola = dados.escola();
+        UUID master = dados.usuario(escola, "MASTER", "Marta Gestora");
+        UUID fernanda = dados.usuario(escola, "FINANCEIRO", "Fernanda Rocha");
+        dados.usuario(escola, "SECRETARIA", "Sem Atividade");
+        UUID deFora = dados.usuario(outraEscola, "MASTER", "Outra Escola");
+        Instant agora = Instant.now();
+        dados.acaoNoLog(escola, master, OperacaoAuditoria.CRIAR, EntidadeAuditada.ALUNO, UUID.randomUUID(), agora);
+        dados.acaoNoLog(escola, master, OperacaoAuditoria.EDITAR, EntidadeAuditada.ALUNO, UUID.randomUUID(), agora);
+        dados.acaoNoLog(escola, fernanda, OperacaoAuditoria.CRIAR, EntidadeAuditada.COBRANCA, UUID.randomUUID(),
+                agora);
+        dados.acaoNoLog(outraEscola, deFora, OperacaoAuditoria.CRIAR, EntidadeAuditada.ALUNO, UUID.randomUUID(),
+                agora);
+        autenticarComo(master, "MASTER", escola);
+
+        assertThat(registroAtividadesService.listarAutores())
+                .extracting(AutorAtividadeResponse::nome, AutorAtividadeResponse::perfil)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("Fernanda Rocha", PerfilUsuario.FINANCEIRO),
+                        org.assertj.core.groups.Tuple.tuple("Marta Gestora", PerfilUsuario.MASTER));
     }
 
     @Test

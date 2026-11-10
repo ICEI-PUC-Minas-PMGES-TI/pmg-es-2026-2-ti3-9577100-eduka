@@ -4,12 +4,13 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -24,6 +25,7 @@ import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.AtividadeResponse;
+import br.pucminas.eduka.backend.dto.AutorAtividadeResponse;
 import br.pucminas.eduka.backend.dto.Ordenacao;
 import br.pucminas.eduka.backend.dto.PaginaResponse;
 import br.pucminas.eduka.backend.dto.Paginacao;
@@ -94,24 +96,43 @@ public class RegistroAtividadesService {
         Page<LogAuditoria> pagina = logAuditoriaRepository.findAll(filtro,
                 paginacao.comOrdem(Ordenacao.noBanco(Ordenacao.ou(direcao, Direction.DESC), "dataHora")));
 
-        // Autores da pagina e os nomes deles (cifrados), numa consulta cada.
-        Set<UUID> autorIds = pagina.getContent().stream().map(LogAuditoria::getUsuarioId)
-                .filter(Objects::nonNull).collect(Collectors.toSet());
-        Map<UUID, Usuario> autores = autorIds.isEmpty() ? Map.of()
-                : usuarioRepository.findAllById(autorIds).stream()
-                        .collect(Collectors.toMap(Usuario::getId, Function.identity()));
-        Set<UUID> pessoaIds = autores.values().stream().map(Usuario::getPessoaId).collect(Collectors.toSet());
+        Map<UUID, AutorAtividadeResponse> autores = autores(escolaId, pagina.getContent().stream()
+                .map(LogAuditoria::getUsuarioId).filter(Objects::nonNull).collect(Collectors.toSet()));
+
+        return PaginaResponse.de(pagina, log -> {
+            AutorAtividadeResponse autor = log.getUsuarioId() == null ? null : autores.get(log.getUsuarioId());
+            return new AtividadeResponse(log.getId(), log.getDataHora(), log.getOrigem(), log.getOperacao(),
+                    log.getEntidade(), log.getRegistroId(), log.getUsuarioId(),
+                    autor != null ? autor.nome() : null,
+                    autor != null ? autor.perfil() : null);
+        });
+    }
+
+    /**
+     * Quem ja fez alguma atividade na escola, para o filtro por pessoa (IU28).
+     * Por nome; quem nao e mais da escola (sem nome) fica no fim.
+     */
+    @Transactional(readOnly = true)
+    public List<AutorAtividadeResponse> listarAutores() {
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        return autores(escolaId, logAuditoriaRepository.listarAutores(escolaId)).values().stream()
+                .sorted(Comparator.comparing(AutorAtividadeResponse::nome,
+                        Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                .toList();
+    }
+
+    /** Os autores e os nomes deles (cifrados), numa consulta cada; login apagado fica de fora. */
+    private Map<UUID, AutorAtividadeResponse> autores(UUID escolaId, Collection<UUID> usuarioIds) {
+        if (usuarioIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Usuario> usuarios = usuarioRepository.findAllById(Set.copyOf(usuarioIds));
+        Set<UUID> pessoaIds = usuarios.stream().map(Usuario::getPessoaId).collect(Collectors.toSet());
         Map<UUID, String> nomes = pessoaIds.isEmpty() ? Map.of()
                 : pessoaRepository.findAllByIdInAndEscolaId(pessoaIds, escolaId).stream()
                         .collect(Collectors.toMap(Pessoa::getId, Pessoa::getNome));
-
-        return PaginaResponse.de(pagina, log -> {
-            Usuario autor = log.getUsuarioId() == null ? null : autores.get(log.getUsuarioId());
-            return new AtividadeResponse(log.getId(), log.getDataHora(), log.getOrigem(), log.getOperacao(),
-                    log.getEntidade(), log.getRegistroId(), log.getUsuarioId(),
-                    autor != null ? nomes.get(autor.getPessoaId()) : null,
-                    autor != null ? autor.getPerfil() : null);
-        });
+        return usuarios.stream().collect(Collectors.toMap(Usuario::getId,
+                u -> new AutorAtividadeResponse(u.getId(), nomes.get(u.getPessoaId()), u.getPerfil())));
     }
 
     private static Instant inicioDoDia(LocalDate dia) {

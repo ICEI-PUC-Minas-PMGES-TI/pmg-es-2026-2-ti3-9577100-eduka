@@ -37,7 +37,7 @@ São 39 casos de uso: 22 completos, 12 parciais e 5 planejados para a Sprint 4.
 | UC38 | Aceitar Aviso de Privacidade | Usuário (todos os perfis) | RNF05 | Planejado | IU29 (primeiro acesso) | RNF05.1 |
 | UC04 | Gerenciar Usuários da Escola | MASTER | RF07 | Parcial | Sem tela (API `/usuarios/secretarias`) | — |
 | UC16 | Visualizar Dashboard | MASTER, SECRETARIA, FINANCEIRO, PROFESSOR, ALUNO | RF20, RF25 | Completo (Início do aluno planejado) | `/<perfil>/inicio` | RF20.3, RF20.4, FR.5, RF25.5 |
-| UC37 | Consultar Registro de Atividades | MASTER | RF22 | Parcial | Sem tela (API `/auditoria/pagina`); IU28 planejada | RNF17.1, RNF17.2, RF22.2 |
+| UC37 | Consultar Registro de Atividades | MASTER | RF22 | Completo | `/master/atividades` (IU28), com filtros por pessoa, período, entidade e operação | RNF17.1, RNF17.2, RF22.2 |
 
 ### Gestão acadêmica ([diagrama](diagramas/png/03-gestao-academica.png))
 
@@ -105,7 +105,7 @@ A [visão geral](diagramas/png/00-visao-geral.png) reúne todos os casos de uso.
 | UC34 Montar Horário das Turmas | Grade semanal da turma (dia, horário, disciplina e professor), montada a partir das alocações. Já implementado. |
 | UC35 Registrar Aula e Chamada | Aula do dia, conteúdo, presença ou falta e histórico de aulas, com edição e exclusão da aula. Já implementado. |
 | UC36 Solicitar Correção de Dados | O aluno pede correção em Meus dados e a secretaria atende o pedido no cadastro do aluno. Já implementado. |
-| UC37 Consultar Registro de Atividades | Consulta paginada da auditoria já existe na API. A tela IU28 é da Sprint 4. |
+| UC37 Consultar Registro de Atividades | Tela Registro de atividades (IU28), paginada, com filtros por pessoa, período, entidade e operação. Já implementado. |
 | UC15 Consultar Relatórios Financeiros | Identificador reservado desde a Sprint 3, agora com tarefas na Sprint 4. |
 | UC38, UC39, UC40, UC41 | Itens do planejamento da Sprint 4: aviso de privacidade, LGPD, risco de atraso e suspensão automática. |
 
@@ -146,7 +146,6 @@ A [visão geral](diagramas/png/00-visao-geral.png) reúne todos os casos de uso.
 | UC13 | O resumo financeiro no Início do aluno (IU27, RF25.5) ainda não existe. |
 | UC14 | Editar despesa só na API. |
 | UC24 | A tela mostra só o resumo da turma atual. |
-| UC37 | Só API até a tela IU28. |
 
 ## Tarefas da Sprint 4 sem caso de uso próprio
 
