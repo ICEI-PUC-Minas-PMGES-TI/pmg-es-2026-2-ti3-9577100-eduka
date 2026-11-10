@@ -18,6 +18,8 @@ export type ConsultaCobrancas = {
   status?: StatusCobranca
   /** Parte do nome do aluno. */
   nome?: string
+  /** Só as cobranças deste aluno (os totais por situação também passam a ser só dele). */
+  alunoId?: string
 }
 
 /** Uma página das cobranças, filtrada e ordenada pelo vencimento no backend. */
@@ -25,6 +27,7 @@ export function listarCobrancas(consulta: ConsultaCobrancas, signal?: AbortSigna
   const params = new URLSearchParams({ pagina: String(consulta.pagina), tamanho: String(consulta.tamanho) })
   if (consulta.status) params.set('status', consulta.status)
   if (consulta.nome) params.set('nome', consulta.nome)
+  if (consulta.alunoId) params.set('alunoId', consulta.alunoId)
   return apiRequest<PaginaCobrancas>(`/cobrancas/pagina?${params}`, { signal })
 }
 

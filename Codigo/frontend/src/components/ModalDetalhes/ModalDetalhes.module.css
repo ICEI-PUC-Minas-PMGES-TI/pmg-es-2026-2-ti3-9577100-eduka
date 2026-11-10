@@ -11,6 +11,11 @@
 .abas {
   display: flex;
   align-self: flex-start;
+  /*
+   * O corpo do Modal é uma coluna flex que rola. Com overflow-x, a altura
+   * mínima da barra vira zero e uma aba alta (ex.: Financeiro) a esmagava.
+   */
+  flex-shrink: 0;
   gap: 4px;
   max-width: 100%;
   padding: 4px;

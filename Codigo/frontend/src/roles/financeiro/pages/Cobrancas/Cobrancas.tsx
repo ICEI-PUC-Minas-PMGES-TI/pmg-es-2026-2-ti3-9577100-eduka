@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { ModalComprovante } from '../../../../components/Comprovante/ModalComprovante'
 import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/ConfirmarExclusao'
 import { Icon } from '../../../../components/Icon/Icon'
 import { Paginacao } from '../../../../components/Paginacao/Paginacao'
+import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { useListaPaginada } from '../../../../hooks/usePaginacao'
 import { useTermoAdiado } from '../../../../hooks/useTermoAdiado'
 import { useRotasFinanceiras } from '../../../../routes/areas'
 import { type EstadoCobrancaCriada } from '../../../../routes/paths'
+import { buscarAluno } from '../../../../services/alunoService'
 import { ApiError } from '../../../../services/api'
 import { buscarComprovanteDaCobranca, cancelarCobranca, listarCobrancas } from '../../../../services/cobrancaService'
 import {
@@ -16,6 +18,7 @@ import {
   mensagemErroSandbox,
   simularPagamentoNoSandbox,
 } from '../../../../services/sandboxService'
+import type { Aluno } from '../../../../types/aluno'
 import type { Cobranca, FiltroCobranca, PaginaCobrancas, StatusCobranca } from '../../../../types/cobranca'
 import { CobrancaCard } from '../../components/CobrancaCard/CobrancaCard'
 import { CobrancaDetalhe, type MensagemSandbox } from '../../components/CobrancaDetalhe/CobrancaDetalhe'
@@ -57,7 +60,15 @@ export function Cobrancas() {
   const navigate = useNavigate()
   const rotas = useRotasFinanceiras()
   const location = useLocation()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  // ?aluno={id}: vem da aba Financeiro do aluno (IU18) e mostra só as cobranças dele.
+  const alunoId = searchParams.get('aluno')
+  const buscarAlunoFiltrado = useMemo(
+    () => (alunoId ? (signal: AbortSignal) => buscarAluno(alunoId, signal) : null),
+    [alunoId],
+  )
+  // Só o nome para o aviso do filtro: se não carregar, a lista filtrada aparece do mesmo jeito.
+  const alunoFiltrado = useCarregamento<Aluno | null>(buscarAlunoFiltrado, null, 'O aluno não existe mais.')
   // Volta da Nova cobrança com a confirmação do que foi criado.
   const [sucesso] = useState(() => (location.state as EstadoCobrancaCriada | null)?.cobrancaCriada ?? null)
   const [idAberto, setIdAberto] = useState<string | null>(null)
@@ -81,10 +92,11 @@ export function Cobrancas() {
           tamanho,
           status: filtroStatus === 'TODAS' ? undefined : filtroStatus,
           nome: nomeBuscado || undefined,
+          alunoId: alunoId ?? undefined,
         },
         signal,
       ),
-    [filtroStatus, nomeBuscado],
+    [filtroStatus, nomeBuscado, alunoId],
   )
   const { dados, paginacao, carregando, atualizando, erro, recarregar, topo } = useListaPaginada<PaginaCobrancas>(
     buscarCobrancas,
@@ -133,6 +145,18 @@ export function Cobrancas() {
     recarregar()
   }
 
+  /** Tira o ?aluno= e volta a listar as cobranças de todos os alunos. */
+  function verTodosOsAlunos() {
+    setSearchParams(
+      (atuais) => {
+        const proximos = new URLSearchParams(atuais)
+        proximos.delete('aluno')
+        return proximos
+      },
+      { replace: true },
+    )
+  }
+
   /** A seta do card abre os detalhes; clicar de novo fecha. Só um aberto por vez. */
   function alternar(id: string) {
     setIdAberto((atual) => (atual === id ? null : id))
@@ -159,7 +183,8 @@ export function Cobrancas() {
         <Button
           variant="primary"
           icon="plus"
-          onClick={() => navigate(rotas.novaCobranca)}
+          // Filtrada por um aluno, a nova cobrança já abre com ele escolhido.
+          onClick={() => navigate(alunoId ? `${rotas.novaCobranca}?aluno=${alunoId}` : rotas.novaCobranca)}
         >
           Nova cobrança
         </Button>
@@ -197,6 +222,18 @@ export function Cobrancas() {
         </div>
       </div>
 
+      {alunoId && (
+        <div className={styles.filtroAluno}>
+          <span>
+            Só as cobranças de <strong>{alunoFiltrado.dados?.nome ?? 'um aluno'}</strong>
+            {alunoFiltrado.dados && ` · Matrícula ${alunoFiltrado.dados.matricula}`}
+          </span>
+          <Button size="sm" icon="close" onClick={verTodosOsAlunos}>
+            Ver de todos os alunos
+          </Button>
+        </div>
+      )}
+
       {(aviso ?? sucesso) && (
         <p className={styles.sucesso} role="status">
           {aviso ?? sucesso}
@@ -216,7 +253,11 @@ export function Cobrancas() {
         ) : cobrancas.length === 0 ? (
           <div className={styles.vazio}>
             <Icon name="fileText" size={32} />
-            <p>Nenhuma cobrança encontrada para este filtro.</p>
+            <p>
+              {alunoId
+                ? 'Nenhuma cobrança deste aluno para este filtro.'
+                : 'Nenhuma cobrança encontrada para este filtro.'}
+            </p>
           </div>
         ) : (
           cobrancas.map((c) => (

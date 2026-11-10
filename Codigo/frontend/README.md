@@ -41,7 +41,8 @@ src/
 │   │                     disciplinas e turmas), Alocação de professores e Matrículas
 │   ├── professor/        Início, Minhas turmas, Avaliações, Notas e Chamada
 │   ├── aluno/            Boletim (com Provas e tarefas), Pagamentos e Meus dados
-│   └── financeiro/       Início (resumo financeiro), Cobranças, Nova cobrança, Despesas e Relatórios
+│   └── financeiro/       Início (resumo financeiro), Cobranças, Nova cobrança, Despesas e Relatórios;
+│                         em /financeiro/alunos, a tela Alunos da secretaria só para consulta
 ├── pages/                Telas fora dos perfis: Home (página inicial), Login (escola, com
 │                         código por e-mail e primeiro acesso), LoginDev, AreaEmConstrucao,
 │                         PaginaNaoEncontrada

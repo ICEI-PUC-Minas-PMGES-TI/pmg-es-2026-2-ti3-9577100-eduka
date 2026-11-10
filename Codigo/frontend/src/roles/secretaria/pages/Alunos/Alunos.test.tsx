@@ -1,8 +1,9 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cortarPagina, parametros, simularApi, type ChamadaApi } from '../../../../test/api'
+import { logarComo } from '../../../../test/sessao'
 import type { TurmaAcademica } from '../../../../types/academico'
 import type { AlunoDaLista, ResumoAlunos, SituacaoNaEscola } from '../../../../types/aluno'
 import { Alunos } from './Alunos'
@@ -41,7 +42,7 @@ function aluno(n: number, situacao: SituacaoNaEscola = 'SEM_TURMA'): AlunoDaList
 }
 
 /** Faz o papel do GET /alunos/pagina: busca por nome ou matrícula, situação e o resumo da escola inteira. */
-function abrir(alunos: AlunoDaLista[]): ChamadaApi[] {
+function abrir(alunos: AlunoDaLista[], area = '/secretaria/alunos'): ChamadaApi[] {
   const chamadas = simularApi(({ caminho }) => {
     if (caminho.startsWith('/alunos/pagina?')) {
       const { busca, situacao } = parametros(caminho)
@@ -67,7 +68,7 @@ function abrir(alunos: AlunoDaLista[]): ChamadaApi[] {
     return undefined
   })
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[area]}>
       <Alunos />
     </MemoryRouter>,
   )
@@ -82,6 +83,33 @@ describe('Alunos', () => {
   // Trocar de página rola até o topo da tabela; o jsdom não tem scrollIntoView.
   beforeEach(() => {
     Element.prototype.scrollIntoView = vi.fn()
+    logarComo('SECRETARIA')
+  })
+
+  afterEach(() => {
+    localStorage.clear()
+  })
+
+  it('a secretaria cadastra, edita e reenvia o acesso', async () => {
+    abrir(ALUNOS)
+
+    const linhaDaAna = (await screen.findByText('Ana Souza')).closest('tr') as HTMLElement
+    expect(within(linhaDaAna).getByRole('button', { name: 'Editar' })).toBeInTheDocument()
+    expect(within(linhaDaAna).getByRole('button', { name: 'Reenviar acesso' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /novo aluno/i })).toBeInTheDocument()
+  })
+
+  it('o financeiro só consulta, no próprio menu, e não busca as turmas do cadastro', async () => {
+    logarComo('FINANCEIRO')
+    const chamadas = abrir(ALUNOS, '/financeiro/alunos')
+
+    const linhaDaAna = (await screen.findByText('Ana Souza')).closest('tr') as HTMLElement
+    expect(within(linhaDaAna).getByRole('button', { name: 'Ver' })).toBeInTheDocument()
+    expect(within(linhaDaAna).queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
+    expect(within(linhaDaAna).queryByRole('button', { name: 'Reenviar acesso' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /novo aluno/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: /navegação do financeiro/i })).toBeInTheDocument()
+    expect(chamadas.some((c) => c.caminho.startsWith('/academico'))).toBe(false)
   })
 
   it('mostra turma e situação que vêm com cada aluno, sem buscar as matrículas', async () => {

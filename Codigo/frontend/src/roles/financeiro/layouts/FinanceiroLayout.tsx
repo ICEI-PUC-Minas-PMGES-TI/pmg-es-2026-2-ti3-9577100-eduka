@@ -9,8 +9,7 @@ const MENU: ItemMenu[] = [
   { label: 'Cobranças', icon: 'card', to: paths.financeiro.cobrancas },
   { label: 'Despesas', icon: 'dollarSign', to: paths.financeiro.despesas },
   { label: 'Relatórios', icon: 'barChart', to: paths.financeiro.relatorios },
-  // Em breve: ainda sem página.
-  { label: 'Alunos', icon: 'users' },
+  { label: 'Alunos', icon: 'users', to: paths.financeiro.alunos },
 ]
 
 type FinanceiroLayoutProps = {

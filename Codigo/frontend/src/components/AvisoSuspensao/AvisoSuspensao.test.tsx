@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AcessoSuspenso } from '../../pages/AcessoSuspenso/AcessoSuspenso'
 import { ACCESS_TOKEN_KEY, apiRequest } from '../../services/api'
 import { simularApi, type RespostaApi } from '../../test/api'
+import { logarComo } from '../../test/sessao'
 import type { SuspensaoPrevista } from '../../types/faturaPlataforma'
 import { PainelLayout } from '../PainelLayout/PainelLayout'
 
@@ -17,12 +18,6 @@ const PREVISTA: SuspensaoPrevista = {
   faturaDescricao: 'Plano Avançado',
   faturaValor: 690,
   faturaVencimento: '2026-11-01',
-}
-
-/** JWT só com o payload que o front lê (sub e perfil); a assinatura não é conferida no cliente. */
-function logarComo(perfil: string) {
-  const payload = btoa(JSON.stringify({ sub: 'usuario-1', perfil })).replace(/=+$/, '')
-  localStorage.setItem(ACCESS_TOKEN_KEY, `cabecalho.${payload}.assinatura`)
 }
 
 /** Uma tela logada que, ao abrir, faz uma requisição qualquer. */
