@@ -40,6 +40,7 @@ import br.pucminas.eduka.backend.service.RegistroAtividadesService;
 class RegistroAtividadesControllerSecurityTest {
 
     private static final String PAGINA = "/auditoria/pagina";
+    private static final String AUTORES = "/auditoria/autores";
     private static final UUID ESCOLA = UUID.randomUUID();
 
     @Autowired
@@ -89,6 +90,16 @@ class RegistroAtividadesControllerSecurityTest {
         }
         mockMvc.perform(get(PAGINA)).andExpect(status().isUnauthorized());
         verify(logAuditoriaRepository, never()).findAll(anySpecification(), any(Pageable.class));
+    }
+
+    @Test
+    void soOMasterVeQuemFezAtividades() throws Exception {
+        mockMvc.perform(como("MASTER", get(AUTORES))).andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
+        for (String perfil : new String[] { "FINANCEIRO", "SECRETARIA", "PROFESSOR", "ALUNO", "SUPER_ADMIN" }) {
+            mockMvc.perform(como(perfil, get(AUTORES))).andExpect(status().isForbidden());
+        }
+        mockMvc.perform(get(AUTORES)).andExpect(status().isUnauthorized());
     }
 
     @Test

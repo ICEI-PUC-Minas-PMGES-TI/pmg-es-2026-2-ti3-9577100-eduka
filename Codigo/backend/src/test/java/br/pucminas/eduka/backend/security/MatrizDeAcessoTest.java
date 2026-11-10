@@ -98,6 +98,7 @@ class MatrizDeAcessoTest {
 
         libera(matriz, GESTAO,
                 "GET /auditoria/pagina",
+                "GET /auditoria/autores",
                 "GET /dashboard/escola",
                 "GET /config-pagamento/assinatura",
                 "GET /config-pagamento/assinatura/suspensao",
