@@ -94,6 +94,27 @@ describe('FaturasPlataforma', () => {
     expect(screen.queryByText('Colégio Bandeirantes')).not.toBeInTheDocument()
   })
 
+  it('trocar o filtro volta para a primeira página', async () => {
+    const muitas = Array.from({ length: 12 }, (_, i) => fatura(`p${i}`, 'e1', `Escola ${String(i + 1).padStart(2, '0')}`, 'PENDENTE'))
+    simularApi(({ caminho }) => {
+      if (caminho === '/escolas/faturas') return { corpo: [...muitas, ...FATURAS] }
+      if (caminho === '/escolas') return { corpo: ESCOLAS }
+      return undefined
+    })
+    render(
+      <MemoryRouter>
+        <FaturasPlataforma />
+      </MemoryRouter>,
+    )
+    await userEvent.click(await screen.findByRole('button', { name: /próxima/i }))
+    expect(await screen.findByText('Página 2 de 2')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /a pagar \(13\)/i }))
+
+    expect(screen.getByText('Página 1 de 2')).toBeInTheDocument()
+    expect(screen.getByText('Escola 01')).toBeInTheDocument()
+  })
+
   it('sugere referência e valor ao escolher a escola, só entre as ativas, e valida antes de enviar', async () => {
     const chamadas = abrir()
     await screen.findByText('Colégio Bandeirantes')

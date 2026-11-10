@@ -1,6 +1,7 @@
 import type { PerfilUsuario } from '../services/authService'
 import type { Turno } from './alocacao'
 import type { EntidadeAuditada, OperacaoAuditoria } from './auditoria'
+import type { DiaSemana } from './horario'
 import type { StatusMatricula } from './matricula'
 import type { FormaPagamento, StatusCobrancaAluno } from './pagamentoAluno'
 import type { TipoAvaliacao } from './portalAluno'
@@ -87,6 +88,22 @@ export type AvaliacaoResumo = {
   notasFaltando: number
 }
 
+// Espelha o DashboardProfessorResponse.AulaDaSemana.
+export type AulaDaSemana = {
+  /** ISO (yyyy-MM-dd): a data desta semana em que a aula cai. */
+  data: string
+  diaSemana: DiaSemana
+  /** "HH:mm:ss". */
+  horaInicio: string
+  horaFim: string
+  turmaId: number
+  turmaNome: string
+  disciplinaId: number
+  disciplinaNome: string
+  /** Já há chamada registrada para esta aula. */
+  chamadaFeita: boolean
+}
+
 // Espelha o DashboardProfessorResponse do backend (GET /portal/professor/dashboard).
 export type DashboardProfessor = {
   turmas: number
@@ -98,6 +115,8 @@ export type DashboardProfessor = {
   proximasAvaliacoes: AvaliacaoResumo[]
   /** Já realizadas (antes de hoje) e com aluno ativo sem nota, da mais antiga para a mais recente. */
   avaliacoesPendentes: AvaliacaoResumo[]
+  /** A grade das turmas ativas nesta semana (segunda a sábado), por data e hora. */
+  aulasDaSemana: AulaDaSemana[]
 }
 
 // Espelha o DashboardFinanceiroResponse.Total.

@@ -67,12 +67,18 @@ export const paths = {
     raiz: '/financeiro',
     /** Dashboard: recebido, em aberto, atraso, despesas e movimentações recentes. */
     inicio: '/financeiro/inicio',
-    /** Aceita ?status=EM_ATRASO (ou A_PAGAR, PAGA) para abrir já filtrada. */
+    /**
+     * Aceita ?status=EM_ATRASO (ou A_PAGAR, PAGA) para abrir já filtrada, e
+     * ?aluno={id} para mostrar só as cobranças de um aluno (aba Financeiro, IU18).
+     */
     cobrancas: '/financeiro/cobrancas',
+    /** Aceita ?aluno={id} para abrir com o aluno já escolhido (aba Financeiro, IU18). */
     novaCobranca: '/financeiro/cobrancas/nova',
     despesas: '/financeiro/despesas',
     /** Relatórios por período e exportação em CSV (IU19). */
     relatorios: '/financeiro/relatorios',
+    /** A tela Alunos da secretaria, só para consulta, com a aba Financeiro (IU18). */
+    alunos: '/financeiro/alunos',
   },
   professor: {
     raiz: '/professor',

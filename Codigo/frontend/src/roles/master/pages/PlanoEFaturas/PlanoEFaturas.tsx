@@ -6,6 +6,7 @@ import { Colunas, EstadoDashboard, Linhas, Painel, PainelVazio } from '../../../
 import { Icon } from '../../../../components/Icon/Icon'
 import { TabelaFaturas } from '../../../../components/TabelaFaturas/TabelaFaturas'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
+import { usePaginacao } from '../../../../hooks/usePaginacao'
 import {
   buscarComprovanteDaMinhaFatura,
   buscarMinhaAssinatura,
@@ -57,8 +58,10 @@ export function PlanoEFaturas() {
     [comprovanteDe],
   )
 
+  // A próxima sai de todas as faturas: por isso esta lista, pequena (uma por mês), pagina no front.
   const proxima = proximaFatura(faturas)
   const anteriores = faturas.filter((f) => f.id !== proxima?.id)
+  const { paginacao, topo } = usePaginacao<FaturaPlataforma, HTMLElement>(anteriores)
 
   /** Ao fechar, a lista mostra o pagamento gerado ou confirmado. */
   function fecharPagamento() {
@@ -136,7 +139,8 @@ export function PlanoEFaturas() {
 
           <h2 className={styles.titulo}>Faturas anteriores</h2>
           <TabelaFaturas
-            faturas={anteriores}
+            paginacao={paginacao}
+            topo={topo}
             vazio="Nenhuma fatura anterior."
             acoes={(f) =>
               f.acoes.includes('VER_COMPROVANTE') && (

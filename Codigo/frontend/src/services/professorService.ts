@@ -1,9 +1,27 @@
-import type { Professor, ProfessorRequest } from '../types/professor'
+import type { PaginaComResumo } from '../hooks/usePaginacao'
+import type { Professor, ProfessorRequest, ResumoProfessores } from '../types/professor'
 import { apiRequest } from './api'
 
 // O backend já limita a lista à escola de quem está logado.
 export function listarProfessores(signal?: AbortSignal): Promise<Professor[]> {
   return apiRequest<Professor[]>('/professores', { signal })
+}
+
+export type ConsultaProfessores = {
+  pagina: number
+  tamanho: number
+  /** Parte do nome. */
+  nome?: string
+}
+
+/** Uma página dos professores, em ordem de nome, com o resumo da escola inteira. */
+export function listarPaginaDeProfessores(
+  consulta: ConsultaProfessores,
+  signal?: AbortSignal,
+): Promise<PaginaComResumo<Professor, ResumoProfessores>> {
+  const params = new URLSearchParams({ pagina: String(consulta.pagina), tamanho: String(consulta.tamanho) })
+  if (consulta.nome) params.set('nome', consulta.nome)
+  return apiRequest(`/professores/pagina?${params}`, { signal })
 }
 
 /** Detalhe com todos os dados (a listagem não traz o CPF). */

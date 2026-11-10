@@ -1,13 +1,16 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Button } from '../../../../components/Button/Button'
 import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/ConfirmarExclusao'
 import { ModalAlerta } from '../../../../components/Modal/Modal'
 import { ModalDetalhes } from '../../../../components/ModalDetalhes/ModalDetalhes'
+import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { useDetalhe } from '../../../../hooks/useDetalhe'
 import { anonimizarAluno, buscarAluno, exportarDadosPessoais } from '../../../../services/alunoService'
 import { ApiError } from '../../../../services/api'
 import { obterUsuarioLogado } from '../../../../services/authService'
+import { listarMatriculas } from '../../../../services/matriculaService'
 import type { AlunoResumo } from '../../../../types/aluno'
+import type { Matricula } from '../../../../types/matricula'
 import { nomeDoPdfDeDadosPessoais, salvarArquivo } from '../../../../utils/arquivos'
 import { formatarCnpjCpf, formatarEndereco, mascararTelefone } from '../../../../utils/formatters'
 import { FinanceiroAluno } from '../FinanceiroAluno/FinanceiroAluno'
@@ -54,9 +57,23 @@ function motivoParaNaoAnonimizar(e: unknown): string {
   return 'Não foi possível anonimizar o aluno. Tente de novo.'
 }
 
+// Estável: o useCarregamento pede o valor inicial sempre igual.
+const SEM_MATRICULAS: Matricula[] = []
+
+/**
+ * Turma e curso do aluno na identificação (IU18, campo 1): os da matrícula
+ * ativa ou, sem ela, da trancada, a mesma regra da turma na lista de alunos.
+ */
+function matriculaAtual(matriculas: Matricula[]): Matricula | null {
+  return matriculas.find((m) => m.status === 'ATIVA') ?? matriculas.find((m) => m.status === 'TRANCADA') ?? null
+}
+
 type DetalhesAlunoModalProps = {
-  /** Da listagem: mostra nome e matrícula enquanto o detalhe carrega. */
-  aluno: AlunoResumo
+  /**
+   * Da listagem: mostra nome, matrícula e turma enquanto o detalhe carrega.
+   * `turmaNome` null diz que o aluno não tem matrícula ativa nem trancada.
+   */
+  aluno: AlunoResumo & { turmaNome?: string | null }
   /** Aluno que já teve os dados pessoais apagados: sem exportar nem anonimizar. */
   anonimizado?: boolean
   onFechar: () => void
@@ -75,9 +92,34 @@ export function DetalhesAlunoModal({ aluno, anonimizado = false, onFechar, onAno
   const [erroAcao, setErroAcao] = useState<string | null>(null)
   const [confirmando, setConfirmando] = useState(false)
   const semDados = anonimizado || dados?.situacao === 'ANONIMIZADO'
+  // Indefinido enquanto o cadastro carrega; null quando ninguém responde pelas cobranças.
+  const responsavelFinanceiro = dados ? (dados.responsaveis.find((r) => r.financeiro)?.nome ?? null) : undefined
   const abas = podeVerFinanceiro()
-    ? [{ id: 'financeiro', rotulo: 'Financeiro', conteudo: <FinanceiroAluno alunoId={aluno.id} /> }]
+    ? [
+        {
+          id: 'financeiro',
+          rotulo: 'Financeiro',
+          conteudo: (
+            <FinanceiroAluno alunoId={aluno.id} responsavelFinanceiro={responsavelFinanceiro} anonimizado={semDados} />
+          ),
+        },
+      ]
     : []
+  // Só para a identificação: sem turma na lista, não há matrícula para buscar.
+  const buscarMatriculas = useMemo(
+    () =>
+      aluno.turmaNome === null ? null : (signal: AbortSignal) => listarMatriculas({ alunoId: aluno.id }, signal),
+    [aluno.id, aluno.turmaNome],
+  )
+  // Se falhar, a identificação fica com a turma que veio da lista.
+  const { dados: matriculas } = useCarregamento(buscarMatriculas, SEM_MATRICULAS, 'O aluno não existe mais.')
+  const atual = matriculaAtual(matriculas)
+  const identificacao = [
+    `Matrícula ${dados?.matricula ?? aluno.matricula}`,
+    ...(atual ? [atual.turmaNome, atual.cursoNome] : [aluno.turmaNome]),
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   async function exportar() {
     setErroAcao(null)
@@ -111,7 +153,7 @@ export function DetalhesAlunoModal({ aluno, anonimizado = false, onFechar, onAno
     <>
       <ModalDetalhes
         titulo={dados?.nome ?? aluno.nome}
-        subtitulo={`Matrícula ${dados?.matricula ?? aluno.matricula}`}
+        subtitulo={identificacao}
         carregando={carregando}
         erro={erro}
         onFechar={onFechar}

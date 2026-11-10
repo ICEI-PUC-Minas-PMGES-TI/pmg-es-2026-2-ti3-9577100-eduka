@@ -59,7 +59,7 @@ São 39 casos de uso: 22 completos, 12 parciais e 5 planejados para a Sprint 4.
 | UC09 | Gerenciar Cobranças | FINANCEIRO, MASTER | RF12, RF15, RF22 | Completo | `/financeiro/cobrancas`, `/master/cobrancas` | — |
 | UC11 | Consultar e Filtrar Cobranças | FINANCEIRO, MASTER | RF14 | Parcial | `/financeiro/cobrancas`, `/master/cobrancas` | PAG.1, PAG.2 |
 | UC12 | Registrar Pagamento Manual | FINANCEIRO | RF16 | Parcial | Sem tela (API `/cobrancas/{id}/pagar`) | — |
-| UC13 | Consultar Histórico Financeiro do Aluno | ALUNO, MASTER | RF17, RF25 | Parcial | `/aluno/pagamentos`; aba Financeiro do aluno (MASTER) | RF17.1, RF17.2, RF17.3 |
+| UC13 | Consultar Histórico Financeiro do Aluno | ALUNO, MASTER, FINANCEIRO | RF17, RF25 | Parcial | `/aluno/pagamentos`; aba Financeiro do aluno em `/master/alunos` e `/financeiro/alunos` | RF17.1, RF17.2, RF17.3 |
 | UC14 | Gerenciar Despesas | FINANCEIRO, MASTER | RF18 | Parcial | `/financeiro/despesas`, `/master/despesas` | RF18.1 |
 | UC15 | Consultar Relatórios Financeiros | FINANCEIRO, MASTER | RF19 | Planejado | IU19 e IU19-A | RF19.1, RF19.2 |
 | UC40 | Avaliar Risco de Atraso | FINANCEIRO | — (tarefas IA) | Planejado | Lista de Cobranças e Início do Financeiro | IA.1, IA.2 |
@@ -116,7 +116,7 @@ A [visão geral](diagramas/png/00-visao-geral.png) reúne todos os casos de uso.
 | UC09 | Parcial | Completo | Editar e cancelar cobrança estão na tela, com matrícula. O MASTER tem a tela Cobranças. |
 | UC29 | Parcial | Completo | O cadastro do aluno edita e desvincula responsáveis e marca o responsável financeiro. |
 | UC02 | Parcial | Parcial | A suspensão já bloqueia o login (IU04). Falta o uso por escola no painel (RF02.1), e módulos, limite de usuários e vigência continuam sem restringir o uso. |
-| UC13 | Parcial | Parcial | O MASTER consulta pela aba Financeiro do aluno. O FINANCEIRO ainda não tem a tela Alunos. |
+| UC13 | Parcial | Parcial | O MASTER e o FINANCEIRO consultam pela aba Financeiro do aluno (IU18), com atalhos para Cobranças e Nova cobrança. Falta o resumo no Início do aluno (IU27). |
 | UC14 | Parcial | Parcial | Cancelar despesa e criar categoria estão na tela. Editar continua só na API. |
 | UC05, UC06, UC07, UC08, UC11, UC18 | Só pela API para o MASTER | Com tela para o MASTER | Rotas `/master/...` reutilizam as telas da secretaria e do financeiro. |
 
@@ -141,9 +141,9 @@ A [visão geral](diagramas/png/00-visao-geral.png) reúne todos os casos de uso.
 | UC04 | Somente API e somente para o perfil SECRETARIA. |
 | UC05 | Não há inativação de aluno. A data de nascimento só aceita até 2016 (RF08.6, Sprint 4). |
 | UC06 | O reenvio do acesso ao professor existe só na API. |
-| UC11 | A tela filtra só por nome e situação. Aluno, período letivo e vencimento só na API. |
+| UC11 | A tela filtra por nome e situação, e por aluno quando aberta pela aba Financeiro dele. Período letivo e vencimento só na API. |
 | UC12 | Somente API, sem valor, data ou forma de pagamento. |
-| UC13 | O FINANCEIRO consulta só pela API (aba Financeiro, IU18, RF17.3). |
+| UC13 | O resumo financeiro no Início do aluno (IU27, RF25.5) ainda não existe. |
 | UC14 | Editar despesa só na API. |
 | UC24 | A tela mostra só o resumo da turma atual. |
 

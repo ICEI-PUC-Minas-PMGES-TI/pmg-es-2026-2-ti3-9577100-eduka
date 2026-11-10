@@ -24,6 +24,14 @@ export type Despesa = {
   atualizadoEm: string
 }
 
+/**
+ * Resumo na página de GET /despesas/pagina: quantidade e soma de cada
+ * situação, com o período pedido e sem o filtro de situação. Sempre as três.
+ */
+export type ResumoDespesas = {
+  porSituacao: { situacao: SituacaoDespesa; quantidade: number; valor: number }[]
+}
+
 /** Corpo do POST /despesas. `paga: true` já lança como PAGA. */
 export type NovaDespesaRequest = {
   descricao: string

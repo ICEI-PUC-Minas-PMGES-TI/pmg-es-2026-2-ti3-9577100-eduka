@@ -1,11 +1,11 @@
-import type { ReactNode } from 'react'
+import type { ReactNode, Ref } from 'react'
 import { Badge } from '../../../../components/Badge/Badge'
 import { Button } from '../../../../components/Button/Button'
+import { Dica } from '../../../../components/Dica/Dica'
 import { Paginacao } from '../../../../components/Paginacao/Paginacao'
-import { usePaginacao } from '../../../../hooks/usePaginacao'
+import type { EstadoPaginacao } from '../../../../hooks/usePaginacao'
 import { ROTULOS_VINCULO, type Professor } from '../../../../types/professor'
 import { iniciais } from '../../../../utils/formatters'
-import { Dica } from '../../../../components/Dica/Dica'
 import styles from './ProfessoresTable.module.css'
 
 // Disciplinas e turmas ainda não vêm no ProfessorResponse (dependem da alocação);
@@ -13,12 +13,15 @@ import styles from './ProfessoresTable.module.css'
 const SEM_DADO = '—'
 
 type ProfessoresTableProps = {
-  /** Quando muda (busca, filtro), a tabela volta para a primeira página. */
-  reiniciarCom?: string
-  professores: Professor[]
+  /** A página de professores; null até a primeira resposta do backend. */
+  paginacao: EstadoPaginacao<Professor> | null
+  /** Recebe o topo da tabela, para onde a troca de página rola. */
+  topo: Ref<HTMLElement>
   carregando: boolean
+  /** Outra página ou busca a caminho: a lista atual fica e a navegação espera. */
+  atualizando: boolean
   erro: string | null
-  /** Mensagem quando a lista filtrada fica vazia. */
+  /** Mensagem quando a página fica vazia. */
   mensagemVazia: string
   /** Professor com inativação/reativação em andamento. */
   alternandoId: string | null
@@ -31,9 +34,10 @@ type ProfessoresTableProps = {
 
 /** Tabela de professores num card de vidro, com os estados de carregando, erro e vazio. */
 export function ProfessoresTable({
-  professores,
-  reiniciarCom,
+  paginacao,
+  topo,
   carregando,
+  atualizando,
   erro,
   mensagemVazia,
   alternandoId,
@@ -43,10 +47,10 @@ export function ProfessoresTable({
   onAlternarSituacao,
   onExcluir,
 }: ProfessoresTableProps) {
-  const { paginacao, topo } = usePaginacao<Professor, HTMLElement>(professores, { reiniciarCom })
+  const professores = !erro && paginacao ? paginacao.itensDaPagina : []
   return (
     <>
-      <section ref={topo} className={styles.card} aria-label="Professores cadastrados">
+      <section ref={topo} className={styles.card} aria-label="Professores cadastrados" aria-busy={atualizando}>
         <div className={styles.rolagem}>
           <table className={styles.tabela}>
             <thead>
@@ -62,9 +66,7 @@ export function ProfessoresTable({
               </tr>
             </thead>
             <tbody>
-              {!carregando &&
-                !erro &&
-                paginacao.itensDaPagina.map((professor) => (
+              {professores.map((professor) => (
                   <tr key={professor.id} className={professor.ativo ? '' : styles.inativo}>
                     <td className={styles.colPrincipal}>
                       <div className={styles.professor}>
@@ -126,7 +128,7 @@ export function ProfessoresTable({
         {carregando && <Mensagem>Carregando professores…</Mensagem>}
         {!carregando && erro && (
           <Mensagem>
-            <span>{erro}</span>
+            <span role="alert">{erro}</span>
             <Button size="sm" onClick={onTentarNovamente}>
               Tentar novamente
             </Button>
@@ -134,7 +136,9 @@ export function ProfessoresTable({
         )}
         {!carregando && !erro && professores.length === 0 && <Mensagem>{mensagemVazia}</Mensagem>}
       </section>
-      {!carregando && !erro && <Paginacao paginacao={paginacao} rotulo="Páginas dos professores" />}
+      {paginacao && !erro && (
+        <Paginacao paginacao={paginacao} rotulo="Páginas dos professores" carregando={atualizando} />
+      )}
     </>
   )
 }

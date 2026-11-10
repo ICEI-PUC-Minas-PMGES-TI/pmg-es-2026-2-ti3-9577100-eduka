@@ -41,6 +41,14 @@ export type Professor = {
   ativo: boolean
 }
 
+/** Resumo da escola inteira na página de GET /professores/pagina, sem a busca. */
+export type ResumoProfessores = {
+  total: number
+  ativos: number
+  /** Cadastros sem o vínculo informado. */
+  semVinculo: number
+}
+
 // Espelha o ProfessorRequest do backend. A escola vem do token, não do corpo.
 export type ProfessorRequest = {
   nome: string

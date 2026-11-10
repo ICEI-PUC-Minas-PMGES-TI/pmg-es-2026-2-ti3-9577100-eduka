@@ -27,7 +27,10 @@ export function useCarregamento<T>(buscar: Buscar<T> | null, inicial: T, mensage
     const controller = new AbortController()
 
     buscar(controller.signal)
-      .then((dados) => setResultado({ origem: buscar, versao, dados, erro: null }))
+      .then((dados) => {
+        // Resposta de uma busca já trocada não sobrescreve a da atual.
+        if (!controller.signal.aborted) setResultado({ origem: buscar, versao, dados, erro: null })
+      })
       .catch((e: unknown) => {
         if (controller.signal.aborted) return
         const erro =

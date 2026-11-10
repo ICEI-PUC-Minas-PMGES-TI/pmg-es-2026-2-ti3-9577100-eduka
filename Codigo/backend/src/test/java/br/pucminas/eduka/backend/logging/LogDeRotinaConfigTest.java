@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -31,8 +32,10 @@ class LogDeRotinaConfigTest {
 
             assertThat(tresExecucoes.await(5, TimeUnit.SECONDS)).isTrue();
 
-            assertThat(vistos.subList(0, 3)).allSatisfy(id -> assertThat(UUID.fromString(id)).isNotNull());
-            assertThat(vistos.subList(0, 3).stream().distinct().count()).isEqualTo(3);
+            // A rotina segue rodando: uma subList da lista viva quebra quando entra a 4a execucao.
+            List<String> tresPrimeiros = List.copyOf(vistos).subList(0, 3);
+            assertThat(tresPrimeiros).allSatisfy(id -> assertThat(UUID.fromString(id)).isNotNull());
+            assertThat(tresPrimeiros.stream().distinct().count()).isEqualTo(3);
         } finally {
             agendador.shutdown();
         }

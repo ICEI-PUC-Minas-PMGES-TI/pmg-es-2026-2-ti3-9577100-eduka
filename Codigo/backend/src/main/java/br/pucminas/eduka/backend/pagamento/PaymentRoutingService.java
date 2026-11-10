@@ -182,6 +182,11 @@ public class PaymentRoutingService {
         return roteadorFatura.listarMinhas();
     }
 
+    /** Uma fatura da escola do token; 404 se e de outra escola. */
+    public FaturaPlataformaResponse buscarMinhaFatura(UUID faturaId) {
+        return roteadorFatura.buscarMinha(faturaId);
+    }
+
     public PaginaResponse<FaturaPlataformaResponse> listarMinhasFaturas(StatusCobranca status, Paginacao paginacao,
             Ordenacao.Faturas ordenarPor, Direction direcao) {
         return roteadorFatura.listarMinhas(status, paginacao, ordenarPor, direcao);

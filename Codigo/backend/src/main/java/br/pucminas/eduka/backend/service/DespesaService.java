@@ -1,10 +1,16 @@
 package br.pucminas.eduka.backend.service;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.data.domain.Sort;
@@ -22,10 +28,13 @@ import br.pucminas.eduka.backend.dto.DespesaRequest;
 import br.pucminas.eduka.backend.dto.DespesaResponse;
 import br.pucminas.eduka.backend.dto.MudarSituacaoDespesaRequest;
 import br.pucminas.eduka.backend.dto.Ordenacao;
+import br.pucminas.eduka.backend.dto.PaginaComResumoResponse;
 import br.pucminas.eduka.backend.dto.PaginaResponse;
 import br.pucminas.eduka.backend.dto.Paginacao;
+import br.pucminas.eduka.backend.dto.ResumoDespesasResponse;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.DespesaRepository;
+import br.pucminas.eduka.backend.repository.DespesaTotaisRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
@@ -80,28 +89,51 @@ public class DespesaService {
     @Transactional(readOnly = true)
     public List<DespesaResponse> listar(SituacaoDespesa situacao, UUID categoriaId, LocalDate vencimentoDe,
             LocalDate vencimentoAte) {
-        return despesaRepository.findAll(filtro(situacao, categoriaId, vencimentoDe, vencimentoAte),
+        Set<SituacaoDespesa> situacoes = situacao == null ? Set.of() : Set.of(situacao);
+        return despesaRepository.findAll(filtro(situacoes, categoriaId, vencimentoDe, vencimentoAte),
                 ORDEM_DA_LISTAGEM).stream()
                 .map(DespesaResponse::de)
                 .toList();
     }
 
     /**
-     * Pagina das despesas da escola, com os mesmos filtros de {@link #listar}.
+     * Pagina das despesas da escola, com os filtros de {@link #listar}; a
+     * situacao aceita mais de uma (ex.: A_PAGAR e PAGA, para deixar as
+     * canceladas de fora). O resumo soma cada situacao com os mesmos filtros,
+     * menos o de situacao.
      *
+     * @param situacoes vazio ou nulo lista todas
      * @throws IllegalArgumentException se o intervalo de vencimento esta invertido
      */
     @Transactional(readOnly = true)
-    public PaginaResponse<DespesaResponse> listarPaginado(SituacaoDespesa situacao, UUID categoriaId,
-            LocalDate vencimentoDe, LocalDate vencimentoAte, Paginacao paginacao, Ordenacao.Despesas ordenarPor,
-            Direction direcao) {
-        Specification<Despesa> filtro = filtro(situacao, categoriaId, vencimentoDe, vencimentoAte);
+    public PaginaComResumoResponse<DespesaResponse, ResumoDespesasResponse> listarPaginado(
+            Collection<SituacaoDespesa> situacoes, UUID categoriaId, LocalDate vencimentoDe, LocalDate vencimentoAte,
+            Paginacao paginacao, Ordenacao.Despesas ordenarPor, Direction direcao) {
+        Specification<Despesa> daPagina = filtro(situacoes, categoriaId, vencimentoDe, vencimentoAte);
         Sort ordem = Ordenacao.noBanco(Ordenacao.ou(direcao, Direction.ASC), ordenarPor.propriedade);
-        return PaginaResponse.de(despesaRepository.findAll(filtro, paginacao.comOrdem(ordem)), DespesaResponse::de);
+        PaginaResponse<DespesaResponse> pagina = PaginaResponse.de(
+                despesaRepository.findAll(daPagina, paginacao.comOrdem(ordem)), DespesaResponse::de);
+        return PaginaComResumoResponse.de(pagina,
+                resumo(filtro(Set.of(), categoriaId, vencimentoDe, vencimentoAte)));
     }
 
-    private Specification<Despesa> filtro(SituacaoDespesa situacao, UUID categoriaId, LocalDate vencimentoDe,
-            LocalDate vencimentoAte) {
+    /** Todas as situacoes, na ordem do enum, com zero quando nao ha despesa nela. */
+    private ResumoDespesasResponse resumo(Specification<Despesa> filtro) {
+        Map<SituacaoDespesa, DespesaTotaisRepository.Grupo> grupos = new EnumMap<>(SituacaoDespesa.class);
+        despesaRepository.agruparPorSituacao(filtro).forEach(grupo -> grupos.put(grupo.situacao(), grupo));
+        return new ResumoDespesasResponse(Arrays.stream(SituacaoDespesa.values())
+                .map(situacao -> {
+                    DespesaTotaisRepository.Grupo grupo = grupos.get(situacao);
+                    return grupo == null
+                            ? new ResumoDespesasResponse.TotalPorSituacao(situacao, 0, BigDecimal.ZERO)
+                            : new ResumoDespesasResponse.TotalPorSituacao(situacao, grupo.quantidade(),
+                                    grupo.valor());
+                })
+                .toList());
+    }
+
+    private Specification<Despesa> filtro(Collection<SituacaoDespesa> situacoes, UUID categoriaId,
+            LocalDate vencimentoDe, LocalDate vencimentoAte) {
         if (vencimentoDe != null && vencimentoAte != null && vencimentoDe.isAfter(vencimentoAte)) {
             throw new IllegalArgumentException("vencimentoDe nao pode ser depois de vencimentoAte");
         }
@@ -110,8 +142,8 @@ public class DespesaService {
         return (despesa, query, cb) -> {
             List<Predicate> condicoes = new ArrayList<>();
             condicoes.add(cb.equal(despesa.get("escolaId"), escolaId));
-            if (situacao != null) {
-                condicoes.add(cb.equal(despesa.get("situacao"), situacao));
+            if (situacoes != null && !situacoes.isEmpty()) {
+                condicoes.add(despesa.get("situacao").in(situacoes));
             }
             if (categoriaId != null) {
                 condicoes.add(cb.equal(despesa.get("categoria").get("id"), categoriaId));

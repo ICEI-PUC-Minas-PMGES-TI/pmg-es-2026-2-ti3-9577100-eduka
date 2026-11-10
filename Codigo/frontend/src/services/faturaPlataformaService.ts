@@ -1,3 +1,4 @@
+import type { PaginaDoBackend } from '../hooks/usePaginacao'
 import type {
   Assinatura,
   Comprovante,
@@ -19,8 +20,15 @@ export function listarFaturasDaPlataforma(signal?: AbortSignal): Promise<FaturaP
   return apiRequest<FaturaPlataforma[]>('/escolas/faturas', { signal })
 }
 
-export function listarFaturasDaEscola(escolaId: string, signal?: AbortSignal): Promise<FaturaPlataforma[]> {
-  return apiRequest<FaturaPlataforma[]>(`/escolas/${escolaId}/faturas`, { signal })
+/** Uma página das faturas da escola, da competência mais recente para a mais antiga. */
+export function listarPaginaDeFaturasDaEscola(
+  escolaId: string,
+  pagina: number,
+  tamanho: number,
+  signal?: AbortSignal,
+): Promise<PaginaDoBackend<FaturaPlataforma>> {
+  const params = new URLSearchParams({ pagina: String(pagina), tamanho: String(tamanho) })
+  return apiRequest(`/escolas/${escolaId}/faturas/pagina?${params}`, { signal })
 }
 
 /** 409 FATURA_DUPLICADA quando a escola já tem fatura (não cancelada) na competência. */
@@ -53,6 +61,11 @@ export async function buscarSuspensaoPrevista(signal?: AbortSignal): Promise<Sus
 
 export function buscarMinhaAssinatura(signal?: AbortSignal): Promise<Assinatura> {
   return apiRequest<Assinatura>('/config-pagamento/assinatura', { signal })
+}
+
+/** Uma fatura da escola do token, com a situação do pagamento. 404 se não é da escola. */
+export function buscarMinhaFatura(faturaId: string, signal?: AbortSignal): Promise<FaturaPlataforma> {
+  return apiRequest<FaturaPlataforma>(`/config-pagamento/faturas/${faturaId}`, { signal })
 }
 
 export function listarMinhasFaturas(signal?: AbortSignal): Promise<FaturaPlataforma[]> {

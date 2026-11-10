@@ -7,6 +7,7 @@ import { EstadoDashboard } from '../../../../components/Dashboard/Dashboard'
 import { Icon } from '../../../../components/Icon/Icon'
 import { TabelaFaturas } from '../../../../components/TabelaFaturas/TabelaFaturas'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
+import { useListaPaginada, type PaginaDoBackend } from '../../../../hooks/usePaginacao'
 import { paths } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
 import { buscarEscola } from '../../../../services/escolaService'
@@ -14,7 +15,7 @@ import {
   buscarComprovanteDaFatura,
   cancelarFatura,
   lancarFatura,
-  listarFaturasDaEscola,
+  listarPaginaDeFaturasDaEscola,
 } from '../../../../services/faturaPlataformaService'
 import type { Escola } from '../../../../types/escola'
 import type { FaturaPlataforma } from '../../../../types/faturaPlataforma'
@@ -23,8 +24,6 @@ import { SuperAdminLayout } from '../../layouts/SuperAdminLayout'
 import estilosEdicao from '../EditarEscola/EditarEscola.module.css'
 import estilosPainel from '../PainelEscolas/PainelEscolas.module.css'
 import { Dica } from '../../../../components/Dica/Dica'
-
-const SEM_FATURAS: FaturaPlataforma[] = []
 
 function traduzirErroCancelar(erro: unknown): string {
   if (erro instanceof ApiError) {
@@ -45,13 +44,16 @@ function traduzirErroCancelar(erro: unknown): string {
 /** Faturas que uma escola paga ao Eduka (Fluxo A): lançar, cancelar e ver o comprovante. */
 export function Faturas() {
   const { id: escolaId = '' } = useParams()
-  const buscarFaturas = useCallback((signal: AbortSignal) => listarFaturasDaEscola(escolaId, signal), [escolaId])
-  const buscarDadosEscola = useCallback((signal: AbortSignal) => buscarEscola(escolaId, signal), [escolaId])
-  const { dados: faturas, carregando, erro, recarregar } = useCarregamento(
-    buscarFaturas,
-    SEM_FATURAS,
-    'Escola não encontrada.',
+  const buscarFaturas = useCallback(
+    (pagina: number, tamanho: number, signal: AbortSignal) =>
+      listarPaginaDeFaturasDaEscola(escolaId, pagina, tamanho, signal),
+    [escolaId],
   )
+  const buscarDadosEscola = useCallback((signal: AbortSignal) => buscarEscola(escolaId, signal), [escolaId])
+  const { dados, paginacao, carregando, atualizando, erro, recarregar, topo } = useListaPaginada<
+    PaginaDoBackend<FaturaPlataforma>,
+    HTMLElement
+  >(buscarFaturas, 'Não foi possível carregar as faturas da escola.')
   const { dados: escola } = useCarregamento<Escola | null>(buscarDadosEscola, null, 'Escola não encontrada.')
 
   const [lancando, setLancando] = useState(false)
@@ -64,7 +66,7 @@ export function Faturas() {
     [escolaId, comprovanteDe],
   )
 
-  const nomeEscola = escola?.nome ?? faturas[0]?.escolaNome ?? ''
+  const nomeEscola = escola?.nome ?? dados?.conteudo[0]?.escolaNome ?? ''
 
   return (
     <SuperAdminLayout
@@ -98,9 +100,11 @@ export function Faturas() {
         </p>
       )}
       <EstadoDashboard carregando={carregando} erro={erro} onTentarDeNovo={recarregar} />
-      {!carregando && !erro && (
+      {paginacao && !erro && (
         <TabelaFaturas
-          faturas={faturas}
+          paginacao={paginacao}
+          topo={topo}
+          atualizando={atualizando}
           vazio="Nenhuma fatura lançada para esta escola."
           acoes={(f) => (
             <>

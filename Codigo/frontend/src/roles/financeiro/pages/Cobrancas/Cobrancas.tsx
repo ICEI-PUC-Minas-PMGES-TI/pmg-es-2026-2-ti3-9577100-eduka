@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { ModalComprovante } from '../../../../components/Comprovante/ModalComprovante'
 import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/ConfirmarExclusao'
 import { Icon } from '../../../../components/Icon/Icon'
 import { Paginacao } from '../../../../components/Paginacao/Paginacao'
-import { paginacaoDoBackend, usePaginaDoBackend } from '../../../../hooks/usePaginacao'
+import { useCarregamento } from '../../../../hooks/useCarregamento'
+import { useListaPaginada } from '../../../../hooks/usePaginacao'
+import { useTermoAdiado } from '../../../../hooks/useTermoAdiado'
 import { useRotasFinanceiras } from '../../../../routes/areas'
 import { type EstadoCobrancaCriada } from '../../../../routes/paths'
+import { buscarAluno } from '../../../../services/alunoService'
 import { ApiError } from '../../../../services/api'
 import { buscarComprovanteDaCobranca, cancelarCobranca, listarCobrancas } from '../../../../services/cobrancaService'
 import {
@@ -15,6 +18,7 @@ import {
   mensagemErroSandbox,
   simularPagamentoNoSandbox,
 } from '../../../../services/sandboxService'
+import type { Aluno } from '../../../../types/aluno'
 import type { Cobranca, FiltroCobranca, PaginaCobrancas, StatusCobranca } from '../../../../types/cobranca'
 import { CobrancaCard } from '../../components/CobrancaCard/CobrancaCard'
 import { CobrancaDetalhe, type MensagemSandbox } from '../../components/CobrancaDetalhe/CobrancaDetalhe'
@@ -47,85 +51,57 @@ function mensagemErroCancelar(erro: unknown): string {
   return 'Erro inesperado ao cancelar a cobrança.'
 }
 
-/** Espera entre a última tecla da busca e a consulta ao backend. */
-const ESPERA_BUSCA_MS = 300
-
 /** O ?status= da URL (atalho do Início), ou Todas. */
 function filtroDaUrl(status: string | null): FiltroCobranca {
   return FILTROS.find((filtro) => filtro === status) ?? 'TODAS'
 }
 
-/** A consulta que produziu cada resposta: página (a partir de 0), tamanho, filtro e nome buscado. */
-function chaveDa(pagina: number, tamanho: number, filtro: FiltroCobranca, nome: string): string {
-  return `${pagina}|${tamanho}|${filtro}|${nome}`
-}
-
-/** Última resposta do backend e a consulta que a produziu. */
-type Carregado = { chave: string; dados: PaginaCobrancas | null; erro: string | null }
-
 export function Cobrancas() {
   const navigate = useNavigate()
   const rotas = useRotasFinanceiras()
   const location = useLocation()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  // ?aluno={id}: vem da aba Financeiro do aluno (IU18) e mostra só as cobranças dele.
+  const alunoId = searchParams.get('aluno')
+  const buscarAlunoFiltrado = useMemo(
+    () => (alunoId ? (signal: AbortSignal) => buscarAluno(alunoId, signal) : null),
+    [alunoId],
+  )
+  // Só o nome para o aviso do filtro: se não carregar, a lista filtrada aparece do mesmo jeito.
+  const alunoFiltrado = useCarregamento<Aluno | null>(buscarAlunoFiltrado, null, 'O aluno não existe mais.')
   // Volta da Nova cobrança com a confirmação do que foi criado.
   const [sucesso] = useState(() => (location.state as EstadoCobrancaCriada | null)?.cobrancaCriada ?? null)
-  const [carregado, setCarregado] = useState<Carregado | null>(null)
   const [idAberto, setIdAberto] = useState<string | null>(null)
   const [termoBusca, setTermoBusca] = useState('')
   // O termo vai ao backend só quando a digitação para.
-  const [nomeBuscado, setNomeBuscado] = useState('')
+  const nomeBuscado = useTermoAdiado(termoBusca)
   const [filtroStatus, setFiltroStatus] = useState<FiltroCobranca>(() => filtroDaUrl(searchParams.get('status')))
-  const { pagina, setPagina, porPagina, irPara, mudarPorPagina, topo } = usePaginaDoBackend()
   const [editando, setEditando] = useState<Cobranca | null>(null)
   const [cancelando, setCancelando] = useState<Cobranca | null>(null)
   const [comprovanteDe, setComprovanteDe] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [simulando, setSimulando] = useState(false)
   const [mensagemSandbox, setMensagemSandbox] = useState<MensagemSandbox | null>(null)
-  // Cada incremento busca a página de novo, sem voltar ao "Carregando".
-  const [recarga, setRecarga] = useState(0)
 
-  // Busca nova: espera a digitação parar e volta à primeira página.
-  useEffect(() => {
-    const nome = termoBusca.trim()
-    if (nome === nomeBuscado) return
-    const espera = window.setTimeout(() => {
-      setNomeBuscado(nome)
-      setPagina(0)
-    }, ESPERA_BUSCA_MS)
-    return () => window.clearTimeout(espera)
-  }, [termoBusca, nomeBuscado, setPagina])
-
-  useEffect(() => {
-    // Consulta nova cancela a anterior: resposta atrasada não sobrescreve a atual.
-    const controller = new AbortController()
-    const chave = chaveDa(pagina, porPagina, filtroStatus, nomeBuscado)
-    listarCobrancas(
-      {
-        pagina,
-        tamanho: porPagina,
-        status: filtroStatus === 'TODAS' ? undefined : filtroStatus,
-        nome: nomeBuscado || undefined,
-      },
-      controller.signal,
-    )
-      .then((dados) => {
-        // A lista encolheu desde a última leitura (ex.: cobrança que mudou de situação): vai para a última página.
-        if (dados.conteudo.length === 0 && dados.pagina > 0) {
-          setPagina(Math.max(0, dados.totalPaginas - 1))
-          return
-        }
-        setCarregado({ chave, dados, erro: null })
-      })
-      .catch((e: unknown) => {
-        if (controller.signal.aborted) return
-        const erro = e instanceof ApiError ? (e.detalhe ?? e.message) : 'Não foi possível carregar as cobranças.'
-        setCarregado((anterior) => ({ chave, dados: anterior?.dados ?? null, erro }))
-      })
-
-    return () => controller.abort()
-  }, [pagina, porPagina, filtroStatus, nomeBuscado, recarga, setPagina])
+  // Busca ou filtro novo troca a função, e a lista volta à primeira página.
+  const buscarCobrancas = useCallback(
+    (pagina: number, tamanho: number, signal: AbortSignal) =>
+      listarCobrancas(
+        {
+          pagina,
+          tamanho,
+          status: filtroStatus === 'TODAS' ? undefined : filtroStatus,
+          nome: nomeBuscado || undefined,
+          alunoId: alunoId ?? undefined,
+        },
+        signal,
+      ),
+    [filtroStatus, nomeBuscado, alunoId],
+  )
+  const { dados, paginacao, carregando, atualizando, erro, recarregar, topo } = useListaPaginada<PaginaCobrancas>(
+    buscarCobrancas,
+    'Não foi possível carregar as cobranças.',
+  )
 
   // Descarta o estado já lido, para a confirmação não voltar ao recarregar a página.
   useEffect(() => {
@@ -146,7 +122,7 @@ export function Cobrancas() {
         erro: false,
       })
       for (const espera of [4000, 10000]) {
-        window.setTimeout(() => setRecarga((n) => n + 1), espera)
+        window.setTimeout(recarregar, espera)
       }
     } catch (e) {
       setMensagemSandbox({
@@ -166,7 +142,19 @@ export function Cobrancas() {
   /** Depois de editar ou cancelar: confirma e lê a página de novo. */
   function concluir(mensagem: string) {
     setAviso(mensagem)
-    setRecarga((n) => n + 1)
+    recarregar()
+  }
+
+  /** Tira o ?aluno= e volta a listar as cobranças de todos os alunos. */
+  function verTodosOsAlunos() {
+    setSearchParams(
+      (atuais) => {
+        const proximos = new URLSearchParams(atuais)
+        proximos.delete('aluno')
+        return proximos
+      },
+      { replace: true },
+    )
   }
 
   /** A seta do card abre os detalhes; clicar de novo fecha. Só um aberto por vez. */
@@ -175,18 +163,7 @@ export function Cobrancas() {
     setMensagemSandbox(null)
   }
 
-  /** Filtro novo: volta à primeira página. */
-  function filtrar(filtro: FiltroCobranca) {
-    setFiltroStatus(filtro)
-    setPagina(0)
-  }
-
-  const carregando = carregado === null
-  const erro = carregado?.erro ?? null
-  const dados = carregado?.dados ?? null
-  // Até a resposta chegar, a página anterior fica na tela e a navegação espera.
-  const atualizando = carregado !== null && carregado.chave !== chaveDa(pagina, porPagina, filtroStatus, nomeBuscado)
-  const cobrancas = dados?.conteudo ?? []
+  const cobrancas = paginacao?.itensDaPagina ?? []
 
   // Pílulas: o backend conta cada situação na escola inteira, sem o filtro de situação nem a busca.
   const quantidade = (status: StatusCobranca) => dados?.totaisPorStatus.find((t) => t.status === status)?.quantidade ?? 0
@@ -206,7 +183,8 @@ export function Cobrancas() {
         <Button
           variant="primary"
           icon="plus"
-          onClick={() => navigate(rotas.novaCobranca)}
+          // Filtrada por um aluno, a nova cobrança já abre com ele escolhido.
+          onClick={() => navigate(alunoId ? `${rotas.novaCobranca}?aluno=${alunoId}` : rotas.novaCobranca)}
         >
           Nova cobrança
         </Button>
@@ -235,7 +213,7 @@ export function Cobrancas() {
               type="button"
               aria-pressed={filtroStatus === filtro}
               className={`${styles.pillBtn} ${filtroStatus === filtro ? styles.pillAtivo : ''}`}
-              onClick={() => filtrar(filtro)}
+              onClick={() => setFiltroStatus(filtro)}
             >
               {ROTULOS_FILTRO[filtro]}
               <span className={styles.badge}>{contadores[filtro]}</span>
@@ -243,6 +221,18 @@ export function Cobrancas() {
           ))}
         </div>
       </div>
+
+      {alunoId && (
+        <div className={styles.filtroAluno}>
+          <span>
+            Só as cobranças de <strong>{alunoFiltrado.dados?.nome ?? 'um aluno'}</strong>
+            {alunoFiltrado.dados && ` · Matrícula ${alunoFiltrado.dados.matricula}`}
+          </span>
+          <Button size="sm" icon="close" onClick={verTodosOsAlunos}>
+            Ver de todos os alunos
+          </Button>
+        </div>
+      )}
 
       {(aviso ?? sucesso) && (
         <p className={styles.sucesso} role="status">
@@ -263,7 +253,11 @@ export function Cobrancas() {
         ) : cobrancas.length === 0 ? (
           <div className={styles.vazio}>
             <Icon name="fileText" size={32} />
-            <p>Nenhuma cobrança encontrada para este filtro.</p>
+            <p>
+              {alunoId
+                ? 'Nenhuma cobrança deste aluno para este filtro.'
+                : 'Nenhuma cobrança encontrada para este filtro.'}
+            </p>
           </div>
         ) : (
           cobrancas.map((c) => (
@@ -282,12 +276,8 @@ export function Cobrancas() {
         )}
       </div>
 
-      {dados && !erro && (
-        <Paginacao
-          paginacao={paginacaoDoBackend(dados, { irPara, mudarPorPagina })}
-          rotulo="Páginas das cobranças"
-          carregando={atualizando}
-        />
+      {paginacao && !erro && (
+        <Paginacao paginacao={paginacao} rotulo="Páginas das cobranças" carregando={atualizando} />
       )}
 
       {editando && (

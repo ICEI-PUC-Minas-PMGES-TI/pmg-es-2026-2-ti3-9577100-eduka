@@ -4,39 +4,49 @@
   gap: 18px;
 }
 
-/* Mesmas caixinhas dos dados do aluno (ModalDetalhes). */
-.resumo {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin: 0;
-}
-
-.indicador {
+/* Cobranças e pagamentos: título e filtro na mesma linha, a tabela e a paginação. */
+.lancamentos {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  padding: 10px 14px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.7);
+  gap: 12px;
+  /* A troca de página rola até aqui, sem esconder o título sob a borda do diálogo. */
+  scroll-margin-top: 12px;
 }
 
-.indicador dt {
-  color: var(--color-text-muted);
-  font-size: 12.5px;
+.cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
 }
 
-.indicador dd {
+.titulo {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 900;
+  font-size: 16px;
+  font-weight: 800;
 }
 
-.indicador .alerta {
-  color: var(--color-danger);
+/* Quantos lançamentos aparecem, o responsável e os atalhos do financeiro. */
+.rodape {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+}
+
+.total {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 13.5px;
+}
+
+.comandos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .rolagem {
@@ -99,12 +109,6 @@ span.secundario {
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
-}
-
-@media (max-width: 520px) {
-  .resumo {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 /* Celular: cada linha vira um bloco, com o rótulo em cima de cada dado, sem rolagem lateral. */

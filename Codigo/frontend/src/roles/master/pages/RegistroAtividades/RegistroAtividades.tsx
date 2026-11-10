@@ -1,12 +1,11 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import { Badge } from '../../../../components/Badge/Badge'
 import { Button } from '../../../../components/Button/Button'
 import { CampoPeriodo, type Periodo } from '../../../../components/CampoPeriodo/CampoPeriodo'
 import { Paginacao } from '../../../../components/Paginacao/Paginacao'
 import { Select, type OpcaoSelect } from '../../../../components/Select/Select'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
-import { paginacaoDoBackend, usePaginaDoBackend, type PaginaDoBackend } from '../../../../hooks/usePaginacao'
-import { ApiError } from '../../../../services/api'
+import { useListaPaginada, type PaginaDoBackend } from '../../../../hooks/usePaginacao'
 import { listarAtividades, listarAutoresDeAtividades } from '../../../../services/auditoriaService'
 import {
   descreverAcao,
@@ -62,9 +61,6 @@ function opcoesDePessoa(autores: AutorAtividade[]): OpcaoSelect<string>[] {
   ]
 }
 
-/** Última resposta do backend e a consulta que a produziu. */
-type Carregado = { chave: string; dados: PaginaDoBackend<Atividade> | null; erro: string | null }
-
 /**
  * Registro de atividades (IU28, MASTER): quem fez o quê na escola e quando,
  * da mais recente para a mais antiga. Filtra por pessoa, período, entidade e
@@ -72,40 +68,23 @@ type Carregado = { chave: string; dados: PaginaDoBackend<Atividade> | null; erro
  */
 export function RegistroAtividades() {
   const [filtros, setFiltros] = useState<FiltrosAtividades>(SEM_FILTROS)
-  const { pagina, setPagina, porPagina, irPara, mudarPorPagina, topo } = usePaginaDoBackend<HTMLElement>()
-  const [carregado, setCarregado] = useState<Carregado | null>(null)
-  const [recarga, setRecarga] = useState(0)
   // O filtro por pessoa não pode travar a tela: sem a lista, ele só fica com "Todas as pessoas".
   const { dados: autores } = useCarregamento(listarAutoresDeAtividades, SEM_AUTORES, '')
+  // Filtro novo é outra busca: o useListaPaginada volta sozinho para a primeira página.
+  const buscar = useCallback(
+    (pagina: number, tamanho: number, signal: AbortSignal) => listarAtividades(filtros, pagina, tamanho, signal),
+    [filtros],
+  )
+  const { dados, paginacao, carregando, atualizando, erro, recarregar, topo } = useListaPaginada<
+    PaginaDoBackend<Atividade>,
+    HTMLElement
+  >(buscar, 'Não foi possível carregar as atividades.')
 
-  const chave = JSON.stringify({ filtros, pagina, porPagina, recarga })
-
-  useEffect(() => {
-    // Consulta nova cancela a anterior: resposta atrasada não sobrescreve a atual.
-    const controller = new AbortController()
-    const consulta = JSON.stringify({ filtros, pagina, porPagina, recarga })
-    listarAtividades(filtros, pagina, porPagina, controller.signal)
-      .then((dados) => setCarregado({ chave: consulta, dados, erro: null }))
-      .catch((e: unknown) => {
-        if (controller.signal.aborted) return
-        const erro = e instanceof ApiError ? (e.detalhe ?? e.message) : 'Não foi possível carregar as atividades.'
-        setCarregado((anterior) => ({ chave: consulta, dados: anterior?.dados ?? null, erro }))
-      })
-    return () => controller.abort()
-  }, [filtros, pagina, porPagina, recarga])
-
-  // Até a primeira resposta chegar, "Carregando"; depois, a página anterior fica na tela enquanto a nova vem.
-  const carregando = carregado === null
-  const atualizando = carregado !== null && carregado.chave !== chave
-  const dados = carregado?.dados ?? null
-  const erro = carregado?.erro ?? null
   const filtrando = Object.values(filtros).some(Boolean)
   const periodo: Periodo | null = filtros.de && filtros.ate ? { de: filtros.de, ate: filtros.ate } : null
 
-  /** Filtro novo volta para a primeira página. */
   function filtrar(mudanca: Partial<FiltrosAtividades>) {
     setFiltros((atuais) => ({ ...atuais, ...mudanca }))
-    setPagina(0)
   }
 
   return (
@@ -198,7 +177,7 @@ export function RegistroAtividades() {
         {erro && (
           <Mensagem papel="alert">
             <span>{erro}</span>
-            <Button size="sm" onClick={() => setRecarga((r) => r + 1)}>
+            <Button size="sm" onClick={recarregar}>
               Tentar novamente
             </Button>
           </Mensagem>
@@ -212,12 +191,8 @@ export function RegistroAtividades() {
         )}
       </section>
 
-      {dados && !erro && (
-        <Paginacao
-          paginacao={paginacaoDoBackend(dados, { irPara, mudarPorPagina })}
-          rotulo="Páginas das atividades"
-          carregando={atualizando}
-        />
+      {paginacao && !erro && (
+        <Paginacao paginacao={paginacao} rotulo="Páginas das atividades" carregando={atualizando} />
       )}
     </MasterLayout>
   )

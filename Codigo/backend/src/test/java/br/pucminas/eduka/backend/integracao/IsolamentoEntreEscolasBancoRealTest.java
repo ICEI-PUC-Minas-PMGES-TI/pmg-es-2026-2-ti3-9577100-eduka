@@ -139,6 +139,7 @@ class IsolamentoEntreEscolasBancoRealTest extends BancoRealTest {
                 "/cobrancas/" + cobrancaPagaB + "/comprovante",
                 "/despesas/" + despesaB,
                 "/usuarios/equipe/" + secretariaB,
+                "/config-pagamento/faturas/" + faturaB,
                 "/config-pagamento/faturas/" + faturaB + "/comprovante");
 
         for (String url : urls) {

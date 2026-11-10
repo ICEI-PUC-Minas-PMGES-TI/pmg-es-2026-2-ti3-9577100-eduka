@@ -153,6 +153,17 @@ public class FaturaPlataformaController {
                 direcao);
     }
 
+    @GetMapping("/config-pagamento/faturas/{id}")
+    @PreAuthorize(Perfis.GESTAO)
+    @Operation(summary = "Uma fatura da minha escola", description = "Perfil: MASTER. A fatura com a situacao do "
+            + "pagamento e as acoes, como na listagem; a tela de pagamento consulta so ela enquanto espera o PIX "
+            + "ou o boleto.")
+    @ApiResponse(responseCode = "200", description = "A fatura.")
+    @ApiResponse(responseCode = "404", description = "Fatura inexistente ou de outra escola.")
+    public FaturaPlataformaResponse minha(@PathVariable UUID id) {
+        return paymentRoutingService.buscarMinhaFatura(id);
+    }
+
     @PostMapping("/config-pagamento/faturas/{id}/pagar")
     @PreAuthorize(Perfis.GESTAO)
     @Operation(summary = "Pagar fatura com PIX ou boleto", description = "Perfil: MASTER da escola da fatura. "
