@@ -14,6 +14,7 @@ import { Equipe } from './pages/Equipe/Equipe'
 import { Inicio } from './pages/Inicio/Inicio'
 import { PlanoEFaturas } from './pages/PlanoEFaturas/PlanoEFaturas'
 import { Recebimentos } from './pages/Recebimentos/Recebimentos'
+import { RegistroAtividades } from './pages/RegistroAtividades/RegistroAtividades'
 
 // Rota-mãe do perfil MASTER. As telas entram como children do RotaProtegida.
 // Alunos, matrículas, cobranças e despesas são as páginas da secretaria e do
@@ -27,6 +28,7 @@ export const masterRoutes: RouteObject = {
     { path: paths.master.recebimentos, element: <Recebimentos /> },
     { path: paths.master.planoEFaturas, element: <PlanoEFaturas /> },
     { path: paths.master.equipe, element: <Equipe /> },
+    { path: paths.master.atividades, element: <RegistroAtividades /> },
     { path: paths.master.alunos, element: <Alunos /> },
     { path: paths.master.professores, element: <Professores /> },
     { path: paths.master.academico, element: <SecretariaDashboard /> },

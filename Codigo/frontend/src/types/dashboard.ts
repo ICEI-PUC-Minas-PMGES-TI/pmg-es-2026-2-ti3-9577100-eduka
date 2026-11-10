@@ -1,5 +1,6 @@
 import type { PerfilUsuario } from '../services/authService'
 import type { Turno } from './alocacao'
+import type { EntidadeAuditada, OperacaoAuditoria } from './auditoria'
 import type { StatusMatricula } from './matricula'
 import type { FormaPagamento, StatusCobrancaAluno } from './pagamentoAluno'
 import type { TipoAvaliacao } from './portalAluno'
@@ -143,20 +144,6 @@ export type PagamentoRecente = {
   /** Instante (ISO). */
   pagoEm: string
 }
-
-export type OperacaoAuditoria =
-  | 'CRIAR'
-  | 'EDITAR'
-  | 'CANCELAR'
-  | 'PAGAR'
-  | 'CONFIRMAR_PAGAMENTO'
-  | 'PAGO_APOS_CANCELAR'
-  | 'ESTORNAR'
-  | 'CONTESTAR'
-  | 'ATIVAR'
-  | 'ALTERAR_SITUACAO'
-
-export type EntidadeAuditada = 'COBRANCA' | 'PAGAMENTO' | 'DESPESA' | 'CONTA_RECEBIMENTO' | 'FATURA_PLATAFORMA'
 
 // Espelha o DashboardFinanceiroResponse.AcaoRecente.
 export type AcaoRecente = {
