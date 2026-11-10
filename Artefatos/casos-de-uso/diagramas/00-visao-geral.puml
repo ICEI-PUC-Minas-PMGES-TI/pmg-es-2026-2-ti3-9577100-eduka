@@ -49,7 +49,7 @@ rectangle "Acesso e usuários" {
   usecase "UC38 Aceitar Aviso\nde Privacidade" as UC38 <<planejado>>
   usecase "UC04 Gerenciar Usuários\nda Escola" as UC04 <<parcial>>
   usecase "UC16 Visualizar Dashboard" as UC16
-  usecase "UC37 Consultar Registro\nde Atividades" as UC37 <<parcial>>
+  usecase "UC37 Consultar Registro\nde Atividades" as UC37
 }
 
 rectangle "Portal do professor" {
@@ -96,7 +96,7 @@ FINANCEIRO --> UC16
 MASTER --> UC28
 MASTER --> UC33
 MASTER -[#A0A8B4]-> UC04 : API
-MASTER -[#A0A8B4]-> UC37 : API
+MASTER --> UC37
 MASTER --> UC39
 MASTER --> UC16
 ALUNO --> UC13
