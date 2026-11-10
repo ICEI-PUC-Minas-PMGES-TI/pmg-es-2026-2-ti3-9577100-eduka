@@ -83,17 +83,24 @@ export function TabelaFaturas({
                   return (
                     <tr key={f.id}>
                       {mostrarEscola && (
-                        <td>
+                        <td className={styles.colPrincipal}>
                           <span className={styles.descricao}>{f.escolaNome}</span>
                         </td>
                       )}
-                      <td>
+                      <td
+                        className={mostrarEscola ? undefined : styles.colPrincipal}
+                        data-rotulo={mostrarEscola ? 'Competência' : undefined}
+                      >
                         <span className={styles.descricao}>{formatarCompetencia(f.competencia)}</span>
                         <span className={styles.secundario}>{f.descricao}</span>
                       </td>
-                      <td className={styles.nowrap}>{formatarData(f.dataVencimento)}</td>
-                      <td className={styles.numero}>{formatarMoeda(f.pagamento?.valorPago ?? f.valor)}</td>
-                      <td>
+                      <td className={styles.nowrap} data-rotulo="Vencimento">
+                        {formatarData(f.dataVencimento)}
+                      </td>
+                      <td className={styles.numero} data-rotulo="Valor">
+                        {formatarMoeda(f.pagamento?.valorPago ?? f.valor)}
+                      </td>
+                      <td data-rotulo="Situação">
                         <Badge tone={TOM_STATUS[f.status]}>{ROTULOS_STATUS_FATURA[f.status]}</Badge>
                         {situacao && <span className={styles.secundario}>{situacao}</span>}
                       </td>

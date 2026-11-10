@@ -263,12 +263,22 @@
     padding: 11px 14px;
   }
 
+  /* Some só da tela: o leitor de tela continua lendo o nome do link. */
   .item span {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .active span {
-    display: inline;
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
   }
 }
 
@@ -281,5 +291,16 @@
 
   .item {
     padding: 11px 10px;
+  }
+
+  /* Com sete itens ou mais (o menu da gestão), nem o ativo leva o nome: só os
+     ícones cabem nos 328 px. O título da tela já diz onde se está. */
+  .nav:has(> :nth-child(7)) .active span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }

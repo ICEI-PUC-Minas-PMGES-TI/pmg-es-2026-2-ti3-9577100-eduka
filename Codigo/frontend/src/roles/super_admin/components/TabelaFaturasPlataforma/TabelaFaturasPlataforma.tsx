@@ -62,8 +62,8 @@ export function TabelaFaturasPlataforma({
               </thead>
               <tbody>
                 {paginacao.itensDaPagina.map((f) => (
-                  <tr key={f.id}>
-                    <td>
+                  <tr key={f.id} className={estilos.comSelecao}>
+                    <td className={estilos.colSelecao}>
                       <input
                         type="radio"
                         name="fatura-selecionada"
@@ -73,15 +73,17 @@ export function TabelaFaturasPlataforma({
                         onChange={() => onSelecionar(f.id)}
                       />
                     </td>
-                    <td>
+                    <td className={estilos.colPrincipal}>
                       <span className={estilos.descricao}>{f.escolaNome}</span>
                       <span className={estilos.secundario}>{referencia(f)}</span>
                     </td>
-                    <td className={estilos.nowrap}>{formatarData(f.dataVencimento)}</td>
-                    <td className={estilos.nowrap}>
+                    <td className={estilos.nowrap} data-rotulo="Vence">
+                      {formatarData(f.dataVencimento)}
+                    </td>
+                    <td className={estilos.nowrap} data-rotulo="Valor">
                       <strong>{formatarMoeda(f.pagamento?.valorPago ?? f.valor)}</strong>
                     </td>
-                    <td>
+                    <td data-rotulo="Situação">
                       <Badge tone={SITUACAO[f.status].tom}>{SITUACAO[f.status].rotulo}</Badge>
                     </td>
                     <td className={estilos.acao}>

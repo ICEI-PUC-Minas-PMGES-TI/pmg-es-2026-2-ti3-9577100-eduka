@@ -353,9 +353,15 @@ export function Despesas() {
                             </span>
                           </div>
                         </td>
-                        <td className={styles.tdCategoria}>{d.categoriaNome}</td>
-                        <td className={styles.tdData}>{formatarDataBr(d.dataVencimento)}</td>
-                        <td className={styles.tdValor}>{formatarMoeda(d.valor)}</td>
+                        <td className={styles.tdCategoria} data-rotulo="Categoria">
+                          {d.categoriaNome}
+                        </td>
+                        <td className={styles.tdData} data-rotulo="Data">
+                          {formatarDataBr(d.dataVencimento)}
+                        </td>
+                        <td className={styles.tdValor} data-rotulo="Valor">
+                          {formatarMoeda(d.valor)}
+                        </td>
                         <td className={styles.tdAcao}>
                           <Button
                             size="sm"
