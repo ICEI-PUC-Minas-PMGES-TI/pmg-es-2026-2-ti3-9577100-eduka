@@ -526,7 +526,7 @@ flowchart TB
         SEC["<b>secretaria/</b><br/>início · alunos · professores<br/>acadêmico · alocação · matrículas"]
         PROF["<b>professor/</b><br/>início · turmas · avaliações · notas · chamada"]
         ALU["<b>aluno/</b><br/>boletim (com provas e tarefas) · pagamentos · meus dados"]
-        FIN["<b>financeiro/</b><br/>início · cobranças · nova cobrança<br/>despesas · relatórios"]
+        FIN["<b>financeiro/</b><br/>início · cobranças · nova cobrança<br/>despesas · relatórios · alunos (consulta)"]
     end
 
     subgraph shared["Compartilhado"]

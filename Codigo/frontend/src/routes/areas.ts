@@ -58,3 +58,12 @@ export function useRotasAcademicas(): RotasAcademicas {
 export function useAreaMaster(): boolean {
   return ehAreaMaster(useLocation().pathname)
 }
+
+/**
+ * Se a tela está na área do FINANCEIRO. A tela Alunos da secretaria também
+ * abre lá (/financeiro/alunos), só para consulta, com o menu do financeiro.
+ */
+export function useAreaFinanceiro(): boolean {
+  const { pathname } = useLocation()
+  return pathname === paths.financeiro.raiz || pathname.startsWith(`${paths.financeiro.raiz}/`)
+}

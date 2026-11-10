@@ -109,4 +109,34 @@ describe('NovaCobranca', () => {
     const criar = chamadas.find((c) => c.metodo === 'POST')
     expect(criar?.corpo).not.toHaveProperty('matriculaId')
   })
+
+  it('aberta pela aba Financeiro do aluno, já vem com ele escolhido', async () => {
+    const chamadas = backend([matricula('mat-1', 'Ensino Médio')])
+    const usuario = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={['/financeiro/cobrancas/nova?aluno=aluno-1']}>
+        <NovaCobranca />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('button', { name: /Ana Souza/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText(/Aluno selecionado:/)).toHaveTextContent('Aluno selecionado: Ana Souza · Matrícula 2026001')
+    await preencherEEnviar(usuario)
+
+    const criar = chamadas.find((c) => c.metodo === 'POST')
+    expect(criar?.corpo).toMatchObject({ alunoId: 'aluno-1', valor: 420 })
+  })
+
+  it('aluno do endereço que não pode receber cobrança não fica escolhido', async () => {
+    const chamadas = backend([])
+    render(
+      <MemoryRouter initialEntries={['/financeiro/cobrancas/nova?aluno=anonimizado']}>
+        <NovaCobranca />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('button', { name: /Ana Souza/ })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByText(/Aluno selecionado:/)).not.toBeInTheDocument()
+    expect(chamadas.some((c) => c.caminho.startsWith('/matriculas'))).toBe(false)
+  })
 })

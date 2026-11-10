@@ -16,6 +16,7 @@ import {
   reenviarAcessoAluno,
 } from '../../../../services/alunoService'
 import { ApiError } from '../../../../services/api'
+import { obterUsuarioLogado } from '../../../../services/authService'
 import { matricularAluno, mensagemErroMatricula } from '../../../../services/matriculaService'
 import type { TurmaAcademica } from '../../../../types/academico'
 import type { Aluno, AlunoDaLista, ResumoAlunos, SituacaoNaEscola } from '../../../../types/aluno'
@@ -58,15 +59,29 @@ function opcoesDeTurma(turmas: TurmaAcademica[]): OpcaoSelect<string>[] {
 type EstadoModal = { aberto: false } | { aberto: true; aluno?: AlunoDaLista }
 
 /**
+ * Cadastrar, editar e reenviar o acesso é da secretaria e do MASTER. O
+ * FINANCEIRO só consulta a lista e o financeiro de cada aluno: o backend recusa
+ * a ele as escritas em /alunos.
+ */
+function podeCadastrarAlunos(): boolean {
+  const perfil = obterUsuarioLogado()?.perfil
+  return perfil === 'MASTER' || perfil === 'SECRETARIA'
+}
+
+/**
  * Alunos da secretaria (IU07): a lista vem do backend uma página por vez
  * (GET /alunos/pagina), com a busca pelo nome ou matrícula e o filtro de
- * situação feitos lá. Cards e pílulas contam a escola inteira.
+ * situação feitos lá. Cards e pílulas contam a escola inteira. O FINANCEIRO
+ * abre a mesma tela só para consulta (/financeiro/alunos), para chegar à aba
+ * Financeiro de cada aluno (IU18).
  */
 export function Alunos() {
   const navigate = useNavigate()
   const location = useLocation()
+  const podeCadastrar = podeCadastrarAlunos()
   // O atalho "Cadastrar um aluno" do Início chega com o modal já aberto.
-  const abrirCadastroAoEntrar = (location.state as EstadoAbrirCadastro | null)?.abrirCadastro === true
+  const abrirCadastroAoEntrar =
+    podeCadastrar && (location.state as EstadoAbrirCadastro | null)?.abrirCadastro === true
   const [busca, setBusca] = useState('')
   const termo = useTermoAdiado(busca)
   const [filtro, setFiltro] = useState<Filtro>('TODOS')
@@ -91,7 +106,11 @@ export function Alunos() {
   const resumo = lista.dados?.resumo ?? null
 
   // Só para o cadastro já matricular: cada turma vem com as vagas ocupadas.
-  const turmas = useCarregamento(listarTurmasAcademicas, SEM_TURMAS, 'Não foi possível carregar as turmas.')
+  const turmas = useCarregamento(
+    podeCadastrar ? listarTurmasAcademicas : null,
+    SEM_TURMAS,
+    'Não foi possível carregar as turmas.',
+  )
 
   // Descarta o estado já lido, para o modal não reabrir ao recarregar a página.
   useEffect(() => {
@@ -184,7 +203,14 @@ export function Alunos() {
   const alunoEmEdicao = modal.aberto ? modal.aluno : undefined
 
   return (
-    <SecretariaLayout titulo="Alunos" subtitulo="Cadastre os alunos da escola e mantenha os dados em dia.">
+    <SecretariaLayout
+      titulo="Alunos"
+      subtitulo={
+        podeCadastrar
+          ? 'Cadastre os alunos da escola e mantenha os dados em dia.'
+          : 'Consulte os alunos da escola e o financeiro de cada um em Ver.'
+      }
+    >
       {resumo && (
         <StatCards rotulo="Resumo dos alunos">
           <StatCard label="Alunos cadastrados" value={naEscola} descricao="Na escola" destaque />
@@ -192,7 +218,7 @@ export function Alunos() {
           <StatCard
             label="Sem turma"
             value={semTurma}
-            descricao={semTurma ? 'Matricule em Matrículas' : 'Todos matriculados'}
+            descricao={semTurma ? (podeCadastrar ? 'Matricule em Matrículas' : 'Sem matrícula ativa') : 'Todos matriculados'}
             atencao={semTurma > 0}
           />
         </StatCards>
@@ -227,9 +253,11 @@ export function Alunos() {
             </button>
           ))}
         </div>
-        <Button variant="primary" icon="plus" onClick={abrirCadastro}>
-          Novo aluno
-        </Button>
+        {podeCadastrar && (
+          <Button variant="primary" icon="plus" onClick={abrirCadastro}>
+            Novo aluno
+          </Button>
+        )}
       </div>
 
       {sucesso && (
@@ -254,8 +282,8 @@ export function Alunos() {
         reenviandoId={reenviandoId}
         onTentarNovamente={lista.recarregar}
         onVer={setVendo}
-        onEditar={abrirEdicao}
-        onReenviarAcesso={handleReenviarAcesso}
+        onEditar={podeCadastrar ? abrirEdicao : undefined}
+        onReenviarAcesso={podeCadastrar ? handleReenviarAcesso : undefined}
       />
 
       {vendo && (

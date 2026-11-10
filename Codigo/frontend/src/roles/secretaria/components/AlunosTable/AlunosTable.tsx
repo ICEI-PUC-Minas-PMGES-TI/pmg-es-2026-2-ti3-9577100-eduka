@@ -32,8 +32,10 @@ type AlunosTableProps = {
   reenviandoId: string | null
   onTentarNovamente: () => void
   onVer: (aluno: AlunoDaLista) => void
-  onEditar: (aluno: AlunoDaLista) => void
-  onReenviarAcesso: (aluno: AlunoDaLista) => void
+  /** Sem ela, a linha não mostra Editar (perfil só de consulta, como o FINANCEIRO). */
+  onEditar?: (aluno: AlunoDaLista) => void
+  /** Sem ela, a linha não mostra Reenviar acesso. */
+  onReenviarAcesso?: (aluno: AlunoDaLista) => void
 }
 
 /** Tabela de alunos num card de vidro, com os estados de carregando, erro e vazio. */
@@ -94,22 +96,22 @@ export function AlunosTable({
                         <Button size="sm" icon="eye" onClick={() => onVer(aluno)}>
                           Ver
                         </Button>
-                        {!anonimizado && (
-                          <>
-                            <Button size="sm" icon="edit" onClick={() => onEditar(aluno)}>
-                              Editar
+                        {!anonimizado && onEditar && (
+                          <Button size="sm" icon="edit" onClick={() => onEditar(aluno)}>
+                            Editar
+                          </Button>
+                        )}
+                        {!anonimizado && onReenviarAcesso && (
+                          <Dica texto="Envia uma nova senha provisória para o e-mail do aluno">
+                            <Button
+                              size="sm"
+                              icon="mail"
+                              disabled={reenviandoId === aluno.id}
+                              onClick={() => onReenviarAcesso(aluno)}
+                            >
+                              Reenviar acesso
                             </Button>
-                            <Dica texto="Envia uma nova senha provisória para o e-mail do aluno">
-                              <Button
-                                size="sm"
-                                icon="mail"
-                                disabled={reenviandoId === aluno.id}
-                                onClick={() => onReenviarAcesso(aluno)}
-                              >
-                                Reenviar acesso
-                              </Button>
-                            </Dica>
-                          </>
+                          </Dica>
                         )}
                       </div>
                     </td>

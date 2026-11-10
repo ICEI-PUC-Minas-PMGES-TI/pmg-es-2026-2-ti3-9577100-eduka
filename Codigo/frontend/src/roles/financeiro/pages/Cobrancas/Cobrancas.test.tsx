@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { problema, simularApi, type ChamadaApi } from '../../../../test/api'
 import type { Cobranca, PaginaCobrancas, StatusCobranca } from '../../../../types/cobranca'
@@ -42,7 +42,10 @@ function paginaDe(cobrancas: Cobranca[], caminho: string): PaginaCobrancas {
   const tamanho = Number(params.get('tamanho'))
   const status = params.get('status')
   const nome = params.get('nome')?.toLowerCase()
-  const filtradas = cobrancas.filter(
+  const alunoId = params.get('alunoId')
+  // O filtro por aluno vale também para os totais, como no backend.
+  const doAluno = cobrancas.filter((c) => !alunoId || c.alunoId === alunoId)
+  const filtradas = doAluno.filter(
     (c) => (!status || c.status === status) && (!nome || (c.alunoNome ?? '').toLowerCase().includes(nome)),
   )
   return {
@@ -53,19 +56,30 @@ function paginaDe(cobrancas: Cobranca[], caminho: string): PaginaCobrancas {
     totalPaginas: Math.ceil(filtradas.length / tamanho),
     totaisPorStatus: SITUACOES.map((s) => ({
       status: s,
-      quantidade: cobrancas.filter((c) => c.status === s).length,
+      quantidade: doAluno.filter((c) => c.status === s).length,
       valor: 0,
     })),
   }
 }
 
-function abrir(cobrancas: Cobranca[]): ChamadaApi[] {
-  const chamadas = simularApi(({ caminho }) =>
-    caminho.startsWith('/cobrancas/pagina?') ? { corpo: paginaDe(cobrancas, caminho) } : undefined,
-  )
+/** Mostra para onde a tela levou. */
+function Destino() {
+  const { pathname, search } = useLocation()
+  return <p>Destino: {pathname + search}</p>
+}
+
+function abrir(cobrancas: Cobranca[], rota = '/financeiro/cobrancas'): ChamadaApi[] {
+  const chamadas = simularApi(({ caminho }) => {
+    if (caminho.startsWith('/cobrancas/pagina?')) return { corpo: paginaDe(cobrancas, caminho) }
+    if (caminho === '/alunos/aluno-2') return { corpo: { id: 'aluno-2', nome: 'Aluno 02', matricula: '20262' } }
+    return undefined
+  })
   render(
-    <MemoryRouter>
-      <Cobrancas />
+    <MemoryRouter initialEntries={[rota]}>
+      <Routes>
+        <Route path="/financeiro/cobrancas" element={<Cobrancas />} />
+        <Route path="*" element={<Destino />} />
+      </Routes>
     </MemoryRouter>,
   )
   return chamadas
@@ -141,6 +155,33 @@ describe('Cobrancas', () => {
     await userEvent.click(screen.getByRole('button', { name: /^pagas/i }))
     expect(await screen.findByText('Aluno 16')).toBeInTheDocument()
     expect(ultimaConsulta(chamadas)).toEqual({ pagina: '0', tamanho: '10', status: 'PAGA', nome: 'aluno 1' })
+  })
+
+  it('aberta pela aba Financeiro do aluno, mostra só as cobranças dele até tirar o filtro', async () => {
+    const chamadas = abrir([cobranca(1), cobranca(2), cobranca(3, 'PAGA')], '/financeiro/cobrancas?aluno=aluno-2')
+
+    expect(await screen.findByRole('button', { name: /Aluno 02/ })).toBeInTheDocument()
+    expect(screen.queryByText('Aluno 01')).not.toBeInTheDocument()
+    expect(ultimaConsulta(chamadas)).toEqual({ pagina: '0', tamanho: '10', alunoId: 'aluno-2' })
+    expect(await screen.findByText(/Só as cobranças de/)).toHaveTextContent('Só as cobranças de Aluno 02 · Matrícula 20262')
+    // As pílulas contam só as cobranças do aluno.
+    expect(screen.getByRole('button', { name: /^todas/i })).toHaveTextContent('1')
+
+    await userEvent.click(screen.getByRole('button', { name: /ver de todos os alunos/i }))
+
+    expect(await screen.findByText('Aluno 01')).toBeInTheDocument()
+    expect(ultimaConsulta(chamadas)).toEqual({ pagina: '0', tamanho: '10' })
+    expect(screen.queryByText(/Só as cobranças de/)).not.toBeInTheDocument()
+  })
+
+  it('filtrada por um aluno, a nova cobrança já abre com ele escolhido', async () => {
+    abrir([cobranca(2)], '/financeiro/cobrancas?aluno=aluno-2')
+    // O nome do aluno chega depois da lista, no aviso do filtro.
+    await screen.findByText('Aluno 02', { selector: 'strong' })
+
+    await userEvent.click(screen.getByRole('button', { name: /nova cobrança/i }))
+
+    expect(screen.getByText('Destino: /financeiro/cobrancas/nova?aluno=aluno-2')).toBeInTheDocument()
   })
 
   it('a quantidade por página escolhida vai ao backend', async () => {
