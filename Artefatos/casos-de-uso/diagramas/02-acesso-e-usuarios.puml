@@ -25,7 +25,7 @@ rectangle "Eduka — Acesso e dashboards" {
   usecase "Editar, Inativar ou\nReativar Usuário" as UC04A <<parcial>>
   usecase "UC16\nVisualizar Dashboard" as UC16
   usecase "Início do Aluno" as UC16A <<planejado>>
-  usecase "UC37\nConsultar Registro\nde Atividades" as UC37 <<parcial>>
+  usecase "UC37\nConsultar Registro\nde Atividades" as UC37
 }
 
 USUARIO <|-- SUPERADMIN
@@ -37,7 +37,7 @@ USUARIO <|-- PROFESSOR
 USUARIO --> UC03
 USUARIO --> UC03E
 MASTER -[#A0A8B4]-> UC04 : API
-MASTER -[#A0A8B4]-> UC37 : API
+MASTER --> UC37
 MASTER --> UC16
 SECRETARIA --> UC16
 FINANCEIRO --> UC16
@@ -52,6 +52,6 @@ UC04A ..> UC04 : <<extend>>
 UC16A ..> UC16 : <<extend>>
 UC03V --> BREVO
 
-note "UC37: a consulta paginada da auditoria já existe na API\n(/auditoria/pagina); a tela Registro de atividades (IU28)\né da Sprint 4. UC38 e o Início do aluno (IU27, IU29)\ntambém são da Sprint 4." as N1
+note "UC38 e o Início do aluno (IU27, IU29)\nsão da Sprint 4." as N1
 
 @enduml

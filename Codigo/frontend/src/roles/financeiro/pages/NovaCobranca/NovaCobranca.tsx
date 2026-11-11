@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
 import { Icon } from '../../../../components/Icon/Icon'
 import { Select } from '../../../../components/Select/Select'
@@ -59,6 +59,7 @@ function descricaoSugerida(tipo: TipoCobranca): string {
 export function NovaCobranca() {
   const navigate = useNavigate()
   const rotas = useRotasFinanceiras()
+  const [searchParams] = useSearchParams()
 
   const [alunos, setAlunos] = useState<AlunoResumo[]>([])
   const [carregandoAlunos, setCarregandoAlunos] = useState(true)
@@ -66,7 +67,9 @@ export function NovaCobranca() {
   // Cada incremento busca a lista de alunos de novo ("Tentar novamente").
   const [tentativaAlunos, setTentativaAlunos] = useState(0)
   const [buscaAluno, setBuscaAluno] = useState('')
-  const [alunoSelecionadoId, setAlunoSelecionadoId] = useState<string | null>(null)
+  // ?aluno={id}: vem da aba Financeiro do aluno (IU18) com ele já escolhido. Se ele
+  // não estiver entre os alunos que podem receber cobrança, nada fica escolhido.
+  const [alunoSelecionadoId, setAlunoSelecionadoId] = useState<string | null>(() => searchParams.get('aluno'))
   const [matriculaEscolhida, setMatriculaEscolhida] = useState('')
   const [tipoCobranca, setTipoCobranca] = useState<TipoCobranca>('MENSALIDADE')
   const [valor, setValor] = useState('')
@@ -118,7 +121,8 @@ export function NovaCobranca() {
     erro: erroMatriculas,
     recarregar: recarregarMatriculas,
   } = useCarregamento<Matricula[]>(
-    alunoSelecionadoId ? buscarMatriculas : null,
+    // Só depois de achar o aluno na lista: o id do ?aluno= pode ser de quem não recebe cobrança.
+    alunoSelecionado ? buscarMatriculas : null,
     SEM_MATRICULAS,
     'Não foi possível carregar as matrículas do aluno.',
   )

@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
@@ -28,9 +29,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import br.pucminas.eduka.backend.domain.AlocacaoProfessor;
 import br.pucminas.eduka.backend.domain.Aluno;
+import br.pucminas.eduka.backend.domain.Aula;
 import br.pucminas.eduka.backend.domain.Avaliacao;
 import br.pucminas.eduka.backend.domain.Curso;
+import br.pucminas.eduka.backend.domain.DiaSemana;
 import br.pucminas.eduka.backend.domain.Disciplina;
+import br.pucminas.eduka.backend.domain.HorarioTurma;
 import br.pucminas.eduka.backend.domain.MatriculaTurma;
 import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.PeriodoLetivo;
@@ -42,15 +46,18 @@ import br.pucminas.eduka.backend.domain.Turno;
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.DashboardEscolaResponse;
 import br.pucminas.eduka.backend.dto.DashboardProfessorResponse;
+import br.pucminas.eduka.backend.dto.DashboardProfessorResponse.AulaDaSemana;
 import br.pucminas.eduka.backend.dto.DashboardProfessorResponse.AvaliacaoResumo;
 import br.pucminas.eduka.backend.dto.DashboardSecretariaResponse;
 import br.pucminas.eduka.backend.dto.DashboardSecretariaResponse.OcupacaoTurma;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.AlocacaoProfessorRepository;
 import br.pucminas.eduka.backend.repository.AlunoRepository;
+import br.pucminas.eduka.backend.repository.AulaRepository;
 import br.pucminas.eduka.backend.repository.AvaliacaoRepository;
 import br.pucminas.eduka.backend.repository.CursoRepository;
 import br.pucminas.eduka.backend.repository.DisciplinaRepository;
+import br.pucminas.eduka.backend.repository.HorarioTurmaRepository;
 import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.NotaRepository;
 import br.pucminas.eduka.backend.repository.PeriodoLetivoRepository;
@@ -90,6 +97,10 @@ class DashboardServiceTest {
     private AvaliacaoRepository avaliacaoRepository;
     @Mock
     private NotaRepository notaRepository;
+    @Mock
+    private HorarioTurmaRepository horarioRepository;
+    @Mock
+    private AulaRepository aulaRepository;
 
     private DashboardService service;
 
@@ -104,7 +115,8 @@ class DashboardServiceTest {
         Clock clock = Clock.fixed(Instant.parse("2026-10-10T15:00:00Z"), ZoneOffset.UTC);
         service = new DashboardService(alunoRepository, professorRepository, usuarioRepository, cursoRepository,
                 disciplinaRepository, periodoLetivoRepository, turmaRepository, matriculaRepository,
-                alocacaoRepository, avaliacaoRepository, notaRepository, new IsolamentoEscola(), clock);
+                alocacaoRepository, avaliacaoRepository, notaRepository, horarioRepository, aulaRepository,
+                new IsolamentoEscola(), clock);
         SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
                 new UsuarioAutenticado(USUARIO, "MASTER", ESCOLA), null, "ROLE_MASTER"));
 
@@ -124,6 +136,12 @@ class DashboardServiceTest {
                 .periodoLetivo(PeriodoLetivo.builder().id(5L).nome("2026/2").build())
                 .curso(Curso.builder().id(7L).nome("Ensino Medio").build())
                 .build();
+    }
+
+    private static HorarioTurma horario(AlocacaoProfessor alocacao, DiaSemana dia, String inicio) {
+        LocalTime hora = LocalTime.parse(inicio);
+        return HorarioTurma.builder().id(UUID.randomUUID()).escolaId(ESCOLA).alocacao(alocacao).diaSemana(dia)
+                .horaInicio(hora).horaFim(hora.plusMinutes(50)).build();
     }
 
     private static Aluno aluno() {
@@ -313,6 +331,40 @@ class DashboardServiceTest {
         // Prova 1: falta o Bruno (o trancado nao conta). O trabalho de hoje ainda nao aconteceu: so em proximas.
         assertThat(resposta.avaliacoesPendentes()).extracting(AvaliacaoResumo::titulo, AvaliacaoResumo::notasFaltando)
                 .containsExactly(org.assertj.core.groups.Tuple.tuple("Prova 1", 1L));
+    }
+
+    @Test
+    void professorVeAsAulasDaSemanaComAChamadaFeitaOuNao() {
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
+                new UsuarioAutenticado(USUARIO, "PROFESSOR", ESCOLA), null, "ROLE_PROFESSOR"));
+        Professor professor = Professor.builder().id(UUID.randomUUID()).escolaId(ESCOLA).usuarioId(USUARIO).build();
+        when(professorRepository.findByUsuarioIdAndEscolaId(USUARIO, ESCOLA)).thenReturn(Optional.of(professor));
+        Turma encerrada = turma(3L, "3C", 10, false);
+        AlocacaoProfessor noA = AlocacaoProfessor.builder().id(UUID.randomUUID()).professor(professor).turma(turmaA)
+                .disciplina(matematica).build();
+        AlocacaoProfessor naEncerrada = AlocacaoProfessor.builder().id(UUID.randomUUID()).professor(professor)
+                .turma(encerrada).disciplina(matematica).build();
+        when(alocacaoRepository.findAllComTurmaEDisciplinaByEscolaIdAndProfessorId(ESCOLA, professor.getId()))
+                .thenReturn(List.of(noA, naEncerrada));
+        // Aula dupla na terca e uma na quinta; a turma encerrada nem entra na consulta da grade.
+        when(horarioRepository.findAllByEscolaIdAndAlocacao_IdIn(eq(ESCOLA), anyCollection())).thenReturn(List.of(
+                horario(noA, DiaSemana.QUINTA, "07:00"),
+                horario(noA, DiaSemana.TERCA, "07:50"),
+                horario(noA, DiaSemana.TERCA, "07:00")));
+        // Hoje e sabado, 10/10: a semana vai de 05/10 a 10/10. Na terca so uma chamada foi registrada.
+        when(aulaRepository.findAllByEscolaIdAndTurmaIdInAndDataBetween(ESCOLA, java.util.Set.of(1L),
+                LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 10)))
+                .thenReturn(List.of(Aula.builder().turma(turmaA).disciplina(matematica)
+                        .data(LocalDate.of(2026, 10, 6)).build()));
+
+        List<AulaDaSemana> aulas = service.professor().aulasDaSemana();
+
+        assertThat(aulas).extracting(AulaDaSemana::data, AulaDaSemana::horaInicio, AulaDaSemana::chamadaFeita)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(LocalDate.of(2026, 10, 6), LocalTime.of(7, 0), true),
+                        org.assertj.core.groups.Tuple.tuple(LocalDate.of(2026, 10, 6), LocalTime.of(7, 50), false),
+                        org.assertj.core.groups.Tuple.tuple(LocalDate.of(2026, 10, 8), LocalTime.of(7, 0), false));
+        assertThat(aulas).allSatisfy(a -> assertThat(a.turmaNome()).isEqualTo("1A"));
     }
 
     @Test

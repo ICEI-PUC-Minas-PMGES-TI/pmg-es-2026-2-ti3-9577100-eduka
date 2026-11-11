@@ -2,29 +2,27 @@ import { useCallback, useState } from 'react'
 import { Badge } from '../../../../components/Badge/Badge'
 import { Button } from '../../../../components/Button/Button'
 import { ModalComprovante } from '../../../../components/Comprovante/ModalComprovante'
-import { Colunas, EstadoDashboard, Linhas, Painel, PainelVazio } from '../../../../components/Dashboard/Dashboard'
+import { EstadoDashboard, Linhas, Painel } from '../../../../components/Dashboard/Dashboard'
 import { Icon } from '../../../../components/Icon/Icon'
-import { TabelaFaturas } from '../../../../components/TabelaFaturas/TabelaFaturas'
+import { Paginacao } from '../../../../components/Paginacao/Paginacao'
+import tabela from '../../../../components/TabelaFaturas/TabelaFaturas.module.css'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
+import { usePaginacao } from '../../../../hooks/usePaginacao'
 import {
   buscarComprovanteDaMinhaFatura,
   buscarMinhaAssinatura,
   listarMinhasFaturas,
 } from '../../../../services/faturaPlataformaService'
 import { ROTULOS_PLANO } from '../../../../types/escola'
-import { ROTULOS_STATUS_FATURA, type Assinatura, type FaturaPlataforma } from '../../../../types/faturaPlataforma'
-import type { FormaPagamento } from '../../../../types/pagamentoAluno'
+import type { Assinatura, FaturaPlataforma } from '../../../../types/faturaPlataforma'
 import { formatarMoeda } from '../../../../utils/formatters'
 import { formatarData } from '../../../secretaria/components/PainelSecretaria/formatacao'
 import { ModalPagamentoFatura } from '../../components/ModalPagamentoFatura/ModalPagamentoFatura'
 import { MasterLayout } from '../../layouts/MasterLayout'
 import styles from './PlanoEFaturas.module.css'
-import { proximaFatura } from './proximaFatura'
+import { faturasAnteriores, proximaFatura, referenciaDaFatura } from './proximaFatura'
 
 const SEM_FATURAS: FaturaPlataforma[] = []
-
-type Pagando = { fatura: FaturaPlataforma; forma: FormaPagamento }
-
 
 function vigencia(assinatura: Assinatura): string {
   if (!assinatura.inicioVigencia && !assinatura.fimVigencia) return '—'
@@ -34,9 +32,9 @@ function vigencia(assinatura: Assinatura): string {
 }
 
 /**
- * Plano e faturas do MASTER (IU24-A): a próxima fatura do Edúka com o Pagar
- * (mesmo caminho do aluno, PIX ou boleto), a assinatura da escola e as
- * faturas anteriores com o comprovante.
+ * Plano e faturas do MASTER (IU24-A): o que a escola paga ao Edúka. A próxima
+ * fatura em destaque com o Pagar fatura (as mesmas modais do aluno, IU17-A a
+ * IU17-D), a assinatura da escola e as faturas anteriores com o comprovante.
  */
 export function PlanoEFaturas() {
   const { dados: faturas, carregando, erro, recarregar } = useCarregamento(
@@ -49,7 +47,7 @@ export function PlanoEFaturas() {
     null,
     'Não foi possível encontrar a assinatura da escola.',
   )
-  const [pagando, setPagando] = useState<Pagando | null>(null)
+  const [pagando, setPagando] = useState<FaturaPlataforma | null>(null)
   const [comprovanteDe, setComprovanteDe] = useState<string | null>(null)
 
   const buscarComprovante = useCallback(
@@ -57,10 +55,12 @@ export function PlanoEFaturas() {
     [comprovanteDe],
   )
 
+  // Uma fatura por mês: a lista vem inteira e pagina no front.
   const proxima = proximaFatura(faturas)
-  const anteriores = faturas.filter((f) => f.id !== proxima?.id)
+  const anteriores = faturasAnteriores(faturas)
+  const { paginacao, topo } = usePaginacao<FaturaPlataforma, HTMLElement>(anteriores)
 
-  /** Ao fechar, a lista mostra o pagamento gerado ou confirmado. */
+  /** Ao fechar, a tela mostra o pagamento gerado ou confirmado. */
   function fecharPagamento() {
     setPagando(null)
     recarregar()
@@ -71,36 +71,41 @@ export function PlanoEFaturas() {
       <EstadoDashboard carregando={carregando} erro={erro} onTentarDeNovo={recarregar} />
       {!carregando && !erro && (
         <>
-          <Colunas>
-            <Painel titulo="Próxima fatura">
+          <div className={styles.topo}>
+            <section className={styles.destaque} aria-labelledby="titulo-proxima-fatura">
+              <h2 id="titulo-proxima-fatura" className={styles.destaqueRotulo}>
+                Próxima fatura
+              </h2>
               {proxima ? (
-                <div className={styles.proxima}>
+                <>
                   <strong className={styles.valor}>{formatarMoeda(proxima.valor)}</strong>
                   <span className={styles.referencia}>
-                    {proxima.descricao} · vence em {formatarData(proxima.dataVencimento)}
+                    {referenciaDaFatura(proxima)} · vence em <strong>{formatarData(proxima.dataVencimento)}</strong>
                   </span>
-                  <Badge tone={proxima.status === 'EM_ATRASO' ? 'danger' : 'warning'}>
-                    {ROTULOS_STATUS_FATURA[proxima.status]}
-                  </Badge>
+                  <span className={`${styles.situacao} ${proxima.status === 'EM_ATRASO' ? styles.atrasada : ''}`}>
+                    {proxima.status === 'EM_ATRASO' ? 'Em atraso' : 'A pagar'}
+                  </span>
                   {proxima.acoes.includes('PAGAR') && (
-                    <div className={styles.botoes}>
-                      <Button variant="primary" icon="card" onClick={() => setPagando({ fatura: proxima, forma: 'PIX' })}>
-                        Pagar fatura com PIX
-                      </Button>
+                    <div className={styles.pagarLinha}>
                       <Button
-                        variant="outline"
-                        icon="fileText"
-                        onClick={() => setPagando({ fatura: proxima, forma: 'BOLETO' })}
+                        className={styles.pagar}
+                        icon="card"
+                        onClick={() => setPagando(proxima)}
+                        aria-label={`Pagar fatura ${referenciaDaFatura(proxima)} com PIX ou boleto`}
                       >
-                        Pagar com boleto
+                        Pagar fatura
                       </Button>
+                      <span className={styles.dica}>PIX ou boleto, com confirmação automática.</span>
                     </div>
                   )}
-                </div>
+                </>
               ) : (
-                <PainelVazio>Nenhuma fatura em aberto. Tudo em dia.</PainelVazio>
+                <p className={styles.emDia}>
+                  <Icon name="check" size={18} strokeWidth={2.5} />
+                  Nenhuma fatura em aberto. Tudo em dia.
+                </p>
               )}
-            </Painel>
+            </section>
 
             <Painel titulo="Sua assinatura">
               <EstadoDashboard
@@ -116,47 +121,94 @@ export function PlanoEFaturas() {
                       {
                         rotulo: 'Situação',
                         valor: (
-                          <Badge tone={assinatura.dados.ativa ? 'success' : 'danger'}>
+                          <Badge tone={assinatura.dados.ativa ? 'success' : 'danger'} icon={assinatura.dados.ativa ? 'check' : undefined}>
                             {assinatura.dados.ativa ? 'Ativa' : 'Suspensa'}
                           </Badge>
                         ),
                       },
                       { rotulo: 'Vigência', valor: vigencia(assinatura.dados) },
-                      { rotulo: 'Limite de usuários', valor: assinatura.dados.limiteUsuarios ?? '—' },
+                      {
+                        rotulo: 'Limite de usuários',
+                        valor: assinatura.dados.limiteUsuarios?.toLocaleString('pt-BR') ?? '—',
+                      },
                     ]}
                   />
                   <p className={styles.aviso}>
-                    <Icon name="info" size={14} />
+                    <Icon name="info" size={15} />
                     Fatura em atraso pode levar à suspensão do acesso da escola.
                   </p>
                 </>
               )}
             </Painel>
-          </Colunas>
+          </div>
 
-          <h2 className={styles.titulo}>Faturas anteriores</h2>
-          <TabelaFaturas
-            faturas={anteriores}
-            vazio="Nenhuma fatura anterior."
-            acoes={(f) =>
-              f.acoes.includes('VER_COMPROVANTE') && (
-                <Button size="sm" variant="outline" icon="eye" onClick={() => setComprovanteDe(f.id)}>
-                  Ver comprovante
-                </Button>
-              )
-            }
-          />
+          <section ref={topo} className={tabela.cartao} aria-labelledby="titulo-faturas-anteriores">
+            <h2 id="titulo-faturas-anteriores" className={styles.titulo}>
+              Faturas anteriores
+            </h2>
+            {paginacao.total === 0 ? (
+              <p className={tabela.vazio}>Nenhuma fatura anterior.</p>
+            ) : (
+              <div className={tabela.rolagem}>
+                <table className={tabela.tabela}>
+                  <thead>
+                    <tr>
+                      <th scope="col">Referência</th>
+                      <th scope="col">Vencimento</th>
+                      <th scope="col">Valor</th>
+                      <th scope="col">Situação</th>
+                      <th scope="col" className={tabela.acao}>
+                        Comprovante
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginacao.itensDaPagina.map((f) => (
+                      <tr key={f.id}>
+                        <td className={tabela.colPrincipal}>
+                          <span className={tabela.descricao}>{referenciaDaFatura(f)}</span>
+                        </td>
+                        <td className={tabela.nowrap} data-rotulo="Vencimento">
+                          {formatarData(f.dataVencimento)}
+                        </td>
+                        <td className={`${tabela.nowrap} ${styles.valorLinha}`} data-rotulo="Valor">
+                          {formatarMoeda(f.pagamento?.valorPago ?? f.valor)}
+                        </td>
+                        <td data-rotulo="Situação">
+                          {f.status === 'PAGA' ? (
+                            <Badge tone="success" icon="check">
+                              Paga
+                            </Badge>
+                          ) : (
+                            <Badge tone="neutral">Cancelada</Badge>
+                          )}
+                        </td>
+                        <td className={tabela.acao}>
+                          {f.acoes.includes('VER_COMPROVANTE') ? (
+                            <button
+                              type="button"
+                              className={styles.link}
+                              onClick={() => setComprovanteDe(f.id)}
+                              aria-label={`Ver comprovante de ${referenciaDaFatura(f)}`}
+                            >
+                              Ver comprovante
+                            </button>
+                          ) : (
+                            <span className={tabela.secundario}>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+          <Paginacao paginacao={paginacao} rotulo="Páginas das faturas anteriores" />
         </>
       )}
 
-      {pagando && (
-        <ModalPagamentoFatura
-          fatura={pagando.fatura}
-          forma={pagando.forma}
-          onPago={recarregar}
-          onFechar={fecharPagamento}
-        />
-      )}
+      {pagando && <ModalPagamentoFatura fatura={pagando} onPago={recarregar} onFechar={fecharPagamento} />}
       {comprovanteDe && <ModalComprovante buscar={buscarComprovante} onFechar={() => setComprovanteDe(null)} />}
     </MasterLayout>
   )

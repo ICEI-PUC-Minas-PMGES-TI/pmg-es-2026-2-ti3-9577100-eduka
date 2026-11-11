@@ -11,6 +11,7 @@ const MENU: ItemMenu[] = [
   { label: 'Despesas', icon: 'dollarSign', to: paths.master.despesas },
   { label: 'Relatórios', icon: 'barChart', to: paths.master.relatorios },
   { label: 'Equipe', icon: 'users', to: paths.master.equipe },
+  { label: 'Atividades', icon: 'list', to: paths.master.atividades },
   { label: 'Recebimentos', icon: 'settings', to: paths.master.recebimentos },
 ]
 

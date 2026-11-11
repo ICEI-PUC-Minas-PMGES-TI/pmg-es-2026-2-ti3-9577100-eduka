@@ -40,15 +40,24 @@ export function AgendaAvaliacoes() {
 
       {!carregando && !erro && avaliacoes.length > 0 && (
         <>
-          <Secao titulo="Próximas" vazio="Nada marcado daqui para frente." avaliacoes={proximas} />
-          <Secao titulo="Já realizadas" vazio="Nenhuma avaliação realizada ainda." avaliacoes={realizadas} />
+          <SecaoAvaliacoes titulo="Próximas" vazio="Nada marcado daqui para frente." avaliacoes={proximas} />
+          <SecaoAvaliacoes titulo="Já realizadas" vazio="Nenhuma avaliação realizada ainda." avaliacoes={realizadas} />
         </>
       )}
     </>
   )
 }
 
-function Secao({ titulo, vazio, avaliacoes }: { titulo: string; vazio: string; avaliacoes: AvaliacaoDoAluno[] }) {
+/** Lista de avaliações com título e contador; também usada no Início do aluno. */
+export function SecaoAvaliacoes({
+  titulo,
+  vazio,
+  avaliacoes,
+}: {
+  titulo: string
+  vazio: string
+  avaliacoes: AvaliacaoDoAluno[]
+}) {
   return (
     <section className={styles.secao} aria-label={titulo}>
       <h2 className={styles.secaoTitulo}>

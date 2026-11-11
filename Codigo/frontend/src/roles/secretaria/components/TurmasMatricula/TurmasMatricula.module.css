@@ -1,9 +1,16 @@
-/* Mesmo visual dos cartões da alocação (TurmasAlocacao), com a barra de vagas. */
+/* Painel de vidro com as turmas: o título fica dentro, alinhado ao topo do
+   cartão da turma aberta, à direita. */
 
 .grupos {
   display: flex;
   flex-direction: column;
   gap: 22px;
+  padding: 20px 16px 16px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
 }
 
 .grupo {
@@ -16,7 +23,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 2px;
+  margin: 0 4px 2px;
   color: var(--color-text-muted);
   font-family: var(--font-display);
   font-size: 12.5px;
@@ -33,28 +40,33 @@
   letter-spacing: 0;
 }
 
+/* Mesma borda em todos os cartões, selecionado ou não: nada muda de lugar ao escolher uma turma. */
+.cartoes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .cartao {
   display: flex;
   flex-direction: column;
-  gap: 11px;
+  gap: 10px;
   width: 100%;
-  padding: 14px 16px;
-  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  padding: 12px 14px;
+  border: 1.5px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: var(--glass-bg);
-  box-shadow: var(--glass-shadow-sm);
-  backdrop-filter: var(--glass-blur);
+  background: rgba(255, 255, 255, 0.62);
   color: var(--color-text);
   text-align: left;
   transition:
     border-color 0.15s,
-    box-shadow 0.15s,
-    transform 0.15s var(--curva);
+    background-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .cartao:hover {
   border-color: var(--color-mauve);
-  transform: translateX(2px);
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .cartao:focus-visible {
@@ -66,8 +78,7 @@
 .selecionado:hover {
   border-color: var(--color-primary);
   background: var(--glass-bg-tint);
-  box-shadow: var(--glass-shadow);
-  transform: translateX(4px);
+  box-shadow: 0 6px 18px rgba(150, 103, 224, 0.18);
 }
 
 /* Turma inativa: ainda dá para ver as matrículas, mas não recebe novas. */
@@ -157,10 +168,44 @@
   white-space: nowrap;
 }
 
+/* Celular e tablet: as turmas viram uma faixa que rola para o lado, para o
+   painel da turma aparecer logo, sem uma tela inteira de cartões antes dele. */
 @media (max-width: 860px) {
-  .cartao:hover,
-  .selecionado,
-  .selecionado:hover {
-    transform: none;
+  .grupos {
+    padding: 16px 16px 12px;
+  }
+
+  .cartoes {
+    flex-direction: row;
+    margin: 0 -16px;
+    padding: 2px 16px 6px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scroll-padding: 0 16px;
+  }
+
+  .cartao {
+    flex: 0 0 172px;
+    min-width: 0;
+    scroll-snap-align: start;
+  }
+
+  .detalhes {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* Celular: 172 px espremem o nome da turma (uma palavra por linha) e cortam o
+   contador. O cartão ocupa quase a largura toda e o próximo aparece na borda,
+   avisando que dá para rolar. */
+@media (max-width: 520px) {
+  .cartao {
+    flex-basis: calc(100% - 44px);
+  }
+
+  .detalhes {
+    white-space: normal;
   }
 }

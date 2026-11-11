@@ -68,7 +68,11 @@ public enum RotasPorPerfil {
 
     /** Area pessoal: "minhas cobrancas", "meus dados". */
     PORTAL_ALUNO(List.of("/portal/aluno"),
-            ALUNO);
+            ALUNO),
+
+    /** Aviso de privacidade e aceite (IU29): todo usuario logado, inclusive o SUPER_ADMIN. */
+    PRIVACIDADE(List.of("/privacidade"),
+            SUPER_ADMIN, MASTER, SECRETARIA, FINANCEIRO, PROFESSOR, ALUNO);
 
     private final List<String> prefixos;
     private final Set<PerfilUsuario> perfis;

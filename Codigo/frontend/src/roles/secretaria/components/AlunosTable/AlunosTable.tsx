@@ -1,56 +1,49 @@
-import type { ReactNode } from 'react'
+import type { ReactNode, Ref } from 'react'
 import { Badge } from '../../../../components/Badge/Badge'
 import { Button } from '../../../../components/Button/Button'
-import { Paginacao } from '../../../../components/Paginacao/Paginacao'
-import { usePaginacao } from '../../../../hooks/usePaginacao'
-import type { AlunoResumo } from '../../../../types/aluno'
-import { iniciais } from '../../../../utils/formatters'
 import { Dica } from '../../../../components/Dica/Dica'
+import { Paginacao } from '../../../../components/Paginacao/Paginacao'
+import type { EstadoPaginacao } from '../../../../hooks/usePaginacao'
+import type { AlunoDaLista, SituacaoNaEscola } from '../../../../types/aluno'
+import { iniciais } from '../../../../utils/formatters'
 import styles from './AlunosTable.module.css'
 
 const SEM_DADO = '—'
 
-/**
- * Situação do aluno na escola, tirada das matrículas: com matrícula ativa,
- * só com trancada, ou sem nenhuma das duas.
- */
-export type SituacaoAluno = {
-  tipo: 'matriculado' | 'trancado' | 'semTurma' | 'anonimizado'
-  /** Turma da matrícula ativa (ou da trancada). */
-  turma: string | null
-}
-
-const BADGE_SITUACAO: Record<SituacaoAluno['tipo'], { rotulo: string; tom: 'success' | 'neutral' | 'danger' }> = {
-  matriculado: { rotulo: 'Matriculado', tom: 'success' },
-  trancado: { rotulo: 'Trancado', tom: 'neutral' },
-  semTurma: { rotulo: 'Sem turma', tom: 'danger' },
-  anonimizado: { rotulo: 'Anonimizado', tom: 'neutral' },
+const BADGE_SITUACAO: Record<SituacaoNaEscola, { rotulo: string; tom: 'success' | 'neutral' | 'danger' }> = {
+  MATRICULADO: { rotulo: 'Matriculado', tom: 'success' },
+  TRANCADO: { rotulo: 'Trancado', tom: 'neutral' },
+  SEM_TURMA: { rotulo: 'Sem turma', tom: 'danger' },
+  ANONIMIZADO: { rotulo: 'Anonimizado', tom: 'neutral' },
 }
 
 type AlunosTableProps = {
-  /** Quando muda (busca, filtro), a tabela volta para a primeira página. */
-  reiniciarCom?: string
-  alunos: AlunoResumo[]
-  /** Situação de cada aluno, pelo id; sem entrada, as colunas ficam com traço. */
-  situacoes: Map<string, SituacaoAluno>
+  /** A página de alunos; null até a primeira resposta do backend. */
+  paginacao: EstadoPaginacao<AlunoDaLista> | null
+  /** Recebe o topo da tabela, para onde a troca de página rola. */
+  topo: Ref<HTMLElement>
   carregando: boolean
+  /** Outra página, busca ou filtro a caminho: a lista atual fica e a navegação espera. */
+  atualizando: boolean
   erro: string | null
-  /** Mensagem quando a lista filtrada fica vazia. */
+  /** Mensagem quando a página fica vazia. */
   mensagemVazia: string
   /** Aluno com reenvio de acesso em andamento. */
   reenviandoId: string | null
   onTentarNovamente: () => void
-  onVer: (aluno: AlunoResumo) => void
-  onEditar: (aluno: AlunoResumo) => void
-  onReenviarAcesso: (aluno: AlunoResumo) => void
+  onVer: (aluno: AlunoDaLista) => void
+  /** Sem ela, a linha não mostra Editar (perfil só de consulta, como o FINANCEIRO). */
+  onEditar?: (aluno: AlunoDaLista) => void
+  /** Sem ela, a linha não mostra Reenviar acesso. */
+  onReenviarAcesso?: (aluno: AlunoDaLista) => void
 }
 
 /** Tabela de alunos num card de vidro, com os estados de carregando, erro e vazio. */
 export function AlunosTable({
-  alunos,
-  reiniciarCom,
-  situacoes,
+  paginacao,
+  topo,
   carregando,
+  atualizando,
   erro,
   mensagemVazia,
   reenviandoId,
@@ -59,10 +52,10 @@ export function AlunosTable({
   onEditar,
   onReenviarAcesso,
 }: AlunosTableProps) {
-  const { paginacao, topo } = usePaginacao<AlunoResumo, HTMLElement>(alunos, { reiniciarCom })
+  const alunos = !erro && paginacao ? paginacao.itensDaPagina : []
   return (
     <>
-      <section ref={topo} className={styles.card} aria-label="Alunos cadastrados">
+      <section ref={topo} className={styles.card} aria-label="Alunos cadastrados" aria-busy={atualizando}>
         <div className={styles.rolagem}>
           <table className={styles.tabela}>
             <thead>
@@ -77,55 +70,54 @@ export function AlunosTable({
               </tr>
             </thead>
             <tbody>
-              {!carregando &&
-                !erro &&
-                paginacao.itensDaPagina.map((aluno) => {
-                  const situacao = situacoes.get(aluno.id)
-                  const badge = situacao && BADGE_SITUACAO[situacao.tipo]
-                  // Sem dado pessoal, não há o que editar nem acesso para reenviar.
-                  const anonimizado = situacao?.tipo === 'anonimizado'
-                  return (
-                    <tr key={aluno.id}>
-                      <td className={styles.colPrincipal}>
-                        <div className={styles.aluno}>
-                          <span className={styles.avatar} aria-hidden="true">
-                            {iniciais(aluno.nome)}
-                          </span>
-                          <strong className={styles.nome}>{aluno.nome}</strong>
-                        </div>
-                      </td>
-                      <td data-rotulo="Matrícula">{aluno.matricula}</td>
-                      <td data-rotulo="Turma" className={situacao?.tipo === 'matriculado' ? undefined : styles.secundario}>
-                        {situacao?.turma ?? SEM_DADO}
-                      </td>
-                      <td data-rotulo="Situação">{badge ? <Badge tone={badge.tom}>{badge.rotulo}</Badge> : SEM_DADO}</td>
-                      <td className={styles.colAcoes}>
-                        <div className={styles.acoes}>
-                          <Button size="sm" icon="eye" onClick={() => onVer(aluno)}>
-                            Ver
+              {alunos.map((aluno) => {
+                const badge = BADGE_SITUACAO[aluno.situacao]
+                // Sem dado pessoal, não há o que editar nem acesso para reenviar.
+                const anonimizado = aluno.situacao === 'ANONIMIZADO'
+                return (
+                  <tr key={aluno.id}>
+                    <td className={styles.colPrincipal}>
+                      <div className={styles.aluno}>
+                        <span className={styles.avatar} aria-hidden="true">
+                          {iniciais(aluno.nome)}
+                        </span>
+                        <strong className={styles.nome}>{aluno.nome}</strong>
+                      </div>
+                    </td>
+                    <td data-rotulo="Matrícula">{aluno.matricula}</td>
+                    <td data-rotulo="Turma" className={aluno.situacao === 'MATRICULADO' ? undefined : styles.secundario}>
+                      {aluno.turmaNome ?? SEM_DADO}
+                    </td>
+                    <td data-rotulo="Situação">
+                      <Badge tone={badge.tom}>{badge.rotulo}</Badge>
+                    </td>
+                    <td className={styles.colAcoes}>
+                      <div className={styles.acoes}>
+                        <Button size="sm" icon="eye" onClick={() => onVer(aluno)}>
+                          Ver
+                        </Button>
+                        {!anonimizado && onEditar && (
+                          <Button size="sm" icon="edit" onClick={() => onEditar(aluno)}>
+                            Editar
                           </Button>
-                          {!anonimizado && (
-                            <>
-                              <Button size="sm" icon="edit" onClick={() => onEditar(aluno)}>
-                                Editar
-                              </Button>
-                              <Dica texto="Envia uma nova senha provisória para o e-mail do aluno">
-                                <Button
-                                  size="sm"
-                                  icon="mail"
-                                  disabled={reenviandoId === aluno.id}
-                                  onClick={() => onReenviarAcesso(aluno)}
-                                >
-                                  Reenviar acesso
-                                </Button>
-                              </Dica>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
+                        )}
+                        {!anonimizado && onReenviarAcesso && (
+                          <Dica texto="Envia uma nova senha provisória para o e-mail do aluno">
+                            <Button
+                              size="sm"
+                              icon="mail"
+                              disabled={reenviandoId === aluno.id}
+                              onClick={() => onReenviarAcesso(aluno)}
+                            >
+                              Reenviar acesso
+                            </Button>
+                          </Dica>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -133,7 +125,7 @@ export function AlunosTable({
         {carregando && <Mensagem>Carregando alunos…</Mensagem>}
         {!carregando && erro && (
           <Mensagem>
-            <span>{erro}</span>
+            <span role="alert">{erro}</span>
             <Button size="sm" onClick={onTentarNovamente}>
               Tentar novamente
             </Button>
@@ -141,7 +133,9 @@ export function AlunosTable({
         )}
         {!carregando && !erro && alunos.length === 0 && <Mensagem>{mensagemVazia}</Mensagem>}
       </section>
-      {!carregando && !erro && <Paginacao paginacao={paginacao} rotulo="Páginas dos alunos" />}
+      {paginacao && !erro && (
+        <Paginacao paginacao={paginacao} rotulo="Páginas dos alunos" carregando={atualizando} />
+      )}
     </>
   )
 }

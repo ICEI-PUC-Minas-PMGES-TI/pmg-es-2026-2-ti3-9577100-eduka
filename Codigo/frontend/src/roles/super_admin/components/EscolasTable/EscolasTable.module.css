@@ -204,12 +204,25 @@
   text-align: center;
 }
 
+/* Celular: os quatro botões não cabem numa linha; ficam dois a dois. */
 @media (max-width: 640px) {
   .actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
   }
 
   .actions > button {
-    flex: 1;
+    justify-content: center;
+  }
+
+  .alternar {
+    min-width: 0;
+  }
+
+  /* Os dados ocupam a linha ao lado do avatar; o selo de situação desce para baixo deles. */
+  .info {
+    flex: 1 1 calc(100% - 62px);
+    min-width: 0;
   }
 }

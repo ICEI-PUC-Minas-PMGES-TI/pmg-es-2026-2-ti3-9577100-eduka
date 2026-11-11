@@ -209,6 +209,16 @@ todas as que se aplicam, e as rotas do financeiro listam também os erros própr
 que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o esquema `Erro`
 (ProblemDetail). As tabelas abaixo resumem as rotas por módulo.
 
+**Listagens paginadas.** Toda listagem que cresce tem um `GET .../pagina` ao lado do `GET` da
+lista inteira, com a mesma resposta em todas: `{conteudo, pagina, tamanho, totalElementos,
+totalPaginas}`. `pagina` começa em 0, `tamanho` vai de 1 a 100 (padrão 20) e `ordenarPor` só
+aceita os campos de `Ordenacao` (400 nos demais). As que alimentam cards e abas trazem também um
+`resumo` (`PaginaComResumoResponse`), que conta a escola inteira sem a busca nem o filtro de
+situação, para os números não mudarem enquanto o usuário digita. Alunos, professores e matrículas
+filtram e ordenam em memória, porque o nome é cifrado (decisão 11); as demais, no banco. No
+frontend, `useListaPaginada` (`hooks/usePaginacao.ts`) e o componente `Paginacao` atendem a
+todas.
+
 **Acesso e plataforma**
 
 | Método | Rota | Perfis autorizados |
@@ -218,14 +228,18 @@ que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o e
 | `POST` | `/login/codigo` (confere o código de 6 dígitos e devolve os tokens) | público |
 | `POST` | `/login/codigo/reenvio` (troca o código; 429 se pedir cedo demais ou passar do limite de envios) | público |
 | `POST` | `/primeiro-acesso` (troca a senha provisória pela definitiva) | público |
+| `GET` | `/privacidade/aviso` (aviso de privacidade em vigor, com versão, resumo e texto completo, e `aceitoEm` do usuário logado; nulo enquanto não aceitou) | qualquer perfil logado |
+| `POST` | `/privacidade/aceite` (grava o aceite da versão em vigor com a data; repetir devolve o mesmo; 400 se a versão enviada não é a em vigor) | qualquer perfil logado |
 | `GET` | `/escolas` · `/escolas/{id}` | `SUPER_ADMIN` |
 | `POST` | `/escolas` | `SUPER_ADMIN` |
 | `PUT` | `/escolas/{id}` | `SUPER_ADMIN` |
 | `PATCH` | `/escolas/{id}/ativar` · `/suspender` | `SUPER_ADMIN` |
 | `GET` · `POST` | `/escolas/{id}/faturas` (faturas da plataforma da escola; competência única por escola) | `SUPER_ADMIN` |
+| `GET` | `/escolas/{id}/faturas/pagina?status&pagina&tamanho&ordenarPor&direcao` (`ordenarPor`: `COMPETENCIA`, padrão decrescente, `VENCIMENTO` ou `VALOR`) | `SUPER_ADMIN` |
 | `PATCH` | `/escolas/{id}/faturas/{faturaId}/cancelar` | `SUPER_ADMIN` |
 | `GET` | `/escolas/{id}/faturas/{faturaId}/comprovante` | `SUPER_ADMIN` |
-| `GET` | `/config-pagamento/faturas` (só as da escola do token) | `MASTER` |
+| `GET` | `/config-pagamento/faturas` (só as da escola do token) · `/config-pagamento/faturas/pagina` (mesmos parâmetros da do `SUPER_ADMIN`) · `/config-pagamento/faturas/{id}` (uma fatura, com a situação do pagamento: a tela de pagamento consulta só ela enquanto espera o PIX ou o boleto; 404 se é de outra escola) | `MASTER` |
+| `GET` | `/auditoria/pagina?usuarioId&de&ate&entidade&operacao&pagina&tamanho&direcao` (o `LOG_AUDITORIA` da escola do token, da mais recente para a mais antiga; `de` e `ate` inclusivos, no fuso da escola; 400 se o período está invertido) | `MASTER` |
 | `POST` | `/config-pagamento/faturas/{id}/pagar` (PIX ou boleto na conta-pai do Edúka; 202 enquanto gera) | `MASTER` |
 | `GET` | `/config-pagamento/faturas/{id}/comprovante` | `MASTER` |
 | `GET` | `/config-pagamento/conta` (conta de recebimento da escola do token; `NAO_INICIADA` antes da ativação; nunca traz a chave nem os dados bancários) | `MASTER` |
@@ -246,10 +260,12 @@ que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o e
 | Método | Rota | Perfis autorizados |
 |---|---|---|
 | `GET` | `/alunos` · `/alunos/{id}` (o professor vê só os alunos das próprias turmas, em `/portal/professor`) | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
+| `GET` | `/alunos/pagina?busca&situacao&pagina&tamanho&ordenarPor&direcao` (`busca`: parte do nome ou da matrícula; `situacao`: `MATRICULADO`, `TRANCADO`, `SEM_TURMA` ou `ANONIMIZADO`; `ordenarPor`: `NOME` ou `MATRICULA`; `resumo`: total e quantidade por situação) | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
 | `POST` | `/alunos` | `MASTER`, `SECRETARIA` |
 | `PUT` | `/alunos/{id}` (responsáveis não mudam; 409 se a matrícula ou o e-mail já estão em uso) | `MASTER`, `SECRETARIA` |
 | `POST` | `/alunos/{id}/primeiro-acesso` (reenvia o e-mail) | `MASTER`, `SECRETARIA` |
 | `GET` | `/professores` · `/professores/{id}` | `MASTER`, `SECRETARIA` |
+| `GET` | `/professores/pagina?nome&ativo&pagina&tamanho&ordenarPor&direcao` (`ordenarPor`: `NOME` ou `DATA_ADMISSAO`; `resumo`: total, ativos e sem vínculo informado) | `MASTER`, `SECRETARIA` |
 | `POST` | `/professores` | `MASTER`, `SECRETARIA` |
 | `PUT` | `/professores/{id}` | `MASTER`, `SECRETARIA` |
 | `PATCH` | `/professores/{id}/inativar` (afastamento: licença etc.) | `MASTER`, `SECRETARIA` |
@@ -262,6 +278,7 @@ que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o e
 | Método | Rota | Perfis autorizados |
 |---|---|---|
 | `GET` | `/academico/secretaria/{periodos-letivos, cursos, disciplinas, turmas}` | `MASTER`, `SECRETARIA`, `FINANCEIRO`, `PROFESSOR` |
+| `GET` | `/academico/secretaria/turmas/pagina?periodoLetivoId&cursoId&ativa&busca&pagina&tamanho&ordenarPor&direcao` (`busca`: parte do nome ou do código; `ordenarPor`: `NOME` ou `CODIGO`) | `MASTER`, `SECRETARIA`, `FINANCEIRO`, `PROFESSOR` |
 | `POST` | `/academico/secretaria/{periodos-letivos, cursos, disciplinas, turmas}` | `MASTER`, `SECRETARIA` |
 | `PUT` | `/academico/secretaria/{...}/{id}` | `MASTER`, `SECRETARIA` |
 | `DELETE` | `/academico/secretaria/{...}/{id}` (409 se o registro está em uso) | `MASTER`, `SECRETARIA` |
@@ -273,6 +290,7 @@ que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o e
 | `PUT` | `/turmas/{turmaId}/horario/{horarioId}` (muda dia e horas; mesmas regras e 409) | `MASTER`, `SECRETARIA` |
 | `DELETE` | `/turmas/{turmaId}/horario/{horarioId}` | `MASTER`, `SECRETARIA` |
 | `GET` | `/matriculas?turmaId` · `/matriculas/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
+| `GET` | `/matriculas/pagina?turmaId&alunoId&status&pagina&tamanho&ordenarPor&direcao` (`ordenarPor`: `ALUNO`, pelo nome, ou `DATA_MATRICULA`) | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
 | `POST` | `/matriculas` (409 se a turma está sem vagas ou o aluno já está nela) | `MASTER`, `SECRETARIA` |
 | `PATCH` | `/matriculas/{id}` (trancar, reativar, transferir, concluir, cancelar ou editar a observação) | `MASTER`, `SECRETARIA` |
 
@@ -281,12 +299,13 @@ que a tela trata (ex.: `409 COBRANCA_JA_PAGA`). Todo erro tem o mesmo corpo, o e
 | Método | Rota | Perfis autorizados |
 |---|---|---|
 | `GET` | `/cobrancas?alunoId&status&vencimentoDe&vencimentoAte` · `/cobrancas/{id}` | `MASTER`, `FINANCEIRO` |
-| `GET` | `/cobrancas/pagina?alunoId&periodoLetivoId&status&vencimentoDe&vencimentoAte&pagina&tamanho` (paginada pelo vencimento, `tamanho` até 100; `totaisPorStatus` traz quantidade e valor de cada situação com os mesmos filtros, menos o de situação) | `MASTER`, `FINANCEIRO` |
+| `GET` | `/cobrancas/pagina?alunoId&periodoLetivoId&status&nome&vencimentoDe&vencimentoAte&pagina&tamanho` (paginada pelo vencimento, `tamanho` até 100; `nome` é parte do nome do aluno; `totaisPorStatus` traz quantidade e valor de cada situação com os mesmos filtros, menos o de situação e o `nome`) | `MASTER`, `FINANCEIRO` |
 | `POST` | `/cobrancas` (aluno, descrição, valor e vencimento; `tipo` opcional, `OUTRO` por padrão; matrícula e responsável opcionais, mas têm de ser do aluno; sem matrícula, vale a única `ATIVA` do aluno, se houver só uma) | `MASTER`, `FINANCEIRO` |
 | `PUT` | `/cobrancas/{id}` (400 se a cobrança já foi paga ou cancelada; 409 `COBRANCA_NAO_EDITAVEL` depois que alguém clicou em Pagar, porque a cobrança já está no Asaas: aí só cancelando e lançando outra; a situação acompanha o novo vencimento) | `MASTER`, `FINANCEIRO` |
 | `PATCH` | `/cobrancas/{id}/cancelar` (a cobrança fica no histórico como `CANCELADA`; se já foi emitida, é removida antes no Asaas, fora de transação; 409 `COBRANCA_JA_PAGA` se já foi paga, aqui ou no Asaas, e nesse caso o pagamento achado fica registrado; 409 `PAGAMENTO_EM_PROCESSAMENTO` enquanto o pagamento está sendo gerado) | `MASTER`, `FINANCEIRO` |
 | `GET` | `/cobrancas/{id}/comprovante` (comprovante do pagamento online montado pelo Edúka: a escola como beneficiária, o pagador com CPF mascarado, valor, data, forma e código da transação; 404 `COMPROVANTE_INDISPONIVEL` enquanto não há pagamento online registrado, inclusive na baixa manual) | `MASTER`, `FINANCEIRO` |
 | `GET` | `/despesas?situacao&categoriaId&vencimentoDe&vencimentoAte` · `/despesas/{id}` (ordenado pelo vencimento) | `MASTER`, `FINANCEIRO` |
+| `GET` | `/despesas/pagina?situacao&categoriaId&vencimentoDe&vencimentoAte&pagina&tamanho&ordenarPor&direcao` (`situacao` aceita mais de uma: `situacao=A_PAGAR&situacao=PAGA` deixa as canceladas de fora; `ordenarPor`: `VENCIMENTO`, `VALOR` ou `DESCRICAO`; `resumo`: quantidade e soma de cada situação com o período e a categoria, sem o filtro de situação) | `MASTER`, `FINANCEIRO` |
 | `POST` | `/despesas` (descrição, categoria, valor e vencimento; `paga: true` lança já como `PAGA`; 404 se a categoria não for da escola) | `MASTER`, `FINANCEIRO` |
 | `PUT` | `/despesas/{id}` (substitui descrição, categoria, valor e vencimento; a paga também é editada; 400 se foi cancelada) | `MASTER`, `FINANCEIRO` |
 | `PATCH` | `/despesas/{id}` (`situacao`: `A_PAGAR` → `PAGA` ou `CANCELADA`, `PAGA` → `A_PAGAR`; `CANCELADA` é final; 400 se a mudança não é permitida) | `MASTER`, `FINANCEIRO` |
@@ -504,17 +523,17 @@ flowchart TB
     GUARD["<b>RotaProtegida</b><br/>sem sessão → login<br/>outro perfil → área do próprio perfil"]
 
     subgraph roles["roles/ — um módulo por perfil"]
-        SAD["<b>super_admin/</b><br/>escolas"]
-        MAS["<b>master/</b><br/>início · recebimentos"]
+        SAD["<b>super_admin/</b><br/>escolas · faturas da escola<br/>faturas da plataforma"]
+        MAS["<b>master/</b><br/>início · recebimentos · plano e faturas"]
         SEC["<b>secretaria/</b><br/>início · alunos · professores<br/>acadêmico · alocação · matrículas"]
-        PROF["<b>professor/</b><br/>início · turmas · avaliações · notas"]
-        ALU["<b>aluno/</b><br/>boletim · provas e tarefas · meus dados"]
-        FIN["<b>financeiro/</b><br/>início · cobranças · despesas"]
+        PROF["<b>professor/</b><br/>início · turmas · avaliações · notas · chamada"]
+        ALU["<b>aluno/</b><br/>boletim (com provas e tarefas) · pagamentos · meus dados"]
+        FIN["<b>financeiro/</b><br/>início · cobranças · nova cobrança<br/>despesas · relatórios · alunos (consulta)"]
     end
 
     subgraph shared["Compartilhado"]
-        COMP["<b>components/</b><br/>PainelLayout · Modal · ModalCadastro<br/>ModalDetalhes · ConfirmarExclusao<br/>StatCards · Dashboard · Button · campos"]
-        HOOKS["<b>hooks/</b><br/>useCarregamento · useDetalhe<br/>usePopoverFlutuante"]
+        COMP["<b>components/</b><br/>PainelLayout · Modal · ModalCadastro<br/>ModalDetalhes · ConfirmarExclusao<br/>StatCards · Dashboard · Paginacao<br/>Button · campos"]
+        HOOKS["<b>hooks/</b><br/>useCarregamento · useDetalhe<br/>usePaginacao · useListaPaginada<br/>useTermoAdiado · usePopoverFlutuante"]
         SRV["<b>services/</b><br/>um service por recurso da API"]
         TYPES["<b>types/</b> · <b>utils/</b> · <b>styles/</b>"]
     end
@@ -533,8 +552,8 @@ flowchart TB
 
     style SEC fill:#8250df,stroke:#4c2889,color:#fff
     style PROF fill:#8250df,stroke:#4c2889,color:#fff
+    style FIN fill:#8250df,stroke:#4c2889,color:#fff
     style API fill:#ddf4ff,stroke:#1f6feb
-    style FIN fill:#eee,stroke:#999,color:#555,stroke-dasharray: 5 5
 ```
 
 Toda tela logada usa o mesmo esqueleto: o `PainelLayout` (marca, título, "Ajuda", "Sair" e o menu
@@ -588,8 +607,26 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | `V20__criar_cobranca.sql` | `COBRANCA`: cobrança de um aluno, com matrícula e responsável opcionais, valor, vencimento e situação (pendente, paga, cancelada) |
 | `V21__cobranca_em_atraso.sql` | `COBRANCA.STATUS` passa a aceitar `EM_ATRASO`; marca as pendentes já vencidas e cria o índice da rotina diária |
 | `V22__criar_log_auditoria.sql` | `LOG_AUDITORIA`: quem criou, editou, cancelou ou estornou cobrança, pagamento ou despesa, com escola, registro afetado e data/hora |
+| `V23__criar_responsavel.sql` | `RESPONSAVEL` (legal ou financeiro) dos alunos, separado da `PESSOA` |
+| `V24__avisos_de_cobranca.sql` | Baixa manual do pagamento (`PAGA_EM`) e controle do lembrete de vencimento |
+| `V25__criar_conta_recebimento_escola.sql` | `CONTA_RECEBIMENTO_ESCOLA`: a conta filha da escola no Asaas, sem guardar dados bancários |
+| `V26__integrar_cobranca_ao_provedor.sql` | Situação da cobrança no provedor e os clientes (pagadores) no Asaas |
+| `V27__criar_evento_e_pagamento.sql` | `EVENTO_PROVEDOR` (caixa de entrada dos avisos do webhook) e `PAGAMENTO_COBRANCA` |
+| `V28__origem_do_pagamento.sql` | Origem do pagamento: `ONLINE` (provedor) ou `MANUAL` |
+| `V29__criar_notificacao.sql` | `NOTIFICACAO`: fila de e-mails gravada na transação da operação, com novas tentativas |
+| `V30__criar_fatura_plataforma.sql` | `FATURA_PLATAFORMA`: o que a escola paga ao Edúka (Fluxo A) |
+| `V31__criar_despesa.sql` | `DESPESA` e `CATEGORIA_DESPESA`, com as categorias padrão de cada escola |
+| `V32__auditoria_do_provedor.sql` | Auditoria do que vem do provedor, sem usuário (origem `PROVEDOR`) |
+| `V33__auditoria_pago_apos_cancelar.sql` | Sinaliza na auditoria o pagamento que chegou depois do cancelamento |
+| `V34__auditoria_conta_e_asaas.sql` | Auditoria da ativação da conta da escola e do que vem do Asaas |
+| `V35__criar_aula_e_frequencia.sql` | `AULA` e `FREQUENCIA`: a chamada do professor em cada aula |
+| `V36__criar_horario_turma.sql` | `HORARIO_TURMA`: a grade semanal da turma |
+| `V37__criar_solicitacao_correcao.sql` | `SOLICITACAO_CORRECAO`: pedido do aluno para a secretaria corrigir os dados dele |
+| `V38__rascunho_de_notas.sql` | `NOTAS_PUBLICADAS`: o professor guarda as notas sem publicar |
+| `V39__encerrar_periodo_e_abrir_matriculas.sql` | Encerramento do período letivo e abertura de matrículas |
 | `V40__tipo_da_cobranca.sql` | `COBRANCA.TIPO`: mensalidade, matrícula, material ou outro; agrupa o resumo por tipo dos relatórios. As cobranças existentes recebem o tipo pelo início da descrição |
 | `V41__estorno_de_cobranca.sql` | `ESTORNO_COBRANCA`: uma linha por estorno, com valor e data; `PAGAMENTO_COBRANCA.VALOR_ESTORNADO`: a soma |
+| `V42__registra_ultimo_acesso_usuario.sql` | `USUARIO.ULTIMO_ACESSO_EM`: último login concluído, para o uso de cada escola no Painel de Escolas |
 
 ---
 
@@ -638,18 +675,17 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
   o alvo em produção é `verify-full`.
 * **Refresh token.** O backend emite e sabe validar refresh tokens, mas ainda não há endpoint
   HTTP de renovação. Quando o access token expira, o usuário precisa fazer login de novo.
-* **Módulo financeiro.** Cobranças (`/cobrancas`) e despesas (`/despesas`) têm API; boletos e
-  pagamentos ainda não existem, e nada marca uma cobrança como paga (a regra de mudança para
-  `PAGA` já está em `StatusCobranca`). Pagamentos e despesas, quando existirem, devem chamar
-  `AuditoriaService.registrar` em criar, editar, cancelar e estornar. Ainda não há tela nem
-  endpoint para consultar o `LOG_AUDITORIA` (a rota `/auditoria` já está reservada para
-  `MASTER` em `RotasPorPerfil`). Os prefixos de rota já estão
-  em `RotasPorPerfil` (só `MASTER` e `FINANCEIRO`), e o perfil `FINANCEIRO` ainda vê
-  "Área em construção" no frontend.
+* **Tela do registro de atividades.** O `LOG_AUDITORIA` já tem consulta paginada
+  (`GET /auditoria/pagina`, só `MASTER`), mas ainda não há tela (IU28, issue #303). Toda operação
+  financeira nova deve chamar `AuditoriaService.registrar` em criar, editar, cancelar e estornar.
 * **Gestão de usuários pelo master.** A API de `/usuarios/secretarias` está pronta, mas o
   `MASTER` ainda não tem tela para cadastrar e inativar a secretaria.
-* **`@TenantId` nas demais entidades.** Hoje têm o filtro automático do Hibernate `Aluno`,
-  `Professor`, `AlocacaoProfessor`, `MatriculaTurma`, `Avaliacao`, `Nota`, `Aula` e `Frequencia`. As tabelas da estrutura
+* **`@TenantId` nas demais entidades.** As entidades de negócio têm o filtro automático do
+  Hibernate: as acadêmicas (`Aluno`, `Responsavel`, `Professor`, `AlocacaoProfessor`, `HorarioTurma`,
+  `MatriculaTurma`, `Avaliacao`, `Nota`, `Aula`, `Frequencia`, `SolicitacaoCorrecao`) e as
+  financeiras (`Cobranca`, `PagamentoCobranca`, `EstornoCobranca`, `Despesa`, `CategoriaDespesa`,
+  `ContaRecebimentoEscola`, `ClienteProvedor`, `EventoProvedor`, `FaturaPlataforma`,
+  `Notificacao`, `LogAuditoria`). As tabelas da estrutura
   acadêmica (`PeriodoLetivo`, `Curso`, `Disciplina`, `Turma`) filtram pela escola só nos services;
   as próximas entidades de negócio devem usar `@TenantId`. `Pessoa` é exceção proposital:
   o `SUPER_ADMIN` cria pessoas em nome de outras escolas, o que o filtro não expressa. Por isso

@@ -6,7 +6,7 @@ import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/Conf
 import { Modal } from '../../../../components/Modal/Modal'
 import { Paginacao } from '../../../../components/Paginacao/Paginacao'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
-import { paginacaoDoBackend, POR_PAGINA, usePaginaDoBackend, type PaginaDoBackend } from '../../../../hooks/usePaginacao'
+import { useListaPaginada, type PaginaDoBackend } from '../../../../hooks/usePaginacao'
 import {
   atualizarAula,
   buscarAula,
@@ -35,13 +35,6 @@ const MENSAGEM_404 = 'Você não está mais alocado nesta turma/disciplina. Reca
 
 const DIA_VAZIO: ChamadaDoDia = { data: '', alunos: [], aulas: [] }
 const SEM_AULA: Aula | null = null
-const HISTORICO_VAZIO: PaginaDoBackend<AulaResumo> = {
-  conteudo: [],
-  pagina: 0,
-  tamanho: POR_PAGINA,
-  totalElementos: 0,
-  totalPaginas: 0,
-}
 
 /** A data da URL, se for válida para uma aula; senão, hoje. */
 function diaDaUrl(valor: string | null): string {
@@ -85,13 +78,26 @@ export function Chamada() {
   const buscarDetalhe = useCallback((signal: AbortSignal) => buscarAula(aulaAbertaId as string, signal), [aulaAbertaId])
   const detalhe = useCarregamento(aulaAbertaId ? buscarDetalhe : null, SEM_AULA, 'Esta aula não existe mais. Recarregue a página.')
 
-  const { pagina, setPagina, porPagina, irPara, mudarPorPagina, topo } = usePaginaDoBackend<HTMLElement>()
+  // Outra turma ou disciplina troca a busca, e o histórico volta para a primeira página.
   const buscarHistorico = useCallback(
-    (signal: AbortSignal) => listarAulas(turmaId as number, disciplinaId as number, pagina, porPagina, signal),
-    [turmaId, disciplinaId, pagina, porPagina],
+    (pagina: number, tamanho: number, signal: AbortSignal) =>
+      listarAulas(turmaId as number, disciplinaId as number, pagina, tamanho, signal),
+    [turmaId, disciplinaId],
   )
-  const historico = useCarregamento(selecionada ? buscarHistorico : null, HISTORICO_VAZIO, MENSAGEM_404)
-  const paginacao = paginacaoDoBackend(historico.dados, { irPara, mudarPorPagina })
+  // Desestruturado: com o `topo` (ref) junto, o lint trataria toda leitura do objeto como leitura de ref.
+  const {
+    paginacao: paginacaoHistorico,
+    carregando: carregandoHistorico,
+    atualizando: atualizandoHistorico,
+    erro: erroHistorico,
+    recarregar: recarregarHistorico,
+    topo: topoHistorico,
+  } = useListaPaginada<PaginaDoBackend<AulaResumo>, HTMLElement>(
+    selecionada ? buscarHistorico : null,
+    'Não foi possível carregar o histórico de aulas.',
+    MENSAGEM_404,
+  )
+  const aulasDoHistorico = paginacaoHistorico?.itensDaPagina ?? []
 
   if (!selecionada) {
     return (
@@ -121,7 +127,7 @@ export function Chamada() {
     abrir(salva.data, salva.id)
     dia.recarregar()
     if (aulaAberta) detalhe.recarregar()
-    historico.recarregar()
+    recarregarHistorico()
   }
 
   const carregandoAula = dia.carregando || detalhe.carregando
@@ -137,8 +143,7 @@ export function Chamada() {
           onChange={(chave) =>
             saida.trocar(() => {
               setSucesso(null)
-              setPagina(0)
-              // Outra turma volta para a aula de hoje.
+              // Outra turma volta para a aula de hoje (e o histórico, para a primeira página).
               selecionar(chave)
             })
           }
@@ -232,27 +237,32 @@ export function Chamada() {
         />
       )}
 
-      <section ref={topo} className={styles.historico} aria-labelledby="titulo-historico-aulas">
+      <section
+        ref={topoHistorico}
+        className={styles.historico}
+        aria-labelledby="titulo-historico-aulas"
+        aria-busy={atualizandoHistorico}
+      >
         <h2 id="titulo-historico-aulas" className={styles.tituloHistorico}>
           Histórico de aulas
         </h2>
 
-        {historico.carregando && <p role="status">Carregando o histórico…</p>}
+        {carregandoHistorico && <p role="status">Carregando o histórico…</p>}
 
-        {!historico.carregando && historico.erro && (
+        {!carregandoHistorico && erroHistorico && (
           <div className={styles.erroHistorico} role="alert">
-            <span>{historico.erro}</span>
-            <Button size="sm" onClick={historico.recarregar}>
+            <span>{erroHistorico}</span>
+            <Button size="sm" onClick={recarregarHistorico}>
               Tentar novamente
             </Button>
           </div>
         )}
 
-        {!historico.carregando && !historico.erro && historico.dados.conteudo.length === 0 && (
+        {paginacaoHistorico && !erroHistorico && aulasDoHistorico.length === 0 && (
           <p className={styles.semAulas}>Nenhuma aula registrada nesta turma ainda.</p>
         )}
 
-        {!historico.carregando && !historico.erro && historico.dados.conteudo.length > 0 && (
+        {paginacaoHistorico && !erroHistorico && aulasDoHistorico.length > 0 && (
           <>
             <div className={styles.rolagem}>
               <table className={styles.tabela}>
@@ -272,7 +282,7 @@ export function Chamada() {
                   </tr>
                 </thead>
                 <tbody>
-                  {historico.dados.conteudo.map((aula) => (
+                  {aulasDoHistorico.map((aula) => (
                     <tr
                       key={aula.id}
                       className={aula.id === aulaAbertaId ? styles.aberta : undefined}
@@ -304,7 +314,11 @@ export function Chamada() {
                 </tbody>
               </table>
             </div>
-            <Paginacao paginacao={paginacao} rotulo="Páginas do histórico de aulas" />
+            <Paginacao
+              paginacao={paginacaoHistorico}
+              rotulo="Páginas do histórico de aulas"
+              carregando={atualizandoHistorico}
+            />
           </>
         )}
       </section>
@@ -320,10 +334,9 @@ export function Chamada() {
             saida.setPendente(false)
             setSucesso(`Aula de ${formatarData(excluindo.data)} excluída. As faltas dela deixaram de contar no boletim.`)
             abrir(excluindo.data)
-            // A página atual do histórico pode ter acabado com esta exclusão.
-            setPagina(0)
+            // Se a página atual do histórico acabou com esta exclusão, o hook vai para a última.
             dia.recarregar()
-            historico.recarregar()
+            recarregarHistorico()
           }}
         />
       )}

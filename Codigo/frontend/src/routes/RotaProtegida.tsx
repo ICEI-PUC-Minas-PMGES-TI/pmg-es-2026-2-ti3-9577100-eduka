@@ -5,6 +5,7 @@ import {
   obterUsuarioLogado,
   type PerfilUsuario,
 } from '../services/authService'
+import { ExigeAceitePrivacidade } from './ExigeAceitePrivacidade'
 import { paths, rotaInicialPorPerfil } from './paths'
 
 type RotaProtegidaProps = {
@@ -14,7 +15,8 @@ type RotaProtegidaProps = {
 }
 
 // Guarda a rota-mãe de um perfil. Sem sessão, manda para o login; com sessão
-// de outro perfil, manda para a área do próprio usuário.
+// de outro perfil, manda para a área do próprio usuário; sem o aceite do aviso
+// de privacidade em vigor, manda para o aviso (IU29).
 //
 // É só conveniência de navegação: quem garante o acesso é o backend, que
 // responde 403 para qualquer rota fora do perfil do token.
@@ -36,5 +38,9 @@ export function RotaProtegida({ perfis, login = paths.login }: RotaProtegidaProp
     return <Navigate to={destino} replace />
   }
 
-  return <Outlet />
+  return (
+    <ExigeAceitePrivacidade login={login}>
+      <Outlet />
+    </ExigeAceitePrivacidade>
+  )
 }

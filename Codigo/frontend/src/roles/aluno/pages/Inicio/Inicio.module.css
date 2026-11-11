@@ -1,0 +1,37 @@
+.mensagem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 20px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.mensagem strong {
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.acoes {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.proximas {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (max-width: 560px) {
+  .acoes > button {
+    width: 100%;
+  }
+}

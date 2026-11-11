@@ -1,19 +1,29 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Badge } from '../../../../components/Badge/Badge'
 import { Button } from '../../../../components/Button/Button'
+import { ModalComprovante } from '../../../../components/Comprovante/ModalComprovante'
 import { Icon } from '../../../../components/Icon/Icon'
 import { Modal, ModalAlerta, ModalAviso } from '../../../../components/Modal/Modal'
 import { ApiError } from '../../../../services/api'
-import { baixarBoletoPdf, buscarMinhaCobranca, pagarCobranca } from '../../../../services/pagamentoAlunoService'
+import {
+  baixarBoletoPdf,
+  buscarComprovante,
+  buscarMinhaCobranca,
+  pagarCobranca,
+} from '../../../../services/pagamentoAlunoService'
 import {
   atalhosSandboxHabilitados,
   mensagemErroSandbox,
   pagarNoSandboxComoAluno,
 } from '../../../../services/sandboxService'
+import type { Comprovante } from '../../../../types/faturaPlataforma'
 import type {
   CobrancaDoHistorico,
   DadosBoleto,
+  DadosPagamento,
   DadosPix,
   FormaPagamento,
+  SituacaoPagamento,
 } from '../../../../types/pagamentoAluno'
 import { salvarArquivo } from '../../../../utils/arquivos'
 import { formatarMoeda } from '../../../../utils/formatters'
@@ -23,12 +33,19 @@ import styles from './ModalPagamento.module.css'
 
 /** Com o PIX na tela, de quanto em quanto tempo a tela pergunta se o pagamento caiu. */
 const INTERVALO_CONFIRMACAO_MS = 5000
+/** O boleto compensa em dias úteis: com ele na tela, a consulta é bem mais espaçada. */
+const INTERVALO_BOLETO_MS = 30000
 /** Enquanto o provedor gera o PIX ou o boleto, a consulta é mais curta. */
 const INTERVALO_PROCESSANDO_MS = 3000
 /** Quantas vezes a tela pede de novo enquanto o provedor não termina antes de desistir. */
 const MAX_PEDIDOS = 5
 
 const NOME_FORMA: Record<FormaPagamento, string> = { PIX: 'o PIX', BOLETO: 'o boleto' }
+
+const OUTRA_FORMA: Record<FormaPagamento, FormaPagamento> = { PIX: 'BOLETO', BOLETO: 'PIX' }
+
+/** Comando da escolha (IU17-A): muda conforme a forma. */
+const ROTULO_GERAR: Record<FormaPagamento, string> = { PIX: 'Pagar com PIX', BOLETO: 'Gerar boleto' }
 
 type Pronto = { forma: 'PIX'; pix: DadosPix } | { forma: 'BOLETO'; boleto: DadosBoleto; vencimento: string }
 
@@ -107,6 +124,35 @@ const OPCOES_FORMA: { forma: FormaPagamento; titulo: string; descricao: string; 
   },
 ]
 
+/**
+ * O que se paga nas modais IU17-A a IU17-D: a cobrança do aluno ou a fatura
+ * que a escola paga ao Eduka (IU24-A). Cada uma diz por quais rotas gera,
+ * consulta e comprova o pagamento; o caminho na tela é o mesmo.
+ */
+export type Pagavel = {
+  descricao: string
+  valor: number
+  /** ISO (yyyy-MM-dd). */
+  dataVencimento: string
+  /** "cobrança" ou "fatura": entra no título e nos avisos. */
+  nome: 'cobrança' | 'fatura'
+  /** Quem cancela, no aviso de cancelada: "pela escola", "pelo Eduka". */
+  canceladaPor: string
+  /** Recusa de "não pagável" sem detalhe do backend. */
+  naoPagavel: string
+  /** Onde o boleto pago aparece depois: "aqui em Pagamentos". */
+  ondeAparece: string
+  /** Complemento do "está paga." na confirmação. */
+  avisoPago: string
+  pagar: (forma: FormaPagamento) => Promise<DadosPagamento>
+  /** Situação atual: a tela pergunta enquanto espera a confirmação. */
+  consultar: () => Promise<{ situacaoPagamento: SituacaoPagamento }>
+  buscarComprovante: () => Promise<Comprovante>
+  pagarNoSandbox: () => Promise<void>
+  /** PDF oficial do boleto; sem ele, o boleto mostra só a linha digitável. */
+  baixarBoleto?: () => Promise<Blob>
+}
+
 type ModalPagamentoProps = {
   cobranca: CobrancaDoHistorico
   /** Pagamento confirmado: a lista recarrega. */
@@ -114,16 +160,49 @@ type ModalPagamentoProps = {
   onFechar: () => void
 }
 
-/**
- * Pagar uma cobrança sem sair do Eduka: o aluno escolhe PIX ou boleto e clica
- * em Pagar. PIX: QR Code e copia e cola, e a tela fica consultando a cobrança
- * até o provedor confirmar o pagamento. Boleto: linha digitável para copiar e
- * o PDF oficial para baixar; a compensação leva dias úteis, então não há
- * espera na tela. Tudo vem pela API do Eduka: nenhum link leva à página do
- * provedor. Fechar não cancela nada: o mesmo PIX ou boleto volta ao abrir de
- * novo, e trocar a forma altera a mesma cobrança.
- */
+/** Pagar a mensalidade no portal do aluno (IU17-A a IU17-D). */
 export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoProps) {
+  const pagavel = useMemo<Pagavel>(
+    () => ({
+      descricao: cobranca.descricao,
+      valor: cobranca.valor,
+      dataVencimento: cobranca.dataVencimento,
+      nome: 'cobrança',
+      canceladaPor: 'pela escola',
+      naoPagavel: 'Esta cobrança não pode ser paga online. Fale com a secretaria.',
+      ondeAparece: 'aqui em Pagamentos',
+      avisoPago: 'O comprovante também vai para o e-mail cadastrado.',
+      pagar: (forma) => pagarCobranca(cobranca.id, forma),
+      consultar: () => buscarMinhaCobranca(cobranca.id),
+      buscarComprovante: () => buscarComprovante(`/portal/aluno/cobrancas/${cobranca.id}/comprovante`),
+      pagarNoSandbox: () => pagarNoSandboxComoAluno(cobranca.id),
+      baixarBoleto: () => baixarBoletoPdf(cobranca.id),
+    }),
+    [cobranca],
+  )
+  return <ModalPagar pagavel={pagavel} onPago={onPago} onFechar={onFechar} />
+}
+
+type ModalPagarProps = {
+  /** Estável entre renderizações (useMemo): as consultas dependem dele. */
+  pagavel: Pagavel
+  /** Pagamento confirmado: a lista recarrega. */
+  onPago: () => void
+  onFechar: () => void
+}
+
+/**
+ * Pagar sem sair do Eduka: escolhe PIX ou boleto e clica em Pagar (IU17-A).
+ * PIX: QR Code e copia e cola, e a tela consulta até o provedor confirmar o
+ * pagamento (IU17-B). Boleto: linha digitável para copiar e, quando houver, o
+ * PDF oficial para baixar (IU17-C); a compensação leva dias úteis, então a
+ * consulta é espaçada. Confirmado, mostra o comprovante (IU17-D). Tudo vem pela
+ * API do Eduka: nenhum link leva à página do provedor. Fechar não cancela
+ * nada: o mesmo PIX ou boleto volta ao abrir de novo, e trocar a forma altera
+ * a mesma cobrança.
+ */
+export function ModalPagar({ pagavel, onPago, onFechar }: ModalPagarProps) {
+  const { baixarBoleto } = pagavel
   const [etapa, setEtapa] = useState<Etapa>({ tipo: 'escolhendo' })
   const [forma, setForma] = useState<FormaPagamento>('PIX')
   const [copiado, setCopiado] = useState<'sim' | 'falhou' | null>(null)
@@ -133,6 +212,9 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
   const [pagandoNoSandbox, setPagandoNoSandbox] = useState(false)
   const [pagoNoSandbox, setPagoNoSandbox] = useState(false)
   const [erroSandbox, setErroSandbox] = useState<string | null>(null)
+  /** Escola que recebe o dinheiro, quando o backend informa. */
+  const [recebedor, setRecebedor] = useState<string | null>(null)
+  const [pixVencido, setPixVencido] = useState(false)
   const montado = useRef(true)
   const consultando = useRef(false)
   const pedidos = useRef(0)
@@ -153,7 +235,7 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
   const explicarRecusa = useCallback(
     async (detalhe: string | null) => {
       try {
-        const atual = await buscarMinhaCobranca(cobranca.id)
+        const atual = await pagavel.consultar()
         if (!montado.current) return
         if (atual.situacaoPagamento === 'PAGA') {
           setEtapa({ tipo: 'pago' })
@@ -164,14 +246,14 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
           tipo: 'indisponivel',
           mensagem:
             atual.situacaoPagamento === 'CANCELADA'
-              ? 'Esta cobrança foi cancelada pela escola.'
-              : (detalhe ?? 'Esta cobrança não pode ser paga online. Fale com a secretaria.'),
+              ? `Esta ${pagavel.nome} foi cancelada ${pagavel.canceladaPor}.`
+              : (detalhe ?? pagavel.naoPagavel),
         })
       } catch {
-        if (montado.current) setEtapa({ tipo: 'erro', mensagem: 'Não foi possível consultar a cobrança.' })
+        if (montado.current) setEtapa({ tipo: 'erro', mensagem: `Não foi possível consultar a ${pagavel.nome}.` })
       }
     },
-    [cobranca.id],
+    [pagavel],
   )
 
   const gerar = useCallback((forma: FormaPagamento) => {
@@ -185,9 +267,11 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
       return
     }
     setEtapa({ tipo: 'gerando' })
-    pagarCobranca(cobranca.id, forma)
+    pagavel
+      .pagar(forma)
       .then((dados) => {
         if (!montado.current) return
+        if (dados.recebedorNome) setRecebedor(dados.recebedorNome)
         if (dados.situacao === 'PRONTO' && dados.pix) {
           setEtapa({ tipo: 'pronto', dados: { forma: 'PIX', pix: dados.pix } })
         } else if (dados.situacao === 'PRONTO' && dados.boleto) {
@@ -206,7 +290,7 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
           setEtapa(mensagemDaRecusa(erro, forma))
         }
       })
-  }, [cobranca.id, explicarRecusa])
+  }, [pagavel, explicarRecusa])
 
   /** Botão "Pagar": só aqui o PIX ou o boleto é pedido ao provedor. */
   function pagar() {
@@ -219,13 +303,33 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
     gerar(forma)
   }
 
-  /** Volta à escolha. O próximo Pagar troca a forma na mesma cobrança. */
-  function trocarForma() {
+  function limparEtapaAnterior() {
     setCopiado(null)
     setErroDownload(null)
     setErroSandbox(null)
     setPagoNoSandbox(false)
+    setPixVencido(false)
+  }
+
+  /** Depois de uma falha, volta à escolha. O próximo Pagar troca a forma na mesma cobrança. */
+  function trocarForma() {
+    limparEtapaAnterior()
     setEtapa({ tipo: 'escolhendo' })
+  }
+
+  /** "Trocar para boleto" / "Trocar para PIX": altera a forma da mesma cobrança no provedor, sem criar outra. */
+  function trocarPara(outra: FormaPagamento) {
+    limparEtapaAnterior()
+    setForma(outra)
+    pedidos.current = 0
+    gerar(outra)
+  }
+
+  /** QR Code vencido: pedir de novo gera um novo para a mesma cobrança. */
+  function gerarNovoPix() {
+    setPixVencido(false)
+    pedidos.current = 0
+    gerar('PIX')
   }
 
   /** Pergunta ao backend em que pé está o pagamento. Uma consulta por vez. */
@@ -234,13 +338,13 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
       if (consultando.current) return
       consultando.current = true
       try {
-        const atual = await buscarMinhaCobranca(cobranca.id)
+        const atual = await pagavel.consultar()
         if (!montado.current) return
         if (atual.situacaoPagamento === 'PAGA') {
           setEtapa({ tipo: 'pago' })
           onPagoRef.current()
         } else if (atual.situacaoPagamento === 'CANCELADA') {
-          setEtapa({ tipo: 'indisponivel', mensagem: 'Esta cobrança foi cancelada pela escola.' })
+          setEtapa({ tipo: 'indisponivel', mensagem: `Esta ${pagavel.nome} foi cancelada ${pagavel.canceladaPor}.` })
         } else if (etapaAtual === 'processando' && atual.situacaoPagamento === 'AGUARDANDO_PAGAMENTO') {
           // O provedor terminou de gerar: o POST agora devolve os dados prontos.
           gerar(forma)
@@ -251,20 +355,35 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
         consultando.current = false
       }
     },
-    [cobranca.id, forma, gerar],
+    [pagavel, forma, gerar],
   )
 
-  // PIX pronto: espera a confirmação. Boleto pronto: nada a esperar (compensa em dias úteis),
-  // a não ser que tenha sido pago no Sandbox.
-  const aguardaConfirmacao = etapa.tipo === 'pronto' && (etapa.dados.forma === 'PIX' || pagoNoSandbox)
+  // Com o PIX ou o boleto na tela, a situação se atualiza sozinha quando o aviso do provedor chega.
+  // O boleto compensa em dias úteis, então a consulta é mais espaçada (a não ser que tenha sido pago no Sandbox).
+  const aguardaConfirmacao = etapa.tipo === 'pronto'
+  const consultaRapida = etapa.tipo === 'pronto' && (etapa.dados.forma === 'PIX' || pagoNoSandbox)
 
   useEffect(() => {
     if (!aguardaConfirmacao && etapa.tipo !== 'processando') return
     const tipo = etapa.tipo
-    const intervalo = aguardaConfirmacao ? INTERVALO_CONFIRMACAO_MS : INTERVALO_PROCESSANDO_MS
+    const intervalo = !aguardaConfirmacao
+      ? INTERVALO_PROCESSANDO_MS
+      : consultaRapida
+        ? INTERVALO_CONFIRMACAO_MS
+        : INTERVALO_BOLETO_MS
     const timer = window.setInterval(() => void consultar(tipo), intervalo)
     return () => window.clearInterval(timer)
-  }, [etapa.tipo, aguardaConfirmacao, consultar])
+  }, [etapa.tipo, aguardaConfirmacao, consultaRapida, consultar])
+
+  // O QR Code tem prazo: quando vence, a tela troca o código por um aviso para gerar outro.
+  const validadePix = etapa.tipo === 'pronto' && etapa.dados.forma === 'PIX' ? etapa.dados.pix.validade : null
+  useEffect(() => {
+    if (!validadePix) return
+    // Já vencido ao chegar: o timer de zero marca logo em seguida.
+    const restante = Math.max(0, Date.parse(validadePix) - Date.now())
+    const timer = window.setTimeout(() => setPixVencido(true), restante)
+    return () => window.clearTimeout(timer)
+  }, [validadePix])
 
   async function verificarAgora() {
     setVerificando(true)
@@ -273,14 +392,14 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
   }
 
   /**
-   * Ambiente de teste: paga no Sandbox como se o aluno tivesse pago no banco.
+   * Ambiente de teste: paga no Sandbox como se tivesse pago no banco.
    * O backend já grava o pagamento; a consulta logo em seguida mostra "pago".
    */
   async function pagarNoSandbox() {
     setPagandoNoSandbox(true)
     setErroSandbox(null)
     try {
-      await pagarNoSandboxComoAluno(cobranca.id)
+      await pagavel.pagarNoSandbox()
       if (!montado.current) return
       setPagoNoSandbox(true)
       await consultar(etapa.tipo)
@@ -308,11 +427,11 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
     }, 3000)
   }
 
-  async function baixarPdf() {
+  async function baixarPdf(baixar: () => Promise<Blob>) {
     setBaixando(true)
     setErroDownload(null)
     try {
-      salvarArquivo(await baixarBoletoPdf(cobranca.id), nomeDoArquivo(cobranca.descricao))
+      salvarArquivo(await baixar(), nomeDoArquivo(pagavel.descricao))
     } catch (erro: unknown) {
       if (montado.current) {
         setErroDownload(
@@ -328,8 +447,26 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
     }
   }
 
-  // Com o PIX ou o boleto na tela (ou numa falha), dá para voltar e escolher a outra forma.
-  const podeTrocarForma = etapa.tipo === 'pronto' || etapa.tipo === 'erro'
+  // Confirmado: a modal passa a mostrar o comprovante (IU17-D).
+  if (etapa.tipo === 'pago') {
+    return (
+      <ModalComprovante
+        buscar={pagavel.buscarComprovante}
+        onFechar={onFechar}
+        aviso={
+          <div className={styles.pago}>
+            <span className={styles.pagoIcone}>
+              <Icon name="check" size={28} strokeWidth={3} />
+            </span>
+            <strong>Pagamento confirmado!</strong>
+            <span>
+              {pagavel.descricao} está paga. {pagavel.avisoPago}
+            </span>
+          </div>
+        }
+      />
+    )
+  }
 
   const rodape =
     etapa.tipo === 'escolhendo' ? (
@@ -338,16 +475,17 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
           Cancelar
         </Button>
         <Button variant="primary" icon={forma === 'PIX' ? 'card' : 'fileText'} onClick={pagar}>
-          Pagar
+          {ROTULO_GERAR[forma]}
         </Button>
       </>
-    ) : etapa.tipo === 'pago' ? (
-      <Button variant="primary" onClick={onFechar}>
-        Concluir
-      </Button>
     ) : (
       <>
-        {podeTrocarForma && (
+        {etapa.tipo === 'pronto' && (
+          <Button variant="outline" onClick={() => trocarPara(OUTRA_FORMA[forma])}>
+            {OUTRA_FORMA[forma] === 'PIX' ? 'Trocar para PIX' : 'Trocar para boleto'}
+          </Button>
+        )}
+        {etapa.tipo === 'erro' && (
           <Button variant="outline" onClick={trocarForma}>
             Trocar forma de pagamento
           </Button>
@@ -357,7 +495,7 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
             Tentar de novo
           </Button>
         )}
-        {aguardaConfirmacao && (
+        {consultaRapida && (
           <Button variant="outline" icon="clock" onClick={() => void verificarAgora()} disabled={verificando}>
             {verificando ? 'Verificando…' : 'Já paguei'}
           </Button>
@@ -370,8 +508,10 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
 
   return (
     <Modal
-      titulo={etapa.tipo === 'escolhendo' ? 'Pagar cobrança' : forma === 'PIX' ? 'Pagar com PIX' : 'Pagar com boleto'}
-      subtitulo={`${cobranca.descricao} · ${formatarMoeda(cobranca.valor)} · vence ${formatarData(cobranca.dataVencimento)}`}
+      titulo={
+        etapa.tipo === 'escolhendo' ? `Pagar ${pagavel.nome}` : forma === 'PIX' ? 'Pagar com PIX' : 'Pagar com boleto'
+      }
+      subtitulo={`${pagavel.descricao} · ${formatarMoeda(pagavel.valor)} · vence ${formatarData(pagavel.dataVencimento)}`}
       tamanho="medio"
       onFechar={onFechar}
       rodape={rodape}
@@ -402,7 +542,25 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
                 </span>
               </label>
             ))}
+            <p className={styles.valorDestino}>
+              Valor a pagar: <strong>{formatarMoeda(pagavel.valor)}</strong>
+            </p>
           </fieldset>
+        )}
+
+        {etapa.tipo === 'pronto' && (
+          <div className={styles.situacao}>
+            <span>
+              Valor: <strong>{formatarMoeda(pagavel.valor)}</strong>
+              {recebedor && (
+                <>
+                  {' '}
+                  para <strong>{recebedor}</strong>
+                </>
+              )}
+            </span>
+            <Badge tone="warning">Aguardando pagamento</Badge>
+          </div>
         )}
 
         {etapa.tipo === 'gerando' && <ModalAviso>Gerando {NOME_FORMA[forma]}…</ModalAviso>}
@@ -417,18 +575,6 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
 
         {etapa.tipo === 'indisponivel' && <ModalAlerta>{etapa.mensagem}</ModalAlerta>}
 
-        {etapa.tipo === 'pago' && (
-          <div className={styles.pago}>
-            <span className={styles.pagoIcone}>
-              <Icon name="check" size={28} strokeWidth={3} />
-            </span>
-            <strong>Pagamento confirmado!</strong>
-            <span>
-              {cobranca.descricao} está paga. O comprovante da baixa também vai para o e-mail cadastrado.
-            </span>
-          </div>
-        )}
-
         {etapa.tipo === 'pronto' && etapa.dados.forma === 'PIX' && (
           <>
             <ol className={styles.passos}>
@@ -437,46 +583,67 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
               <li>Confirme o pagamento. Esta tela atualiza sozinha quando ele for confirmado.</li>
             </ol>
 
-            <div className={styles.qrCode}>
-              <img
-                src={`data:image/png;base64,${etapa.dados.pix.qrCodeBase64}`}
-                width={220}
-                height={220}
-                alt="QR Code do PIX para pagar a cobrança"
-              />
-              {etapa.dados.pix.validade && (
-                <span className={styles.validade}>Válido até {formatarValidade(etapa.dados.pix.validade)}</span>
-              )}
-            </div>
+            {pixVencido ? (
+              <div className={styles.boletoAcao}>
+                <ModalAlerta>Este QR Code venceu. Gere um novo para pagar.</ModalAlerta>
+                <Button variant="primary" icon="card" onClick={gerarNovoPix}>
+                  Gerar novo QR Code
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className={styles.qrCode}>
+                  <img
+                    src={`data:image/png;base64,${etapa.dados.pix.qrCodeBase64}`}
+                    width={220}
+                    height={220}
+                    alt={`QR Code do PIX para pagar a ${pagavel.nome}`}
+                  />
+                  {etapa.dados.pix.validade && (
+                    <span className={styles.validade}>Válido até {formatarValidade(etapa.dados.pix.validade)}</span>
+                  )}
+                </div>
 
-            <CampoCopiar
-              id="pix-copia-e-cola"
-              rotulo="PIX copia e cola"
-              valor={etapa.dados.pix.copiaECola}
-              copiado={copiado}
-              onCopiar={copiar}
-            />
+                <CampoCopiar
+                  id="pix-copia-e-cola"
+                  rotulo="PIX copia e cola"
+                  valor={etapa.dados.pix.copiaECola}
+                  copiado={copiado}
+                  onCopiar={copiar}
+                />
 
-            <p className={styles.aguardando}>
-              <span className={styles.pulso} aria-hidden="true" />
-              Aguardando a confirmação do pagamento…
-            </p>
+                <p className={styles.aguardando}>
+                  <span className={styles.pulso} aria-hidden="true" />
+                  Aguardando a confirmação do pagamento…
+                </p>
+              </>
+            )}
           </>
         )}
 
         {etapa.tipo === 'pronto' && etapa.dados.forma === 'BOLETO' && (
           <>
             <ol className={styles.passos}>
-              <li>Baixe o boleto em PDF ou copie o código de barras.</li>
+              <li>{baixarBoleto ? 'Baixe o boleto em PDF ou copie' : 'Copie'} o código de barras.</li>
               <li>Pague no app ou site do banco, em lotéricas ou correspondentes bancários.</li>
-              <li>O pagamento é confirmado em até 3 dias úteis e aparece aqui em Pagamentos.</li>
+              <li>O pagamento é confirmado em até 3 dias úteis e aparece {pagavel.ondeAparece}.</li>
             </ol>
 
             <div className={styles.boletoAcao}>
-              <Button variant="primary" icon="download" onClick={() => void baixarPdf()} disabled={baixando}>
-                {baixando ? 'Baixando…' : 'Baixar boleto (PDF)'}
-              </Button>
-              <span className={styles.validade}>Vencimento {formatarData(etapa.dados.vencimento)}</span>
+              {baixarBoleto && (
+                <Button
+                  variant="primary"
+                  icon="download"
+                  onClick={() => void baixarPdf(baixarBoleto)}
+                  disabled={baixando}
+                >
+                  {baixando ? 'Baixando…' : 'Baixar boleto (PDF)'}
+                </Button>
+              )}
+              <span className={styles.validade}>
+                Vencimento {formatarData(etapa.dados.vencimento)}. Depois dessa data a {pagavel.nome} fica em atraso, mas
+                continua podendo ser paga por aqui.
+              </span>
               {erroDownload && <ModalAlerta>{erroDownload}</ModalAlerta>}
             </div>
 
@@ -486,6 +653,7 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
               rotulo="Código de barras (linha digitável)"
               valor={formatarLinhaDigitavel(etapa.dados.boleto.linhaDigitavel)}
               valorCopiado={etapa.dados.boleto.linhaDigitavel.replace(/\D/g, '')}
+              rotuloBotao="Copiar linha"
               copiado={copiado}
               onCopiar={copiar}
             />
@@ -526,12 +694,22 @@ type CampoCopiarProps = {
   valor: string
   /** O que vai para a área de transferência; sem ele, o próprio `valor`. */
   valorCopiado?: string
+  /** Texto do botão; o padrão é "Copiar código". */
+  rotuloBotao?: string
   copiado: 'sim' | 'falhou' | null
   onCopiar: (codigo: string) => Promise<void>
 }
 
 /** Código só de leitura com o botão "Copiar" ao lado. */
-function CampoCopiar({ id, rotulo, valor, valorCopiado, copiado, onCopiar }: CampoCopiarProps) {
+function CampoCopiar({
+  id,
+  rotulo,
+  valor,
+  valorCopiado,
+  rotuloBotao = 'Copiar código',
+  copiado,
+  onCopiar,
+}: CampoCopiarProps) {
   return (
     <div className={styles.copiaECola}>
       <label htmlFor={id} className={styles.rotulo}>
@@ -545,7 +723,7 @@ function CampoCopiar({ id, rotulo, valor, valorCopiado, copiado, onCopiar }: Cam
           icon={copiado === 'sim' ? 'check' : undefined}
           onClick={() => void onCopiar(valorCopiado ?? valor)}
         >
-          {copiado === 'sim' ? 'Copiado!' : 'Copiar código'}
+          {copiado === 'sim' ? 'Copiado!' : rotuloBotao}
         </Button>
       </div>
       {copiado === 'falhou' && (

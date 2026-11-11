@@ -109,6 +109,8 @@
 }
 
 .tabelaWrapper {
+  /* Relative: o texto só para leitor de tela rola junto, sem alargar a página. */
+  position: relative;
   width: 100%;
   overflow-x: auto;
 }
@@ -225,6 +227,10 @@
 }
 
 .vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
   text-align: center;
   padding: 40px 20px;
   color: #94a3b8;
@@ -409,8 +415,9 @@
 }
 
 @media (max-width: 1024px) {
+  /* minmax(0, ...): sem ele, a tabela larga empurra a coluna (e a página) para além da tela. */
   .conteudoGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .colunaDireita {
@@ -420,7 +427,74 @@
 
 @media (max-width: 640px) {
   .statsGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .formCard {
+    padding: 22px 18px;
+  }
+
+  /* Cada despesa vira um bloco, com o rótulo em cima de cada dado. */
+  .tabela,
+  .tabela tbody {
+    display: block;
+    min-width: 0;
+  }
+
+  .tabela thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .tabela tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 12px;
+    padding: 14px 0;
+    border-top: 1px solid #f1f5f9;
+  }
+
+  .tabela tbody tr:first-child {
+    border-top: 0;
+  }
+
+  .tabela tbody tr > * {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .tabela tbody tr > [data-rotulo]::before {
+    content: attr(data-rotulo);
+    display: block;
+    margin-bottom: 2px;
+    color: var(--color-text-subtle);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+
+  .tabela .tdDescricao,
+  .tabela .tdAcao {
+    grid-column: 1 / -1;
+  }
+
+  .descricaoEBadge {
+    flex-wrap: wrap;
+  }
+
+  .tabela .tdAcao > button {
+    width: 100%;
+    justify-content: center;
   }
 
   .categoriasGrid {

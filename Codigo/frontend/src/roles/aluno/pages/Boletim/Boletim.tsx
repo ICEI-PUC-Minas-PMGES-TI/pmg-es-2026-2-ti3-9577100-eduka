@@ -10,10 +10,10 @@ import {
   type BoletimTurma,
 } from '../../../../types/portalAluno'
 import { formatarPontos, plural } from '../../../../utils/formatters'
-import { atingiuMedia, PERCENTUAL_APROVACAO } from '../../../professor/notas'
+import { PERCENTUAL_APROVACAO } from '../../../professor/notas'
 import { formatarData } from '../../../secretaria/components/PainelSecretaria/formatacao'
 import { AgendaAvaliacoes } from '../../components/AgendaAvaliacoes/AgendaAvaliacoes'
-import { aproveitamento, somarFrequencias } from '../../formatacao'
+import { aproveitamento, emRecuperacao, somarFrequencias } from '../../formatacao'
 import { useDadosDoAluno } from '../../hooks/useDadosDoAluno'
 import { AlunoLayout } from '../../layouts/AlunoLayout'
 import styles from './Boletim.module.css'
@@ -26,11 +26,6 @@ const ABAS: { id: Aba; rotulo: string }[] = [
   { id: 'boletim', rotulo: 'Boletim' },
   { id: 'provas', rotulo: 'Tarefas e provas' },
 ]
-
-/** Disciplina com nota abaixo da média nos pontos já avaliados; sem nota ainda, não conta. */
-function emRecuperacao(disciplina: BoletimDisciplina): boolean {
-  return disciplina.pontosAvaliados > 0 && !atingiuMedia(disciplina.pontosObtidos, disciplina.pontosAvaliados)
-}
 
 /** Boletim do aluno, com a agenda de tarefas e provas numa segunda aba (?aba=provas). */
 export function Boletim() {

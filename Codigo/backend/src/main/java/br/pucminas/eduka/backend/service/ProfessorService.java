@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -22,10 +23,12 @@ import br.pucminas.eduka.backend.domain.PessoaPapel;
 import br.pucminas.eduka.backend.domain.Professor;
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.dto.Ordenacao;
+import br.pucminas.eduka.backend.dto.PaginaComResumoResponse;
 import br.pucminas.eduka.backend.dto.PaginaResponse;
 import br.pucminas.eduka.backend.dto.Paginacao;
 import br.pucminas.eduka.backend.dto.ProfessorRequest;
 import br.pucminas.eduka.backend.dto.ProfessorResponse;
+import br.pucminas.eduka.backend.dto.ResumoProfessoresResponse;
 import br.pucminas.eduka.backend.exception.CpfJaCadastradoException;
 import br.pucminas.eduka.backend.exception.ProfessorComHistoricoException;
 import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
@@ -83,40 +86,49 @@ public class ProfessorService {
     }
 
     /**
-     * @param nome  filtro parcial, sem diferenciar caixa; nulo ou vazio lista todos
-     * @param ativo nulo lista ativos e inativos
-     */
-    /**
      * Pagina dos professores da escola, com os mesmos filtros de
      * {@link #listar}. O nome e cifrado, entao filtro e ordem por nome sao
-     * feitos em memoria, e so a pagina vai na resposta.
+     * feitos em memoria, e so a pagina vai na resposta. O resumo conta a
+     * escola inteira, sem a busca nem o filtro {@code ativo}
+     * ({@link PaginaComResumoResponse}).
      */
-    public PaginaResponse<ProfessorResponse> listarPaginado(String nome, Boolean ativo, Paginacao paginacao,
-            Ordenacao.Professores ordenarPor, Direction direcao) {
+    public PaginaComResumoResponse<ProfessorResponse, ResumoProfessoresResponse> listarPaginado(String nome,
+            Boolean ativo, Paginacao paginacao, Ordenacao.Professores ordenarPor, Direction direcao) {
         Comparator<ProfessorResponse> campo = switch (ordenarPor) {
             case NOME -> Comparator.comparing(ProfessorResponse::nome, Paginacao.ORDEM_DE_NOME);
             case DATA_ADMISSAO -> Comparator.comparing(ProfessorResponse::dataAdmissao,
                     Comparator.nullsLast(Comparator.naturalOrder()));
         };
-        List<ProfessorResponse> ordenados = listar(nome, ativo).stream()
+        List<ProfessorResponse> daEscola = listar(null, null);
+        List<ProfessorResponse> ordenados = daEscola.stream()
+                .filter(filtro(nome, ativo))
                 .sorted(Ordenacao.emMemoria(campo, Ordenacao.ou(direcao, Direction.ASC),
                         Comparator.comparing(ProfessorResponse::id)))
                 .toList();
-        return PaginaResponse.recortar(ordenados, paginacao);
+        return PaginaComResumoResponse.de(PaginaResponse.recortar(ordenados, paginacao),
+                ResumoProfessoresResponse.de(daEscola));
     }
 
+    /**
+     * @param nome  filtro parcial, sem diferenciar caixa; nulo ou vazio lista todos
+     * @param ativo nulo lista ativos e inativos
+     */
     public List<ProfessorResponse> listar(String nome, Boolean ativo) {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         List<Professor> professores = professorRepository.findAllByEscolaId(escolaId);
         Map<UUID, Pessoa> pessoasPorId = pessoasDe(professores, escolaId);
 
-        String filtro = nome == null || nome.isBlank() ? null : nome.trim().toLowerCase(Locale.ROOT);
         return professores.stream()
-                .filter(professor -> ativo == null || professor.isAtivo() == ativo)
-                .filter(professor -> filtro == null || pessoasPorId.get(professor.getPessoaId()).getNome()
-                        .toLowerCase(Locale.ROOT).contains(filtro))
                 .map(professor -> ProfessorResponse.deResumo(professor, pessoasPorId.get(professor.getPessoaId())))
+                .filter(filtro(nome, ativo))
                 .toList();
+    }
+
+    /** O nome e comparado ja decifrado, sem diferenciar caixa. */
+    private static Predicate<ProfessorResponse> filtro(String nome, Boolean ativo) {
+        String termo = nome == null || nome.isBlank() ? null : nome.trim().toLowerCase(Locale.ROOT);
+        return professor -> (ativo == null || professor.ativo() == ativo)
+                && (termo == null || professor.nome().toLowerCase(Locale.ROOT).contains(termo));
     }
 
     public ProfessorResponse buscarPorId(UUID id) {

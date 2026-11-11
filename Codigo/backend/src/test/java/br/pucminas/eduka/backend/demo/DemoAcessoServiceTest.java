@@ -61,7 +61,7 @@ class DemoAcessoServiceTest {
     @Test
     void listaSoAsContasQueExistemEEstaoAtivas() {
         usuario(MASTER, PerfilUsuario.MASTER, true);
-        usuario("laura.fernandes@mock.eduka.com.br", PerfilUsuario.ALUNO, false);
+        usuario("valentina.martins@mock.eduka.com.br", PerfilUsuario.ALUNO, false);
         usuario(SUPER_ADMIN, PerfilUsuario.SUPER_ADMIN, true);
 
         var grupos = service.contas(" EdukaSystem@gmail.com ", SENHA);

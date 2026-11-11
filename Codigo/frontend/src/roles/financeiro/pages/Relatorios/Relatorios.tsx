@@ -298,10 +298,16 @@ function Resumo({ resumo }: { resumo: RelatorioFinanceiro['resumo'] }) {
               {linhas.map((linha) => (
                 <tr key={linha.grupo}>
                   <th scope="row">{nomeDoGrupo(linha.grupo, agrupamento)}</th>
-                  <td className={styles.numero}>{formatarMoeda(linha.cobrado)}</td>
-                  <td className={`${styles.numero} ${styles.recebido}`}>{formatarMoeda(linha.recebido)}</td>
-                  <td className={styles.numero}>{formatarMoeda(linha.emAberto)}</td>
-                  <td className={styles.numero}>
+                  <td className={styles.numero} data-rotulo="Cobrado">
+                    {formatarMoeda(linha.cobrado)}
+                  </td>
+                  <td className={`${styles.numero} ${styles.recebido}`} data-rotulo="Recebido">
+                    {formatarMoeda(linha.recebido)}
+                  </td>
+                  <td className={styles.numero} data-rotulo="Em aberto">
+                    {formatarMoeda(linha.emAberto)}
+                  </td>
+                  <td className={styles.numero} data-rotulo="Inadimplência">
                     <SeloInadimplencia percentual={linha.inadimplencia} />
                   </td>
                 </tr>
@@ -310,10 +316,18 @@ function Resumo({ resumo }: { resumo: RelatorioFinanceiro['resumo'] }) {
             <tfoot>
               <tr>
                 <th scope="row">Total do período</th>
-                <td className={styles.numero}>{formatarMoeda(resumo.total.cobrado)}</td>
-                <td className={styles.numero}>{formatarMoeda(resumo.total.recebido)}</td>
-                <td className={styles.numero}>{formatarMoeda(resumo.total.emAberto)}</td>
-                <td className={styles.numero}>{formatarPercentual(resumo.total.inadimplencia)}</td>
+                <td className={styles.numero} data-rotulo="Cobrado">
+                  {formatarMoeda(resumo.total.cobrado)}
+                </td>
+                <td className={styles.numero} data-rotulo="Recebido">
+                  {formatarMoeda(resumo.total.recebido)}
+                </td>
+                <td className={styles.numero} data-rotulo="Em aberto">
+                  {formatarMoeda(resumo.total.emAberto)}
+                </td>
+                <td className={styles.numero} data-rotulo="Inadimplência">
+                  {formatarPercentual(resumo.total.inadimplencia)}
+                </td>
               </tr>
             </tfoot>
           </table>

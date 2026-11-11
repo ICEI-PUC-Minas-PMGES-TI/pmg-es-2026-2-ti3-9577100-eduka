@@ -153,7 +153,8 @@ class RoteadorPagamento {
         if (reserva.emitir()) {
             idCobrancaExterna = emitir(reserva, forma, credencial);
             if (idCobrancaExterna == null) {
-                return DadosPagamentoResponse.emProcessamento(forma, reserva.valor(), reserva.vencimentoEnviado());
+                return DadosPagamentoResponse.emProcessamento(forma, reserva.valor(), reserva.vencimentoEnviado())
+                        .comRecebedor(nomeDaEscola(reserva.escolaId()));
             }
         } else {
             idCobrancaExterna = reserva.idCobrancaExterna();
@@ -162,7 +163,8 @@ class RoteadorPagamento {
                 alterarFormaEVencimento(reserva, forma, credencial);
             }
         }
-        return dadosDePagamento(reserva, forma, credencial, idCobrancaExterna);
+        return dadosDePagamento(reserva, forma, credencial, idCobrancaExterna)
+                .comRecebedor(nomeDaEscola(reserva.escolaId()));
     }
 
     /**
@@ -465,6 +467,11 @@ class RoteadorPagamento {
         BoletoProvedor boleto = provedor.chamar(p -> p.obterLinhaDigitavel(credencial, idCobrancaExterna));
         return DadosPagamentoResponse.comBoleto(reserva.valor(), reserva.vencimentoEnviado(),
                 new BoletoResponse(boleto.linhaDigitavel(), boleto.codigoBarras()));
+    }
+
+    /** A escola recebe o dinheiro da cobranca: a tela mostra para o pagador conferir o destino. */
+    private String nomeDaEscola(UUID escolaId) {
+        return escolaRepository.findById(escolaId).map(Escola::getNome).orElse(null);
     }
 
     private Cobranca recarregar(Reserva reserva) {

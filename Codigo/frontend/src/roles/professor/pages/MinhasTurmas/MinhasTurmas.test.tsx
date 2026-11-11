@@ -4,6 +4,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { simularApi } from '../../../../test/api'
 import { descreverHorarios } from '../../../../types/horario'
+import type { AvaliacaoResumo } from '../../../../types/dashboard'
 import type { TurmaDoProfessor } from '../../../../types/turmaProfessor'
 import { MinhasTurmas } from './MinhasTurmas'
 
@@ -32,9 +33,35 @@ const TURMA: TurmaDoProfessor = {
   ],
 }
 
-function abrir(turmas: TurmaDoProfessor[] = [TURMA]) {
+const PENDENTE: AvaliacaoResumo = {
+  id: 'av-9',
+  tipo: 'TAREFA',
+  titulo: 'Lista de exercícios',
+  data: '2026-11-03',
+  valor: 2,
+  turmaId: 7,
+  turmaNome: '2º ano A',
+  disciplinaId: 3,
+  disciplinaNome: 'Matemática',
+  notasFaltando: 4,
+}
+
+function abrir(turmas: TurmaDoProfessor[] = [TURMA], pendentes: AvaliacaoResumo[] = []) {
   simularApi(({ caminho }) => {
     if (caminho === '/portal/professor/turmas') return { corpo: turmas }
+    if (caminho === '/portal/professor/dashboard') {
+      return {
+        corpo: {
+          turmas: turmas.length,
+          disciplinas: 1,
+          alunos: 10,
+          avaliacoes: 3,
+          proximasAvaliacoes: [],
+          avaliacoesPendentes: pendentes,
+          aulasDaSemana: [],
+        },
+      }
+    }
     if (caminho === '/portal/professor/turmas/7/alunos') {
       return {
         corpo: [
@@ -101,6 +128,16 @@ describe('MinhasTurmas', () => {
 
     expect(await screen.findByText('Tela de avaliações')).toBeInTheDocument()
     expect(router.state.location.search).toBe('?turma=7&disciplina=3')
+  })
+
+  it('mostra as notas a lançar e leva direto à avaliação pendente', async () => {
+    const router = abrir([TURMA], [PENDENTE])
+
+    expect(await screen.findByText('1 avaliação com nota a lançar')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /lançar notas/i }))
+
+    expect(await screen.findByText('Tela de avaliações')).toBeInTheDocument()
+    expect(router.state.location.search).toBe('?turma=7&disciplina=3&avaliacao=av-9')
   })
 
   it('criar avaliação abre o cadastro com a turma do card', async () => {

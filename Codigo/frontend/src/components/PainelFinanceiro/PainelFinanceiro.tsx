@@ -1,13 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import type { PerfilUsuario } from '../../services/authService'
-import type {
-  AcaoRecente,
-  CobrancaDaSemana,
-  EntidadeAuditada,
-  MesFinanceiro,
-  OperacaoAuditoria,
-  PagamentoRecente,
-} from '../../types/dashboard'
+import { descreverAcao, ROTULOS_PERFIL } from '../../types/auditoria'
+import type { AcaoRecente, CobrancaDaSemana, MesFinanceiro, PagamentoRecente } from '../../types/dashboard'
 import { ROTULOS_FORMA_PAGAMENTO } from '../../types/pagamentoAluno'
 import { formatarDiaMes, formatarMoeda, formatarMoedaCompacta, hojeIso } from '../../utils/formatters'
 import { useCarregamento } from '../../hooks/useCarregamento'
@@ -32,44 +25,6 @@ const DIA_E_HORA = new Intl.DateTimeFormat('pt-BR', {
   hour: '2-digit',
   minute: '2-digit',
 })
-
-const ROTULOS_PERFIL: Record<PerfilUsuario, string> = {
-  SUPER_ADMIN: 'Eduka',
-  MASTER: 'Gestão',
-  SECRETARIA: 'Secretaria',
-  FINANCEIRO: 'Financeiro',
-  PROFESSOR: 'Professor',
-  ALUNO: 'Aluno',
-}
-
-const VERBOS: Record<OperacaoAuditoria, string> = {
-  CRIAR: 'Criou',
-  EDITAR: 'Editou',
-  CANCELAR: 'Cancelou',
-  PAGAR: 'Registrou o pagamento de',
-  CONFIRMAR_PAGAMENTO: 'Confirmou o pagamento de',
-  PAGO_APOS_CANCELAR: 'Recebeu o pagamento depois de cancelar',
-  ESTORNAR: 'Estornou',
-  CONTESTAR: 'Contestou',
-  ATIVAR: 'Ativou',
-  ALTERAR_SITUACAO: 'Alterou a situação de',
-}
-
-const OBJETOS: Record<EntidadeAuditada, string> = {
-  COBRANCA: 'uma cobrança',
-  PAGAMENTO: 'um pagamento',
-  DESPESA: 'uma despesa',
-  CONTA_RECEBIMENTO: 'a conta de recebimento',
-  FATURA_PLATAFORMA: 'uma fatura do Eduka',
-}
-
-/** "Registrou o pagamento de" + "uma cobrança"; "de a conta" vira "da conta". */
-function descreverAcao(acao: AcaoRecente): string {
-  const verbo = VERBOS[acao.operacao]
-  const objeto = OBJETOS[acao.entidade]
-  const contracao = verbo.endsWith(' de') && /^[ao] /.exec(objeto)
-  return contracao ? `${verbo.slice(0, -3)} d${objeto}` : `${verbo} ${objeto}`
-}
 
 /** "27/10 às 14:32", no fuso da escola. */
 function diaEHora(instante: string): string {
@@ -366,7 +321,7 @@ export function UltimasAcoes({ acoes }: { acoes: AcaoRecente[] }) {
                   {acao.usuarioId === null ? 'Asaas' : (acao.usuarioNome ?? 'Usuário sem nome')}
                   {acao.perfil && <span className={styles.perfil}> · {ROTULOS_PERFIL[acao.perfil]}</span>}
                 </strong>
-                <span className={styles.contexto}>{descreverAcao(acao)}</span>
+                <span className={styles.contexto}>{descreverAcao(acao.operacao, acao.entidade)}</span>
               </div>
               <span className={styles.hora}>{diaEHora(acao.dataHora)}</span>
             </li>

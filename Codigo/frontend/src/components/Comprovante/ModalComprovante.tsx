@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { formatarData } from '../../roles/secretaria/components/PainelSecretaria/formatacao'
 import { ApiError } from '../../services/api'
 import type { Comprovante } from '../../types/faturaPlataforma'
@@ -13,10 +13,12 @@ type ModalComprovanteProps = {
   /** Busca o comprovante (rota do perfil que está vendo). */
   buscar: () => Promise<Comprovante>
   onFechar: () => void
+  /** Mensagem acima do comprovante, ex.: o pagamento que acabou de ser confirmado. */
+  aviso?: ReactNode
 }
 
 /** Comprovante de pagamento montado pelo Eduka (R30): nada vem da página do provedor. */
-export function ModalComprovante({ buscar, onFechar }: ModalComprovanteProps) {
+export function ModalComprovante({ buscar, onFechar, aviso }: ModalComprovanteProps) {
   const [comprovante, setComprovante] = useState<Comprovante | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -57,6 +59,7 @@ export function ModalComprovante({ buscar, onFechar }: ModalComprovanteProps) {
         </>
       }
     >
+      {aviso}
       {!comprovante && !erro && <ModalAviso>Carregando o comprovante…</ModalAviso>}
       {erro && <ModalAlerta>{erro}</ModalAlerta>}
       {comprovante && (

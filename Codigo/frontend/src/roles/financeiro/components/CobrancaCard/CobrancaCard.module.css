@@ -67,6 +67,28 @@
   white-space: nowrap;
 }
 
+/* Risco de atraso do aluno: o nível e o motivo, abaixo da descrição. */
+.risco {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 3px;
+}
+
+.risco > :first-child {
+  flex-shrink: 0;
+}
+
+.motivoRisco {
+  min-width: 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .infoDireita {
   display: flex;
   align-items: center;

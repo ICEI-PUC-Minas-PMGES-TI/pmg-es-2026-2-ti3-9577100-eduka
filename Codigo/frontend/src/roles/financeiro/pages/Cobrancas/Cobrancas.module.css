@@ -161,3 +161,20 @@
   font-weight: 500;
   animation: var(--animacao-surgir);
 }
+
+/* Filtro por aluno, vindo da aba Financeiro do aluno (?aluno=). */
+.filtroAluno {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 12px 20px;
+  border: var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  color: var(--color-text);
+  font-size: 14.5px;
+}

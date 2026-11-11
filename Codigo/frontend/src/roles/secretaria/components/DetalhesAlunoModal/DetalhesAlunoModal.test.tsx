@@ -1,9 +1,10 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ACCESS_TOKEN_KEY } from '../../../../services/api'
 import { problema, simularApi, type ChamadaApi, type RespostaApi } from '../../../../test/api'
+import { logarComo } from '../../../../test/sessao'
 import type { Aluno } from '../../../../types/aluno'
+import type { Matricula } from '../../../../types/matricula'
 import { nomeDoPdfDeDadosPessoais } from '../../../../utils/arquivos'
 import { DetalhesAlunoModal } from './DetalhesAlunoModal'
 
@@ -21,16 +22,11 @@ const ANA: Aluno = {
   situacao: null,
 }
 
-/** JWT só com o payload que o front lê (sub e perfil); a assinatura não é conferida no cliente. */
-function logarComo(perfil: string) {
-  const payload = btoa(JSON.stringify({ sub: 'usuario-1', perfil })).replace(/=+$/, '')
-  localStorage.setItem(ACCESS_TOKEN_KEY, `cabecalho.${payload}.assinatura`)
-}
-
 function abrir(responder: (chamada: ChamadaApi) => RespostaApi | undefined, anonimizado = false) {
   const chamadas = simularApi((chamada) => {
     if (chamada.caminho === '/alunos/ana') return { corpo: anonimizado ? { ...ANA, situacao: 'ANONIMIZADO' } : ANA }
     if (chamada.caminho.startsWith('/alunos/ana/financeiro')) return { corpo: null }
+    if (chamada.caminho === '/matriculas?alunoId=ana') return { corpo: [] }
     return responder(chamada)
   })
   const onAnonimizado = vi.fn()
@@ -119,5 +115,65 @@ describe('Detalhes do aluno: dados pessoais (LGPD)', () => {
     expect(nomeDoPdfDeDadosPessoais('Ana Souza Lima Ñúñez', new Date(2026, 10, 8))).toBe(
       'dados-do-aluno-ana-souza-lima-nunez-2026-11-08.pdf',
     )
+  })
+})
+
+function matricula(id: string, status: Matricula['status'], turmaNome: string, cursoNome: string): Matricula {
+  return {
+    id,
+    alunoId: 'ana',
+    alunoNome: 'Ana Souza',
+    alunoNumeroMatricula: '2026001',
+    turmaId: 1,
+    turmaNome,
+    turno: 'MATUTINO',
+    periodoLetivoId: 1,
+    periodoLetivoNome: '2026/2',
+    cursoId: 1,
+    cursoNome,
+    status,
+    dataMatricula: '2026-02-01',
+    observacao: null,
+    criadoEm: '2026-02-01T12:00:00Z',
+    atualizadoEm: null,
+  }
+}
+
+describe('Detalhes do aluno: identificação (IU18, campo 1)', () => {
+  it('mostra a turma e o curso da matrícula ativa, não os de uma já concluída', async () => {
+    simularApi(({ caminho }) => {
+      if (caminho === '/alunos/ana') return { corpo: ANA }
+      if (caminho === '/matriculas?alunoId=ana') {
+        return {
+          corpo: [
+            matricula('m-antiga', 'CONCLUIDA', '1º ano A', 'Ensino Fundamental'),
+            matricula('m-atual', 'ATIVA', '2º ano A', 'Ensino Médio'),
+          ],
+        }
+      }
+      return undefined
+    })
+    render(
+      <DetalhesAlunoModal
+        aluno={{ id: 'ana', nome: 'Ana Souza', matricula: '2026001', genero: null, turmaNome: '2º ano A' }}
+        onFechar={() => undefined}
+      />,
+    )
+
+    expect(await screen.findByText('Matrícula 2026001 · 2º ano A · Ensino Médio')).toBeInTheDocument()
+  })
+
+  it('sem turma na lista, não busca matrícula e mostra só o número', async () => {
+    const chamadas = simularApi(({ caminho }) => (caminho === '/alunos/ana' ? { corpo: ANA } : undefined))
+    render(
+      <DetalhesAlunoModal
+        aluno={{ id: 'ana', nome: 'Ana Souza', matricula: '2026001', genero: null, turmaNome: null }}
+        onFechar={() => undefined}
+      />,
+    )
+
+    await screen.findByText('529.982.247-25')
+    expect(screen.getByText('Matrícula 2026001')).toBeInTheDocument()
+    expect(chamadas.some((c) => c.caminho.startsWith('/matriculas'))).toBe(false)
   })
 })

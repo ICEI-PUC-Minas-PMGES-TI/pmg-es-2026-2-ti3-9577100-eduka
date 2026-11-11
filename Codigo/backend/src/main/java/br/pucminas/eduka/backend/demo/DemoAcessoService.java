@@ -54,8 +54,8 @@ public class DemoAcessoService {
                             "marcos.teixeira@mock.eduka.com.br"),
                     new Conta(PerfilUsuario.PROFESSOR, "Professora · Ana Paula Ribeiro",
                             "ana.ribeiro@mock.eduka.com.br"),
-                    new Conta(PerfilUsuario.ALUNO, "Aluna · Laura Fernandes (6º ano)",
-                            "laura.fernandes@mock.eduka.com.br")));
+                    new Conta(PerfilUsuario.ALUNO, "Aluna · Valentina Martins (6º ano)",
+                            "valentina.martins@mock.eduka.com.br")));
 
     private static final Logger log = LoggerFactory.getLogger(DemoAcessoService.class);
 
