@@ -62,6 +62,7 @@ class MatrizDeAcessoTest {
     private static final Set<PerfilUsuario> EQUIPE = EnumSet.of(MASTER, SECRETARIA, FINANCEIRO, PROFESSOR);
     private static final Set<PerfilUsuario> SO_PROFESSOR = EnumSet.of(PROFESSOR);
     private static final Set<PerfilUsuario> SO_ALUNO = EnumSet.of(ALUNO);
+    private static final Set<PerfilUsuario> TODOS = EnumSet.allOf(PerfilUsuario.class);
 
     /** Sem token: conferem credencial, token do provedor ou o acesso de demonstracao. */
     private static final Set<String> PUBLICAS = Set.of(
@@ -247,6 +248,11 @@ class MatrizDeAcessoTest {
                 "POST /portal/aluno/cobrancas/{id}/sandbox/pagar",
                 "POST /portal/aluno/correcoes",
                 "GET /portal/aluno/correcoes/aberta");
+
+        // Aviso de privacidade (IU29): todo usuario logado le e aceita, inclusive o SUPER_ADMIN.
+        libera(matriz, TODOS,
+                "GET /privacidade/aviso",
+                "POST /privacidade/aceite");
 
         return matriz;
     }

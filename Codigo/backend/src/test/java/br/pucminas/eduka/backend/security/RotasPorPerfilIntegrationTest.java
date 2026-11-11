@@ -84,12 +84,16 @@ class RotasPorPerfilIntegrationTest {
     @EnumSource(RotasPorPerfil.class)
     void raizDoModuloTambemEhProtegida(RotasPorPerfil modulo) throws Exception {
         String raiz = modulo.prefixos().getFirst();
-        PerfilUsuario semAcesso = Arrays.stream(PerfilUsuario.values())
+        var semAcesso = Arrays.stream(PerfilUsuario.values())
                 .filter(p -> !modulo.perfis().contains(p))
-                .findFirst()
-                .orElseThrow();
+                .findFirst();
 
-        mockMvc.perform(get(raiz).header(HttpHeaders.AUTHORIZATION, bearer(semAcesso)))
+        if (semAcesso.isEmpty()) {
+            // Modulo aberto a todos os perfis (ex.: PRIVACIDADE): a protecao que resta e exigir o token.
+            mockMvc.perform(get(raiz)).andExpect(status().isUnauthorized());
+            return;
+        }
+        mockMvc.perform(get(raiz).header(HttpHeaders.AUTHORIZATION, bearer(semAcesso.get())))
                 .andExpect(status().isForbidden());
     }
 

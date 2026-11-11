@@ -228,6 +228,8 @@ todas.
 | `POST` | `/login/codigo` (confere o código de 6 dígitos e devolve os tokens) | público |
 | `POST` | `/login/codigo/reenvio` (troca o código; 429 se pedir cedo demais ou passar do limite de envios) | público |
 | `POST` | `/primeiro-acesso` (troca a senha provisória pela definitiva) | público |
+| `GET` | `/privacidade/aviso` (aviso de privacidade em vigor, com versão, resumo e texto completo, e `aceitoEm` do usuário logado; nulo enquanto não aceitou) | qualquer perfil logado |
+| `POST` | `/privacidade/aceite` (grava o aceite da versão em vigor com a data; repetir devolve o mesmo; 400 se a versão enviada não é a em vigor) | qualquer perfil logado |
 | `GET` | `/escolas` · `/escolas/{id}` | `SUPER_ADMIN` |
 | `POST` | `/escolas` | `SUPER_ADMIN` |
 | `PUT` | `/escolas/{id}` | `SUPER_ADMIN` |

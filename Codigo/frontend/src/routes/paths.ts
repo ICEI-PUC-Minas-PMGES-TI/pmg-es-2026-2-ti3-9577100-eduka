@@ -14,6 +14,8 @@ export const paths = {
   loginDemo: '/login/demo',
   /** Aviso para quem é de uma escola suspensa (IU04). */
   acessoSuspenso: '/acesso-suspenso',
+  /** Aviso de privacidade e aceite, depois do login e antes do painel (IU29). */
+  avisoPrivacidade: '/aviso-de-privacidade',
   superAdmin: {
     raiz: '/super-admin',
     /** Atalho antigo: redireciona para loginAdmin. */

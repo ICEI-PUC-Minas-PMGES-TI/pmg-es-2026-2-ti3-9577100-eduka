@@ -1,0 +1,191 @@
+/* Mesmo cartão de vidro centralizado do aviso de suspensão (IU04). */
+.page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px 16px;
+}
+
+.logo {
+  height: 36px;
+  margin-bottom: 24px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 600px;
+  padding: 40px 36px 32px;
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  border-radius: 36px;
+  background: var(--glass-bg);
+  box-shadow: 0 24px 60px rgba(150, 103, 224, 0.16), inset 0 2px 0 rgba(255, 255, 255, 0.95);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  animation: var(--animacao-entrar);
+}
+
+.icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.titulo {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  text-align: center;
+}
+
+.texto {
+  color: var(--color-text-muted);
+  font-size: 15px;
+  text-align: center;
+}
+
+.resumo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 14.5px;
+}
+
+.item strong {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+
+.itemIcone {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg-tint);
+  color: var(--color-primary-text);
+}
+
+.itemTexto {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.versao {
+  color: var(--color-text-subtle);
+  font-size: 13px;
+}
+
+.lerCompleto {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--color-primary-text);
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.lerCompleto:hover {
+  text-decoration: underline;
+}
+
+.confirmacao {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  align-self: stretch;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.82);
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.confirmacao input {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+}
+
+.acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  align-self: stretch;
+  margin-top: 4px;
+}
+
+/* Texto completo, dentro do modal. */
+.completo {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  color: var(--color-text);
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+.completo h2 {
+  margin-bottom: 6px;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.completo p + p {
+  margin-top: 8px;
+}
+
+@media (max-width: 520px) {
+  .card {
+    padding: 28px 18px 24px;
+    border-radius: 28px;
+  }
+
+  .acoes {
+    flex-direction: column-reverse;
+  }
+
+  .acoes > button {
+    width: 100%;
+  }
+}
