@@ -26,7 +26,7 @@ const grupos: { titulo: string; descricao: string; seFaltar: string; contas: Con
       { perfil: 'SECRETARIA', rotulo: 'Secretaria · Patrícia Andrade', login: 'patricia.andrade@mock.eduka.com.br', senha: SENHA_MOCK, icon: 'book' },
       { perfil: 'FINANCEIRO', rotulo: 'Financeiro · Marcos Teixeira', login: 'marcos.teixeira@mock.eduka.com.br', senha: SENHA_MOCK, icon: 'card' },
       { perfil: 'PROFESSOR', rotulo: 'Professora · Ana Paula Ribeiro', login: 'ana.ribeiro@mock.eduka.com.br', senha: SENHA_MOCK, icon: 'graduationCap' },
-      { perfil: 'ALUNO', rotulo: 'Aluna · Laura Fernandes (6º ano)', login: 'laura.fernandes@mock.eduka.com.br', senha: SENHA_MOCK, icon: 'users' },
+      { perfil: 'ALUNO', rotulo: 'Aluna · Valentina Martins (6º ano)', login: 'valentina.martins@mock.eduka.com.br', senha: SENHA_MOCK, icon: 'users' },
     ],
   },
   {
