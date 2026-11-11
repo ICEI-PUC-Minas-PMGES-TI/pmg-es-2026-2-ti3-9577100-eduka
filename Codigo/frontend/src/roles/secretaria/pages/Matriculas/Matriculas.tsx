@@ -32,6 +32,9 @@ const FILTROS: { valor: StatusMatricula | ''; rotulo: string }[] = [
   { valor: 'CONCLUIDA', rotulo: 'Concluídas' },
 ]
 
+/** Abas do painel da turma: quem já está nela e quem pode entrar. */
+type AbaTurma = 'alunos' | 'matricular'
+
 // Estável: o useCarregamento pede o valor inicial sempre igual.
 const SEM_MATRICULAS: Matricula[] = []
 
@@ -45,6 +48,7 @@ export function Matriculas() {
   const { turmas, alunos, resumo, carregando, erro, recarregar, atualizarContagens } = useMatriculas()
   const [turmaId, setTurmaId] = useState<number | null>(null)
   const [filtro, setFiltro] = useState<StatusMatricula | ''>('')
+  const [aba, setAba] = useState<AbaTurma>('alunos')
   const [alterando, setAlterando] = useState<Matricula | null>(null)
   const [vendo, setVendo] = useState<Matricula | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(null)
@@ -71,6 +75,9 @@ export function Matriculas() {
       : daTurma.filter((m) => m.status === 'ATIVA').length
   const ativasPorTurma = new Map(turmas.map((t) => [t.id, t.id === turma?.id ? ativas : t.matriculasAtivas]))
   const vagasLivres = turma ? Math.max(turma.vagas - ativas, 0) : 0
+  // Quem pode entrar na turma: sem registro nela e com cadastro ativo (o mesmo corte da aba Matricular).
+  const naTurma = new Set(daTurma.map((m) => m.alunoId))
+  const paraMatricular = alunos.filter((a) => !naTurma.has(a.id) && a.situacao !== 'ANONIMIZADO').length
 
   // Resumo da escola inteira, acima da turma escolhida, contado no backend.
   const totalAtivas = resumo?.matriculasPorSituacao.ATIVA ?? 0
@@ -110,7 +117,12 @@ export function Matriculas() {
   }
 
   function handleMatriculados({ matriculados, falhas }: ResultadoMatriculas) {
-    if (matriculados.length > 0) atualizarContagens()
+    if (matriculados.length > 0) {
+      atualizarContagens()
+      // Mostra o resultado: os recém-matriculados na lista da turma.
+      setFiltro('')
+      setAba('alunos')
+    }
     setSucesso(
       matriculados.length > 0
         ? `${matriculados.length} ${plural(matriculados.length, 'aluno matriculado', 'alunos matriculados')} na turma ${turma?.nome}.`
@@ -176,8 +188,8 @@ export function Matriculas() {
             />
           </div>
 
-          <div className={styles.painel}>
-            <section className={styles.cabecalho} aria-label={`Turma ${turma.nome}`}>
+          <section className={styles.painel} aria-label={`Turma ${turma.nome}`}>
+            <header className={styles.cabecalho}>
               <div className={styles.turmaInfo}>
                 <h2 className={styles.turmaNome}>Turma {turma.nome}</h2>
                 <span className={styles.turmaDetalhes}>
@@ -197,7 +209,30 @@ export function Matriculas() {
                   <dd className={vagasLivres === 0 ? styles.esgotado : undefined}>{vagasLivres}</dd>
                 </div>
               </dl>
-            </section>
+            </header>
+
+            <div className={styles.abas} role="tablist" aria-label={`Alunos da turma ${turma.nome}`}>
+              {(
+                [
+                  { id: 'alunos', rotulo: 'Alunos da turma', quantidade: daTurma.length },
+                  { id: 'matricular', rotulo: 'Matricular alunos', quantidade: paraMatricular },
+                ] as const
+              ).map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  role="tab"
+                  id={`aba-turma-${a.id}`}
+                  aria-selected={aba === a.id}
+                  aria-controls="painel-turma"
+                  className={`${styles.aba} ${aba === a.id ? styles.abaAtiva : ''}`}
+                  onClick={() => setAba(a.id)}
+                >
+                  {a.rotulo}
+                  <span className={styles.abaQuantidade}>{a.quantidade}</span>
+                </button>
+              ))}
+            </div>
 
             {sucesso && (
               <p className={styles.sucesso} role="status">
@@ -210,65 +245,69 @@ export function Matriculas() {
               </p>
             )}
 
-            <MatricularAlunos
-              // Remonta ao trocar de turma, para não levar a seleção da anterior.
-              key={turma.id}
-              turma={turma}
-              alunos={alunos}
-              matriculasDaTurma={daTurma}
-              vagasLivres={vagasLivres}
-              onMatricular={matricular}
-              onConcluido={handleMatriculados}
-            />
+            <div id="painel-turma" role="tabpanel" aria-labelledby={`aba-turma-${aba}`} className={styles.conteudo}>
+              {aba === 'matricular' ? (
+                <MatricularAlunos
+                  // Remonta ao trocar de turma, para não levar a seleção da anterior.
+                  key={turma.id}
+                  turma={turma}
+                  alunos={alunos}
+                  matriculasDaTurma={daTurma}
+                  vagasLivres={vagasLivres}
+                  onMatricular={matricular}
+                  onConcluido={handleMatriculados}
+                />
+              ) : (
+                <>
+                  <div className={styles.filtros} role="group" aria-label="Filtrar por situação">
+                    {FILTROS.map((f) => {
+                      const quantidade = f.valor ? daTurma.filter((m) => m.status === f.valor).length : daTurma.length
+                      return (
+                        <button
+                          key={f.rotulo}
+                          type="button"
+                          aria-pressed={filtro === f.valor}
+                          className={`${styles.filtro} ${filtro === f.valor ? styles.filtroAtivo : ''}`}
+                          onClick={() => setFiltro(f.valor)}
+                        >
+                          {f.rotulo}
+                          <span className={styles.filtroQuantidade}>{quantidade}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
 
-            <h3 className={styles.secaoTitulo}>Matrículas da turma</h3>
-
-            <div className={styles.filtros} role="group" aria-label="Filtrar por situação">
-              {FILTROS.map((f) => {
-                const quantidade = f.valor ? daTurma.filter((m) => m.status === f.valor).length : daTurma.length
-                return (
-                  <button
-                    key={f.rotulo}
-                    type="button"
-                    aria-pressed={filtro === f.valor}
-                    className={`${styles.filtro} ${filtro === f.valor ? styles.filtroAtivo : ''}`}
-                    onClick={() => setFiltro(f.valor)}
-                  >
-                    {f.rotulo}
-                    <span className={styles.filtroQuantidade}>{quantidade}</span>
-                  </button>
-                )
-              })}
+                  {daTurmaCarregadas.carregando ? (
+                    <p className={styles.estadoSecao} role="status">
+                      Carregando as matrículas da turma…
+                    </p>
+                  ) : daTurmaCarregadas.erro ? (
+                    <div className={styles.estadoSecao}>
+                      <span>{daTurmaCarregadas.erro}</span>
+                      <Button size="sm" onClick={daTurmaCarregadas.recarregar}>
+                        Tentar novamente
+                      </Button>
+                    </div>
+                  ) : (
+                    <MatriculasTable
+                      matriculas={visiveis}
+                      reiniciarCom={`${turma.id}|${filtro}`}
+                      mensagemVazia={
+                        daTurma.length === 0
+                          ? 'Nenhum aluno matriculado nesta turma ainda.'
+                          : `Nenhuma matrícula ${filtro ? ROTULOS_STATUS_MATRICULA[filtro].toLowerCase() : ''} nesta turma.`
+                      }
+                      onVer={setVendo}
+                      onAlterar={(m) => {
+                        limparAvisos()
+                        setAlterando(m)
+                      }}
+                    />
+                  )}
+                </>
+              )}
             </div>
-
-            {daTurmaCarregadas.carregando ? (
-              <p className={styles.estado} role="status">
-                Carregando as matrículas da turma…
-              </p>
-            ) : daTurmaCarregadas.erro ? (
-              <div className={styles.estado}>
-                <span>{daTurmaCarregadas.erro}</span>
-                <Button size="sm" onClick={daTurmaCarregadas.recarregar}>
-                  Tentar novamente
-                </Button>
-              </div>
-            ) : (
-              <MatriculasTable
-                matriculas={visiveis}
-                reiniciarCom={`${turma.id}|${filtro}`}
-                mensagemVazia={
-                  daTurma.length === 0
-                    ? 'Nenhum aluno matriculado nesta turma ainda.'
-                    : `Nenhuma matrícula ${filtro ? ROTULOS_STATUS_MATRICULA[filtro].toLowerCase() : ''} nesta turma.`
-                }
-                onVer={setVendo}
-                onAlterar={(m) => {
-                  limparAvisos()
-                  setAlterando(m)
-                }}
-              />
-            )}
-          </div>
+          </section>
         </div>
       )}
 

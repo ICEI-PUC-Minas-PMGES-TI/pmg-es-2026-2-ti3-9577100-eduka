@@ -14,11 +14,16 @@ type MatriculasTableProps = {
   onAlterar: (matricula: Matricula) => void
 }
 
-/** Alunos de uma turma, com a situação da matrícula e a ação de alterar. */
+/**
+ * Alunos de uma turma, com a situação da matrícula e as ações de ver e
+ * alterar. Fica dentro do cartão "Matrículas da turma", sem cartão próprio. A
+ * observação, quase sempre vazia, aparece embaixo do nome em vez de ocupar
+ * uma coluna.
+ */
 export function MatriculasTable({ matriculas, mensagemVazia, reiniciarCom, onVer, onAlterar }: MatriculasTableProps) {
   return (
     <Tabela
-      colunas={['Aluno', 'Matriculado em', 'Situação', 'Observação', '']}
+      colunas={['Aluno', 'Matriculado em', 'Situação', '']}
       vazio={mensagemVazia}
       rotuloPaginacao="Páginas das matrículas"
       reiniciarCom={reiniciarCom}
@@ -28,16 +33,11 @@ export function MatriculasTable({ matriculas, mensagemVazia, reiniciarCom, onVer
           <td className={styles.aluno}>
             <span className={styles.nome}>{m.alunoNome ?? '—'}</span>
             <span className={styles.numero}>Nº {m.alunoNumeroMatricula}</span>
+            {m.observacao && <span className={styles.observacao}>{m.observacao}</span>}
           </td>
-          {/* data-rotulo: no card estreito, as colunas viram linhas e o rótulo vai junto. */}
-          <td className={styles.data} data-rotulo="Matriculado em">
-            {formatarData(m.dataMatricula)}
-          </td>
+          <td className={styles.data}>{formatarData(m.dataMatricula)}</td>
           <td className={styles.situacao}>
             <Badge tone={TOM_DO_STATUS[m.status]}>{ROTULOS_STATUS_MATRICULA[m.status]}</Badge>
-          </td>
-          <td className={styles.observacao} data-rotulo="Observação">
-            {m.observacao ?? '—'}
           </td>
           <td className={styles.acoes}>
             <div className={styles.botoes}>

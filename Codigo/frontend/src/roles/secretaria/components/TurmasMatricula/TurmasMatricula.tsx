@@ -31,50 +31,52 @@ export function TurmasMatricula({ turmas, turmaSelecionadaId, ativasPorTurma, on
             Turmas de {grupo.periodo}
             <span className={styles.quantidade}>{grupo.turmas.length}</span>
           </h2>
-          {grupo.turmas.map((turma) => {
-            const ativas = ativasPorTurma.get(turma.id) ?? 0
-            const cheia = ativas >= turma.vagas
-            const selecionada = turma.id === turmaSelecionadaId
-            const classes = [
-              styles.cartao,
-              selecionada && styles.selecionado,
-              !turma.ativa && styles.inativa,
-            ]
-              .filter(Boolean)
-              .join(' ')
-            return (
-              <button
-                key={turma.id}
-                type="button"
-                className={classes}
-                aria-pressed={selecionada}
-                onClick={() => onSelecionar(turma)}
-              >
-                <span className={styles.linha}>
-                  <span className={styles.info}>
-                    <strong className={styles.nome}>{turma.nome}</strong>
-                    <span className={styles.detalhes}>
-                      {[turma.cursoNome, ROTULOS_TURNO[turma.turno], !turma.ativa && 'Inativa']
-                        .filter(Boolean)
-                        .join(' · ')}
+          <div className={styles.cartoes}>
+            {grupo.turmas.map((turma) => {
+              const ativas = ativasPorTurma.get(turma.id) ?? 0
+              const cheia = ativas >= turma.vagas
+              const selecionada = turma.id === turmaSelecionadaId
+              const classes = [
+                styles.cartao,
+                selecionada && styles.selecionado,
+                !turma.ativa && styles.inativa,
+              ]
+                .filter(Boolean)
+                .join(' ')
+              return (
+                <button
+                  key={turma.id}
+                  type="button"
+                  className={classes}
+                  aria-pressed={selecionada}
+                  onClick={() => onSelecionar(turma)}
+                >
+                  <span className={styles.linha}>
+                    <span className={styles.info}>
+                      <strong className={styles.nome}>{turma.nome}</strong>
+                      <span className={styles.detalhes}>
+                        {[turma.cursoNome, ROTULOS_TURNO[turma.turno], !turma.ativa && 'Inativa']
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </span>
+                    </span>
+                    <span className={`${styles.contador} ${cheia ? styles.cheia : ''}`}>
+                      <strong>{ativas}</strong>/{turma.vagas}
                     </span>
                   </span>
-                  <span className={`${styles.contador} ${cheia ? styles.cheia : ''}`}>
-                    <strong>{ativas}</strong>/{turma.vagas}
+                  <span className={styles.trilho} aria-hidden="true">
+                    <span
+                      className={`${styles.barra} ${cheia ? styles.barraCheia : ''}`}
+                      style={{ width: `${turma.vagas > 0 ? Math.min(ativas / turma.vagas, 1) * 100 : 100}%` }}
+                    />
                   </span>
-                </span>
-                <span className={styles.trilho} aria-hidden="true">
-                  <span
-                    className={`${styles.barra} ${cheia ? styles.barraCheia : ''}`}
-                    style={{ width: `${turma.vagas > 0 ? Math.min(ativas / turma.vagas, 1) * 100 : 100}%` }}
-                  />
-                </span>
-                <span className={styles.oculto}>
-                  {ativas} de {turma.vagas} vagas ocupadas
-                </span>
-              </button>
-            )
-          })}
+                  <span className={styles.oculto}>
+                    {ativas} de {turma.vagas} vagas ocupadas
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </section>
       ))}
     </div>
