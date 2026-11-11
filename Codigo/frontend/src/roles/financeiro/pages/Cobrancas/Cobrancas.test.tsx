@@ -2,8 +2,9 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { problema, simularApi, type ChamadaApi } from '../../../../test/api'
+import { problema, simularApi, type ChamadaApi, type RespostaApi } from '../../../../test/api'
 import type { Cobranca, PaginaCobrancas, StatusCobranca } from '../../../../types/cobranca'
+import type { RiscoAtraso } from '../../../../types/riscoAtraso'
 import { Cobrancas } from './Cobrancas'
 
 function cobranca(n: number, status: StatusCobranca = 'PENDENTE'): Cobranca {
@@ -68,9 +69,38 @@ function Destino() {
   return <p>Destino: {pathname + search}</p>
 }
 
-function abrir(cobrancas: Cobranca[], rota = '/financeiro/cobrancas'): ChamadaApi[] {
+const RISCOS = '/cobrancas/risco-atraso?nivelMinimo=MEDIO'
+
+function risco(alunoId: string, nivel: RiscoAtraso['nivel'], motivo: string): RiscoAtraso {
+  return {
+    alunoId,
+    alunoNome: null,
+    alunoNumeroMatricula: '2026',
+    nivel,
+    pontos: nivel === 'ALTO' ? 5 : 2,
+    motivo,
+    indicadores: {
+      desde: '2025-11-11',
+      cobrancasVencidas: 3,
+      atrasos: 2,
+      atrasosPagos: 1,
+      atrasosEmAberto: 1,
+      diasMediosAtraso: 20,
+      valorEmAtraso: 500,
+      valorEmAberto: 500,
+    },
+    fatores: [],
+  }
+}
+
+function abrir(
+  cobrancas: Cobranca[],
+  rota = '/financeiro/cobrancas',
+  riscos: RespostaApi = { corpo: [] },
+): ChamadaApi[] {
   const chamadas = simularApi(({ caminho }) => {
     if (caminho.startsWith('/cobrancas/pagina?')) return { corpo: paginaDe(cobrancas, caminho) }
+    if (caminho === RISCOS) return riscos
     if (caminho === '/alunos/aluno-2') return { corpo: { id: 'aluno-2', nome: 'Aluno 02', matricula: '20262' } }
     return undefined
   })
@@ -85,9 +115,10 @@ function abrir(cobrancas: Cobranca[], rota = '/financeiro/cobrancas'): ChamadaAp
   return chamadas
 }
 
-/** Parâmetros da última consulta feita ao backend. */
+/** Parâmetros da última consulta à página de cobranças. */
 function ultimaConsulta(chamadas: ChamadaApi[]) {
-  return Object.fromEntries(new URL(chamadas[chamadas.length - 1].caminho, 'http://teste').searchParams)
+  const paginas = chamadas.filter((c) => c.caminho.startsWith('/cobrancas/pagina?'))
+  return Object.fromEntries(new URL(paginas[paginas.length - 1].caminho, 'http://teste').searchParams)
 }
 
 /** Botão de abrir/fechar do card, pelo nome do aluno. */
@@ -99,6 +130,33 @@ describe('Cobrancas', () => {
   // Trocar de página rola até o topo da lista; o jsdom não tem scrollIntoView.
   beforeEach(() => {
     Element.prototype.scrollIntoView = vi.fn()
+  })
+
+  it('mostra o risco de atraso com o motivo nas cobranças em aberto do aluno', async () => {
+    abrir([cobranca(1), cobranca(2, 'EM_ATRASO'), cobranca(3, 'PAGA'), cobranca(4)], undefined, {
+      corpo: [
+        risco('aluno-1', 'ALTO', 'Atraso médio de 40 dias; R$ 500,00 vencidos em aberto'),
+        risco('aluno-2', 'MEDIO', '2 atrasos nos últimos 12 meses (2 pagos com atraso)'),
+        risco('aluno-3', 'ALTO', 'Risco de quem já pagou'),
+      ],
+    })
+
+    // O risco chega à parte da lista: espera o badge aparecer.
+    expect(await within(await screen.findByRole('button', { name: /Aluno 01/ })).findByText('Risco alto')).toBeInTheDocument()
+    expect(within(card('Aluno 01')).getByText(/Atraso médio de 40 dias/)).toBeInTheDocument()
+    expect(within(card('Aluno 02')).getByText('Risco médio')).toBeInTheDocument()
+    expect(within(card('Aluno 02')).getByText(/2 pagos com atraso/)).toBeInTheDocument()
+    // Cobrança paga não mostra o risco; aluno sem risco médio ou alto também não.
+    expect(screen.queryByText('Risco de quem já pagou')).not.toBeInTheDocument()
+    expect(within(card('Aluno 04')).queryByText(/^Risco/)).not.toBeInTheDocument()
+  })
+
+  it('sem o risco, a lista aparece do mesmo jeito', async () => {
+    abrir([cobranca(1)], undefined, problema(500, 'ERRO_INTERNO'))
+
+    expect(await screen.findByText('Aluno 01')).toBeInTheDocument()
+    expect(screen.queryByText(/^Risco/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('pede ao backend só a página que mostra, 10 por vez', async () => {
