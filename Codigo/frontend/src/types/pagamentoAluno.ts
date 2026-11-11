@@ -130,4 +130,6 @@ export type DadosPagamento = {
   vencimento: string
   pix: DadosPix | null
   boleto: DadosBoleto | null
+  /** Quem recebe o dinheiro (a escola); nulo quando o backend não informa. */
+  recebedorNome?: string | null
 }

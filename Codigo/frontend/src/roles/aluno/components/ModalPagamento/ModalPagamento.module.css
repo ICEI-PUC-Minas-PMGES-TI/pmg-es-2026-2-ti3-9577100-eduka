@@ -245,3 +245,28 @@
   color: var(--color-text-muted);
   font-size: 13px;
 }
+
+/* Valor, quem recebe e a situação do pagamento, no topo do PIX e do boleto. */
+.situacao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.situacao strong {
+  color: var(--color-text);
+}
+
+.valorDestino {
+  margin: 4px 0 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.valorDestino strong {
+  color: var(--color-text);
+}

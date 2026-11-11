@@ -202,6 +202,17 @@ class RoteadorPagamentoTest {
     }
 
     @Test
+    void osDadosDePagamentoDizemQueEscolaRecebe() {
+        Escola escola = mock(Escola.class);
+        when(escola.getNome()).thenReturn("Escola Aurora");
+        when(escolaRepository.findById(ESCOLA)).thenReturn(Optional.of(escola));
+
+        DadosPagamentoResponse dados = roteador(AGORA).pagarCobranca(COBRANCA, FormaPagamento.BOLETO);
+
+        assertThat(dados.recebedorNome()).isEqualTo("Escola Aurora");
+    }
+
+    @Test
     void travaEmEmitindoAntesDeChamarOProvedor() {
         SituacaoProvedor[] situacaoNaChamada = new SituacaoProvedor[1];
         when(provider.criarCobranca(eq(CREDENCIAL), any())).thenAnswer(i -> {
