@@ -12,7 +12,12 @@ import { useRotasFinanceiras } from '../../../../routes/areas'
 import { type EstadoCobrancaCriada } from '../../../../routes/paths'
 import { buscarAluno } from '../../../../services/alunoService'
 import { ApiError } from '../../../../services/api'
-import { buscarComprovanteDaCobranca, cancelarCobranca, listarCobrancas } from '../../../../services/cobrancaService'
+import {
+  buscarComprovanteDaCobranca,
+  cancelarCobranca,
+  listarCobrancas,
+  listarRiscoAtraso,
+} from '../../../../services/cobrancaService'
 import {
   atalhosSandboxHabilitados,
   mensagemErroSandbox,
@@ -20,6 +25,7 @@ import {
 } from '../../../../services/sandboxService'
 import type { Aluno } from '../../../../types/aluno'
 import type { Cobranca, FiltroCobranca, PaginaCobrancas, StatusCobranca } from '../../../../types/cobranca'
+import type { RiscoAtraso } from '../../../../types/riscoAtraso'
 import { CobrancaCard } from '../../components/CobrancaCard/CobrancaCard'
 import { CobrancaDetalhe, type MensagemSandbox } from '../../components/CobrancaDetalhe/CobrancaDetalhe'
 import { ModalEditarCobranca } from '../../components/ModalEditarCobranca/ModalEditarCobranca'
@@ -51,6 +57,17 @@ function mensagemErroCancelar(erro: unknown): string {
   return 'Erro inesperado ao cancelar a cobrança.'
 }
 
+// Estável: o useCarregamento pede o valor inicial sempre igual.
+const NENHUM_RISCO: RiscoAtraso[] = []
+
+/** Só os alunos de risco médio e alto: o baixo não precisa de destaque na lista. */
+const buscarRiscos = (signal: AbortSignal) => listarRiscoAtraso('MEDIO', signal)
+
+/** O risco é do aluno, mas só ajuda a agir na cobrança que ainda pode atrasar ou já atrasou. */
+function mostraRisco(cobranca: Cobranca): boolean {
+  return cobranca.status === 'PENDENTE' || cobranca.status === 'EM_ATRASO'
+}
+
 /** O ?status= da URL (atalho do Início), ou Todas. */
 function filtroDaUrl(status: string | null): FiltroCobranca {
   return FILTROS.find((filtro) => filtro === status) ?? 'TODAS'
@@ -69,6 +86,9 @@ export function Cobrancas() {
   )
   // Só o nome para o aviso do filtro: se não carregar, a lista filtrada aparece do mesmo jeito.
   const alunoFiltrado = useCarregamento<Aluno | null>(buscarAlunoFiltrado, null, 'O aluno não existe mais.')
+  // Risco de atraso de cada aluno, lido uma vez. Se falhar, a lista aparece do mesmo jeito, sem o risco.
+  const riscos = useCarregamento(buscarRiscos, NENHUM_RISCO, 'Não foi possível calcular o risco.')
+  const riscoPorAluno = useMemo(() => new Map(riscos.dados.map((r) => [r.alunoId, r])), [riscos.dados])
   // Volta da Nova cobrança com a confirmação do que foi criado.
   const [sucesso] = useState(() => (location.state as EstadoCobrancaCriada | null)?.cobrancaCriada ?? null)
   const [idAberto, setIdAberto] = useState<string | null>(null)
@@ -261,7 +281,13 @@ export function Cobrancas() {
           </div>
         ) : (
           cobrancas.map((c) => (
-            <CobrancaCard key={c.id} cobranca={c} aberta={idAberto === c.id} onAlternar={() => alternar(c.id)}>
+            <CobrancaCard
+              key={c.id}
+              cobranca={c}
+              aberta={idAberto === c.id}
+              onAlternar={() => alternar(c.id)}
+              risco={mostraRisco(c) ? riscoPorAluno.get(c.alunoId) : undefined}
+            >
               <CobrancaDetalhe
                 cobranca={c}
                 onEditar={setEditando}
