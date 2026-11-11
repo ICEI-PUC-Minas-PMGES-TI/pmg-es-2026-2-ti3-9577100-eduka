@@ -196,3 +196,16 @@
     white-space: nowrap;
   }
 }
+
+/* Celular: 172 px espremem o nome da turma (uma palavra por linha) e cortam o
+   contador. O cartão ocupa quase a largura toda e o próximo aparece na borda,
+   avisando que dá para rolar. */
+@media (max-width: 520px) {
+  .cartao {
+    flex-basis: calc(100% - 44px);
+  }
+
+  .detalhes {
+    white-space: normal;
+  }
+}
