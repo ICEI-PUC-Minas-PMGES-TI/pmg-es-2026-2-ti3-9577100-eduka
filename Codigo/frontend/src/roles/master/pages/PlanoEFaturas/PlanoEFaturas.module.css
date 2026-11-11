@@ -1,42 +1,177 @@
-.proxima {
+/* Próxima fatura (destaque) ao lado da assinatura; empilham em tela estreita. */
+.topo {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+/* Cartão roxo da próxima fatura (campos 1 a 3). */
+.destaque {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 10px;
+  min-width: 0;
+  padding: 26px 28px;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, #a57aeb 0%, #9667e0 50%, #8452d6 100%);
+  box-shadow: 0 18px 40px -18px rgba(106, 63, 196, 0.6);
+  color: #fff;
+}
+
+.destaqueRotulo {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
 }
 
 .valor {
   font-family: var(--font-display);
-  font-size: 40px;
+  font-size: 44px;
   font-weight: 900;
   letter-spacing: -1px;
-  line-height: 1;
+  line-height: 1.05;
 }
 
 .referencia {
-  color: var(--color-text-muted);
-  font-size: 14px;
+  font-size: 15px;
+  opacity: 0.95;
+  overflow-wrap: anywhere;
 }
 
-.botoes {
+.referencia strong {
+  font-weight: 800;
+}
+
+/* Situação (campo 3): etiqueta translúcida sobre o roxo. */
+.situacao {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.situacao::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Em atraso: a etiqueta fica vermelha para chamar atenção no roxo. */
+.atrasada {
+  background: var(--color-danger);
+}
+
+.pagarLinha {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 6px;
+  align-items: center;
+  gap: 12px 16px;
+  margin-top: 8px;
+}
+
+/* Botão branco sobre o roxo. */
+.destaque .pagar {
+  border-color: #fff;
+  background: #fff;
+  color: var(--color-text);
+  box-shadow: 0 6px 18px -8px rgba(40, 20, 80, 0.45);
+}
+
+.destaque .pagar:hover:not(:disabled) {
+  background: #f6f0ff;
+}
+
+.dica {
+  max-width: 300px;
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.emDia {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 0;
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .aviso {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 12px;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
   color: var(--color-text-muted);
   font-size: 13px;
 }
 
+.aviso > svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--color-primary-text);
+}
+
 .titulo {
-  margin: 8px 0 0;
+  margin: 0;
   font-family: var(--font-display);
   font-size: 20px;
   font-weight: 800;
+}
+
+.valorLinha {
+  font-weight: 800;
+}
+
+/* "Ver comprovante": link discreto na coluna do comprovante (comando 2). */
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-primary-text);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (max-width: 860px) {
+  .topo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .destaque {
+    padding: 22px 20px;
+  }
+
+  .valor {
+    font-size: 36px;
+  }
+
+  .pagarLinha,
+  .destaque .pagar {
+    width: 100%;
+  }
 }

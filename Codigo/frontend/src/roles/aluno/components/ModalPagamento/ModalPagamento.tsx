@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '../../../../components/Badge/Badge'
 import { Button } from '../../../../components/Button/Button'
 import { ModalComprovante } from '../../../../components/Comprovante/ModalComprovante'
@@ -16,11 +16,14 @@ import {
   mensagemErroSandbox,
   pagarNoSandboxComoAluno,
 } from '../../../../services/sandboxService'
+import type { Comprovante } from '../../../../types/faturaPlataforma'
 import type {
   CobrancaDoHistorico,
   DadosBoleto,
+  DadosPagamento,
   DadosPix,
   FormaPagamento,
+  SituacaoPagamento,
 } from '../../../../types/pagamentoAluno'
 import { salvarArquivo } from '../../../../utils/arquivos'
 import { formatarMoeda } from '../../../../utils/formatters'
@@ -121,6 +124,35 @@ const OPCOES_FORMA: { forma: FormaPagamento; titulo: string; descricao: string; 
   },
 ]
 
+/**
+ * O que se paga nas modais IU17-A a IU17-D: a cobrança do aluno ou a fatura
+ * que a escola paga ao Eduka (IU24-A). Cada uma diz por quais rotas gera,
+ * consulta e comprova o pagamento; o caminho na tela é o mesmo.
+ */
+export type Pagavel = {
+  descricao: string
+  valor: number
+  /** ISO (yyyy-MM-dd). */
+  dataVencimento: string
+  /** "cobrança" ou "fatura": entra no título e nos avisos. */
+  nome: 'cobrança' | 'fatura'
+  /** Quem cancela, no aviso de cancelada: "pela escola", "pelo Eduka". */
+  canceladaPor: string
+  /** Recusa de "não pagável" sem detalhe do backend. */
+  naoPagavel: string
+  /** Onde o boleto pago aparece depois: "aqui em Pagamentos". */
+  ondeAparece: string
+  /** Complemento do "está paga." na confirmação. */
+  avisoPago: string
+  pagar: (forma: FormaPagamento) => Promise<DadosPagamento>
+  /** Situação atual: a tela pergunta enquanto espera a confirmação. */
+  consultar: () => Promise<{ situacaoPagamento: SituacaoPagamento }>
+  buscarComprovante: () => Promise<Comprovante>
+  pagarNoSandbox: () => Promise<void>
+  /** PDF oficial do boleto; sem ele, o boleto mostra só a linha digitável. */
+  baixarBoleto?: () => Promise<Blob>
+}
+
 type ModalPagamentoProps = {
   cobranca: CobrancaDoHistorico
   /** Pagamento confirmado: a lista recarrega. */
@@ -128,16 +160,49 @@ type ModalPagamentoProps = {
   onFechar: () => void
 }
 
-/**
- * Pagar uma cobrança sem sair do Eduka: o aluno escolhe PIX ou boleto e clica
- * em Pagar. PIX: QR Code e copia e cola, e a tela fica consultando a cobrança
- * até o provedor confirmar o pagamento. Boleto: linha digitável para copiar e
- * o PDF oficial para baixar; a compensação leva dias úteis, então não há
- * espera na tela. Tudo vem pela API do Eduka: nenhum link leva à página do
- * provedor. Fechar não cancela nada: o mesmo PIX ou boleto volta ao abrir de
- * novo, e trocar a forma altera a mesma cobrança.
- */
+/** Pagar a mensalidade no portal do aluno (IU17-A a IU17-D). */
 export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoProps) {
+  const pagavel = useMemo<Pagavel>(
+    () => ({
+      descricao: cobranca.descricao,
+      valor: cobranca.valor,
+      dataVencimento: cobranca.dataVencimento,
+      nome: 'cobrança',
+      canceladaPor: 'pela escola',
+      naoPagavel: 'Esta cobrança não pode ser paga online. Fale com a secretaria.',
+      ondeAparece: 'aqui em Pagamentos',
+      avisoPago: 'O comprovante também vai para o e-mail cadastrado.',
+      pagar: (forma) => pagarCobranca(cobranca.id, forma),
+      consultar: () => buscarMinhaCobranca(cobranca.id),
+      buscarComprovante: () => buscarComprovante(`/portal/aluno/cobrancas/${cobranca.id}/comprovante`),
+      pagarNoSandbox: () => pagarNoSandboxComoAluno(cobranca.id),
+      baixarBoleto: () => baixarBoletoPdf(cobranca.id),
+    }),
+    [cobranca],
+  )
+  return <ModalPagar pagavel={pagavel} onPago={onPago} onFechar={onFechar} />
+}
+
+type ModalPagarProps = {
+  /** Estável entre renderizações (useMemo): as consultas dependem dele. */
+  pagavel: Pagavel
+  /** Pagamento confirmado: a lista recarrega. */
+  onPago: () => void
+  onFechar: () => void
+}
+
+/**
+ * Pagar sem sair do Eduka: escolhe PIX ou boleto e clica em Pagar (IU17-A).
+ * PIX: QR Code e copia e cola, e a tela consulta até o provedor confirmar o
+ * pagamento (IU17-B). Boleto: linha digitável para copiar e, quando houver, o
+ * PDF oficial para baixar (IU17-C); a compensação leva dias úteis, então a
+ * consulta é espaçada. Confirmado, mostra o comprovante (IU17-D). Tudo vem pela
+ * API do Eduka: nenhum link leva à página do provedor. Fechar não cancela
+ * nada: o mesmo PIX ou boleto volta ao abrir de novo, e trocar a forma altera
+ * a mesma cobrança.
+ */
+export function ModalPagar({ pagavel, onPago, onFechar }: ModalPagarProps) {
+  const { baixarBoleto } = pagavel
   const [etapa, setEtapa] = useState<Etapa>({ tipo: 'escolhendo' })
   const [forma, setForma] = useState<FormaPagamento>('PIX')
   const [copiado, setCopiado] = useState<'sim' | 'falhou' | null>(null)
@@ -170,7 +235,7 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
   const explicarRecusa = useCallback(
     async (detalhe: string | null) => {
       try {
-        const atual = await buscarMinhaCobranca(cobranca.id)
+        const atual = await pagavel.consultar()
         if (!montado.current) return
         if (atual.situacaoPagamento === 'PAGA') {
           setEtapa({ tipo: 'pago' })
@@ -181,14 +246,14 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
           tipo: 'indisponivel',
           mensagem:
             atual.situacaoPagamento === 'CANCELADA'
-              ? 'Esta cobrança foi cancelada pela escola.'
-              : (detalhe ?? 'Esta cobrança não pode ser paga online. Fale com a secretaria.'),
+              ? `Esta ${pagavel.nome} foi cancelada ${pagavel.canceladaPor}.`
+              : (detalhe ?? pagavel.naoPagavel),
         })
       } catch {
-        if (montado.current) setEtapa({ tipo: 'erro', mensagem: 'Não foi possível consultar a cobrança.' })
+        if (montado.current) setEtapa({ tipo: 'erro', mensagem: `Não foi possível consultar a ${pagavel.nome}.` })
       }
     },
-    [cobranca.id],
+    [pagavel],
   )
 
   const gerar = useCallback((forma: FormaPagamento) => {
@@ -202,7 +267,8 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
       return
     }
     setEtapa({ tipo: 'gerando' })
-    pagarCobranca(cobranca.id, forma)
+    pagavel
+      .pagar(forma)
       .then((dados) => {
         if (!montado.current) return
         if (dados.recebedorNome) setRecebedor(dados.recebedorNome)
@@ -224,7 +290,7 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
           setEtapa(mensagemDaRecusa(erro, forma))
         }
       })
-  }, [cobranca.id, explicarRecusa])
+  }, [pagavel, explicarRecusa])
 
   /** Botão "Pagar": só aqui o PIX ou o boleto é pedido ao provedor. */
   function pagar() {
@@ -272,13 +338,13 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
       if (consultando.current) return
       consultando.current = true
       try {
-        const atual = await buscarMinhaCobranca(cobranca.id)
+        const atual = await pagavel.consultar()
         if (!montado.current) return
         if (atual.situacaoPagamento === 'PAGA') {
           setEtapa({ tipo: 'pago' })
           onPagoRef.current()
         } else if (atual.situacaoPagamento === 'CANCELADA') {
-          setEtapa({ tipo: 'indisponivel', mensagem: 'Esta cobrança foi cancelada pela escola.' })
+          setEtapa({ tipo: 'indisponivel', mensagem: `Esta ${pagavel.nome} foi cancelada ${pagavel.canceladaPor}.` })
         } else if (etapaAtual === 'processando' && atual.situacaoPagamento === 'AGUARDANDO_PAGAMENTO') {
           // O provedor terminou de gerar: o POST agora devolve os dados prontos.
           gerar(forma)
@@ -289,7 +355,7 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
         consultando.current = false
       }
     },
-    [cobranca.id, forma, gerar],
+    [pagavel, forma, gerar],
   )
 
   // Com o PIX ou o boleto na tela, a situação se atualiza sozinha quando o aviso do provedor chega.
@@ -319,11 +385,6 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
     return () => window.clearTimeout(timer)
   }, [validadePix])
 
-  const buscarComprovanteDaCobranca = useCallback(
-    () => buscarComprovante(`/portal/aluno/cobrancas/${cobranca.id}/comprovante`),
-    [cobranca.id],
-  )
-
   async function verificarAgora() {
     setVerificando(true)
     await consultar(etapa.tipo)
@@ -331,14 +392,14 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
   }
 
   /**
-   * Ambiente de teste: paga no Sandbox como se o aluno tivesse pago no banco.
+   * Ambiente de teste: paga no Sandbox como se tivesse pago no banco.
    * O backend já grava o pagamento; a consulta logo em seguida mostra "pago".
    */
   async function pagarNoSandbox() {
     setPagandoNoSandbox(true)
     setErroSandbox(null)
     try {
-      await pagarNoSandboxComoAluno(cobranca.id)
+      await pagavel.pagarNoSandbox()
       if (!montado.current) return
       setPagoNoSandbox(true)
       await consultar(etapa.tipo)
@@ -366,11 +427,11 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
     }, 3000)
   }
 
-  async function baixarPdf() {
+  async function baixarPdf(baixar: () => Promise<Blob>) {
     setBaixando(true)
     setErroDownload(null)
     try {
-      salvarArquivo(await baixarBoletoPdf(cobranca.id), nomeDoArquivo(cobranca.descricao))
+      salvarArquivo(await baixar(), nomeDoArquivo(pagavel.descricao))
     } catch (erro: unknown) {
       if (montado.current) {
         setErroDownload(
@@ -390,7 +451,7 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
   if (etapa.tipo === 'pago') {
     return (
       <ModalComprovante
-        buscar={buscarComprovanteDaCobranca}
+        buscar={pagavel.buscarComprovante}
         onFechar={onFechar}
         aviso={
           <div className={styles.pago}>
@@ -398,7 +459,9 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
               <Icon name="check" size={28} strokeWidth={3} />
             </span>
             <strong>Pagamento confirmado!</strong>
-            <span>{cobranca.descricao} está paga. O comprovante também vai para o e-mail cadastrado.</span>
+            <span>
+              {pagavel.descricao} está paga. {pagavel.avisoPago}
+            </span>
           </div>
         }
       />
@@ -445,8 +508,10 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
 
   return (
     <Modal
-      titulo={etapa.tipo === 'escolhendo' ? 'Pagar cobrança' : forma === 'PIX' ? 'Pagar com PIX' : 'Pagar com boleto'}
-      subtitulo={`${cobranca.descricao} · ${formatarMoeda(cobranca.valor)} · vence ${formatarData(cobranca.dataVencimento)}`}
+      titulo={
+        etapa.tipo === 'escolhendo' ? `Pagar ${pagavel.nome}` : forma === 'PIX' ? 'Pagar com PIX' : 'Pagar com boleto'
+      }
+      subtitulo={`${pagavel.descricao} · ${formatarMoeda(pagavel.valor)} · vence ${formatarData(pagavel.dataVencimento)}`}
       tamanho="medio"
       onFechar={onFechar}
       rodape={rodape}
@@ -478,7 +543,7 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
               </label>
             ))}
             <p className={styles.valorDestino}>
-              Valor a pagar: <strong>{formatarMoeda(cobranca.valor)}</strong>
+              Valor a pagar: <strong>{formatarMoeda(pagavel.valor)}</strong>
             </p>
           </fieldset>
         )}
@@ -486,7 +551,7 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
         {etapa.tipo === 'pronto' && (
           <div className={styles.situacao}>
             <span>
-              Valor: <strong>{formatarMoeda(cobranca.valor)}</strong>
+              Valor: <strong>{formatarMoeda(pagavel.valor)}</strong>
               {recebedor && (
                 <>
                   {' '}
@@ -532,7 +597,7 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
                     src={`data:image/png;base64,${etapa.dados.pix.qrCodeBase64}`}
                     width={220}
                     height={220}
-                    alt="QR Code do PIX para pagar a cobrança"
+                    alt={`QR Code do PIX para pagar a ${pagavel.nome}`}
                   />
                   {etapa.dados.pix.validade && (
                     <span className={styles.validade}>Válido até {formatarValidade(etapa.dados.pix.validade)}</span>
@@ -559,17 +624,24 @@ export function ModalPagamento({ cobranca, onPago, onFechar }: ModalPagamentoPro
         {etapa.tipo === 'pronto' && etapa.dados.forma === 'BOLETO' && (
           <>
             <ol className={styles.passos}>
-              <li>Baixe o boleto em PDF ou copie o código de barras.</li>
+              <li>{baixarBoleto ? 'Baixe o boleto em PDF ou copie' : 'Copie'} o código de barras.</li>
               <li>Pague no app ou site do banco, em lotéricas ou correspondentes bancários.</li>
-              <li>O pagamento é confirmado em até 3 dias úteis e aparece aqui em Pagamentos.</li>
+              <li>O pagamento é confirmado em até 3 dias úteis e aparece {pagavel.ondeAparece}.</li>
             </ol>
 
             <div className={styles.boletoAcao}>
-              <Button variant="primary" icon="download" onClick={() => void baixarPdf()} disabled={baixando}>
-                {baixando ? 'Baixando…' : 'Baixar boleto (PDF)'}
-              </Button>
+              {baixarBoleto && (
+                <Button
+                  variant="primary"
+                  icon="download"
+                  onClick={() => void baixarPdf(baixarBoleto)}
+                  disabled={baixando}
+                >
+                  {baixando ? 'Baixando…' : 'Baixar boleto (PDF)'}
+                </Button>
+              )}
               <span className={styles.validade}>
-                Vencimento {formatarData(etapa.dados.vencimento)}. Depois dessa data a cobrança fica em atraso, mas
+                Vencimento {formatarData(etapa.dados.vencimento)}. Depois dessa data a {pagavel.nome} fica em atraso, mas
                 continua podendo ser paga por aqui.
               </span>
               {erroDownload && <ModalAlerta>{erroDownload}</ModalAlerta>}
