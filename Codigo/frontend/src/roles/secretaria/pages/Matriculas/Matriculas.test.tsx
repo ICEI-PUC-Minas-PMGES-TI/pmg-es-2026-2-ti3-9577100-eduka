@@ -96,12 +96,16 @@ describe('Matriculas', () => {
     // O resumo vem do backend, não de somar as matrículas na tela.
     const resumo = screen.getByLabelText('Resumo das matrículas da escola')
     expect(within(resumo).getByText('Trancadas').closest('div')).toHaveTextContent('3')
-    // A Ana já está ativa na 1A, como a listagem de alunos informa.
-    expect(screen.getByText(/nesta turma/)).toBeInTheDocument()
+    // Quem já está na 1A fica na aba da turma; a de matricular mostra só quem pode entrar.
+    await userEvent.click(screen.getByRole('tab', { name: /matricular alunos/i }))
+    const paraMatricular = screen.getByRole('list', { name: /podem entrar na turma 1A/ })
+    expect(within(paraMatricular).getByText('Bia Lima')).toBeInTheDocument()
+    expect(within(paraMatricular).queryByText('Ana Souza')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: /2B/ }))
+    expect(await screen.findByText(/ativo em 1A/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('tab', { name: /alunos da turma/i }))
     expect(await screen.findByText('Nenhum aluno matriculado nesta turma ainda.')).toBeInTheDocument()
-    expect(screen.getByText(/ativo em 1A/)).toBeInTheDocument()
 
     const listagens = chamadas.filter((c) => c.metodo === 'GET' && c.caminho.startsWith('/matriculas'))
     expect(listagens.map((c) => c.caminho)).toEqual(['/matriculas?turmaId=1', '/matriculas?turmaId=2'])
@@ -124,16 +128,54 @@ describe('Matriculas', () => {
     expect(chamadas.filter((c) => c.caminho === '/matriculas?alunoId=ana')).toHaveLength(1)
   })
 
+  it('a lista de matricular é paginada e a seleção vale em todas as páginas', async () => {
+    const muitos: AlunoDaLista[] = Array.from({ length: 12 }, (_, i) => ({
+      id: `a${i}`,
+      nome: `Aluno ${String(i + 1).padStart(2, '0')}`,
+      matricula: `2026${100 + i}`,
+      genero: null,
+      situacao: 'SEM_TURMA',
+      turmaId: null,
+      turmaNome: null,
+    }))
+    simularApi(({ caminho }) => {
+      if (caminho === '/academico/secretaria/turmas') return { corpo: [turma(2, '2B', 30, 0)] }
+      if (caminho === '/alunos') return { corpo: muitos }
+      if (caminho === '/dashboard/secretaria') return { corpo: RESUMO }
+      if (caminho === '/matriculas?turmaId=2') return { corpo: [] }
+      return undefined
+    })
+    render(
+      <MemoryRouter>
+        <Matriculas />
+      </MemoryRouter>,
+    )
+
+    await userEvent.click(await screen.findByRole('tab', { name: /matricular alunos/i }))
+    const lista = screen.getByRole('list', { name: /podem entrar/ })
+    expect(within(lista).getAllByRole('listitem')).toHaveLength(10)
+    await userEvent.click(within(lista).getAllByRole('button', { name: 'Matricular' })[0])
+
+    await userEvent.click(screen.getByRole('button', { name: 'Página 2' }))
+    expect(within(screen.getByRole('list', { name: /podem entrar/ })).getAllByRole('listitem')).toHaveLength(2)
+    await userEvent.click(screen.getAllByRole('button', { name: 'Matricular' })[0])
+
+    expect(screen.getByText(/2 alunos selecionados/)).toBeInTheDocument()
+  })
+
   it('matricular põe o aluno na lista da turma e relê as contagens', async () => {
     const chamadas = abrir()
 
     await userEvent.click(await screen.findByRole('button', { name: /2B/ }))
     await screen.findByText('Nenhum aluno matriculado nesta turma ainda.')
+    await userEvent.click(screen.getByRole('tab', { name: /matricular alunos/i }))
     const linhaDaBia = screen.getAllByText('Bia Lima')[0].closest('li') as HTMLElement
     await userEvent.click(within(linhaDaBia).getByRole('button', { name: 'Matricular' }))
     await userEvent.click(screen.getByRole('button', { name: /confirmar matrículas/i }))
 
+    // Confirmar volta para a aba da turma, já com a Bia na lista.
     expect(await screen.findByText(/1 aluno matriculado na turma 2B/)).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /alunos da turma/i })).toHaveAttribute('aria-selected', 'true')
     expect(within(screen.getByRole('table')).getByText('Bia Lima')).toBeInTheDocument()
     expect(chamadas.filter((c) => c.caminho === '/dashboard/secretaria')).toHaveLength(2)
   })

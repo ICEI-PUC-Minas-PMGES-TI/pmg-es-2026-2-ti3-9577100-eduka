@@ -1,16 +1,36 @@
-/* O card fica na coluna estreita da tela de matrículas: a tabela se ajusta à
-   largura dele em vez de rolar para o lado. */
-.cartao {
+/* A tabela fica dentro do cartão "Matrículas da turma": sem o cartão de vidro da
+   Tabela comum, e com a primeira e a última coluna alinhadas ao título do cartão.
+   A classe repetida vence o .card do PainelSecretaria sem depender da ordem do CSS. */
+.cartao.cartao {
   container-type: inline-size;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .cartao table {
   min-width: 0;
 }
 
-/* "Matriculado em" quebra em duas linhas em vez de alargar a coluna. */
-.cartao thead th {
-  white-space: normal;
+.cartao th:first-child,
+.cartao td:first-child {
+  padding-left: 0;
+}
+
+.cartao th:last-child,
+.cartao td:last-child {
+  padding-right: 0;
+}
+
+.cartao tbody tr:hover {
+  background: none;
+}
+
+.aluno {
+  min-width: 0;
 }
 
 .nome {
@@ -18,44 +38,57 @@
   font-family: var(--font-display);
   font-size: 15px;
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .numero {
   display: block;
   color: var(--color-text-subtle);
   font-size: 12.5px;
-}
-
-.data {
   white-space: nowrap;
 }
 
 .observacao {
-  max-width: 260px;
+  display: block;
+  margin-top: 4px;
   color: var(--color-text-muted);
+  font-size: 13px;
   overflow-wrap: anywhere;
 }
 
-.acoes {
-  text-align: right;
+.data {
+  color: var(--color-text-muted);
+  white-space: nowrap;
 }
 
-/* Lado a lado quando cabe; um embaixo do outro quando a coluna aperta. */
+.situacao {
+  white-space: nowrap;
+}
+
+/* Coluna das ações colada à direita, só com a largura dos botões. */
+.acoes {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .botoes {
   display: inline-flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 6px;
+  gap: 8px;
 }
 
-/* Card estreito (celular): cada matrícula vira um bloco, sem esconder nenhum dado. */
-@container (max-width: 620px) {
-  .cartao table,
-  .cartao tbody {
+/* Cartão estreito (celular): cada matrícula vira um bloco compacto. O nome
+   e a situação na primeira linha, a data corrida na segunda e os botões na
+   terceira, sem o rótulo em cima de cada dado que a Tabela comum põe no celular.
+   A classe repetida vence as regras dela (PainelSecretaria) sem depender da ordem. */
+@container (max-width: 560px) {
+  .cartao.cartao table,
+  .cartao.cartao tbody {
     display: block;
+    min-width: 0;
   }
 
-  .cartao thead {
+  .cartao.cartao thead {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -64,53 +97,71 @@
     white-space: nowrap;
   }
 
-  .cartao tbody tr {
+  .cartao.cartao tbody tr {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
       'aluno situacao'
       'data data'
-      'observacao observacao'
       'acoes acoes';
     gap: 6px 12px;
-    padding: 14px;
+    padding: 12px 0;
     border-top: 1px solid var(--color-border);
   }
 
-  .cartao tbody tr > td {
-    display: block;
-    padding: 0;
-    border: 0;
+  .cartao.cartao tbody tr:first-child {
+    border-top: 0;
   }
 
-  .cartao tbody tr > .aluno {
+  .cartao.cartao tbody tr > td {
+    display: block;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    text-align: left;
+  }
+
+  .cartao.cartao tbody tr > td[data-rotulo]::before {
+    display: none;
+  }
+
+  .cartao.cartao tbody tr > .aluno {
     grid-area: aluno;
   }
 
-  .cartao tbody tr > .situacao {
+  .cartao.cartao tbody tr > .situacao {
     grid-area: situacao;
   }
 
-  .cartao tbody tr > .data {
+  .cartao.cartao tbody tr > .data {
     grid-area: data;
-    font-size: 13.5px;
-    white-space: normal;
+    font-size: 13px;
   }
 
-  .cartao tbody tr > .observacao {
-    grid-area: observacao;
-    max-width: none;
-    font-size: 13.5px;
-  }
-
-  .cartao tbody tr > .data::before,
-  .cartao tbody tr > .observacao::before {
-    content: attr(data-rotulo) ': ';
+  .cartao.cartao tbody tr > td.data[data-rotulo]::before {
+    content: 'Matriculado em ';
+    display: inline;
+    margin: 0;
     color: var(--color-text-subtle);
-    font-weight: 700;
+    font-size: inherit;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
   }
 
-  .cartao tbody tr > .acoes {
+  .cartao.cartao tbody tr > .acoes {
     grid-area: acoes;
+    margin-top: 4px;
+  }
+
+  .botoes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .botoes > button {
+    justify-content: center;
   }
 }
