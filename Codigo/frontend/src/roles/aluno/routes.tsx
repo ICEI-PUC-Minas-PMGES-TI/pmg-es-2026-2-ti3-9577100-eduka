@@ -2,6 +2,7 @@ import { Navigate, type RouteObject } from 'react-router'
 import { paths } from '../../routes/paths'
 import { RotaProtegida } from '../../routes/RotaProtegida'
 import { Boletim } from './pages/Boletim/Boletim'
+import { Inicio } from './pages/Inicio/Inicio'
 import { MeusDados } from './pages/MeusDados/MeusDados'
 import { Pagamentos } from './pages/Pagamentos/Pagamentos'
 
@@ -10,8 +11,8 @@ export const alunoRoutes: RouteObject = {
   path: paths.aluno.raiz,
   element: <RotaProtegida perfis={['ALUNO']} />,
   children: [
-    // Enquanto o "Início" não existe, o aluno cai direto no boletim.
-    { index: true, element: <Navigate to={paths.aluno.boletim} replace /> },
+    { index: true, element: <Navigate to={paths.aluno.inicio} replace /> },
+    { path: paths.aluno.inicio, element: <Inicio /> },
     { path: paths.aluno.boletim, element: <Boletim /> },
     // A agenda virou a aba "Tarefas e provas" do boletim.
     { path: paths.aluno.avaliacoes, element: <Navigate to={`${paths.aluno.boletim}?aba=provas`} replace /> },

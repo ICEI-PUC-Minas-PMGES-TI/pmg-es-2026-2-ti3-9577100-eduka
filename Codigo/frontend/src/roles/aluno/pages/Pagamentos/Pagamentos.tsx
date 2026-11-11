@@ -13,31 +13,15 @@ import {
   ROTULOS_STATUS_COBRANCA_ALUNO,
   type CobrancaDoHistorico,
   type HistoricoFinanceiro,
-  type StatusCobrancaAluno,
 } from '../../../../types/pagamentoAluno'
 import { formatarMoeda, hojeIso, plural } from '../../../../utils/formatters'
 import { formatarData } from '../../../secretaria/components/PainelSecretaria/formatacao'
 import { ModalPagamento } from '../../components/ModalPagamento/ModalPagamento'
+import { ProximaMensalidade } from '../../components/ProximaMensalidade/ProximaMensalidade'
+import { TOM_STATUS_COBRANCA as TOM_STATUS } from '../../formatacao'
 import { useDadosDoAluno } from '../../hooks/useDadosDoAluno'
 import { AlunoLayout } from '../../layouts/AlunoLayout'
 import styles from './Pagamentos.module.css'
-
-const TOM_STATUS: Record<StatusCobrancaAluno, 'success' | 'danger' | 'neutral' | 'warning'> = {
-  PENDENTE: 'warning',
-  EM_ATRASO: 'danger',
-  PAGA: 'success',
-  CANCELADA: 'neutral',
-}
-
-const UM_DIA_MS = 24 * 60 * 60 * 1000
-
-/** "vence hoje", "vence em 3 dias", "venceu há 2 dias" (datas ISO, sem fuso). */
-function prazo(vencimento: string): string {
-  const dias = Math.round((Date.parse(vencimento) - Date.parse(hojeIso())) / UM_DIA_MS)
-  if (dias === 0) return 'Vence hoje'
-  if (dias > 0) return `Vence em ${dias} ${plural(dias, 'dia', 'dias')}`
-  return `Venceu há ${-dias} ${plural(-dias, 'dia', 'dias')}`
-}
 
 /** Como a cobrança foi paga: pagamento online registrado, ou só a data da baixa feita pela escola. */
 function descreverPagamento(c: CobrancaDoHistorico): string | null {
@@ -318,29 +302,6 @@ function AcaoDaCobranca({
   }
   // Baixa feita pela escola: o Eduka não tem comprovante para mostrar.
   return cobranca.status === 'PAGA' ? <span className={styles.secundario}>Sem comprovante</span> : null
-}
-
-/** Cartão de destaque da cobrança em aberto que vence primeiro. */
-function ProximaMensalidade({ cobranca, onPagar }: { cobranca: CobrancaDoHistorico; onPagar: AcaoPagar }) {
-  const atrasada = cobranca.status === 'EM_ATRASO'
-  return (
-    <section className={`${styles.proxima} ${atrasada ? styles.proximaAtrasada : ''}`} aria-labelledby="titulo-proxima">
-      <div className={styles.proximaInfo}>
-        <span id="titulo-proxima" className={styles.proximaRotulo}>
-          {atrasada ? 'Cobrança em atraso' : 'Próxima mensalidade'}
-        </span>
-        <strong className={styles.proximaValor}>{formatarMoeda(cobranca.valor)}</strong>
-        <span className={styles.proximaDescricao}>{cobranca.descricao}</span>
-        <span className={styles.proximaPrazo}>
-          <Badge tone={TOM_STATUS[cobranca.status]}>{prazo(cobranca.dataVencimento)}</Badge>
-          <span className={styles.secundarioInline}>Vencimento {formatarData(cobranca.dataVencimento)}</span>
-        </span>
-      </div>
-      <div className={styles.proximaAcoes}>
-        <BotaoPagar cobranca={cobranca} onPagar={onPagar} tamanho="md" />
-      </div>
-    </section>
-  )
 }
 
 /** "Pagar": abre o modal, onde o aluno escolhe PIX ou boleto. */

@@ -3,8 +3,7 @@ import { PainelLayout, type ItemMenu } from '../../../components/PainelLayout/Pa
 import { paths } from '../../../routes/paths'
 
 const MENU: ItemMenu[] = [
-  // Em breve: o Início chega numa sprint futura.
-  { label: 'Início', icon: 'home' },
+  { label: 'Início', icon: 'home', to: paths.aluno.inicio },
   { label: 'Boletim', icon: 'book', to: paths.aluno.boletim },
   { label: 'Pagamentos', icon: 'card', to: paths.aluno.pagamentos },
   { label: 'Meus dados', icon: 'user', to: paths.aluno.meusDados },

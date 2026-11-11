@@ -94,6 +94,8 @@ export const paths = {
   },
   aluno: {
     raiz: '/aluno',
+    /** Próxima mensalidade, média, frequência e próximas provas (IU27). */
+    inicio: '/aluno/inicio',
     boletim: '/aluno/boletim',
     /** Endereço antigo: redireciona para a aba "Tarefas e provas" do boletim. */
     avaliacoes: '/aluno/avaliacoes',

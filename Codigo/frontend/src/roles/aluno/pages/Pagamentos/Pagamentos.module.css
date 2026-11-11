@@ -170,90 +170,11 @@
   white-space: nowrap;
 }
 
-/* Cartão da próxima mensalidade: lavanda como o StatCard em destaque. */
-.proxima {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px 24px;
-  padding: 22px 24px;
-  border: var(--glass-border);
-  border-radius: var(--radius-xl);
-  background: var(--color-primary-soft);
-  box-shadow: var(--glass-shadow);
-}
-
-/* Em atraso: a borda avisa sem pintar o cartão inteiro de vermelho. */
-.proximaAtrasada {
-  border: 2px solid var(--color-danger);
-}
-
-.proximaInfo {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.proximaRotulo {
-  color: var(--color-primary-text);
-  font-family: var(--font-display);
-  font-size: 12.5px;
-  font-weight: 800;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-}
-
-.proximaAtrasada .proximaRotulo {
-  color: var(--color-danger);
-}
-
-.proximaValor {
-  font-family: var(--font-display);
-  font-size: 32px;
-  font-weight: 900;
-  letter-spacing: -0.5px;
-}
-
-.proximaDescricao {
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.proximaPrazo {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.secundarioInline {
-  color: var(--color-text-muted);
-  font-size: 13px;
-}
-
-.proximaAcoes {
-  display: flex;
-}
-
 .botoes {
   display: inline-flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
-}
-
-@media (max-width: 560px) {
-  .proximaAcoes,
-  .proximaAcoes .botoes {
-    width: 100%;
-  }
-
-  .proximaAcoes .botoes > * {
-    flex: 1;
-  }
 }
 
 /* Celular: cada linha vira um bloco, com o rótulo em cima de cada dado, sem rolagem lateral. */
