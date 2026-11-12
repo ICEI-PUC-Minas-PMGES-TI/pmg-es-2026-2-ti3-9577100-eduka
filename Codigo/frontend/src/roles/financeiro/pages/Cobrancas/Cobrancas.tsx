@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { Button } from '../../../../components/Button/Button'
+import { Campo } from '../../../../components/Campo/Campo'
+import { CampoData } from '../../../../components/CampoData/CampoData'
 import { ModalComprovante } from '../../../../components/Comprovante/ModalComprovante'
 import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/ConfirmarExclusao'
 import { Icon } from '../../../../components/Icon/Icon'
 import { Paginacao } from '../../../../components/Paginacao/Paginacao'
+import { Select } from '../../../../components/Select/Select'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { useListaPaginada } from '../../../../hooks/usePaginacao'
 import { useTermoAdiado } from '../../../../hooks/useTermoAdiado'
 import { useRotasFinanceiras } from '../../../../routes/areas'
 import { type EstadoCobrancaCriada } from '../../../../routes/paths'
+import { listarPeriodosLetivos } from '../../../../services/academicoService'
 import { buscarAluno } from '../../../../services/alunoService'
 import { ApiError } from '../../../../services/api'
 import {
@@ -23,6 +27,7 @@ import {
   mensagemErroSandbox,
   simularPagamentoNoSandbox,
 } from '../../../../services/sandboxService'
+import type { PeriodoLetivo } from '../../../../types/academico'
 import type { Aluno } from '../../../../types/aluno'
 import type { Cobranca, FiltroCobranca, PaginaCobrancas, StatusCobranca } from '../../../../types/cobranca'
 import type { RiscoAtraso } from '../../../../types/riscoAtraso'
@@ -63,6 +68,12 @@ const NENHUM_RISCO: RiscoAtraso[] = []
 /** Só os alunos de risco médio e alto: o baixo não precisa de destaque na lista. */
 const buscarRiscos = (signal: AbortSignal) => listarRiscoAtraso('MEDIO', signal)
 
+// Estável, como o NENHUM_RISCO.
+const NENHUM_PERIODO: PeriodoLetivo[] = []
+
+/** Períodos letivos da escola, para o filtro. Se falhar, a lista aparece sem o filtro de período. */
+const buscarPeriodos = (signal: AbortSignal) => listarPeriodosLetivos(signal)
+
 /** O risco é do aluno, mas só ajuda a agir na cobrança que ainda pode atrasar ou já atrasou. */
 function mostraRisco(cobranca: Cobranca): boolean {
   return cobranca.status === 'PENDENTE' || cobranca.status === 'EM_ATRASO'
@@ -96,6 +107,12 @@ export function Cobrancas() {
   // O termo vai ao backend só quando a digitação para.
   const nomeBuscado = useTermoAdiado(termoBusca)
   const [filtroStatus, setFiltroStatus] = useState<FiltroCobranca>(() => filtroDaUrl(searchParams.get('status')))
+  const periodos = useCarregamento(buscarPeriodos, NENHUM_PERIODO, 'Não foi possível carregar os períodos letivos.')
+  // '' é "todos os períodos".
+  const [periodoLetivoId, setPeriodoLetivoId] = useState('')
+  const [vencimentoDe, setVencimentoDe] = useState('')
+  const [vencimentoAte, setVencimentoAte] = useState('')
+  const temFiltroDePeriodo = Boolean(periodoLetivoId || vencimentoDe || vencimentoAte)
   const [editando, setEditando] = useState<Cobranca | null>(null)
   const [cancelando, setCancelando] = useState<Cobranca | null>(null)
   const [comprovanteDe, setComprovanteDe] = useState<string | null>(null)
@@ -113,10 +130,13 @@ export function Cobrancas() {
           status: filtroStatus === 'TODAS' ? undefined : filtroStatus,
           nome: nomeBuscado || undefined,
           alunoId: alunoId ?? undefined,
+          periodoLetivoId: periodoLetivoId ? Number(periodoLetivoId) : undefined,
+          vencimentoDe: vencimentoDe || undefined,
+          vencimentoAte: vencimentoAte || undefined,
         },
         signal,
       ),
-    [filtroStatus, nomeBuscado, alunoId],
+    [filtroStatus, nomeBuscado, alunoId, periodoLetivoId, vencimentoDe, vencimentoAte],
   )
   const { dados, paginacao, carregando, atualizando, erro, recarregar, topo } = useListaPaginada<PaginaCobrancas>(
     buscarCobrancas,
@@ -177,6 +197,13 @@ export function Cobrancas() {
     )
   }
 
+  /** Volta a listar de todos os períodos e vencimentos. */
+  function limparFiltroDePeriodo() {
+    setPeriodoLetivoId('')
+    setVencimentoDe('')
+    setVencimentoAte('')
+  }
+
   /** A seta do card abre os detalhes; clicar de novo fecha. Só um aberto por vez. */
   function alternar(id: string) {
     setIdAberto((atual) => (atual === id ? null : id))
@@ -185,7 +212,7 @@ export function Cobrancas() {
 
   const cobrancas = paginacao?.itensDaPagina ?? []
 
-  // Pílulas: o backend conta cada situação na escola inteira, sem o filtro de situação nem a busca.
+  // Pílulas: o backend conta cada situação com os filtros de aluno, período e vencimento, sem o de situação nem a busca.
   const quantidade = (status: StatusCobranca) => dados?.totaisPorStatus.find((t) => t.status === status)?.quantidade ?? 0
   const contadores: Record<FiltroCobranca, number> = {
     TODAS: dados?.totaisPorStatus.reduce((soma, t) => soma + t.quantidade, 0) ?? 0,
@@ -241,6 +268,40 @@ export function Cobrancas() {
           ))}
         </div>
       </div>
+
+      <section className={styles.filtrosPeriodo} aria-label="Filtrar por período">
+        <Campo label="Período letivo" className={styles.periodoLetivo}>
+          {(campo) => (
+            <Select
+              {...campo}
+              opcoes={[
+                { valor: '', rotulo: 'Todos os períodos' },
+                ...periodos.dados.map((p) => ({ valor: String(p.id), rotulo: p.nome })),
+              ]}
+              valor={periodoLetivoId}
+              onChange={setPeriodoLetivoId}
+            />
+          )}
+        </Campo>
+        <Campo label="Vencimento de" className={styles.data}>
+          {(campo) => (
+            <CampoData {...campo} valor={vencimentoDe} max={vencimentoAte || undefined} onChange={setVencimentoDe} />
+          )}
+        </Campo>
+        <Campo label="Vencimento até" className={styles.data}>
+          {(campo) => (
+            <CampoData {...campo} valor={vencimentoAte} min={vencimentoDe || undefined} onChange={setVencimentoAte} />
+          )}
+        </Campo>
+        {temFiltroDePeriodo && (
+          <Button size="sm" icon="close" onClick={limparFiltroDePeriodo}>
+            Limpar período e vencimento
+          </Button>
+        )}
+        {periodoLetivoId && (
+          <p className={styles.dicaFiltro}>Cobranças avulsas, sem matrícula, não entram no filtro de período letivo.</p>
+        )}
+      </section>
 
       {alunoId && (
         <div className={styles.filtroAluno}>
