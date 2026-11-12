@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { problema, simularApi, type ChamadaApi, type RespostaApi } from '../../../../test/api'
+import type { PeriodoLetivo } from '../../../../types/academico'
 import type { Cobranca, PaginaCobrancas, StatusCobranca } from '../../../../types/cobranca'
 import type { RiscoAtraso } from '../../../../types/riscoAtraso'
 import { Cobrancas } from './Cobrancas'
@@ -44,8 +45,18 @@ function paginaDe(cobrancas: Cobranca[], caminho: string): PaginaCobrancas {
   const status = params.get('status')
   const nome = params.get('nome')?.toLowerCase()
   const alunoId = params.get('alunoId')
-  // O filtro por aluno vale também para os totais, como no backend.
-  const doAluno = cobrancas.filter((c) => !alunoId || c.alunoId === alunoId)
+  const periodoLetivoId = params.get('periodoLetivoId')
+  const vencimentoDe = params.get('vencimentoDe')
+  const vencimentoAte = params.get('vencimentoAte')
+  // Os filtros de aluno, período e vencimento valem também para os totais, como no backend.
+  // No teste, a matrícula "mat-{n}" é do período letivo n; a avulsa (sem matrícula) não tem período.
+  const doAluno = cobrancas.filter(
+    (c) =>
+      (!alunoId || c.alunoId === alunoId) &&
+      (!periodoLetivoId || c.matriculaId === `mat-${periodoLetivoId}`) &&
+      (!vencimentoDe || c.dataVencimento >= vencimentoDe) &&
+      (!vencimentoAte || c.dataVencimento <= vencimentoAte),
+  )
   const filtradas = doAluno.filter(
     (c) => (!status || c.status === status) && (!nome || (c.alunoNome ?? '').toLowerCase().includes(nome)),
   )
@@ -70,6 +81,38 @@ function Destino() {
 }
 
 const RISCOS = '/cobrancas/risco-atraso?nivelMinimo=MEDIO'
+const PERIODOS = '/academico/secretaria/periodos-letivos'
+
+function periodoLetivo(id: number, nome: string): PeriodoLetivo {
+  return {
+    id,
+    nome,
+    dataInicio: '2026-02-01',
+    dataFim: '2026-12-15',
+    ativo: true,
+    matriculasAbertas: false,
+    encerradoEm: null,
+  }
+}
+
+const PERIODOS_LETIVOS = [periodoLetivo(1, '2026/1'), periodoLetivo(2, '2026/2')]
+
+/** Cobrança com o vencimento e a matrícula (do período letivo de número `periodo`) escolhidos. */
+function cobrancaEm(n: number, dataVencimento: string, periodo: number | null): Cobranca {
+  return { ...cobranca(n), dataVencimento, matriculaId: periodo === null ? null : `mat-${periodo}` }
+}
+
+/** Rótulo do dia no calendário, como o DayPicker escreve em pt-BR. */
+function rotuloDoDia(data: Date) {
+  const mes = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(data)
+  return new RegExp(`(?<!\\d)${data.getDate()} de ${mes} de ${data.getFullYear()}`, 'i')
+}
+
+function iso(data: Date) {
+  const mes = String(data.getMonth() + 1).padStart(2, '0')
+  const dia = String(data.getDate()).padStart(2, '0')
+  return `${data.getFullYear()}-${mes}-${dia}`
+}
 
 function risco(alunoId: string, nivel: RiscoAtraso['nivel'], motivo: string): RiscoAtraso {
   return {
@@ -97,10 +140,12 @@ function abrir(
   cobrancas: Cobranca[],
   rota = '/financeiro/cobrancas',
   riscos: RespostaApi = { corpo: [] },
+  periodos: RespostaApi = { corpo: PERIODOS_LETIVOS },
 ): ChamadaApi[] {
   const chamadas = simularApi(({ caminho }) => {
     if (caminho.startsWith('/cobrancas/pagina?')) return { corpo: paginaDe(cobrancas, caminho) }
     if (caminho === RISCOS) return riscos
+    if (caminho === PERIODOS) return periodos
     if (caminho === '/alunos/aluno-2') return { corpo: { id: 'aluno-2', nome: 'Aluno 02', matricula: '20262' } }
     return undefined
   })
@@ -252,6 +297,74 @@ describe('Cobrancas', () => {
     expect(await screen.findByText('Aluno 20')).toBeInTheDocument()
     expect(ultimaConsulta(chamadas)).toEqual({ pagina: '0', tamanho: '20' })
     expect(screen.getByText('1–20 de 23')).toBeInTheDocument()
+  })
+
+  it('filtra pelo período letivo, volta à primeira página e conta as pílulas só do período', async () => {
+    const chamadas = abrir([
+      ...Array.from({ length: 11 }, (_, i) => cobrancaEm(i + 1, '2026-03-10', 2)),
+      cobrancaEm(12, '2026-03-10', 1),
+      cobrancaEm(13, '2026-03-10', null),
+    ])
+    await userEvent.click(await screen.findByRole('button', { name: /próxima/i }))
+    expect(await screen.findByText('Página 2 de 2')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Período letivo' }))
+    await userEvent.click(screen.getByRole('option', { name: '2026/1' }))
+
+    expect(await screen.findByText('Aluno 12')).toBeInTheDocument()
+    expect(screen.queryByText('Aluno 13')).not.toBeInTheDocument()
+    expect(ultimaConsulta(chamadas)).toEqual({ pagina: '0', tamanho: '10', periodoLetivoId: '1' })
+    expect(screen.getByRole('button', { name: /^todas/i })).toHaveTextContent('1')
+    expect(screen.getByText(/avulsas, sem matrícula, não entram/)).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /limpar período e vencimento/i }))
+
+    expect(await screen.findByText('Aluno 01')).toBeInTheDocument()
+    expect(ultimaConsulta(chamadas)).toEqual({ pagina: '0', tamanho: '10' })
+    expect(screen.queryByRole('button', { name: /limpar período e vencimento/i })).not.toBeInTheDocument()
+  })
+
+  it('filtra pelo intervalo de vencimento, sem deixar o fim antes do início', async () => {
+    const hoje = new Date()
+    const dia = (n: number) => new Date(hoje.getFullYear(), hoje.getMonth(), n)
+    const chamadas = abrir([
+      cobrancaEm(1, iso(dia(4)), 1),
+      cobrancaEm(2, iso(dia(5)), 1),
+      cobrancaEm(3, iso(dia(20)), null),
+      cobrancaEm(4, iso(dia(21)), 1),
+    ])
+    await screen.findByText('Aluno 01')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Vencimento de' }))
+    let calendario = screen.getByRole('dialog', { name: 'Escolher data' })
+    await userEvent.click(within(calendario).getByRole('button', { name: rotuloDoDia(dia(5)) }))
+    await vi.waitFor(() => expect(screen.queryByText('Aluno 01')).not.toBeInTheDocument())
+    expect(ultimaConsulta(chamadas)).toEqual({ pagina: '0', tamanho: '10', vencimentoDe: iso(dia(5)) })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Vencimento até' }))
+    calendario = screen.getByRole('dialog', { name: 'Escolher data' })
+    expect(within(calendario).getByRole('button', { name: rotuloDoDia(dia(4)) })).toBeDisabled()
+    await userEvent.click(within(calendario).getByRole('button', { name: rotuloDoDia(dia(20)) }))
+
+    await vi.waitFor(() => expect(screen.queryByText('Aluno 04')).not.toBeInTheDocument())
+    // A avulsa entra: só o filtro de período letivo depende da matrícula.
+    expect(screen.getByText('Aluno 03')).toBeInTheDocument()
+    expect(screen.getByText('Aluno 02')).toBeInTheDocument()
+    expect(ultimaConsulta(chamadas)).toEqual({
+      pagina: '0',
+      tamanho: '10',
+      vencimentoDe: iso(dia(5)),
+      vencimentoAte: iso(dia(20)),
+    })
+    expect(screen.getByRole('button', { name: /^todas/i })).toHaveTextContent('2')
+  })
+
+  it('sem os períodos letivos, a lista aparece do mesmo jeito', async () => {
+    abrir([cobranca(1)], undefined, undefined, problema(500, 'ERRO_INTERNO'))
+
+    expect(await screen.findByText('Aluno 01')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('combobox', { name: 'Período letivo' }))
+    expect(screen.getAllByRole('option')).toHaveLength(1)
   })
 
   it('avisa quando nada passa no filtro', async () => {
