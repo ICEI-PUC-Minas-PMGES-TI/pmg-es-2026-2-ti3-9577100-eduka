@@ -1173,7 +1173,9 @@ public class MockDataSeeder implements ApplicationRunner {
         List<PagamentoCobranca> pagamentos = pagamentoRepository.saveAll(pagamentosOnline(c, entidades));
         pagamentos.forEach(pagamento -> c.datar("PAGAMENTO_COBRANCA", "ID_PAGAMENTO", "REGISTRADO_EM",
                 pagamento.getId(), pagasEm.get(pagamento.getCobrancaId()).plus(Duration.ofMinutes(2))));
-        estornar(c, pagamentos);
+        estornar(c, pagamentos, entidades.stream()
+                .filter(cobranca -> cobranca.getTipo() == TipoCobranca.MENSALIDADE)
+                .collect(Collectors.toMap(Cobranca::getId, cobranca -> YearMonth.from(cobranca.getDataVencimento()))));
         for (CobrancaMock mock : cobrancas) {
             auditarCobranca(c, mock);
         }
@@ -1291,20 +1293,25 @@ public class MockDataSeeder implements ApplicationRunner {
     }
 
     /**
-     * Tres pagamentos online de um a quatro meses atras tiveram dinheiro
-     * devolvido pelo provedor: um inteiro, um em duas parcelas e um so em
-     * parte. Como no webhook, a cobranca continua PAGA, o pagamento guarda o
+     * Tres mensalidades pagas online, de meses diferentes entre um e quatro
+     * meses atras, tiveram dinheiro devolvido pelo provedor: uma inteira, uma
+     * em duas parcelas e uma so em parte. Como no webhook, a cobranca continua PAGA, o pagamento guarda o
      * total devolvido e cada devolucao vira uma linha, no dia em que saiu.
      */
-    private void estornar(Contexto c, List<PagamentoCobranca> pagamentos) {
+    private void estornar(Contexto c, List<PagamentoCobranca> pagamentos, Map<UUID, YearMonth> mesDaMensalidade) {
         List<PagamentoCobranca> candidatos = pagamentos.stream()
-                .filter(pagamento -> !pagamento.getDataPagamento().isBefore(c.hoje.minusMonths(4))
+                .filter(pagamento -> mesDaMensalidade.containsKey(pagamento.getCobrancaId())
+                        && !pagamento.getDataPagamento().isBefore(c.hoje.minusMonths(4))
                         && pagamento.getDataPagamento().isBefore(c.hoje.minusMonths(1)))
                 .toList();
-        Set<PagamentoCobranca> escolhidos = new LinkedHashSet<>();
-        while (escolhidos.size() < Math.min(3, candidatos.size())) {
-            escolhidos.add(candidatos.get(c.gerador.random().nextInt(candidatos.size())));
+        // Um por mes, para os estornos nao cairem todos na mesma mensalidade.
+        Map<YearMonth, PagamentoCobranca> porMes = new LinkedHashMap<>();
+        int meses = (int) candidatos.stream().map(p -> mesDaMensalidade.get(p.getCobrancaId())).distinct().count();
+        while (porMes.size() < Math.min(3, meses)) {
+            PagamentoCobranca sorteado = candidatos.get(c.gerador.random().nextInt(candidatos.size()));
+            porMes.putIfAbsent(mesDaMensalidade.get(sorteado.getCobrancaId()), sorteado);
         }
+        java.util.Collection<PagamentoCobranca> escolhidos = porMes.values();
         List<EstornoCobranca> estornos = new ArrayList<>();
         int i = 0;
         for (PagamentoCobranca pagamento : escolhidos) {
