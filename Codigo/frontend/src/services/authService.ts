@@ -100,6 +100,31 @@ export function reenviarCodigo(verificacaoId: string): Promise<VerificacaoLogin>
   })
 }
 
+export type RecuperacaoSenha = {
+  /** Segundos, a partir da resposta, que o código enviado vale. */
+  validadeSegundos: number
+  /** Segundos, a partir da resposta, até poder pedir outro código. */
+  reenvioSegundos: number
+}
+
+// "Esqueceu sua senha?": o backend manda um código para o e-mail do cadastro.
+// A resposta é a mesma para qualquer login, exista ou não.
+export function solicitarRecuperacaoSenha(login: string): Promise<RecuperacaoSenha> {
+  return apiRequest<RecuperacaoSenha>('/senha/recuperacao', {
+    method: 'POST',
+    body: JSON.stringify({ login: login.trim() }),
+  })
+}
+
+// Define a senha nova com o código recebido. Não abre sessão: depois disso o
+// usuário entra pelo login normal, com a senha nova.
+export async function redefinirSenha(login: string, codigo: string, novaSenha: string): Promise<void> {
+  await apiRequest<void>('/senha/redefinicao', {
+    method: 'POST',
+    body: JSON.stringify({ login: login.trim(), codigo, novaSenha }),
+  })
+}
+
 export function salvarSessao(dados: LoginResponse, login: string): void {
   // Troca de senha ou código pendente: o backend não emitiu token, não há o
   // que guardar.

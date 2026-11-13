@@ -15,6 +15,8 @@ const ROTAS_PUBLICAS = new Set([
   '/login/codigo',
   '/login/codigo/reenvio',
   '/primeiro-acesso',
+  '/senha/recuperacao',
+  '/senha/redefinicao',
   // Acesso de demonstração (perfil demo): voltar ao /login/demo com o token
   // da sessão anterior já vencido não pode virar 401.
   '/demo/contas',
