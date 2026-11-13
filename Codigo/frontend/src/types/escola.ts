@@ -66,6 +66,15 @@ export type Escola = {
   modulos: ModuloEscola[]
 }
 
+// Espelha o MasterInicialRequest do backend: o gestor da escola, que recebe o
+// primeiro login MASTER. O e-mail vira o login e a senha provisória é o CPF.
+export type MasterInicialRequest = {
+  nome: string
+  /** Só dígitos. */
+  cpf: string
+  email: string
+}
+
 // Espelha o EscolaRequest do backend (POST /escolas).
 export type EscolaRequest = {
   nome: string
@@ -76,6 +85,8 @@ export type EscolaRequest = {
   telefone?: string
   ativo: boolean
   plano: PlanoEscola
+  /** Cria o login MASTER e envia o e-mail de primeiro acesso. */
+  master: MasterInicialRequest
 }
 
 // Espelha o EscolaUpdateRequest do backend (PUT /escolas/{id}). Campo omitido

@@ -69,7 +69,7 @@ export function PainelEscolas() {
 
   function handleCadastrada(escola: Escola) {
     setCadastroAberto(false)
-    setSucesso(`"${escola.nome}" foi cadastrada com sucesso.`)
+    setSucesso(`"${escola.nome}" foi cadastrada. O gestor recebeu o e-mail de primeiro acesso.`)
   }
 
   return (

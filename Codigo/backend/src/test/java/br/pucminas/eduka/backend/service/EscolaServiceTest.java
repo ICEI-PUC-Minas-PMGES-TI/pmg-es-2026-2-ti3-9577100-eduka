@@ -32,6 +32,7 @@ import br.pucminas.eduka.backend.dto.EnderecoDto;
 import br.pucminas.eduka.backend.dto.EscolaRequest;
 import br.pucminas.eduka.backend.dto.EscolaResponse;
 import br.pucminas.eduka.backend.dto.EscolaUpdateRequest;
+import br.pucminas.eduka.backend.dto.MasterInicialRequest;
 import br.pucminas.eduka.backend.exception.CnpjJaCadastradoException;
 import br.pucminas.eduka.backend.repository.EscolaRepository;
 
@@ -42,12 +43,17 @@ class EscolaServiceTest {
     private EscolaRepository escolaRepository;
     @Mock
     private AuditoriaService auditoriaService;
+    @Mock
+    private MasterInicialService masterInicialService;
+
+    private static final MasterInicialRequest MASTER = new MasterInicialRequest("Bia Gestora", "52998224725",
+            "bia@escola.com");
 
     private EscolaService escolaService;
 
     @BeforeEach
     void setUp() {
-        escolaService = new EscolaService(escolaRepository, auditoriaService);
+        escolaService = new EscolaService(escolaRepository, auditoriaService, masterInicialService);
     }
 
     private static final Endereco ENDERECO = new Endereco("Rua das Escolas", "100", "Centro", "Belo Horizonte",
@@ -277,7 +283,8 @@ class EscolaServiceTest {
                 " contato@eduka.com ",
                 " 3133334444 ",
                 PlanoEscola.AVANCADO,
-                null));
+                null,
+                MASTER));
 
         ArgumentCaptor<Escola> captor = ArgumentCaptor.forClass(Escola.class);
         verify(escolaRepository).save(captor.capture());
@@ -299,7 +306,7 @@ class EscolaServiceTest {
         when(escolaRepository.save(any(Escola.class))).thenAnswer(inv -> inv.getArgument(0));
 
         escolaService.cadastrar(new EscolaRequest("Colégio Eduka", null, new EnderecoDto("", " ", null, null, "", ""),
-                null, null, PlanoEscola.BASICO, null));
+                null, null, PlanoEscola.BASICO, null, MASTER));
 
         ArgumentCaptor<Escola> captor = ArgumentCaptor.forClass(Escola.class);
         verify(escolaRepository).save(captor.capture());
@@ -309,7 +316,7 @@ class EscolaServiceTest {
     @Test
     void cadastrarSemPlanoEhRejeitado() {
         assertThatThrownBy(() -> escolaService.cadastrar(
-                new EscolaRequest("Colégio Eduka", null, null, null, null, null, null)))
+                new EscolaRequest("Colégio Eduka", null, null, null, null, null, null, MASTER)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Plano");
         verify(escolaRepository, never()).save(any());
@@ -319,7 +326,7 @@ class EscolaServiceTest {
     void cadastrarRespeitaAtivoInformado() {
         when(escolaRepository.save(any(Escola.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        escolaService.cadastrar(new EscolaRequest("Colégio Eduka", null, null, null, null, PlanoEscola.BASICO, false));
+        escolaService.cadastrar(new EscolaRequest("Colégio Eduka", null, null, null, null, PlanoEscola.BASICO, false, MASTER));
 
         ArgumentCaptor<Escola> captor = ArgumentCaptor.forClass(Escola.class);
         verify(escolaRepository).save(captor.capture());
@@ -330,7 +337,7 @@ class EscolaServiceTest {
     @Test
     void cadastrarSemNomeEhRejeitado() {
         assertThatThrownBy(() -> escolaService.cadastrar(
-                new EscolaRequest(" ", "123", null, null, null, PlanoEscola.BASICO, null)))
+                new EscolaRequest(" ", "123", null, null, null, PlanoEscola.BASICO, null, MASTER)))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(escolaRepository, never()).save(any());
     }
@@ -340,8 +347,43 @@ class EscolaServiceTest {
         when(escolaRepository.existsByCnpjCpf("12345678000190")).thenReturn(true);
 
         assertThatThrownBy(() -> escolaService.cadastrar(
-                new EscolaRequest("Colégio Eduka", "12345678000190", null, null, null, PlanoEscola.BASICO, null)))
+                new EscolaRequest("Colégio Eduka", "12345678000190", null, null, null, PlanoEscola.BASICO, null, MASTER)))
                 .isInstanceOf(CnpjJaCadastradoException.class);
         verify(escolaRepository, never()).save(any());
+    }
+
+    @Test
+    void cadastrarCriaOMasterInicialNaEscolaNova() {
+        UUID escolaId = UUID.randomUUID();
+        when(escolaRepository.save(any(Escola.class))).thenAnswer(inv -> {
+            Escola nova = inv.getArgument(0);
+            return escola(escolaId, nova.getNome());
+        });
+
+        escolaService.cadastrar(new EscolaRequest("Colégio Eduka", null, null, null, null, PlanoEscola.BASICO,
+                null, MASTER));
+
+        verify(masterInicialService).criar(escolaId, MASTER);
+    }
+
+    @Test
+    void cadastrarSemMasterEhRejeitado() {
+        assertThatThrownBy(() -> escolaService.cadastrar(
+                new EscolaRequest("Colégio Eduka", null, null, null, null, PlanoEscola.BASICO, null, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("MASTER");
+        verify(escolaRepository, never()).save(any());
+        verify(masterInicialService, never()).criar(any(), any());
+    }
+
+    @Test
+    void cnpjDuplicadoNaoCriaMaster() {
+        when(escolaRepository.existsByCnpjCpf("12345678000190")).thenReturn(true);
+
+        assertThatThrownBy(() -> escolaService.cadastrar(
+                new EscolaRequest("Colégio Eduka", "12345678000190", null, null, null, PlanoEscola.BASICO, null,
+                        MASTER)))
+                .isInstanceOf(CnpjJaCadastradoException.class);
+        verify(masterInicialService, never()).criar(any(), any());
     }
 }

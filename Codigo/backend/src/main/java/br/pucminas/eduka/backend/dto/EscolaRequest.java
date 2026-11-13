@@ -15,6 +15,11 @@ import jakarta.validation.constraints.Size;
  * Todos os dados sao obrigatorios, inclusive o endereco completo. Apenas
  * {@code ativo} e opcional: omitido (nulo) vira {@code true}.
  * </p>
+ *
+ * <p>
+ * {@code master} e o gestor da escola: o cadastro ja cria o login MASTER dele
+ * e manda o e-mail de primeiro acesso.
+ * </p>
  */
 public record EscolaRequest(
         @NotBlank(message = "nome é obrigatório")
@@ -28,5 +33,6 @@ public record EscolaRequest(
         @NotBlank(message = "telefone é obrigatório")
         @Size(max = 20, message = "telefone deve ter no máximo 20 caracteres") String telefone,
         @NotNull(message = "plano é obrigatório") PlanoEscola plano,
-        Boolean ativo) {
+        Boolean ativo,
+        @NotNull(message = "master é obrigatório") @Valid MasterInicialRequest master) {
 }
