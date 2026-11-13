@@ -97,6 +97,13 @@ public class ApiExceptionHandler {
                 .body(problema(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage()));
     }
 
+    /** Mesma mensagem para codigo errado, vencido ou login desconhecido. */
+    @ExceptionHandler(CodigoRecuperacaoInvalidoException.class)
+    public ResponseEntity<ProblemDetail> codigoRecuperacaoInvalido(CodigoRecuperacaoInvalidoException ex) {
+        return ResponseEntity.badRequest()
+                .body(problema(HttpStatus.BAD_REQUEST, ex.getMessage(), "CODIGO_RECUPERACAO_INVALIDO"));
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ProblemDetail> acessoNegado(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)

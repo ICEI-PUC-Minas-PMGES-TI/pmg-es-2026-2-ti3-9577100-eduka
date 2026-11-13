@@ -14,6 +14,7 @@ import {
   type VerificacaoLogin,
 } from '../../services/authService'
 import styles from './Login.module.css'
+import { RecuperarSenha } from './RecuperarSenha'
 
 // Mesmo mínimo do backend (UsuarioService.validarSenha).
 const SENHA_TAMANHO_MINIMO = 8
@@ -27,9 +28,12 @@ const SENHA_TAMANHO_MINIMO = 8
 //
 // Com a senha certa, a última etapa é "codigo": o backend manda um código por
 // e-mail e só emite o token quando ele é confirmado (VerificacaoCodigo).
+//
+// "Esqueceu sua senha?" abre a etapa "recuperar" (RecuperarSenha): um código
+// vai para o e-mail do cadastro e, com ele, o usuário define uma senha nova.
 export function Login() {
   const navigate = useNavigate()
-  const [etapa, setEtapa] = useState<'entrar' | 'novaSenha' | 'codigo'>('entrar')
+  const [etapa, setEtapa] = useState<'entrar' | 'novaSenha' | 'codigo' | 'recuperar'>('entrar')
   const [verificacao, setVerificacao] = useState<VerificacaoLogin | null>(null)
   const [login, setLogin] = useState('')
   const [senha, setSenha] = useState('')
@@ -57,7 +61,7 @@ export function Login() {
       // O backend usa 401 também para a senha provisória vencida, e só o
       // detalhe diferencia os dois casos.
       return err.detalhe?.toLowerCase().includes('expirada')
-        ? 'Sua senha provisória expirou. Peça um novo acesso à secretaria da escola.'
+        ? 'Sua senha provisória expirou. Use "Esqueceu sua senha?" ou peça um novo acesso à secretaria.'
         : 'E-mail ou senha incorretos. Confira os dados e tente novamente.'
     }
     if (err.status === 400 && err.detalhe) return err.detalhe
@@ -140,6 +144,7 @@ export function Login() {
 
   function voltarParaEntrar() {
     setEtapa('entrar')
+    setAviso(null)
     setVerificacao(null)
     setSenha('')
     setNovaSenha('')
@@ -150,7 +155,15 @@ export function Login() {
 
   function handleEsqueciSenha() {
     setErro(null)
-    setAviso('Para redefinir sua senha, procure a secretaria da sua escola.')
+    setAviso(null)
+    setMostrarSenha(false)
+    setEtapa('recuperar')
+  }
+
+  function senhaRedefinida(loginRecuperado: string) {
+    voltarParaEntrar()
+    setLogin(loginRecuperado)
+    setAviso('Senha redefinida. Entre com a nova senha.')
   }
 
   const tipoSenha = mostrarSenha ? 'text' : 'password'
@@ -195,6 +208,12 @@ export function Login() {
               verificacao={verificacao}
               login={login}
               onAutenticado={concluir}
+              onVoltar={voltarParaEntrar}
+            />
+          ) : etapa === 'recuperar' ? (
+            <RecuperarSenha
+              loginInicial={login}
+              onConcluido={senhaRedefinida}
               onVoltar={voltarParaEntrar}
             />
           ) : etapa === 'entrar' ? (

@@ -58,6 +58,7 @@ import br.pucminas.eduka.backend.domain.Disciplina;
 import br.pucminas.eduka.backend.domain.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.Endereco;
 import br.pucminas.eduka.backend.domain.Escola;
+import br.pucminas.eduka.backend.domain.EstornoCobranca;
 import br.pucminas.eduka.backend.domain.FaturaPlataforma;
 import br.pucminas.eduka.backend.domain.HorarioTurma;
 import br.pucminas.eduka.backend.domain.LogAuditoria;
@@ -100,6 +101,7 @@ import br.pucminas.eduka.backend.repository.CursoRepository;
 import br.pucminas.eduka.backend.repository.DespesaRepository;
 import br.pucminas.eduka.backend.repository.DisciplinaRepository;
 import br.pucminas.eduka.backend.repository.EscolaRepository;
+import br.pucminas.eduka.backend.repository.EstornoCobrancaRepository;
 import br.pucminas.eduka.backend.repository.FaturaPlataformaRepository;
 import br.pucminas.eduka.backend.repository.HorarioTurmaRepository;
 import br.pucminas.eduka.backend.repository.LogAuditoriaRepository;
@@ -439,6 +441,7 @@ public class MockDataSeeder implements ApplicationRunner {
     private final AulaRepository aulaRepository;
     private final CobrancaRepository cobrancaRepository;
     private final PagamentoCobrancaRepository pagamentoRepository;
+    private final EstornoCobrancaRepository estornoRepository;
     private final CategoriaDespesaService categoriaDespesaService;
     private final CategoriaDespesaRepository categoriaDespesaRepository;
     private final DespesaRepository despesaRepository;
@@ -463,7 +466,7 @@ public class MockDataSeeder implements ApplicationRunner {
             AvaliacaoRepository avaliacaoRepository, NotaRepository notaRepository,
             HorarioTurmaRepository horarioRepository, AulaRepository aulaRepository,
             CobrancaRepository cobrancaRepository, PagamentoCobrancaRepository pagamentoRepository,
-            CategoriaDespesaService categoriaDespesaService, CategoriaDespesaRepository categoriaDespesaRepository,
+            EstornoCobrancaRepository estornoRepository, CategoriaDespesaService categoriaDespesaService, CategoriaDespesaRepository categoriaDespesaRepository,
             DespesaRepository despesaRepository, FaturaPlataformaRepository faturaRepository,
             SolicitacaoCorrecaoRepository solicitacaoRepository, AceitePrivacidadeRepository aceiteRepository,
             LogAuditoriaRepository logAuditoriaRepository, PasswordEncoder passwordEncoder,
@@ -490,6 +493,7 @@ public class MockDataSeeder implements ApplicationRunner {
         this.aulaRepository = aulaRepository;
         this.cobrancaRepository = cobrancaRepository;
         this.pagamentoRepository = pagamentoRepository;
+        this.estornoRepository = estornoRepository;
         this.categoriaDespesaService = categoriaDespesaService;
         this.categoriaDespesaRepository = categoriaDespesaRepository;
         this.despesaRepository = despesaRepository;
@@ -1166,9 +1170,12 @@ public class MockDataSeeder implements ApplicationRunner {
         // O provedor avisa do pagamento um ou dois minutos depois.
         Map<UUID, Instant> pagasEm = entidades.stream().filter(cobranca -> cobranca.getPagaEm() != null)
                 .collect(Collectors.toMap(Cobranca::getId, Cobranca::getPagaEm));
-        pagamentoRepository.saveAll(pagamentosOnline(c, entidades)).forEach(pagamento -> c.datar(
-                "PAGAMENTO_COBRANCA", "ID_PAGAMENTO", "REGISTRADO_EM", pagamento.getId(),
-                pagasEm.get(pagamento.getCobrancaId()).plus(Duration.ofMinutes(2))));
+        List<PagamentoCobranca> pagamentos = pagamentoRepository.saveAll(pagamentosOnline(c, entidades));
+        pagamentos.forEach(pagamento -> c.datar("PAGAMENTO_COBRANCA", "ID_PAGAMENTO", "REGISTRADO_EM",
+                pagamento.getId(), pagasEm.get(pagamento.getCobrancaId()).plus(Duration.ofMinutes(2))));
+        estornar(c, pagamentos, entidades.stream()
+                .filter(cobranca -> cobranca.getTipo() == TipoCobranca.MENSALIDADE)
+                .collect(Collectors.toMap(Cobranca::getId, cobranca -> YearMonth.from(cobranca.getDataVencimento()))));
         for (CobrancaMock mock : cobrancas) {
             auditarCobranca(c, mock);
         }
@@ -1283,6 +1290,57 @@ public class MockDataSeeder implements ApplicationRunner {
                             .build();
                 })
                 .toList();
+    }
+
+    /**
+     * Tres mensalidades pagas online, de meses diferentes entre um e quatro
+     * meses atras, tiveram dinheiro devolvido pelo provedor: uma inteira, uma
+     * em duas parcelas e uma so em parte. Como no webhook, a cobranca continua PAGA, o pagamento guarda o
+     * total devolvido e cada devolucao vira uma linha, no dia em que saiu.
+     */
+    private void estornar(Contexto c, List<PagamentoCobranca> pagamentos, Map<UUID, YearMonth> mesDaMensalidade) {
+        List<PagamentoCobranca> candidatos = pagamentos.stream()
+                .filter(pagamento -> mesDaMensalidade.containsKey(pagamento.getCobrancaId())
+                        && !pagamento.getDataPagamento().isBefore(c.hoje.minusMonths(4))
+                        && pagamento.getDataPagamento().isBefore(c.hoje.minusMonths(1)))
+                .toList();
+        // Um por mes, para os estornos nao cairem todos na mesma mensalidade.
+        Map<YearMonth, PagamentoCobranca> porMes = new LinkedHashMap<>();
+        int meses = (int) candidatos.stream().map(p -> mesDaMensalidade.get(p.getCobrancaId())).distinct().count();
+        while (porMes.size() < Math.min(3, meses)) {
+            PagamentoCobranca sorteado = candidatos.get(c.gerador.random().nextInt(candidatos.size()));
+            porMes.putIfAbsent(mesDaMensalidade.get(sorteado.getCobrancaId()), sorteado);
+        }
+        java.util.Collection<PagamentoCobranca> escolhidos = porMes.values();
+        List<EstornoCobranca> estornos = new ArrayList<>();
+        int i = 0;
+        for (PagamentoCobranca pagamento : escolhidos) {
+            BigDecimal valor = pagamento.getValorPago();
+            BigDecimal metade = valor.divide(BigDecimal.TWO, 2, RoundingMode.HALF_UP);
+            List<BigDecimal> parcelas = switch (i++) {
+                case 0 -> List.of(valor);
+                case 1 -> List.of(metade, valor.subtract(metade));
+                default -> List.of(new BigDecimal("50.00").min(valor));
+            };
+            LocalDate dia = pagamento.getDataPagamento();
+            for (BigDecimal parcela : parcelas) {
+                dia = dia.plusDays(c.gerador.entre(3, 12));
+                estornos.add(EstornoCobranca.builder()
+                        .escolaId(c.escolaId)
+                        .cobrancaId(pagamento.getCobrancaId())
+                        .valor(parcela)
+                        .estornadoEm(dia.atStartOfDay(ZONA).toInstant())
+                        .build());
+            }
+            pagamento.setValorEstornado(parcelas.stream().reduce(BigDecimal.ZERO, BigDecimal::add));
+        }
+        estornoRepository.saveAll(estornos).forEach(estorno -> {
+            // O aviso do provedor chega de manha, no dia do estorno.
+            Instant avisadoEm = estorno.getEstornadoEm().plus(Duration.ofHours(c.gerador.entre(8, 11)));
+            c.datar("ESTORNO_COBRANCA", "ID_ESTORNO", "REGISTRADO_EM", estorno.getId(), avisadoEm);
+            c.registrar(OrigemAuditoria.PROVEDOR, null, OperacaoAuditoria.ESTORNAR, EntidadeAuditada.COBRANCA,
+                    estorno.getCobrancaId(), avisadoEm);
+        });
     }
 
     private static void auditarCobranca(Contexto c, CobrancaMock mock) {

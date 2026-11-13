@@ -20,6 +20,12 @@ export type ConsultaCobrancas = {
   nome?: string
   /** Só as cobranças deste aluno (os totais por situação também passam a ser só dele). */
   alunoId?: string
+  /** Pela turma da matrícula: cobrança avulsa, sem matrícula, fica de fora. */
+  periodoLetivoId?: number
+  /** Vencimento a partir deste dia (inclusivo), em ISO. */
+  vencimentoDe?: string
+  /** Vencimento até este dia (inclusivo), em ISO. */
+  vencimentoAte?: string
 }
 
 /** Uma página das cobranças, filtrada e ordenada pelo vencimento no backend. */
@@ -28,6 +34,9 @@ export function listarCobrancas(consulta: ConsultaCobrancas, signal?: AbortSigna
   if (consulta.status) params.set('status', consulta.status)
   if (consulta.nome) params.set('nome', consulta.nome)
   if (consulta.alunoId) params.set('alunoId', consulta.alunoId)
+  if (consulta.periodoLetivoId != null) params.set('periodoLetivoId', String(consulta.periodoLetivoId))
+  if (consulta.vencimentoDe) params.set('vencimentoDe', consulta.vencimentoDe)
+  if (consulta.vencimentoAte) params.set('vencimentoAte', consulta.vencimentoAte)
   return apiRequest<PaginaCobrancas>(`/cobrancas/pagina?${params}`, { signal })
 }
 

@@ -19,23 +19,70 @@ O sistema cobre cadastro de escolas, usuários, alunos, professores, cursos, tur
 
 ## Instruções de utilização
 
-### Executando com Docker (recomendado)
+### Instalação do zero (Docker, recomendado)
 
-1. Copie o arquivo de variáveis de ambiente de exemplo:
+Este passo a passo sobe o sistema inteiro numa máquina que nunca rodou o projeto, com a escola de demonstração já populada. Com Docker não é preciso instalar Java, Maven nem Node: tudo é compilado dentro dos containers.
+
+**Pré-requisitos**
+
+* [Git](https://git-scm.com/downloads).
+* Docker com o Compose v2 (o comando é `docker compose`, com espaço; o antigo `docker-compose` não serve): [Docker Desktop](https://www.docker.com/products/docker-desktop/) no Windows e no macOS, ou Docker Engine com o plugin `docker-compose-plugin` no Linux. Confira com `docker compose version`.
+* Portas livres: `5173` (frontend), `8080` (backend), `5432` (Postgres) e `5050` (pgAdmin).
+* Internet na primeira subida, para baixar as imagens e as dependências do Maven e do npm.
+
+**Passo a passo**
+
+1. Clone o repositório e entre na pasta:
+
+   ```bash
+   git clone https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti3-9577100-eduka.git
+   cd pmg-es-2026-2-ti3-9577100-eduka
+   ```
+
+2. Crie o `.env` a partir do exemplo (no PowerShell: `Copy-Item .env.example .env`):
 
    ```bash
    cp .env.example .env
    ```
 
-   Os valores do exemplo servem para dev. `JWT_SECRET` (mínimo de 32 bytes) e `PII_ENCRYPTION_KEY` (32 bytes em base64) são obrigatórios; gere chaves próprias com `openssl rand -base64 48` e `openssl rand -base64 32`, respectivamente.
+   Os valores do exemplo já sobem o ambiente de dev, inclusive `JWT_SECRET` e `PII_ENCRYPTION_KEY`, que são obrigatórios. Essas duas chaves estão publicadas no repositório e servem só para dev; para produção, veja [Executando em produção](#executando-em-produção).
 
-2. Suba os serviços (Postgres, pgAdmin, backend e frontend):
+3. Suba os serviços (Postgres, pgAdmin, backend, frontend e o `mock`, que carrega os dados de exemplo e encerra), sempre a partir da raiz do repositório:
 
    ```bash
    docker compose -f Codigo/docker-compose.yml --env-file .env up --build
    ```
 
-3. Acesse:
+   A primeira subida leva alguns minutos, porque compila o backend e instala as dependências do frontend. O sistema está pronto quando o backend escreve `Started BackendApplication` no log. Para rodar em segundo plano, acrescente `-d` e acompanhe com `docker compose -f Codigo/docker-compose.yml --env-file .env logs -f backend`.
+
+4. Confira se subiu:
+
+   * http://localhost:8080/health responde `{"status":"UP","banco":"UP"}`.
+   * http://localhost:5173/login abre a tela de login. Entre com a diretora da escola de demonstração, `helena.duarte@mock.eduka.com.br`, senha `Eduka-mock123`.
+   * Depois da senha, o sistema pede um código de 6 dígitos. Sem `BREVO_API_KEY` nenhum e-mail sai: em dev o código aparece no log do backend.
+
+     ```bash
+     docker compose -f Codigo/docker-compose.yml --env-file .env logs backend | grep "Codigo de verificacao"
+     ```
+
+     Para pular essa etapa e entrar em qualquer conta de teste com um clique em http://localhost:5173/login/dev, ponha `LOGIN_VERIFICACAO_HABILITADA=false` no `.env` e recrie o backend com `docker compose -f Codigo/docker-compose.yml --env-file .env up -d backend`.
+
+**Problemas comuns**
+
+| Sintoma | O que fazer |
+|---|---|
+| Backend encerra na subida com `PII_ENCRYPTION_KEY must be valid base64` ou `must decode to exactly 32 bytes` | A chave do `.env` foi trocada por um valor inválido. Gere outra com `openssl rand -base64 32` (ou volte a do `.env.example`). |
+| Backend encerra com `JWT_SECRET must be at least 32 bytes long` | A chave precisa ter no mínimo 32 bytes. Gere uma com `openssl rand -base64 48`. |
+| `port is already allocated` / `address already in use` | Outro programa usa a porta. Pare-o, ou, para o Postgres e o pgAdmin, troque `POSTGRES_PORT` e `PGADMIN_PORT` no `.env`. As portas `8080` e `5173` são fixas no compose. |
+| Avisos `The "POSTGRES_DB" variable is not set` | O comando foi rodado sem `--env-file .env` ou fora da raiz do repositório. |
+| pgAdmin não abre logo depois do `up` | Ele leva cerca de meio minuto para iniciar; espere e recarregue. |
+| A escola de demonstração não aparece ou está com dados antigos | O seeder só semeia banco sem a escola. Para recomeçar do zero, apague os volumes: `docker compose -f Codigo/docker-compose.yml --env-file .env down -v` e suba de novo. |
+
+### Acessos e dados de exemplo
+
+Com o ambiente de dev no ar:
+
+1. Acesse:
 
    * Frontend: http://localhost:5173 (página inicial; o login da escola fica em `/login` e o do super admin em `/login/admin`)
    * Backend (health check): http://localhost:8080/health
@@ -57,7 +104,7 @@ O sistema cobre cadastro de escolas, usuários, alunos, professores, cursos, tur
 
    A escola tem o semestre atual e os dois anteriores, já encerrados, cada um com as suas turmas e matrículas concluídas. Hoje são 5 turmas ativas (6º, 8º e 9º ano do Fundamental II e 1º e 3º ano do Médio), com 10 alunos cada. A maioria dos alunos já estudava na escola no semestre mais antigo; o 6º ano entrou no começo do ano, e alguns alunos entraram no meio dele. Os alunos têm mãe e/ou pai como responsáveis, e alguns são irmãos. Cada disciplina tem três avaliações por semestre, e as que já passaram têm nota publicada. As turmas atuais têm grade semanal (sem choque de horário de turma nem de professor) e chamada de todas as aulas do semestre até ontem, fora os feriados e algumas desta semana. Cada disciplina tem uma lista de exercícios recente com parte das notas por lançar ou em rascunho; é o que aparece no Início e em Minhas turmas do professor.
 
-   No financeiro há mensalidades do mês atual e dos 12 anteriores (até o fim do semestre), taxa de matrícula de quem entrou, material didático, simulados do Médio e o passeio do 6º ano (dois cancelados). Toda cobrança foi lançada antes de vencer e nenhuma foi paga antes de ser lançada. A maioria foi paga (PIX, boleto ou baixa manual), algumas com atraso; quatro famílias devem os últimos meses e outras cobranças ficaram para trás: essas estão vencidas. Há também as despesas dos 12 meses (folha, aluguel, contas, 13º e as despesas de cada época do ano), dimensionadas para a escola fechar todo mês no azul, as faturas do Edúka (as vencidas pagas e a do mês em aberto, sem atraso que suspenda a escola), pedidos de correção de cadastro de alunos e o registro de atividades de tudo isso. Equipe e professores já aceitaram o aviso de privacidade; os alunos veem o aviso no primeiro acesso. As datas são relativas ao dia em que o banco é semeado.
+   No financeiro há mensalidades do mês atual e dos 12 anteriores (até o fim do semestre), taxa de matrícula de quem entrou, material didático, simulados do Médio e o passeio do 6º ano (dois cancelados). Toda cobrança foi lançada antes de vencer e nenhuma foi paga antes de ser lançada. A maioria foi paga (PIX, boleto ou baixa manual), algumas com atraso; três mensalidades pagas de um a quatro meses atrás, cada uma de um mês, tiveram estorno (uma inteira, uma em duas parcelas e uma parcial); quatro famílias devem os últimos meses e outras cobranças ficaram para trás: essas estão vencidas. Há também as despesas dos 12 meses (folha, aluguel, contas, 13º e as despesas de cada época do ano), dimensionadas para a escola fechar todo mês no azul, as faturas do Edúka (as vencidas pagas e a do mês em aberto, sem atraso que suspenda a escola), pedidos de correção de cadastro de alunos e o registro de atividades de tudo isso. Equipe e professores já aceitaram o aviso de privacidade; os alunos veem o aviso no primeiro acesso. As datas são relativas ao dia em que o banco é semeado.
 
    A conta de recebimento começa não iniciada, para o master testar **Ativar recebimentos** (o CNPJ vem do cadastro da escola). Dados que passam na validação do formulário: razão social `Colégio Ipê Amarelo Ltda`, e-mail `financeiro@mock.eduka.com.br`, celular `(31) 98876-4500`, empresa limitada, faturamento mensal `85000`, endereço `Rua dos Timbiras`, `1560`, `Funcionários`, CEP `30140-061`, banco `001`, agência `1234`, conta `56789`, dígito `0`, conta corrente.
 
@@ -67,7 +114,7 @@ O sistema cobre cadastro de escolas, usuários, alunos, professores, cursos, tur
 
 Os containers do backend e do frontend copiam o código na hora do build. Depois de alterar o código, reconstrua o serviço correspondente, por exemplo: `docker compose -f Codigo/docker-compose.yml --env-file .env up -d --build frontend`.
 
-Para parar os serviços, use `docker compose -f Codigo/docker-compose.yml down` (adicione `-v` para também apagar os volumes do banco e do pgAdmin).
+Para parar os serviços, use `docker compose -f Codigo/docker-compose.yml --env-file .env down` (adicione `-v` para também apagar os volumes do banco e do pgAdmin).
 
 ### Executando localmente sem Docker
 
@@ -121,7 +168,7 @@ npm test
 
 O ambiente de produção usa um único ponto de entrada (Nginx na porta 80), que serve o frontend compilado como estático e faz proxy das chamadas de API para o backend.
 
-1. Configure as variáveis de ambiente em `.env` (as mesmas do ambiente de desenvolvimento: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DB_APP_USER`, `DB_APP_PASSWORD`, `DB_SSLMODE`, `JWT_SECRET`, `PII_ENCRYPTION_KEY`). **Troque todos os valores `changeme`** — em produção nenhuma credencial tem default, então uma variável faltando derruba o backend na subida com `Could not resolve placeholder` em vez de subir com senha conhecida. Defina também `SUPER_ADMIN_LOGIN` e `SUPER_ADMIN_SENHA`: o banco de produção nasce vazio, e esse é o primeiro usuário (criado na subida só se o login ainda não existe).
+1. Configure as variáveis de ambiente em `.env` (as mesmas do ambiente de desenvolvimento: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DB_APP_USER`, `DB_APP_PASSWORD`, `DB_SSLMODE`, `JWT_SECRET`, `PII_ENCRYPTION_KEY`). **Troque todas as senhas do exemplo e gere `JWT_SECRET` e `PII_ENCRYPTION_KEY` novas** (`openssl rand -base64 48` e `openssl rand -base64 32`): as chaves do `.env.example` são públicas e só servem para dev. Em produção nenhuma credencial tem default, então uma variável faltando derruba o backend na subida com `Could not resolve placeholder` em vez de subir com senha conhecida. Defina também `SUPER_ADMIN_LOGIN` e `SUPER_ADMIN_SENHA`: o banco de produção nasce vazio, e esse é o primeiro usuário (criado na subida só se o login ainda não existe).
 
    Para o pagamento (Asaas Sandbox), configure também `ASAAS_API_KEY` (chave da conta-pai, entre aspas simples) e o webhook das contas filhas: `ASAAS_WEBHOOK_URL=https://<domínio>/api/webhooks/asaas` (atrás do Nginx a API fica em `/api`), `ASAAS_WEBHOOK_TOKEN` (32 a 255 caracteres) e `ASAAS_WEBHOOK_EMAIL`. Sem a chave o backend sobe, mas pagar e ativar recebimentos respondem 503; sem o webhook a conta filha é criada sem ele e o pagamento nunca é confirmado no Edúka. O webhook é gravado na conta filha quando o MASTER ativa recebimentos, então defina a URL definitiva antes disso. A fatura da plataforma é cobrada na conta-pai, que precisa de um webhook próprio para a mesma URL e o mesmo token: com `ASAAS_WEBHOOK_CONTA_PAI=true` (só na prod) o backend o cadastra ao subir, se ainda não houver um com essa URL; sem ela, cadastre uma vez no painel do Asaas ou por `POST /v3/webhooks` (ver `Artefatos/modulo-financeiro/asaas-sandbox-notas.md`). Sem esse webhook, a reconciliação confirma a fatura paga em até um minuto.
 
@@ -143,7 +190,7 @@ Diferenças em relação ao ambiente de desenvolvimento:
 * O frontend é compilado (`npm run build`) e servido como arquivos estáticos pelo próprio Nginx (`Codigo/frontend/Dockerfile.prod`).
 * Os serviços têm `restart: always`.
 
-Para parar os serviços, use `docker compose -f Codigo/docker-compose.prod.yml down` (adicione `-v` para também apagar o volume do banco de dados).
+Para parar os serviços, use `docker compose -f Codigo/docker-compose.prod.yml --env-file .env down` (adicione `-v` para também apagar o volume do banco de dados).
 
 ### Ambiente de apresentação (Render + Vercel)
 
