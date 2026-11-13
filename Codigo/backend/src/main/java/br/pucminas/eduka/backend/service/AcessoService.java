@@ -90,7 +90,8 @@ public class AcessoService {
         usuario.setSenhaProvisoriaExpiraEm(expiraEm);
         usuario = usuarioRepository.save(usuario);
 
-        eventos.publishEvent(new AcessoInicialCriado(usuario.getId(), pessoa.getNome(), email, login, expiraEm));
+        eventos.publishEvent(new AcessoInicialCriado(usuario.getId(), pessoa.getNome(), email, login, expiraEm,
+                usuario.getPerfil()));
         return usuario;
     }
 

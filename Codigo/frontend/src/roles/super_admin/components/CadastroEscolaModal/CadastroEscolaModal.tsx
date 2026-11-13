@@ -11,7 +11,14 @@ import {
   type EscolaRequest,
   type PlanoEscola,
 } from '../../../../types/escola'
-import { cnpjValido, mascararCnpj, mascararTelefone, somenteDigitos } from '../../../../utils/formatters'
+import {
+  cnpjValido,
+  cpfValido,
+  mascararCnpj,
+  mascararCpf,
+  mascararTelefone,
+  somenteDigitos,
+} from '../../../../utils/formatters'
 import { CamposEndereco } from '../CamposEndereco/CamposEndereco'
 import {
   ENDERECO_VAZIO,
@@ -28,6 +35,9 @@ type Campos = ValoresEndereco & {
   telefone: string
   plano: PlanoEscola | ''
   ativo: boolean
+  masterNome: string
+  masterCpf: string
+  masterEmail: string
 }
 
 type Erros = Partial<Record<keyof Campos, string>>
@@ -40,6 +50,9 @@ const CAMPOS_INICIAIS: Campos = {
   telefone: '',
   plano: '',
   ativo: true,
+  masterNome: '',
+  masterCpf: '',
+  masterEmail: '',
 }
 
 // Limites das colunas de ESCOLA no banco.
@@ -68,6 +81,14 @@ function validar(campos: Campos): Erros {
 
   if (!campos.plano) erros.plano = 'Selecione o plano contratado.'
 
+  if (!campos.masterNome.trim()) erros.masterNome = 'Informe o nome do gestor.'
+
+  if (!campos.masterCpf) erros.masterCpf = 'Informe o CPF do gestor.'
+  else if (!cpfValido(campos.masterCpf)) erros.masterCpf = 'CPF inválido.'
+
+  if (!campos.masterEmail.trim()) erros.masterEmail = 'Informe o e-mail de acesso do gestor.'
+  else if (!EMAIL_REGEX.test(campos.masterEmail.trim())) erros.masterEmail = 'E-mail inválido.'
+
   return erros
 }
 
@@ -82,6 +103,11 @@ function paraRequest(campos: Campos): EscolaRequest {
     // validar() já garante que um plano foi escolhido.
     plano: campos.plano as PlanoEscola,
     ativo: campos.ativo,
+    master: {
+      nome: campos.masterNome.trim(),
+      cpf: somenteDigitos(campos.masterCpf),
+      email: campos.masterEmail.trim(),
+    },
   }
 }
 
@@ -127,8 +153,15 @@ export function CadastroEscolaModal({ onFechar, onSalvar, onCadastrada }: Cadast
       onCadastrada(escola)
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
-        setErros({ cnpj: 'Já existe uma escola cadastrada com este CNPJ.' })
-        dialogRef.current?.querySelector<HTMLElement>('[name="cnpj"]')?.focus()
+        // O 409 vem do CNPJ repetido ou do e-mail do gestor já ser login de alguém.
+        const loginRepetido = e.detalhe?.toLowerCase().includes('login') ?? false
+        const campo = loginRepetido ? 'masterEmail' : 'cnpj'
+        setErros({
+          [campo]: loginRepetido
+            ? 'Este e-mail já é login de outro usuário do Eduka.'
+            : 'Já existe uma escola cadastrada com este CNPJ.',
+        })
+        dialogRef.current?.querySelector<HTMLElement>(`[name="${campo}"]`)?.focus()
       } else if (e instanceof ApiError && e.status === 400) {
         setErroEnvio('Os dados foram recusados pelo servidor. Revise os campos e tente novamente.')
       } else {
@@ -241,6 +274,53 @@ export function CadastroEscolaModal({ onFechar, onSalvar, onCadastrada }: Cadast
             rotuloDesligado="Inativo"
           />
         </div>
+      </Secao>
+
+      <Secao titulo="Gestor da escola">
+        <p className={styles.ajuda}>
+          Recebe o primeiro acesso como MASTER. O e-mail vira o login e a senha provisória é o CPF; o
+          convite vai por e-mail assim que a escola for salva.
+        </p>
+        <Campo label="Nome completo" erro={erros.masterNome} obrigatorio>
+          {(props) => (
+            <input
+              {...props}
+              name="masterNome"
+              maxLength={MAX_NOME}
+              autoComplete="off"
+              placeholder="Ex.: Maria Souza"
+              value={campos.masterNome}
+              onChange={(e) => alterar('masterNome', e.target.value)}
+            />
+          )}
+        </Campo>
+        <Campo label="CPF" erro={erros.masterCpf} obrigatorio>
+          {(props) => (
+            <input
+              {...props}
+              name="masterCpf"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="000.000.000-00"
+              value={campos.masterCpf}
+              onChange={(e) => alterar('masterCpf', mascararCpf(e.target.value))}
+            />
+          )}
+        </Campo>
+        <Campo label="E-mail de acesso" erro={erros.masterEmail} obrigatorio>
+          {(props) => (
+            <input
+              {...props}
+              name="masterEmail"
+              type="email"
+              maxLength={MAX_EMAIL}
+              autoComplete="off"
+              placeholder="gestor@escola.com.br"
+              value={campos.masterEmail}
+              onChange={(e) => alterar('masterEmail', e.target.value)}
+            />
+          )}
+        </Campo>
       </Secao>
 
       {erroEnvio && <ModalAlerta>{erroEnvio}</ModalAlerta>}

@@ -1,6 +1,7 @@
 package br.pucminas.eduka.backend.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -22,12 +23,15 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import br.pucminas.eduka.backend.domain.Escola;
+import br.pucminas.eduka.backend.dto.MasterInicialRequest;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
+import br.pucminas.eduka.backend.exception.LoginJaCadastradoException;
 import br.pucminas.eduka.backend.repository.EscolaRepository;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.EscolaService;
 import br.pucminas.eduka.backend.service.AuditoriaService;
+import br.pucminas.eduka.backend.service.MasterInicialService;
 
 @WebMvcTest(EscolaController.class)
 @Import({ JwtConfig.class, JwtService.class, ApiExceptionHandler.class, EscolaService.class })
@@ -45,6 +49,8 @@ class EscolaControllerSecurityTest {
     private EscolaRepository escolaRepository;
     @MockitoBean
     private AuditoriaService auditoriaService;
+    @MockitoBean
+    private MasterInicialService masterInicialService;
 
     private String accessToken(String perfil) {
         return jwtService.generateAccessToken(UUID.randomUUID(), perfil, ESCOLA_A);
@@ -91,9 +97,10 @@ class EscolaControllerSecurityTest {
                   "endereco": %s,
                   "email": "contato@eduka.com",
                   "telefone": "3133334444",
-                  "plano": "AVANCADO"
+                  "plano": "AVANCADO",
+                  "master": %s
                 }
-                """.formatted(ENDERECO_COMPLETO)))
+                """.formatted(ENDERECO_COMPLETO, MASTER)))
                 .andExpect(status().isCreated())
                 .andExpect(header().exists(HttpHeaders.LOCATION))
                 .andExpect(jsonPath("$.nome").value("Colégio Eduka"))
@@ -105,6 +112,42 @@ class EscolaControllerSecurityTest {
                 .andExpect(jsonPath("$.telefone").value("3133334444"))
                 .andExpect(jsonPath("$.plano").value("AVANCADO"))
                 .andExpect(jsonPath("$.ativo").value(true));
+        verify(masterInicialService).criar(any(), eq(new MasterInicialRequest("Bia Gestora", "52998224725",
+                "bia@escola.com")));
+    }
+
+    @Test
+    void superAdminSemMasterResponde400() throws Exception {
+        mockMvc.perform(postCom(accessToken("SUPER_ADMIN"), """
+                {
+                  "nome": "Colégio Eduka",
+                  "cnpjCpf": "12345678000190",
+                  "endereco": %s,
+                  "email": "contato@eduka.com",
+                  "telefone": "3133334444",
+                  "plano": "BASICO"
+                }
+                """.formatted(ENDERECO_COMPLETO)))
+                .andExpect(status().isBadRequest());
+        verify(escolaRepository, never()).save(any());
+    }
+
+    @Test
+    void superAdminComCpfDoMasterInvalidoResponde400() throws Exception {
+        mockMvc.perform(postCom(accessToken("SUPER_ADMIN"),
+                escolaJson("3133334444").replace("52998224725", "12345678900")))
+                .andExpect(status().isBadRequest());
+        verify(escolaRepository, never()).save(any());
+    }
+
+    @Test
+    void superAdminComEmailDoMasterJaUsadoResponde409() throws Exception {
+        when(escolaRepository.save(any(Escola.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(masterInicialService.criar(any(), any())).thenThrow(new LoginJaCadastradoException("bia@escola.com"));
+
+        mockMvc.perform(postCom(accessToken("SUPER_ADMIN"), escolaJson("3133334444")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("login")));
     }
 
     @Test
@@ -167,6 +210,9 @@ class EscolaControllerSecurityTest {
         verify(escolaRepository, never()).save(any());
     }
 
+    private static final String MASTER = "{ \"nome\": \"Bia Gestora\", \"cpf\": \"52998224725\", "
+            + "\"email\": \"bia@escola.com\" }";
+
     private static final String ENDERECO_COMPLETO = "{ \"logradouro\": \"Rua A\", \"numero\": \"10\", "
             + "\"bairro\": \"Centro\", \"cidade\": \"Belo Horizonte\", \"estado\": \"MG\", \"cep\": \"30110008\" }";
 
@@ -179,8 +225,9 @@ class EscolaControllerSecurityTest {
                   "endereco": %s,
                   "email": "contato@eduka.com",
                   "telefone": "%s",
-                  "plano": "BASICO"
+                  "plano": "BASICO",
+                  "master": %s
                 }
-                """.formatted(ENDERECO_COMPLETO, telefone);
+                """.formatted(ENDERECO_COMPLETO, telefone, MASTER);
     }
 }

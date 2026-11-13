@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.TipoNotificacao;
 import br.pucminas.eduka.backend.email.Email;
 import br.pucminas.eduka.backend.email.NotificacaoService;
@@ -61,6 +62,7 @@ public class AcessoInicialEmailListener {
      */
     Email montarEmail(AcessoInicialCriado acesso) {
         String validade = DATA.format(acesso.expiraEm());
+        String reenvio = quemReenvia(acesso.perfil());
         String texto = """
                 Olá, %s!
 
@@ -70,13 +72,13 @@ public class AcessoInicialEmailListener {
                 Senha provisória: seu CPF, somente os números
 
                 No primeiro acesso você vai criar uma senha definitiva.
-                A senha provisória vale até %s. Depois disso, peça à secretaria da escola um novo envio.
+                A senha provisória vale até %s. Depois disso, peça %s um novo envio.
 
                 Acesse: %s
 
                 Se você não esperava este e-mail, pode ignorá-lo. Ninguém da equipe Eduka vai pedir sua senha.
                 Este é um e-mail automático, não responda.
-                """.formatted(acesso.nome(), acesso.login(), validade, urlLogin);
+                """.formatted(acesso.nome(), acesso.login(), validade, reenvio, urlLogin);
         String html = """
                 <!DOCTYPE html>
                 <html lang="pt-BR">
@@ -142,7 +144,7 @@ public class AcessoInicialEmailListener {
                             <p style="margin:0 0 12px 0;">
                               No primeiro acesso você vai criar uma senha definitiva.
                               A senha provisória vale até <strong style="color:#3d3550;">%3$s</strong>.
-                              Depois disso, peça à secretaria da escola um novo envio.
+                              Depois disso, peça %6$s um novo envio.
                             </p>
                             <p style="margin:0; font-size:13px;">
                               Se o botão não funcionar, copie e cole este endereço no navegador:<br>
@@ -164,7 +166,16 @@ public class AcessoInicialEmailListener {
                 </body>
                 </html>
                 """.formatted(htmlEscape(acesso.nome()), htmlEscape(acesso.login()), validade,
-                htmlEscape(urlLogin), htmlEscape(urlLogo));
+                htmlEscape(urlLogin), htmlEscape(urlLogo), reenvio);
         return new Email(acesso.email(), acesso.nome(), ASSUNTO, html, texto);
+    }
+
+    /**
+     * O MASTER e criado pela equipe Eduka junto com a escola; os demais, pela
+     * propria escola. Texto fixo, sem dado de usuario: vai para o HTML sem
+     * escape (o htmlEscape trocaria o "à" por entidade).
+     */
+    static String quemReenvia(PerfilUsuario perfil) {
+        return perfil == PerfilUsuario.MASTER ? "à equipe Eduka" : "à secretaria da escola";
     }
 }

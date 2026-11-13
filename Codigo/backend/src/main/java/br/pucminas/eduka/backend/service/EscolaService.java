@@ -25,10 +25,13 @@ public class EscolaService {
 
     private final EscolaRepository escolaRepository;
     private final AuditoriaService auditoriaService;
+    private final MasterInicialService masterInicialService;
 
-    public EscolaService(EscolaRepository escolaRepository, AuditoriaService auditoriaService) {
+    public EscolaService(EscolaRepository escolaRepository, AuditoriaService auditoriaService,
+            MasterInicialService masterInicialService) {
         this.escolaRepository = escolaRepository;
         this.auditoriaService = auditoriaService;
+        this.masterInicialService = masterInicialService;
     }
 
     public List<EscolaResponse> listar() {
@@ -49,7 +52,9 @@ public class EscolaService {
 
     /**
      * Cadastro de escola nova (RF06). Restrito a {@code SUPER_ADMIN}: criar um
-     * tenant e operacao de plataforma, nao de uma escola.
+     * tenant e operacao de plataforma, nao de uma escola. Ja cria o primeiro
+     * login MASTER e agenda o e-mail de primeiro acesso dele; se o login falhar
+     * (e-mail ja usado), a escola tambem nao e criada.
      */
     @Transactional
     public Escola cadastrar(EscolaRequest request) {
@@ -58,6 +63,9 @@ public class EscolaService {
         }
         if (request.plano() == null) {
             throw new IllegalArgumentException("Plano da escola e obrigatorio");
+        }
+        if (request.master() == null) {
+            throw new IllegalArgumentException("Gestor (MASTER) da escola e obrigatorio");
         }
 
         String cnpjCpf = vazioParaNulo(request.cnpjCpf());
@@ -75,6 +83,7 @@ public class EscolaService {
                 request.ativo() == null || request.ativo());
         Escola salva = escolaRepository.save(escola);
         auditar(OperacaoAuditoria.CRIAR, salva.getId());
+        masterInicialService.criar(salva.getId(), request.master());
         return salva;
     }
 
