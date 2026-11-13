@@ -168,6 +168,8 @@ public class JwtConfig {
 							.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 							.requestMatchers("/health", "/login", "/login/codigo", "/login/codigo/reenvio",
 									"/primeiro-acesso").permitAll()
+							// Recuperacao de senha (RecuperacaoSenhaController): quem esqueceu a senha nao tem token.
+							.requestMatchers(HttpMethod.POST, "/senha/recuperacao", "/senha/redefinicao").permitAll()
 							// Avisos do provedor: autenticados pelo token do webhook (WebhookController).
 							.requestMatchers(HttpMethod.POST, "/webhooks/asaas").permitAll()
 							// Acesso de demonstracao (DemoController): conferido pelo login e senha do proprio
