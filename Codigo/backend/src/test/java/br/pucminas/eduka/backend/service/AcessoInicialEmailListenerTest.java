@@ -13,6 +13,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import br.pucminas.eduka.backend.domain.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.TipoNotificacao;
 import br.pucminas.eduka.backend.email.Email;
 import br.pucminas.eduka.backend.email.NotificacaoService;
@@ -26,7 +27,8 @@ class AcessoInicialEmailListenerTest {
     private NotificacaoService notificacaoService;
 
     private AcessoInicialCriado acesso(UUID usuarioId, String nome) {
-        return new AcessoInicialCriado(usuarioId, nome, "Ana@Escola.com", "ana@escola.com", EXPIRA_EM);
+        return new AcessoInicialCriado(usuarioId, nome, "Ana@Escola.com", "ana@escola.com", EXPIRA_EM,
+                PerfilUsuario.SECRETARIA);
     }
 
     @Test
@@ -48,6 +50,19 @@ class AcessoInicialEmailListenerTest {
                 "https://eduka.com.br/login");
         assertThat(email.html()).contains("ana@escola.com", "href=\"https://eduka.com.br/login\"",
                 "05/10/2026 às 12:00");
+        assertThat(email.texto()).contains("peça à secretaria da escola um novo envio");
+    }
+
+    @Test
+    void masterPedeNovoEnvioAEquipeEduka() {
+        AcessoInicialEmailListener listener = new AcessoInicialEmailListener(notificacaoService,
+                "https://eduka.com.br/");
+
+        Email email = listener.montarEmail(new AcessoInicialCriado(UUID.randomUUID(), "Bia", "bia@escola.com",
+                "bia@escola.com", EXPIRA_EM, PerfilUsuario.MASTER));
+
+        assertThat(email.texto()).contains("peça à equipe Eduka um novo envio").doesNotContain("secretaria");
+        assertThat(email.html()).contains("peça à equipe Eduka um novo envio").doesNotContain("secretaria");
     }
 
     @Test
