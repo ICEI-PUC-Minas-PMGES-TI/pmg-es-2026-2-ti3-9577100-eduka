@@ -4,7 +4,6 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -16,7 +15,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import br.pucminas.eduka.backend.domain.Pessoa;
 import br.pucminas.eduka.backend.domain.Usuario;
 import br.pucminas.eduka.backend.domain.VerificacaoLogin;
 import br.pucminas.eduka.backend.dto.VerificacaoLoginResponse;
@@ -80,7 +78,7 @@ public class VerificacaoLoginService {
         if (!properties.habilitada()) {
             return Optional.empty();
         }
-        Destinatario destinatario = destinatario(usuario).orElse(null);
+        DestinatarioEmail destinatario = destinatario(usuario).orElse(null);
         if (destinatario == null) {
             log.warn("Usuario {} sem e-mail: login concluido sem codigo de verificacao", usuario.getId());
             return Optional.empty();
@@ -151,7 +149,7 @@ public class VerificacaoLoginService {
         Usuario usuario = usuarioRepository.findById(verificacao.getUsuarioId())
                 .filter(Usuario::isAtivo)
                 .orElseThrow(VerificacaoLoginEncerradaException::new);
-        Destinatario destinatario = destinatario(usuario)
+        DestinatarioEmail destinatario = destinatario(usuario)
                 .orElseThrow(VerificacaoLoginEncerradaException::new);
 
         Instant agora = clock.instant();
@@ -177,26 +175,8 @@ public class VerificacaoLoginService {
         return resposta(verificacao, agora);
     }
 
-    /**
-     * O codigo vai para o e-mail do cadastro da pessoa. {@code Pessoa} nao tem
-     * filtro automatico de escola, entao a escola e conferida aqui contra a do
-     * proprio usuario. Sem e-mail no cadastro, serve o login quando ele e um
-     * e-mail.
-     */
-    private Optional<Destinatario> destinatario(Usuario usuario) {
-        Pessoa pessoa = pessoaRepository.findById(usuario.getPessoaId())
-                .filter(p -> Objects.equals(p.getEscolaId(), usuario.getEscolaId()))
-                .orElse(null);
-
-        String nome = pessoa != null ? pessoa.getNome() : null;
-        String email = pessoa != null ? pessoa.getEmail() : null;
-        if (email == null || email.isBlank()) {
-            email = usuario.getLogin().contains("@") ? usuario.getLogin() : null;
-        }
-        if (email == null) {
-            return Optional.empty();
-        }
-        return Optional.of(new Destinatario(nome != null ? nome : email, email.trim()));
+    private Optional<DestinatarioEmail> destinatario(Usuario usuario) {
+        return DestinatarioEmail.doUsuario(usuario, pessoaRepository);
     }
 
     private String gerarCodigo() {
@@ -217,8 +197,5 @@ public class VerificacaoLoginService {
                 verificacao.getId(),
                 Math.max(0, Duration.between(agora, verificacao.getExpiraEm()).toSeconds()),
                 segundosAteReenvio(verificacao, agora));
-    }
-
-    private record Destinatario(String nome, String email) {
     }
 }

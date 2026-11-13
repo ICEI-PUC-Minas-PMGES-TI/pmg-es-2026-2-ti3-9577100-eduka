@@ -71,6 +71,8 @@ class MatrizDeAcessoTest {
             "POST /login/codigo",
             "POST /login/codigo/reenvio",
             "POST /primeiro-acesso",
+            "POST /senha/recuperacao",
+            "POST /senha/redefinicao",
             "POST /webhooks/asaas",
             "POST /demo/contas",
             "POST /demo/entrar");
