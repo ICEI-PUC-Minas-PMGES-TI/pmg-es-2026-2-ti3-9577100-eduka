@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import type { Cobranca, StatusCobranca } from '../../../../types/cobranca'
+import type { Cobranca, StatusCobranca } from '../../../../types/financeiro/cobranca'
 import { CobrancaDetalhe } from './CobrancaDetalhe'
 
 function cobranca(status: StatusCobranca): Cobranca {

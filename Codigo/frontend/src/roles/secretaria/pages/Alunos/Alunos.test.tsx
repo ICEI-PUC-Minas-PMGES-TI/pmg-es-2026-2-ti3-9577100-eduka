@@ -4,8 +4,8 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cortarPagina, parametros, simularApi, type ChamadaApi } from '../../../../test/api'
 import { logarComo } from '../../../../test/sessao'
-import type { TurmaAcademica } from '../../../../types/academico'
-import type { AlunoDaLista, ResumoAlunos, SituacaoNaEscola } from '../../../../types/aluno'
+import type { TurmaAcademica } from '../../../../types/academico/academico'
+import type { AlunoDaLista, ResumoAlunos, SituacaoNaEscola } from '../../../../types/pessoas/aluno'
 import { Alunos } from './Alunos'
 
 const ALUNOS: AlunoDaLista[] = [

@@ -18,7 +18,7 @@ import {
   listarDisciplinas,
   listarPeriodosLetivos,
   listarTurmasAcademicas,
-} from '../../../services/academicoService'
+} from '../../../services/academico/academicoService'
 import { ApiError } from '../../../services/api'
 import type {
   Curso,
@@ -29,7 +29,7 @@ import type {
   PeriodoLetivoRequest,
   TurmaAcademica,
   TurmaRequest,
-} from '../../../types/academico'
+} from '../../../types/academico/academico'
 
 function mensagemDeErro(erro: unknown): string {
   return erro instanceof ApiError ? erro.message : 'Erro inesperado ao carregar a estrutura acadêmica.'

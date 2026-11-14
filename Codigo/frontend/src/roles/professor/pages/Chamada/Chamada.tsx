@@ -1,10 +1,10 @@
 import { useCallback, useId, useState } from 'react'
 import { useSearchParams } from 'react-router'
-import { Button } from '../../../../components/Button/Button'
-import { CampoData } from '../../../../components/CampoData/CampoData'
-import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/ConfirmarExclusao'
-import { Modal } from '../../../../components/Modal/Modal'
-import { Paginacao } from '../../../../components/Paginacao/Paginacao'
+import { Button } from '../../../../components/ui/Button/Button'
+import { CampoData } from '../../../../components/formulario/CampoData/CampoData'
+import { ConfirmarExclusao } from '../../../../components/modal/ConfirmarExclusao/ConfirmarExclusao'
+import { Modal } from '../../../../components/modal/Modal/Modal'
+import { Paginacao } from '../../../../components/ui/Paginacao/Paginacao'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { useListaPaginada, type PaginaDoBackend } from '../../../../hooks/usePaginacao'
 import {
@@ -14,10 +14,10 @@ import {
   listarAulas,
   obterChamadaDoDia,
   registrarAula,
-} from '../../../../services/portalProfessorService'
-import type { Aula, AulaResumo, ChamadaDoDia, DadosAula } from '../../../../types/aula'
+} from '../../../../services/portal/portalProfessorService'
+import type { Aula, AulaResumo, ChamadaDoDia, DadosAula } from '../../../../types/academico/aula'
 import { hojeIso, plural } from '../../../../utils/formatters'
-import { formatarData } from '../../../secretaria/components/PainelSecretaria/formatacao'
+import { formatarData } from '../../../../utils/formatacao'
 import { EstadoTurmas } from '../../components/EstadoTurmas/EstadoTurmas'
 import { FormularioChamada } from '../../components/FormularioChamada/FormularioChamada'
 import { SeletorTurmaDisciplina } from '../../components/SeletorTurmaDisciplina/SeletorTurmaDisciplina'

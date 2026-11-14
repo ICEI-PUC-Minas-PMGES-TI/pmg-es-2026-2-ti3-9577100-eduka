@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import iconeEduka from '../../assets/eduka-icone.svg'
-import { Icon, type IconName } from '../../components/Icon/Icon'
+import { Icon, type IconName } from '../../components/ui/Icon/Icon'
 import { rotaInicialPorPerfil } from '../../routes/paths'
 import { ApiError, ehEscolaSuspensa, motivoDaSuspensao, rotaAcessoSuspenso } from '../../services/api'
-import { autenticar, type PerfilUsuario } from '../../services/authService'
+import { autenticar, type PerfilUsuario } from '../../services/acesso/authService'
 import styles from './LoginDev.module.css'
 
 // Só existe em dev: a rota /login/dev nem entra no build de produção (ver

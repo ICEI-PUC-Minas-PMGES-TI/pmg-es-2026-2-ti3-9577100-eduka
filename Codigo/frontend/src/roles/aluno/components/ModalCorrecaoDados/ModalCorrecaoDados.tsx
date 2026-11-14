@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import { Button } from '../../../../components/Button/Button'
-import { Modal } from '../../../../components/Modal/Modal'
+import { Button } from '../../../../components/ui/Button/Button'
+import { Modal } from '../../../../components/modal/Modal/Modal'
 import { ApiError } from '../../../../services/api'
-import { pedirCorrecao } from '../../../../services/solicitacaoCorrecaoService'
-import type { SolicitacaoCorrecao } from '../../../../types/solicitacaoCorrecao'
+import { pedirCorrecao } from '../../../../services/pessoas/solicitacaoCorrecaoService'
+import type { SolicitacaoCorrecao } from '../../../../types/pessoas/solicitacaoCorrecao'
 import styles from './ModalCorrecaoDados.module.css'
 
 // Limite da coluna MENSAGEM (V37).

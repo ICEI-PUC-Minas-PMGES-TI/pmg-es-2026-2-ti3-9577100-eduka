@@ -2,8 +2,8 @@ import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { problema, simularApi, type RespostaApi } from '../../../../test/api'
-import type { Comprovante, FaturaPlataforma } from '../../../../types/faturaPlataforma'
-import type { DadosPagamento, FormaPagamento, SituacaoPagamento } from '../../../../types/pagamentoAluno'
+import type { Comprovante, FaturaPlataforma } from '../../../../types/escola/faturaPlataforma'
+import type { DadosPagamento, FormaPagamento, SituacaoPagamento } from '../../../../types/financeiro/pagamentoAluno'
 import { ModalPagamentoFatura } from './ModalPagamentoFatura'
 
 const FATURA: FaturaPlataforma = {

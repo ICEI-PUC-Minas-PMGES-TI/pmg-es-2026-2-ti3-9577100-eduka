@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Button } from '../../../../components/Button/Button'
+import { Button } from '../../../../components/ui/Button/Button'
 import {
   Atalhos,
   Colunas,
@@ -9,16 +9,16 @@ import {
   Medidor,
   Painel,
   PainelVazio,
-} from '../../../../components/Dashboard/Dashboard'
-import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
+} from '../../../../components/layout/Dashboard/Dashboard'
+import { StatCard, StatCards } from '../../../../components/ui/StatCard/StatCard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { paths, type EstadoAbrirCadastro } from '../../../../routes/paths'
-import { obterDashboardSecretaria } from '../../../../services/dashboardService'
-import { ROTULOS_TURNO } from '../../../../types/alocacao'
-import type { DashboardSecretaria, OcupacaoTurma } from '../../../../types/dashboard'
-import { ROTULOS_STATUS_MATRICULA, type StatusMatricula } from '../../../../types/matricula'
+import { obterDashboardSecretaria } from '../../../../services/dashboard/dashboardService'
+import { ROTULOS_TURNO } from '../../../../types/academico/alocacao'
+import type { DashboardSecretaria, OcupacaoTurma } from '../../../../types/dashboard/dashboard'
+import { ROTULOS_STATUS_MATRICULA, type StatusMatricula } from '../../../../types/academico/matricula'
 import { plural } from '../../../../utils/formatters'
-import { PedidosCorrecao } from '../../components/PedidosCorrecao/PedidosCorrecao'
+import { PedidosCorrecao } from '../../components/alunos/PedidosCorrecao/PedidosCorrecao'
 import { SecretariaLayout } from '../../layouts/SecretariaLayout'
 import styles from './Inicio.module.css'
 

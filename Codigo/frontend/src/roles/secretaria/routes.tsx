@@ -1,7 +1,7 @@
 import { Navigate, type RouteObject } from 'react-router'
 import { paths } from '../../routes/paths'
 import { RotaProtegida } from '../../routes/RotaProtegida'
-import { SecretariaDashboard } from './components/PainelSecretaria/SecretariaDashboard'
+import { SecretariaDashboard } from './components/academico/PainelSecretaria/SecretariaDashboard'
 import { Alocacoes } from './pages/Alocacoes/Alocacoes'
 import { Alunos } from './pages/Alunos/Alunos'
 import { Inicio } from './pages/Inicio/Inicio'

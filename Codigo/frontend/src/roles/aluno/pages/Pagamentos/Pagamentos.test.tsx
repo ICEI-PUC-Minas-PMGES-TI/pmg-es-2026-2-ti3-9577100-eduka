@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { simularApi } from '../../../../test/api'
-import type { CobrancaDoHistorico, HistoricoFinanceiro, StatusCobrancaAluno } from '../../../../types/pagamentoAluno'
+import type { CobrancaDoHistorico, HistoricoFinanceiro, StatusCobrancaAluno } from '../../../../types/financeiro/pagamentoAluno'
 import { Pagamentos } from './Pagamentos'
 
 function cobranca(

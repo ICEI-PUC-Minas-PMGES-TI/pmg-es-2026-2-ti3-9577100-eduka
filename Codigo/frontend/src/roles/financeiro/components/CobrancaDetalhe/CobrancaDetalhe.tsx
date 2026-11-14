@@ -1,6 +1,6 @@
-import { Button } from '../../../../components/Button/Button'
-import { Icon } from '../../../../components/Icon/Icon'
-import type { Cobranca } from '../../../../types/cobranca'
+import { Button } from '../../../../components/ui/Button/Button'
+import { Icon } from '../../../../components/ui/Icon/Icon'
+import type { Cobranca } from '../../../../types/financeiro/cobranca'
 import { formatarMoeda } from '../../../../utils/formatters'
 import styles from './CobrancaDetalhe.module.css'
 

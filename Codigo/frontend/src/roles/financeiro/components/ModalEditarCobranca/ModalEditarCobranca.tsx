@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Campo } from '../../../../components/Campo/Campo'
-import { CampoData } from '../../../../components/CampoData/CampoData'
-import { ModalCadastro } from '../../../../components/ModalCadastro/ModalCadastro'
+import { Campo } from '../../../../components/formulario/Campo/Campo'
+import { CampoData } from '../../../../components/formulario/CampoData/CampoData'
+import { ModalCadastro } from '../../../../components/modal/ModalCadastro/ModalCadastro'
 import { ApiError } from '../../../../services/api'
-import { atualizarCobranca } from '../../../../services/cobrancaService'
-import type { Cobranca } from '../../../../types/cobranca'
+import { atualizarCobranca } from '../../../../services/financeiro/cobrancaService'
+import type { Cobranca } from '../../../../types/financeiro/cobranca'
 
 // Limite da coluna DESCRICAO (V20), o mesmo da Nova cobrança.
 const MAX_DESCRICAO = 255

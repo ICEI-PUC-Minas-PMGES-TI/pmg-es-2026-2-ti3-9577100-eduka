@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cortarPagina, problema, simularApi, type ChamadaApi } from '../../../../test/api'
-import type { Despesa, ResumoDespesas, SituacaoDespesa } from '../../../../types/despesa'
+import type { Despesa, ResumoDespesas, SituacaoDespesa } from '../../../../types/financeiro/despesa'
 import { Despesas } from './Despesas'
 
 const LUZ: Despesa = {

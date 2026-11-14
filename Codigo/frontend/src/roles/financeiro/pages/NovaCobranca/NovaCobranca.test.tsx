@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import { simularApi } from '../../../../test/api'
-import type { Matricula } from '../../../../types/matricula'
+import type { Matricula } from '../../../../types/academico/matricula'
 import { NovaCobranca } from './NovaCobranca'
 
 const ANA = { id: 'aluno-1', nome: 'Ana Souza', matricula: '2026001', genero: null }

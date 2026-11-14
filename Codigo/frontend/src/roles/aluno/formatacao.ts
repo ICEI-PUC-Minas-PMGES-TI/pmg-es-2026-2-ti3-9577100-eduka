@@ -1,5 +1,5 @@
-import type { StatusCobrancaAluno } from '../../types/pagamentoAluno'
-import type { BoletimDisciplina, FrequenciaBoletim } from '../../types/portalAluno'
+import type { StatusCobrancaAluno } from '../../types/financeiro/pagamentoAluno'
+import type { BoletimDisciplina, FrequenciaBoletim } from '../../types/portal/portalAluno'
 import { hojeIso, plural } from '../../utils/formatters'
 import { atingiuMedia } from '../professor/notas'
 

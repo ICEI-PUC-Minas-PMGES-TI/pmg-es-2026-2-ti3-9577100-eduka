@@ -1,6 +1,6 @@
-import { Badge } from '../../../../components/Badge/Badge'
-import { Button } from '../../../../components/Button/Button'
-import { Linhas, Painel } from '../../../../components/Dashboard/Dashboard'
+import { Badge } from '../../../../components/ui/Badge/Badge'
+import { Button } from '../../../../components/ui/Button/Button'
+import { Linhas, Painel } from '../../../../components/layout/Dashboard/Dashboard'
 import {
   ROTULOS_SITUACAO,
   ROTULOS_STATUS_CONTA,
@@ -8,7 +8,7 @@ import {
   type ContaRecebimento,
   type SituacaoCadastral,
   type StatusContaRecebimento,
-} from '../../../../types/contaRecebimento'
+} from '../../../../types/financeiro/contaRecebimento'
 import { formatarCnpjCpf } from '../../../../utils/formatters'
 import styles from './PainelContaRecebimento.module.css'
 

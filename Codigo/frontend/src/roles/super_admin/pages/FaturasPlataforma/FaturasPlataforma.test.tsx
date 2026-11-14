@@ -3,10 +3,10 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { simularApi } from '../../../../test/api'
-import type { Escola } from '../../../../types/escola'
-import type { FaturaPlataforma } from '../../../../types/faturaPlataforma'
+import type { Escola } from '../../../../types/escola/escola'
+import type { FaturaPlataforma } from '../../../../types/escola/faturaPlataforma'
 import { hojeIso } from '../../../../utils/formatters'
-import { competenciaDaReferencia } from '../../components/FormLancarFatura/regrasFatura'
+import { competenciaDaReferencia } from '../../components/faturas/FormLancarFatura/regrasFatura'
 import { FaturasPlataforma } from './FaturasPlataforma'
 
 function escola(id: string, nome: string, ativo = true): Escola {

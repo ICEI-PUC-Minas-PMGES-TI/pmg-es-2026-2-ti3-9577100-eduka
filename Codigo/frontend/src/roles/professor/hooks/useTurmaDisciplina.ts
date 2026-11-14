@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router'
-import type { DisciplinaDoProfessor, TurmaDoProfessor } from '../../../types/turmaProfessor'
+import type { DisciplinaDoProfessor, TurmaDoProfessor } from '../../../types/academico/turmaProfessor'
 import { useMinhasTurmas } from './useMinhasTurmas'
 
 /** Uma disciplina que o professor dá numa turma: o par em que as avaliações vivem. */

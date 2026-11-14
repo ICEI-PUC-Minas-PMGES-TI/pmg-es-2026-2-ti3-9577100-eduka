@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { cortarPagina, parametros, simularApi, type ChamadaApi } from '../../../../test/api'
-import type { Professor, ResumoProfessores } from '../../../../types/professor'
+import type { Professor, ResumoProfessores } from '../../../../types/pessoas/professor'
 import { Professores } from './Professores'
 
 function professor(n: number, ativo = true): Professor {

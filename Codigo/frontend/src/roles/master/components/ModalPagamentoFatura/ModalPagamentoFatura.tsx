@@ -3,9 +3,9 @@ import {
   buscarComprovanteDaMinhaFatura,
   buscarMinhaFatura,
   pagarFatura,
-} from '../../../../services/faturaPlataformaService'
-import { pagarFaturaNoSandbox } from '../../../../services/sandboxService'
-import type { FaturaPlataforma } from '../../../../types/faturaPlataforma'
+} from '../../../../services/escola/faturaPlataformaService'
+import { pagarFaturaNoSandbox } from '../../../../services/financeiro/sandboxService'
+import type { FaturaPlataforma } from '../../../../types/escola/faturaPlataforma'
 import { ModalPagar, type Pagavel } from '../../../aluno/components/ModalPagamento/ModalPagamento'
 
 type ModalPagamentoFaturaProps = {

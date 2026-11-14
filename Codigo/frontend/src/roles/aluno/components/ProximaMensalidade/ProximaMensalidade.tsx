@@ -1,8 +1,8 @@
-import { Badge } from '../../../../components/Badge/Badge'
-import { Button } from '../../../../components/Button/Button'
-import type { CobrancaDoHistorico } from '../../../../types/pagamentoAluno'
+import { Badge } from '../../../../components/ui/Badge/Badge'
+import { Button } from '../../../../components/ui/Button/Button'
+import type { CobrancaDoHistorico } from '../../../../types/financeiro/pagamentoAluno'
 import { formatarMoeda } from '../../../../utils/formatters'
-import { formatarData } from '../../../secretaria/components/PainelSecretaria/formatacao'
+import { formatarData } from '../../../../utils/formatacao'
 import { prazoDoVencimento, TOM_STATUS_COBRANCA } from '../../formatacao'
 import styles from './ProximaMensalidade.module.css'
 

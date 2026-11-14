@@ -3,9 +3,9 @@ import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { simularApi } from '../../../../test/api'
-import { descreverHorarios } from '../../../../types/horario'
-import type { AvaliacaoResumo } from '../../../../types/dashboard'
-import type { TurmaDoProfessor } from '../../../../types/turmaProfessor'
+import { descreverHorarios } from '../../../../types/academico/horario'
+import type { AvaliacaoResumo } from '../../../../types/dashboard/dashboard'
+import type { TurmaDoProfessor } from '../../../../types/academico/turmaProfessor'
 import { MinhasTurmas } from './MinhasTurmas'
 
 const TURMA: TurmaDoProfessor = {

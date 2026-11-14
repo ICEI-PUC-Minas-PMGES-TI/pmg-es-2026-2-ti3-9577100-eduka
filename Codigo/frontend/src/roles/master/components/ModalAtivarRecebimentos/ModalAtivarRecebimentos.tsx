@@ -1,7 +1,7 @@
 import { useState, type InputHTMLAttributes } from 'react'
-import { Campo, type PropsControle } from '../../../../components/Campo/Campo'
-import { ModalCadastro } from '../../../../components/ModalCadastro/ModalCadastro'
-import { Select } from '../../../../components/Select/Select'
+import { Campo, type PropsControle } from '../../../../components/formulario/Campo/Campo'
+import { ModalCadastro } from '../../../../components/modal/ModalCadastro/ModalCadastro'
+import { Select } from '../../../../components/formulario/Select/Select'
 import { ApiError } from '../../../../services/api'
 import {
   ROTULOS_TIPO_EMPRESA,
@@ -9,7 +9,7 @@ import {
   type ContaRecebimento,
   type TipoContaBancaria,
   type TipoEmpresa,
-} from '../../../../types/contaRecebimento'
+} from '../../../../types/financeiro/contaRecebimento'
 import { formatarCnpjCpf, mascararCep, mascararTelefone, somenteDigitos } from '../../../../utils/formatters'
 
 type Campos = {

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { simularApi } from '../../../../test/api'
-import type { AulaDaSemana, DashboardProfessor } from '../../../../types/dashboard'
+import type { AulaDaSemana, DashboardProfessor } from '../../../../types/dashboard/dashboard'
 import { hojeIso } from '../../../../utils/formatters'
 import { Inicio } from './Inicio'
 

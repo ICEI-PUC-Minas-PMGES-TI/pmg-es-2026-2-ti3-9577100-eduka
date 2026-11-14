@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import { problema, simularApi, type RespostaApi } from '../../../../test/api'
-import type { Escola, UsoEscola } from '../../../../types/escola'
+import type { Escola, UsoEscola } from '../../../../types/escola/escola'
 import { PainelEscolas } from './PainelEscolas'
 
 function escola(id: string, nome: string): Escola {
