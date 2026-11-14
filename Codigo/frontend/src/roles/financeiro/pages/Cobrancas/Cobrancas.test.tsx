@@ -3,9 +3,9 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { problema, simularApi, type ChamadaApi, type RespostaApi } from '../../../../test/api'
-import type { PeriodoLetivo } from '../../../../types/academico'
-import type { Cobranca, PaginaCobrancas, StatusCobranca } from '../../../../types/cobranca'
-import type { RiscoAtraso } from '../../../../types/riscoAtraso'
+import type { PeriodoLetivo } from '../../../../types/academico/academico'
+import type { Cobranca, PaginaCobrancas, StatusCobranca } from '../../../../types/financeiro/cobranca'
+import type { RiscoAtraso } from '../../../../types/financeiro/riscoAtraso'
 import { Cobrancas } from './Cobrancas'
 
 function cobranca(n: number, status: StatusCobranca = 'PENDENTE'): Cobranca {

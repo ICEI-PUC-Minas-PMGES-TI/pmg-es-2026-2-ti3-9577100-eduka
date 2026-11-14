@@ -1,4 +1,4 @@
-import type { PerfilUsuario } from '../services/authService'
+import type { PerfilUsuario } from '../services/acesso/authService'
 
 // Caminhos da aplicação, agrupados por papel. Use sempre estas constantes em
 // vez de strings soltas, para que renomear uma rota seja uma mudança só.

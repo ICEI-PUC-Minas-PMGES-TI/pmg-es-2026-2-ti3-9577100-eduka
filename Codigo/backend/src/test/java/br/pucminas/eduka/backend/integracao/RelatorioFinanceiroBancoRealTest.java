@@ -23,22 +23,22 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.MockMvc;
 
-import br.pucminas.eduka.backend.domain.SituacaoDespesa;
-import br.pucminas.eduka.backend.domain.StatusCobranca;
-import br.pucminas.eduka.backend.domain.TipoCobranca;
-import br.pucminas.eduka.backend.dto.ArquivoCsv;
-import br.pucminas.eduka.backend.dto.CobrancaRequest;
-import br.pucminas.eduka.backend.dto.DashboardFinanceiroResponse;
-import br.pucminas.eduka.backend.dto.HistoricoFinanceiroResponse;
-import br.pucminas.eduka.backend.dto.RelatorioFinanceiroResponse;
-import br.pucminas.eduka.backend.dto.RelatorioFinanceiroResponse.Forma;
-import br.pucminas.eduka.backend.dto.RelatorioFinanceiroResponse.Linha;
-import br.pucminas.eduka.backend.dto.RelatorioFinanceiroResponse.Mes;
+import br.pucminas.eduka.backend.domain.financeiro.SituacaoDespesa;
+import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
+import br.pucminas.eduka.backend.domain.financeiro.TipoCobranca;
+import br.pucminas.eduka.backend.dto.comum.ArquivoCsv;
+import br.pucminas.eduka.backend.dto.dashboard.DashboardFinanceiroResponse;
+import br.pucminas.eduka.backend.dto.financeiro.CobrancaRequest;
+import br.pucminas.eduka.backend.dto.financeiro.HistoricoFinanceiroResponse;
+import br.pucminas.eduka.backend.dto.financeiro.RelatorioFinanceiroResponse.Forma;
+import br.pucminas.eduka.backend.dto.financeiro.RelatorioFinanceiroResponse.Linha;
+import br.pucminas.eduka.backend.dto.financeiro.RelatorioFinanceiroResponse.Mes;
+import br.pucminas.eduka.backend.dto.financeiro.RelatorioFinanceiroResponse;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 import br.pucminas.eduka.backend.security.JwtService;
-import br.pucminas.eduka.backend.service.CobrancaService;
-import br.pucminas.eduka.backend.service.DashboardFinanceiroService;
-import br.pucminas.eduka.backend.service.RelatorioFinanceiroService;
+import br.pucminas.eduka.backend.service.financeiro.CobrancaService;
+import br.pucminas.eduka.backend.service.financeiro.DashboardFinanceiroService;
+import br.pucminas.eduka.backend.service.financeiro.RelatorioFinanceiroService;
 
 /**
  * As contas dos relatorios sobre dados gravados no Postgres: cada numero com a

@@ -16,18 +16,18 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import br.pucminas.eduka.backend.domain.EntidadeAuditada;
-import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
-import br.pucminas.eduka.backend.domain.OrigemPagamento;
-import br.pucminas.eduka.backend.domain.PerfilUsuario;
-import br.pucminas.eduka.backend.domain.SituacaoDespesa;
-import br.pucminas.eduka.backend.domain.StatusCobranca;
-import br.pucminas.eduka.backend.dto.DashboardFinanceiroResponse;
-import br.pucminas.eduka.backend.dto.DashboardFinanceiroResponse.CobrancaDaSemana;
-import br.pucminas.eduka.backend.dto.DashboardFinanceiroResponse.Mes;
-import br.pucminas.eduka.backend.dto.DashboardFinanceiroResponse.PagamentoRecente;
+import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.financeiro.OrigemPagamento;
+import br.pucminas.eduka.backend.domain.financeiro.SituacaoDespesa;
+import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
+import br.pucminas.eduka.backend.dto.dashboard.DashboardFinanceiroResponse.CobrancaDaSemana;
+import br.pucminas.eduka.backend.dto.dashboard.DashboardFinanceiroResponse.Mes;
+import br.pucminas.eduka.backend.dto.dashboard.DashboardFinanceiroResponse.PagamentoRecente;
+import br.pucminas.eduka.backend.dto.dashboard.DashboardFinanceiroResponse;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
-import br.pucminas.eduka.backend.service.DashboardFinanceiroService;
+import br.pucminas.eduka.backend.service.financeiro.DashboardFinanceiroService;
 
 /**
  * As contas do painel financeiro sobre dados gravados no Postgres: valores,

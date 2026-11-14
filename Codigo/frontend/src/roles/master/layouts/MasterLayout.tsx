@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { PainelLayout, type ItemMenu } from '../../../components/PainelLayout/PainelLayout'
+import { PainelLayout, type ItemMenu } from '../../../components/layout/PainelLayout/PainelLayout'
 import { paths } from '../../../routes/paths'
 
 // Menu da gestão (IU05 e IU23). Alunos, matrículas, cobranças e despesas são

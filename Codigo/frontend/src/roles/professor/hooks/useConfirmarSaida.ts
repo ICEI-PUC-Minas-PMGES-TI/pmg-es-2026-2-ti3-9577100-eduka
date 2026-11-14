@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useBlocker } from 'react-router'
-import { obterToken } from '../../../services/authService'
+import { obterToken } from '../../../services/acesso/authService'
 
 /**
  * Pede confirmação antes de perder o que não foi salvo: ao sair da tela, ao

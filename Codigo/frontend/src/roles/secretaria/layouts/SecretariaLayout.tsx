@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { PainelLayout, type ItemMenu } from '../../../components/PainelLayout/PainelLayout'
+import { PainelLayout, type ItemMenu } from '../../../components/layout/PainelLayout/PainelLayout'
 import { useAreaFinanceiro, useAreaMaster } from '../../../routes/areas'
 import { paths } from '../../../routes/paths'
 import { FinanceiroLayout } from '../../financeiro/layouts/FinanceiroLayout'

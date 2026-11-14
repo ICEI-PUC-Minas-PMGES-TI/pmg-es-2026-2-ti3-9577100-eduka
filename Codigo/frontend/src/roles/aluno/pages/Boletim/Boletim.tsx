@@ -1,17 +1,17 @@
 import { useSearchParams } from 'react-router'
-import { Badge } from '../../../../components/Badge/Badge'
-import { Button } from '../../../../components/Button/Button'
-import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
-import { buscarBoletim } from '../../../../services/portalAlunoService'
-import { ROTULOS_STATUS_MATRICULA } from '../../../../types/matricula'
+import { Badge } from '../../../../components/ui/Badge/Badge'
+import { Button } from '../../../../components/ui/Button/Button'
+import { StatCard, StatCards } from '../../../../components/ui/StatCard/StatCard'
+import { buscarBoletim } from '../../../../services/portal/portalAlunoService'
+import { ROTULOS_STATUS_MATRICULA } from '../../../../types/academico/matricula'
 import {
   ROTULOS_TIPO_AVALIACAO,
   type BoletimDisciplina,
   type BoletimTurma,
-} from '../../../../types/portalAluno'
+} from '../../../../types/portal/portalAluno'
 import { formatarPontos, plural } from '../../../../utils/formatters'
 import { PERCENTUAL_APROVACAO } from '../../../professor/notas'
-import { formatarData } from '../../../secretaria/components/PainelSecretaria/formatacao'
+import { formatarData } from '../../../../utils/formatacao'
 import { AgendaAvaliacoes } from '../../components/AgendaAvaliacoes/AgendaAvaliacoes'
 import { aproveitamento, emRecuperacao, somarFrequencias } from '../../formatacao'
 import { useDadosDoAluno } from '../../hooks/useDadosDoAluno'

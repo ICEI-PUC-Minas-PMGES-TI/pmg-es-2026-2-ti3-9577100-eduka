@@ -1,25 +1,25 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Button } from '../../../../components/Button/Button'
-import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
+import { Button } from '../../../../components/ui/Button/Button'
+import { StatCard, StatCards } from '../../../../components/ui/StatCard/StatCard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { useRotasAcademicas } from '../../../../routes/areas'
-import { atualizarMatricula, listarMatriculas, matricularAluno } from '../../../../services/matriculaService'
-import type { TurmaAcademica } from '../../../../types/academico'
-import { ROTULOS_TURNO } from '../../../../types/alocacao'
+import { atualizarMatricula, listarMatriculas, matricularAluno } from '../../../../services/academico/matriculaService'
+import type { TurmaAcademica } from '../../../../types/academico/academico'
+import { ROTULOS_TURNO } from '../../../../types/academico/alocacao'
 import {
   ROTULOS_STATUS_MATRICULA,
   type AtualizarMatriculaRequest,
   type Matricula,
   type MatriculaRequest,
   type StatusMatricula,
-} from '../../../../types/matricula'
+} from '../../../../types/academico/matricula'
 import { plural } from '../../../../utils/formatters'
-import { AlterarMatriculaModal } from '../../components/AlterarMatriculaModal/AlterarMatriculaModal'
-import { DetalhesMatriculaModal } from '../../components/DetalhesMatriculaModal/DetalhesMatriculaModal'
-import { MatricularAlunos, type ResultadoMatriculas } from '../../components/MatricularAlunos/MatricularAlunos'
-import { MatriculasTable } from '../../components/MatriculasTable/MatriculasTable'
-import { TurmasMatricula } from '../../components/TurmasMatricula/TurmasMatricula'
+import { AlterarMatriculaModal } from '../../components/matriculas/AlterarMatriculaModal/AlterarMatriculaModal'
+import { DetalhesMatriculaModal } from '../../components/matriculas/DetalhesMatriculaModal/DetalhesMatriculaModal'
+import { MatricularAlunos, type ResultadoMatriculas } from '../../components/matriculas/MatricularAlunos/MatricularAlunos'
+import { MatriculasTable } from '../../components/matriculas/MatriculasTable/MatriculasTable'
+import { TurmasMatricula } from '../../components/matriculas/TurmasMatricula/TurmasMatricula'
 import { useMatriculas } from '../../hooks/useMatriculas'
 import { SecretariaLayout } from '../../layouts/SecretariaLayout'
 import styles from './Matriculas.module.css'

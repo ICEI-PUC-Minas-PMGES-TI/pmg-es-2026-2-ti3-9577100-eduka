@@ -1,4 +1,4 @@
-import { obterToken } from '../services/authService'
+import { obterToken } from '../services/acesso/authService'
 
 /** Destino depois do aceite do aviso de privacidade: a tela que o usuário tentou abrir. */
 export type EstadoAvisoPrivacidade = { voltarPara: string }

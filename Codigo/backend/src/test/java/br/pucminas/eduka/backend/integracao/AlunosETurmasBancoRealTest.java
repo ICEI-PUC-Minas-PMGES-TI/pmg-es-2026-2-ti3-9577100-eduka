@@ -9,11 +9,11 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import br.pucminas.eduka.backend.domain.StatusMatricula;
-import br.pucminas.eduka.backend.dto.AlunoResponse;
-import br.pucminas.eduka.backend.dto.TurmaResponse;
-import br.pucminas.eduka.backend.service.AcademicoSecretariaService;
-import br.pucminas.eduka.backend.service.AlunoService;
+import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
+import br.pucminas.eduka.backend.dto.academico.TurmaResponse;
+import br.pucminas.eduka.backend.dto.pessoas.AlunoResponse;
+import br.pucminas.eduka.backend.service.academico.AcademicoSecretariaService;
+import br.pucminas.eduka.backend.service.pessoas.AlunoService;
 
 /**
  * As listagens que as telas de Alunos e Matriculas usam no lugar do historico

@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { simularApi } from '../../../../test/api'
-import type { BoletimDisciplina, BoletimTurma, FrequenciaBoletim } from '../../../../types/portalAluno'
+import type { BoletimDisciplina, BoletimTurma, FrequenciaBoletim } from '../../../../types/portal/portalAluno'
 import { somarFrequencias } from '../../formatacao'
 import { Boletim } from './Boletim'
 

@@ -1,18 +1,18 @@
 import { useState } from 'react'
-import { EstadoDashboard } from '../../../../components/Dashboard/Dashboard'
+import { EstadoDashboard } from '../../../../components/layout/Dashboard/Dashboard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { ApiError } from '../../../../services/api'
 import {
   ativarRecebimentos,
   buscarContaRecebimento,
   sincronizarContaRecebimento,
-} from '../../../../services/contaRecebimentoService'
+} from '../../../../services/financeiro/contaRecebimentoService'
 import {
   aprovarContaNoSandbox,
   atalhosSandboxHabilitados,
   mensagemErroSandbox,
-} from '../../../../services/sandboxService'
-import type { AtivarRecebimentosRequest, ContaRecebimento } from '../../../../types/contaRecebimento'
+} from '../../../../services/financeiro/sandboxService'
+import type { AtivarRecebimentosRequest, ContaRecebimento } from '../../../../types/financeiro/contaRecebimento'
 import { ModalAtivarRecebimentos } from '../../components/ModalAtivarRecebimentos/ModalAtivarRecebimentos'
 import { PainelContaRecebimento } from '../../components/PainelContaRecebimento/PainelContaRecebimento'
 import { MasterLayout } from '../../layouts/MasterLayout'

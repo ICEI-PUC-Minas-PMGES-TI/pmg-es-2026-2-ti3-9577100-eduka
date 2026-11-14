@@ -13,18 +13,18 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 
-import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
-import br.pucminas.eduka.backend.domain.SituacaoDespesa;
-import br.pucminas.eduka.backend.dto.AtualizarDespesaRequest;
-import br.pucminas.eduka.backend.dto.CategoriaDespesaRequest;
-import br.pucminas.eduka.backend.dto.CategoriaDespesaResponse;
-import br.pucminas.eduka.backend.dto.DespesaRequest;
-import br.pucminas.eduka.backend.dto.DespesaResponse;
-import br.pucminas.eduka.backend.dto.MudarSituacaoDespesaRequest;
-import br.pucminas.eduka.backend.exception.CategoriaDespesaJaExisteException;
-import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
-import br.pucminas.eduka.backend.service.CategoriaDespesaService;
-import br.pucminas.eduka.backend.service.DespesaService;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.financeiro.SituacaoDespesa;
+import br.pucminas.eduka.backend.dto.financeiro.AtualizarDespesaRequest;
+import br.pucminas.eduka.backend.dto.financeiro.CategoriaDespesaRequest;
+import br.pucminas.eduka.backend.dto.financeiro.CategoriaDespesaResponse;
+import br.pucminas.eduka.backend.dto.financeiro.DespesaRequest;
+import br.pucminas.eduka.backend.dto.financeiro.DespesaResponse;
+import br.pucminas.eduka.backend.dto.financeiro.MudarSituacaoDespesaRequest;
+import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.exception.financeiro.CategoriaDespesaJaExisteException;
+import br.pucminas.eduka.backend.service.financeiro.CategoriaDespesaService;
+import br.pucminas.eduka.backend.service.financeiro.DespesaService;
 
 /**
  * Despesas e categorias no banco: o ciclo A_PAGAR, PAGA e CANCELADA com a

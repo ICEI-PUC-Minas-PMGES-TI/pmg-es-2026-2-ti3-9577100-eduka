@@ -13,13 +13,13 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
-import br.pucminas.eduka.backend.domain.PerfilUsuario;
-import br.pucminas.eduka.backend.domain.Usuario;
-import br.pucminas.eduka.backend.dto.LoginResponse;
-import br.pucminas.eduka.backend.exception.CredenciaisInvalidasException;
-import br.pucminas.eduka.backend.repository.UsuarioRepository;
+import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
+import br.pucminas.eduka.backend.domain.acesso.Usuario;
+import br.pucminas.eduka.backend.dto.acesso.LoginResponse;
+import br.pucminas.eduka.backend.exception.acesso.CredenciaisInvalidasException;
+import br.pucminas.eduka.backend.repository.acesso.UsuarioRepository;
 import br.pucminas.eduka.backend.security.JwtService;
-import br.pucminas.eduka.backend.service.UsuarioService;
+import br.pucminas.eduka.backend.service.acesso.UsuarioService;
 
 /**
  * Acesso de demonstracao: quem sabe o login e a senha de

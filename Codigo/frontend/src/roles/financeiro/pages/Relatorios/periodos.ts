@@ -1,5 +1,5 @@
-import { paraIso } from '../../../../components/CampoData/datas'
-import type { Periodo } from '../../../../components/CampoPeriodo/CampoPeriodo'
+import { paraIso } from '../../../../components/formulario/CampoData/datas'
+import type { Periodo } from '../../../../components/formulario/CampoPeriodo/CampoPeriodo'
 
 export type PeriodoRapido = 'MES' | 'BIMESTRE' | 'SEMESTRE' | 'ANO'
 

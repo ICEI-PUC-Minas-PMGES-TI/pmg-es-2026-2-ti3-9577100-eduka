@@ -1,24 +1,24 @@
 import { useMemo, useState } from 'react'
-import { Badge } from '../../../../components/Badge/Badge'
-import { Button } from '../../../../components/Button/Button'
-import { Campo } from '../../../../components/Campo/Campo'
-import { CampoData } from '../../../../components/CampoData/CampoData'
-import type { Periodo } from '../../../../components/CampoPeriodo/CampoPeriodo'
+import { Badge } from '../../../../components/ui/Badge/Badge'
+import { Button } from '../../../../components/ui/Button/Button'
+import { Campo } from '../../../../components/formulario/Campo/Campo'
+import { CampoData } from '../../../../components/formulario/CampoData/CampoData'
+import type { Periodo } from '../../../../components/formulario/CampoPeriodo/CampoPeriodo'
 import {
   EstadoDashboard,
   GraficoComparativo,
   Medidor,
   Painel,
   PainelVazio,
-} from '../../../../components/Dashboard/Dashboard'
-import { Pilulas } from '../../../../components/PainelFinanceiro/PainelFinanceiro'
-import { erroDoPeriodo, nomeDoMes, quantasCobrancas, rotuladorDeMeses } from '../../../../components/PainelFinanceiro/textos'
-import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
+} from '../../../../components/layout/Dashboard/Dashboard'
+import { Pilulas } from '../../../../components/financeiro/PainelFinanceiro/PainelFinanceiro'
+import { erroDoPeriodo, nomeDoMes, quantasCobrancas, rotuladorDeMeses } from '../../../../components/financeiro/PainelFinanceiro/textos'
+import { StatCard, StatCards } from '../../../../components/ui/StatCard/StatCard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
-import { obterRelatorioFinanceiro } from '../../../../services/relatorioFinanceiroService'
-import { ROTULOS_TIPO_COBRANCA, type TipoCobranca } from '../../../../types/cobranca'
-import { ROTULOS_FORMA_PAGAMENTO } from '../../../../types/pagamentoAluno'
-import type { FormaRelatorio, LinhaResumo, RelatorioFinanceiro } from '../../../../types/relatorioFinanceiro'
+import { obterRelatorioFinanceiro } from '../../../../services/financeiro/relatorioFinanceiroService'
+import { ROTULOS_TIPO_COBRANCA, type TipoCobranca } from '../../../../types/financeiro/cobranca'
+import { ROTULOS_FORMA_PAGAMENTO } from '../../../../types/financeiro/pagamentoAluno'
+import type { FormaRelatorio, LinhaResumo, RelatorioFinanceiro } from '../../../../types/financeiro/relatorioFinanceiro'
 import {
   formatarMoeda,
   formatarMoedaCompacta,

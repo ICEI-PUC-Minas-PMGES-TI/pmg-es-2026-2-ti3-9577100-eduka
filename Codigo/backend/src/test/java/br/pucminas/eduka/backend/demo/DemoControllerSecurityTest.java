@@ -20,10 +20,10 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import br.pucminas.eduka.backend.domain.PerfilUsuario;
-import br.pucminas.eduka.backend.dto.LoginResponse;
+import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
+import br.pucminas.eduka.backend.dto.acesso.LoginResponse;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
-import br.pucminas.eduka.backend.exception.CredenciaisInvalidasException;
+import br.pucminas.eduka.backend.exception.acesso.CredenciaisInvalidasException;
 import br.pucminas.eduka.backend.security.JwtConfig;
 
 /** Rotas publicas no perfil demo, conferidas pelo proprio acesso; fora dele nao existem. */

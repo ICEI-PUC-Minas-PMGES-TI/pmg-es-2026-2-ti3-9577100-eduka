@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Button } from '../../../../components/Button/Button'
-import { Campo } from '../../../../components/Campo/Campo'
-import { Modal, ModalAlerta, ModalAviso } from '../../../../components/Modal/Modal'
+import { Button } from '../../../../components/ui/Button/Button'
+import { Campo } from '../../../../components/formulario/Campo/Campo'
+import { Modal, ModalAlerta, ModalAviso } from '../../../../components/modal/Modal/Modal'
 import { ApiError } from '../../../../services/api'
-import { buscarMembroEquipe } from '../../../../services/equipeService'
+import { buscarMembroEquipe } from '../../../../services/escola/equipeService'
 import {
   DESCRICOES_PERFIL_EQUIPE,
   ROTULOS_PERFIL_EQUIPE,
   type MembroEquipe,
   type MembroEquipeRequest,
   type PerfilEquipe,
-} from '../../../../types/equipe'
+} from '../../../../types/escola/equipe'
 import { cpfValido, mascararCpf, mascararTelefone, somenteDigitos } from '../../../../utils/formatters'
 import styles from './CadastroEquipeModal.module.css'
 

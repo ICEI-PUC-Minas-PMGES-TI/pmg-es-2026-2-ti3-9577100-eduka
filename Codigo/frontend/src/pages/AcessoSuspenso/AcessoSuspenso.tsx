@@ -1,6 +1,6 @@
 import { Link, useSearchParams } from 'react-router'
 import logoEduka from '../../assets/eduka-logo.svg'
-import { Icon } from '../../components/Icon/Icon'
+import { Icon } from '../../components/ui/Icon/Icon'
 import { paths } from '../../routes/paths'
 import styles from './AcessoSuspenso.module.css'
 

@@ -14,19 +14,19 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 
-import br.pucminas.eduka.backend.domain.StatusMatricula;
-import br.pucminas.eduka.backend.domain.Turno;
-import br.pucminas.eduka.backend.dto.AtualizarAulaRequest;
-import br.pucminas.eduka.backend.dto.AulaRequest;
-import br.pucminas.eduka.backend.dto.AulaResponse;
-import br.pucminas.eduka.backend.dto.ChamadaItem;
-import br.pucminas.eduka.backend.dto.Paginacao;
-import br.pucminas.eduka.backend.dto.TurmaRequest;
-import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
-import br.pucminas.eduka.backend.exception.RegistroEmUsoException;
-import br.pucminas.eduka.backend.repository.FrequenciaRepository;
-import br.pucminas.eduka.backend.service.AcademicoSecretariaService;
-import br.pucminas.eduka.backend.service.AulaService;
+import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
+import br.pucminas.eduka.backend.domain.academico.Turno;
+import br.pucminas.eduka.backend.dto.academico.AtualizarAulaRequest;
+import br.pucminas.eduka.backend.dto.academico.AulaRequest;
+import br.pucminas.eduka.backend.dto.academico.AulaResponse;
+import br.pucminas.eduka.backend.dto.academico.ChamadaItem;
+import br.pucminas.eduka.backend.dto.academico.TurmaRequest;
+import br.pucminas.eduka.backend.dto.comum.Paginacao;
+import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.exception.comum.RegistroEmUsoException;
+import br.pucminas.eduka.backend.repository.academico.FrequenciaRepository;
+import br.pucminas.eduka.backend.service.academico.AcademicoSecretariaService;
+import br.pucminas.eduka.backend.service.academico.AulaService;
 
 /**
  * Aulas e chamada no banco: o fluxo do professor, as constraints da V35, o

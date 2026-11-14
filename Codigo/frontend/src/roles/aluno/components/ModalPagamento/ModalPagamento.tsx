@@ -1,22 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Badge } from '../../../../components/Badge/Badge'
-import { Button } from '../../../../components/Button/Button'
-import { ModalComprovante } from '../../../../components/Comprovante/ModalComprovante'
-import { Icon } from '../../../../components/Icon/Icon'
-import { Modal, ModalAlerta, ModalAviso } from '../../../../components/Modal/Modal'
+import { Badge } from '../../../../components/ui/Badge/Badge'
+import { Button } from '../../../../components/ui/Button/Button'
+import { ModalComprovante } from '../../../../components/financeiro/Comprovante/ModalComprovante'
+import { Icon } from '../../../../components/ui/Icon/Icon'
+import { Modal, ModalAlerta, ModalAviso } from '../../../../components/modal/Modal/Modal'
 import { ApiError } from '../../../../services/api'
 import {
   baixarBoletoPdf,
   buscarComprovante,
   buscarMinhaCobranca,
   pagarCobranca,
-} from '../../../../services/pagamentoAlunoService'
+} from '../../../../services/financeiro/pagamentoAlunoService'
 import {
   atalhosSandboxHabilitados,
   mensagemErroSandbox,
   pagarNoSandboxComoAluno,
-} from '../../../../services/sandboxService'
-import type { Comprovante } from '../../../../types/faturaPlataforma'
+} from '../../../../services/financeiro/sandboxService'
+import type { Comprovante } from '../../../../types/escola/faturaPlataforma'
 import type {
   CobrancaDoHistorico,
   DadosBoleto,
@@ -24,10 +24,10 @@ import type {
   DadosPix,
   FormaPagamento,
   SituacaoPagamento,
-} from '../../../../types/pagamentoAluno'
+} from '../../../../types/financeiro/pagamentoAluno'
 import { salvarArquivo } from '../../../../utils/arquivos'
 import { formatarMoeda } from '../../../../utils/formatters'
-import { formatarData } from '../../../secretaria/components/PainelSecretaria/formatacao'
+import { formatarData } from '../../../../utils/formatacao'
 import { formatarLinhaDigitavel } from '../../formatacao'
 import styles from './ModalPagamento.module.css'
 

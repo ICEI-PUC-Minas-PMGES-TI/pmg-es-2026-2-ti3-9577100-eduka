@@ -1,4 +1,4 @@
-import { Button } from '../../../../components/Button/Button'
+import { Button } from '../../../../components/ui/Button/Button'
 import styles from './EstadoTurmas.module.css'
 
 /** Carregando, erro ou "sem turmas" enquanto não há turma/disciplina para escolher. */

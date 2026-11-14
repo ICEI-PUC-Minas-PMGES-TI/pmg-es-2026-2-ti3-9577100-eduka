@@ -11,11 +11,11 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import br.pucminas.eduka.backend.domain.StatusMatricula;
-import br.pucminas.eduka.backend.dto.DashboardEscolaResponse;
-import br.pucminas.eduka.backend.dto.DashboardSecretariaResponse;
-import br.pucminas.eduka.backend.dto.DashboardSecretariaResponse.OcupacaoTurma;
-import br.pucminas.eduka.backend.service.DashboardService;
+import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
+import br.pucminas.eduka.backend.dto.dashboard.DashboardEscolaResponse;
+import br.pucminas.eduka.backend.dto.dashboard.DashboardSecretariaResponse.OcupacaoTurma;
+import br.pucminas.eduka.backend.dto.dashboard.DashboardSecretariaResponse;
+import br.pucminas.eduka.backend.service.dashboard.DashboardService;
 
 /**
  * As contagens dos dashboards da escola e da secretaria, feitas no Postgres:

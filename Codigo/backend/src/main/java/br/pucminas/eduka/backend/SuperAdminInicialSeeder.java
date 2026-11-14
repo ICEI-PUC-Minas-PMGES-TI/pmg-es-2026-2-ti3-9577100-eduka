@@ -10,15 +10,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import br.pucminas.eduka.backend.domain.PapelPessoa;
-import br.pucminas.eduka.backend.domain.PerfilUsuario;
-import br.pucminas.eduka.backend.domain.Pessoa;
-import br.pucminas.eduka.backend.domain.PessoaPapel;
-import br.pucminas.eduka.backend.domain.Usuario;
-import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
-import br.pucminas.eduka.backend.repository.PessoaRepository;
-import br.pucminas.eduka.backend.repository.UsuarioRepository;
-import br.pucminas.eduka.backend.service.UsuarioService;
+import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
+import br.pucminas.eduka.backend.domain.acesso.Usuario;
+import br.pucminas.eduka.backend.domain.pessoas.PapelPessoa;
+import br.pucminas.eduka.backend.domain.pessoas.Pessoa;
+import br.pucminas.eduka.backend.domain.pessoas.PessoaPapel;
+import br.pucminas.eduka.backend.repository.acesso.UsuarioRepository;
+import br.pucminas.eduka.backend.repository.pessoas.PessoaPapelRepository;
+import br.pucminas.eduka.backend.repository.pessoas.PessoaRepository;
+import br.pucminas.eduka.backend.service.acesso.UsuarioService;
 
 /**
  * Cria o primeiro SUPER_ADMIN a partir de {@code SUPER_ADMIN_LOGIN} e

@@ -12,16 +12,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
-import br.pucminas.eduka.backend.domain.StatusCobranca;
-import br.pucminas.eduka.backend.dto.AtualizarCobrancaRequest;
-import br.pucminas.eduka.backend.dto.CobrancaResponse;
-import br.pucminas.eduka.backend.dto.PaginaCobrancasResponse;
-import br.pucminas.eduka.backend.dto.PaginaCobrancasResponse.TotalPorStatus;
-import br.pucminas.eduka.backend.exception.CobrancaJaPagaException;
-import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
-import br.pucminas.eduka.backend.repository.CobrancaFiltro;
-import br.pucminas.eduka.backend.service.CobrancaService;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
+import br.pucminas.eduka.backend.dto.financeiro.AtualizarCobrancaRequest;
+import br.pucminas.eduka.backend.dto.financeiro.CobrancaResponse;
+import br.pucminas.eduka.backend.dto.financeiro.PaginaCobrancasResponse.TotalPorStatus;
+import br.pucminas.eduka.backend.dto.financeiro.PaginaCobrancasResponse;
+import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.exception.financeiro.CobrancaJaPagaException;
+import br.pucminas.eduka.backend.repository.financeiro.CobrancaFiltro;
+import br.pucminas.eduka.backend.service.financeiro.CobrancaService;
 
 /**
  * Mudancas de situacao da cobranca feitas pela escola (baixa manual, cancelar,

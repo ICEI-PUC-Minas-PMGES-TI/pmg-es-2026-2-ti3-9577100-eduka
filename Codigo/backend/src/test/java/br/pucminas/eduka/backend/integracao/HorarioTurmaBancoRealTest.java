@@ -14,13 +14,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 
-import br.pucminas.eduka.backend.domain.DiaSemana;
-import br.pucminas.eduka.backend.dto.AtualizarHorarioTurmaRequest;
-import br.pucminas.eduka.backend.dto.HorarioTurmaRequest;
-import br.pucminas.eduka.backend.dto.HorarioTurmaResponse;
-import br.pucminas.eduka.backend.exception.HorarioConflitanteException;
-import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
-import br.pucminas.eduka.backend.service.HorarioTurmaService;
+import br.pucminas.eduka.backend.domain.academico.DiaSemana;
+import br.pucminas.eduka.backend.dto.academico.AtualizarHorarioTurmaRequest;
+import br.pucminas.eduka.backend.dto.academico.HorarioTurmaRequest;
+import br.pucminas.eduka.backend.dto.academico.HorarioTurmaResponse;
+import br.pucminas.eduka.backend.exception.academico.HorarioConflitanteException;
+import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.service.academico.HorarioTurmaService;
 
 /**
  * Grade semanal no banco: migration V36, mapeamento da entidade, as consultas

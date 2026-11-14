@@ -1,5 +1,5 @@
-import { DIAS_SEMANA, formatarHora, horaCurta } from '../../../../types/horario'
-import type { TurmaDoProfessor } from '../../../../types/turmaProfessor'
+import { DIAS_SEMANA, formatarHora, horaCurta } from '../../../../types/academico/horario'
+import type { TurmaDoProfessor } from '../../../../types/academico/turmaProfessor'
 import styles from './GradeSemanal.module.css'
 
 type Aula = { turma: string; disciplina: string }

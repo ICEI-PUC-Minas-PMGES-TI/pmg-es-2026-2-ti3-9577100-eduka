@@ -11,10 +11,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import br.pucminas.eduka.backend.domain.Notificacao;
-import br.pucminas.eduka.backend.domain.StatusNotificacao;
-import br.pucminas.eduka.backend.domain.TipoNotificacao;
-import br.pucminas.eduka.backend.repository.NotificacaoRepository;
+import br.pucminas.eduka.backend.domain.notificacao.Notificacao;
+import br.pucminas.eduka.backend.domain.notificacao.StatusNotificacao;
+import br.pucminas.eduka.backend.domain.notificacao.TipoNotificacao;
+import br.pucminas.eduka.backend.repository.notificacao.NotificacaoRepository;
 
 /**
  * Porta de entrada do envio de e-mail para o resto do sistema. Quem monta o

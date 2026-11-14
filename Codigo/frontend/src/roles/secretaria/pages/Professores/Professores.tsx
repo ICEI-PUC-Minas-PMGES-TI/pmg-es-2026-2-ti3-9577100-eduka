@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
-import { Button } from '../../../../components/Button/Button'
-import { Icon } from '../../../../components/Icon/Icon'
-import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
+import { Button } from '../../../../components/ui/Button/Button'
+import { Icon } from '../../../../components/ui/Icon/Icon'
+import { StatCard, StatCards } from '../../../../components/ui/StatCard/StatCard'
 import { useListaPaginada, type PaginaComResumo } from '../../../../hooks/usePaginacao'
 import { useTermoAdiado } from '../../../../hooks/useTermoAdiado'
 import type { EstadoAbrirCadastro } from '../../../../routes/paths'
@@ -14,12 +14,12 @@ import {
   excluirProfessor,
   inativarProfessor,
   listarPaginaDeProfessores,
-} from '../../../../services/professorService'
-import type { Professor, ResumoProfessores } from '../../../../types/professor'
-import { CadastroProfessorModal } from '../../components/CadastroProfessorModal/CadastroProfessorModal'
-import { DetalhesProfessorModal } from '../../components/DetalhesProfessorModal/DetalhesProfessorModal'
-import { ExcluirProfessorModal } from '../../components/ExcluirProfessorModal/ExcluirProfessorModal'
-import { ProfessoresTable } from '../../components/ProfessoresTable/ProfessoresTable'
+} from '../../../../services/pessoas/professorService'
+import type { Professor, ResumoProfessores } from '../../../../types/pessoas/professor'
+import { CadastroProfessorModal } from '../../components/professores/CadastroProfessorModal/CadastroProfessorModal'
+import { DetalhesProfessorModal } from '../../components/professores/DetalhesProfessorModal/DetalhesProfessorModal'
+import { ExcluirProfessorModal } from '../../components/professores/ExcluirProfessorModal/ExcluirProfessorModal'
+import { ProfessoresTable } from '../../components/professores/ProfessoresTable/ProfessoresTable'
 import { SecretariaLayout } from '../../layouts/SecretariaLayout'
 import styles from './Professores.module.css'
 

@@ -3,8 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { problema, simularApi, type RespostaApi } from '../../../../test/api'
-import type { Aluno } from '../../../../types/aluno'
-import type { SolicitacaoCorrecao } from '../../../../types/solicitacaoCorrecao'
+import type { Aluno } from '../../../../types/pessoas/aluno'
+import type { SolicitacaoCorrecao } from '../../../../types/pessoas/solicitacaoCorrecao'
 import { MeusDados } from './MeusDados'
 
 const ALUNO: Aluno = {

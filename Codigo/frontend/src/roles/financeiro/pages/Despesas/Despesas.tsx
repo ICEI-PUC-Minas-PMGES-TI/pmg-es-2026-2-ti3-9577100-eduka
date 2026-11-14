@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { Button } from '../../../../components/Button/Button'
-import { Paginacao } from '../../../../components/Paginacao/Paginacao'
+import { Button } from '../../../../components/ui/Button/Button'
+import { Paginacao } from '../../../../components/ui/Paginacao/Paginacao'
 import { useListaPaginada, type PaginaComResumo } from '../../../../hooks/usePaginacao'
 import { ApiError } from '../../../../services/api'
 import {
@@ -9,14 +9,14 @@ import {
   listarPaginaDeDespesas,
   mudarSituacaoDespesa,
   type PeriodoDespesas,
-} from '../../../../services/despesaService'
+} from '../../../../services/financeiro/despesaService'
 import type {
   CategoriaDespesa,
   Despesa,
   FiltroSituacaoDespesa,
   ResumoDespesas,
   SituacaoDespesa,
-} from '../../../../types/despesa'
+} from '../../../../types/financeiro/despesa'
 import { formatarMoeda, hojeIso } from '../../../../utils/formatters'
 import { ModalCategorias } from '../../components/ModalCategorias/ModalCategorias'
 import { FinanceiroLayout } from '../../layouts/FinanceiroLayout'

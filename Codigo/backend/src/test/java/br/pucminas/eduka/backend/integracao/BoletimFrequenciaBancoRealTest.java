@@ -10,10 +10,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import br.pucminas.eduka.backend.domain.StatusMatricula;
-import br.pucminas.eduka.backend.dto.BoletimTurmaResponse;
-import br.pucminas.eduka.backend.dto.BoletimTurmaResponse.BoletimDisciplina;
-import br.pucminas.eduka.backend.service.PortalAlunoService;
+import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
+import br.pucminas.eduka.backend.dto.academico.BoletimTurmaResponse.BoletimDisciplina;
+import br.pucminas.eduka.backend.dto.academico.BoletimTurmaResponse;
+import br.pucminas.eduka.backend.service.portal.PortalAlunoService;
 
 /**
  * Frequencia no boletim do aluno, ponta a ponta no Postgres: aulas e faltas

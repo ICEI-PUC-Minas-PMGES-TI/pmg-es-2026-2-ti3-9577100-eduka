@@ -4,7 +4,7 @@ import {
   obterToken,
   obterUsuarioLogado,
   type PerfilUsuario,
-} from '../services/authService'
+} from '../services/acesso/authService'
 import { ExigeAceitePrivacidade } from './ExigeAceitePrivacidade'
 import { paths, rotaInicialPorPerfil } from './paths'
 

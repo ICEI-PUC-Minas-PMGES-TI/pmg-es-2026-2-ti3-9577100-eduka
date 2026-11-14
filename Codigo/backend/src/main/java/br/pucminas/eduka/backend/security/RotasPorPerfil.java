@@ -1,11 +1,11 @@
 package br.pucminas.eduka.backend.security;
 
-import static br.pucminas.eduka.backend.domain.PerfilUsuario.ALUNO;
-import static br.pucminas.eduka.backend.domain.PerfilUsuario.FINANCEIRO;
-import static br.pucminas.eduka.backend.domain.PerfilUsuario.MASTER;
-import static br.pucminas.eduka.backend.domain.PerfilUsuario.PROFESSOR;
-import static br.pucminas.eduka.backend.domain.PerfilUsuario.SECRETARIA;
-import static br.pucminas.eduka.backend.domain.PerfilUsuario.SUPER_ADMIN;
+import static br.pucminas.eduka.backend.domain.acesso.PerfilUsuario.ALUNO;
+import static br.pucminas.eduka.backend.domain.acesso.PerfilUsuario.FINANCEIRO;
+import static br.pucminas.eduka.backend.domain.acesso.PerfilUsuario.MASTER;
+import static br.pucminas.eduka.backend.domain.acesso.PerfilUsuario.PROFESSOR;
+import static br.pucminas.eduka.backend.domain.acesso.PerfilUsuario.SECRETARIA;
+import static br.pucminas.eduka.backend.domain.acesso.PerfilUsuario.SUPER_ADMIN;
 
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -15,7 +15,7 @@ import java.util.Set;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AuthorizeHttpRequestsConfigurer;
 
-import br.pucminas.eduka.backend.domain.PerfilUsuario;
+import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
 
 /**
  * Matriz de acesso da API: quais perfis entram em cada modulo. E a "rota-mae"

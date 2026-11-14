@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PaginaDoBackend } from '../../../../hooks/usePaginacao'
 import { problema, simularApi, type ChamadaApi, type RespostaApi } from '../../../../test/api'
-import type { Atividade, AutorAtividade } from '../../../../types/auditoria'
+import type { Atividade, AutorAtividade } from '../../../../types/auditoria/auditoria'
 import { RegistroAtividades } from './RegistroAtividades'
 
 const MARTA: AutorAtividade = { usuarioId: 'u-marta', nome: 'Marta Gestora', perfil: 'MASTER' }

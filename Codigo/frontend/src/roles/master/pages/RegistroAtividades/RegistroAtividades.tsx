@@ -1,12 +1,12 @@
 import { useCallback, useState, type ReactNode } from 'react'
-import { Badge } from '../../../../components/Badge/Badge'
-import { Button } from '../../../../components/Button/Button'
-import { CampoPeriodo, type Periodo } from '../../../../components/CampoPeriodo/CampoPeriodo'
-import { Paginacao } from '../../../../components/Paginacao/Paginacao'
-import { Select, type OpcaoSelect } from '../../../../components/Select/Select'
+import { Badge } from '../../../../components/ui/Badge/Badge'
+import { Button } from '../../../../components/ui/Button/Button'
+import { CampoPeriodo, type Periodo } from '../../../../components/formulario/CampoPeriodo/CampoPeriodo'
+import { Paginacao } from '../../../../components/ui/Paginacao/Paginacao'
+import { Select, type OpcaoSelect } from '../../../../components/formulario/Select/Select'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { useListaPaginada, type PaginaDoBackend } from '../../../../hooks/usePaginacao'
-import { listarAtividades, listarAutoresDeAtividades } from '../../../../services/auditoriaService'
+import { listarAtividades, listarAutoresDeAtividades } from '../../../../services/auditoria/auditoriaService'
 import {
   descreverAcao,
   descreverAutor,
@@ -18,7 +18,7 @@ import {
   type EntidadeAuditada,
   type FiltrosAtividades,
   type OperacaoAuditoria,
-} from '../../../../types/auditoria'
+} from '../../../../types/auditoria/auditoria'
 import { hojeIso, plural } from '../../../../utils/formatters'
 import { MasterLayout } from '../../layouts/MasterLayout'
 import styles from './RegistroAtividades.module.css'
