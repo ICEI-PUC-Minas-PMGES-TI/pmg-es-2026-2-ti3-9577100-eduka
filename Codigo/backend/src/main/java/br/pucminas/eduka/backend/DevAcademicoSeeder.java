@@ -14,18 +14,18 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import br.pucminas.eduka.backend.domain.Curso;
-import br.pucminas.eduka.backend.domain.Disciplina;
-import br.pucminas.eduka.backend.domain.Escola;
-import br.pucminas.eduka.backend.domain.PeriodoLetivo;
-import br.pucminas.eduka.backend.domain.Turma;
-import br.pucminas.eduka.backend.domain.Turno;
-import br.pucminas.eduka.backend.repository.CursoRepository;
-import br.pucminas.eduka.backend.repository.DisciplinaRepository;
-import br.pucminas.eduka.backend.repository.EscolaRepository;
-import br.pucminas.eduka.backend.repository.PeriodoLetivoRepository;
-import br.pucminas.eduka.backend.repository.TurmaRepository;
-import br.pucminas.eduka.backend.repository.UsuarioRepository;
+import br.pucminas.eduka.backend.domain.academico.Curso;
+import br.pucminas.eduka.backend.domain.academico.Disciplina;
+import br.pucminas.eduka.backend.domain.academico.PeriodoLetivo;
+import br.pucminas.eduka.backend.domain.academico.Turma;
+import br.pucminas.eduka.backend.domain.academico.Turno;
+import br.pucminas.eduka.backend.domain.escola.Escola;
+import br.pucminas.eduka.backend.repository.academico.CursoRepository;
+import br.pucminas.eduka.backend.repository.academico.DisciplinaRepository;
+import br.pucminas.eduka.backend.repository.academico.PeriodoLetivoRepository;
+import br.pucminas.eduka.backend.repository.academico.TurmaRepository;
+import br.pucminas.eduka.backend.repository.acesso.UsuarioRepository;
+import br.pucminas.eduka.backend.repository.escola.EscolaRepository;
 
 /**
  * Estrutura academica de exemplo na "Escola Dev": um periodo letivo, dois

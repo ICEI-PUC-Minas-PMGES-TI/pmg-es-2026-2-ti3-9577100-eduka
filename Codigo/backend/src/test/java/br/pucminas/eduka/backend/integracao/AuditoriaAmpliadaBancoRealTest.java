@@ -9,26 +9,26 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import br.pucminas.eduka.backend.domain.EntidadeAuditada;
-import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
-import br.pucminas.eduka.backend.domain.PerfilUsuario;
-import br.pucminas.eduka.backend.domain.StatusMatricula;
-import br.pucminas.eduka.backend.domain.VinculoProfessor;
-import br.pucminas.eduka.backend.dto.AlunoRequest;
-import br.pucminas.eduka.backend.dto.AlunoResponse;
-import br.pucminas.eduka.backend.dto.AtualizarMatriculaRequest;
-import br.pucminas.eduka.backend.dto.AutorAtividadeResponse;
-import br.pucminas.eduka.backend.dto.MatriculaTurmaRequest;
-import br.pucminas.eduka.backend.dto.MembroEquipeRequest;
-import br.pucminas.eduka.backend.dto.MembroEquipeResponse;
-import br.pucminas.eduka.backend.dto.ProfessorRequest;
-import br.pucminas.eduka.backend.dto.ProfessorResponse;
-import br.pucminas.eduka.backend.service.AlunoService;
-import br.pucminas.eduka.backend.service.DashboardFinanceiroService;
-import br.pucminas.eduka.backend.service.EquipeService;
-import br.pucminas.eduka.backend.service.MatriculaTurmaService;
-import br.pucminas.eduka.backend.service.ProfessorService;
-import br.pucminas.eduka.backend.service.RegistroAtividadesService;
+import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
+import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.pessoas.VinculoProfessor;
+import br.pucminas.eduka.backend.dto.academico.AtualizarMatriculaRequest;
+import br.pucminas.eduka.backend.dto.academico.MatriculaTurmaRequest;
+import br.pucminas.eduka.backend.dto.auditoria.AutorAtividadeResponse;
+import br.pucminas.eduka.backend.dto.escola.MembroEquipeRequest;
+import br.pucminas.eduka.backend.dto.escola.MembroEquipeResponse;
+import br.pucminas.eduka.backend.dto.pessoas.AlunoRequest;
+import br.pucminas.eduka.backend.dto.pessoas.AlunoResponse;
+import br.pucminas.eduka.backend.dto.pessoas.ProfessorRequest;
+import br.pucminas.eduka.backend.dto.pessoas.ProfessorResponse;
+import br.pucminas.eduka.backend.service.academico.MatriculaTurmaService;
+import br.pucminas.eduka.backend.service.auditoria.RegistroAtividadesService;
+import br.pucminas.eduka.backend.service.escola.EquipeService;
+import br.pucminas.eduka.backend.service.financeiro.DashboardFinanceiroService;
+import br.pucminas.eduka.backend.service.pessoas.AlunoService;
+import br.pucminas.eduka.backend.service.pessoas.ProfessorService;
 
 /**
  * Auditoria alem do financeiro no Postgres: cada cadastro grava a linha com o

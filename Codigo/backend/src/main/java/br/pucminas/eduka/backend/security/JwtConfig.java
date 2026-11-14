@@ -39,7 +39,7 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 
 import br.pucminas.eduka.backend.logging.EscolaLogFilter;
-import br.pucminas.eduka.backend.repository.EscolaRepository;
+import br.pucminas.eduka.backend.repository.escola.EscolaRepository;
 
 @Configuration
 @EnableWebSecurity

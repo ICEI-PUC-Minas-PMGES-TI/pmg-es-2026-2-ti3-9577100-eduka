@@ -1,11 +1,11 @@
 package br.pucminas.eduka.backend.security;
 
-import static br.pucminas.eduka.backend.domain.PerfilUsuario.ALUNO;
-import static br.pucminas.eduka.backend.domain.PerfilUsuario.FINANCEIRO;
-import static br.pucminas.eduka.backend.domain.PerfilUsuario.MASTER;
-import static br.pucminas.eduka.backend.domain.PerfilUsuario.PROFESSOR;
-import static br.pucminas.eduka.backend.domain.PerfilUsuario.SECRETARIA;
-import static br.pucminas.eduka.backend.domain.PerfilUsuario.SUPER_ADMIN;
+import static br.pucminas.eduka.backend.domain.acesso.PerfilUsuario.ALUNO;
+import static br.pucminas.eduka.backend.domain.acesso.PerfilUsuario.FINANCEIRO;
+import static br.pucminas.eduka.backend.domain.acesso.PerfilUsuario.MASTER;
+import static br.pucminas.eduka.backend.domain.acesso.PerfilUsuario.PROFESSOR;
+import static br.pucminas.eduka.backend.domain.acesso.PerfilUsuario.SECRETARIA;
+import static br.pucminas.eduka.backend.domain.acesso.PerfilUsuario.SUPER_ADMIN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.lang.reflect.Method;
@@ -35,7 +35,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.pucminas.eduka.backend.domain.PerfilUsuario;
+import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
 
 /**
  * Contrato de acesso da API (RNF02): cada endpoint, com os perfis que entram

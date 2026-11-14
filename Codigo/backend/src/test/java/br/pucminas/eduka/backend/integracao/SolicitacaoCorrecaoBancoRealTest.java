@@ -9,11 +9,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import br.pucminas.eduka.backend.domain.StatusSolicitacaoCorrecao;
-import br.pucminas.eduka.backend.dto.SolicitacaoCorrecaoResponse;
-import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
-import br.pucminas.eduka.backend.exception.SolicitacaoCorrecaoAbertaException;
-import br.pucminas.eduka.backend.service.SolicitacaoCorrecaoService;
+import br.pucminas.eduka.backend.domain.pessoas.StatusSolicitacaoCorrecao;
+import br.pucminas.eduka.backend.dto.pessoas.SolicitacaoCorrecaoResponse;
+import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.exception.pessoas.SolicitacaoCorrecaoAbertaException;
+import br.pucminas.eduka.backend.service.pessoas.SolicitacaoCorrecaoService;
 
 /**
  * Pedido de correcao de dados (IU15) no banco: uma solicitacao aberta por

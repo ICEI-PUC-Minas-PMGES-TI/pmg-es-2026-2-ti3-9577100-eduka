@@ -16,11 +16,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import br.pucminas.eduka.backend.domain.PerfilUsuario;
-import br.pucminas.eduka.backend.domain.Usuario;
-import br.pucminas.eduka.backend.dto.LoginResponse;
-import br.pucminas.eduka.backend.exception.CredenciaisInvalidasException;
-import br.pucminas.eduka.backend.repository.UsuarioRepository;
+import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
+import br.pucminas.eduka.backend.domain.acesso.Usuario;
+import br.pucminas.eduka.backend.dto.acesso.LoginResponse;
+import br.pucminas.eduka.backend.exception.acesso.CredenciaisInvalidasException;
+import br.pucminas.eduka.backend.repository.acesso.UsuarioRepository;
 import br.pucminas.eduka.backend.security.JwtService;
 
 @ExtendWith(MockitoExtension.class)

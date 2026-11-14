@@ -18,8 +18,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 
-import br.pucminas.eduka.backend.domain.StatusNotificacao;
-import br.pucminas.eduka.backend.repository.NotificacaoRepository;
+import br.pucminas.eduka.backend.domain.notificacao.StatusNotificacao;
+import br.pucminas.eduka.backend.repository.notificacao.NotificacaoRepository;
 
 @ExtendWith(MockitoExtension.class)
 class NotificacaoRotinaTest {

@@ -7,14 +7,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import br.pucminas.eduka.backend.domain.EntidadeAuditada;
-import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
-import br.pucminas.eduka.backend.domain.StatusContaRecebimento;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.financeiro.StatusContaRecebimento;
 import br.pucminas.eduka.backend.pagamento.tipos.SituacaoCadastral;
 import br.pucminas.eduka.backend.pagamento.tipos.SituacaoContaProvedor;
-import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
-import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository.ContaPorIdExterno;
-import br.pucminas.eduka.backend.service.AuditoriaService;
+import br.pucminas.eduka.backend.repository.financeiro.ContaRecebimentoEscolaRepository.ContaPorIdExterno;
+import br.pucminas.eduka.backend.repository.financeiro.ContaRecebimentoEscolaRepository;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
 /**
  * Grava a situacao da conta de recebimento lida do provedor, venha ela do

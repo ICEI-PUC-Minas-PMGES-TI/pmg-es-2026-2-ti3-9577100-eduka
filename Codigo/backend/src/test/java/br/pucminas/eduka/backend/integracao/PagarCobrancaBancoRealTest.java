@@ -30,14 +30,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-import br.pucminas.eduka.backend.domain.SituacaoProvedor;
-import br.pucminas.eduka.backend.domain.StatusCobranca;
-import br.pucminas.eduka.backend.dto.AtualizarCobrancaRequest;
-import br.pucminas.eduka.backend.dto.DadosPagamentoResponse;
-import br.pucminas.eduka.backend.exception.CobrancaNaoEditavelException;
-import br.pucminas.eduka.backend.exception.CobrancaNaoPagavelException;
-import br.pucminas.eduka.backend.exception.PagamentoEmProcessamentoException;
-import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.domain.financeiro.SituacaoProvedor;
+import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
+import br.pucminas.eduka.backend.dto.financeiro.AtualizarCobrancaRequest;
+import br.pucminas.eduka.backend.dto.financeiro.DadosPagamentoResponse;
+import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.exception.financeiro.CobrancaNaoEditavelException;
+import br.pucminas.eduka.backend.exception.financeiro.CobrancaNaoPagavelException;
+import br.pucminas.eduka.backend.exception.financeiro.PagamentoEmProcessamentoException;
 import br.pucminas.eduka.backend.integracao.DadosDeTeste.AlunoComAcesso;
 import br.pucminas.eduka.backend.pagamento.PaymentProvider;
 import br.pucminas.eduka.backend.pagamento.PaymentRoutingService;
@@ -47,7 +47,7 @@ import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 import br.pucminas.eduka.backend.pagamento.tipos.PixProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.StatusCobrancaProvedor;
-import br.pucminas.eduka.backend.service.CobrancaService;
+import br.pucminas.eduka.backend.service.financeiro.CobrancaService;
 
 /**
  * O Pagar do aluno com o banco de verdade e o Asaas simulado: a trava que

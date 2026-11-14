@@ -28,14 +28,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 
-import br.pucminas.eduka.backend.domain.EntidadeAuditada;
-import br.pucminas.eduka.backend.domain.FaturaPlataforma;
-import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
-import br.pucminas.eduka.backend.domain.OrigemPagamento;
-import br.pucminas.eduka.backend.domain.PagamentoCobranca;
-import br.pucminas.eduka.backend.domain.SituacaoProvedor;
-import br.pucminas.eduka.backend.domain.StatusCobranca;
-import br.pucminas.eduka.backend.domain.StatusEventoProvedor;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.escola.FaturaPlataforma;
+import br.pucminas.eduka.backend.domain.financeiro.OrigemPagamento;
+import br.pucminas.eduka.backend.domain.financeiro.PagamentoCobranca;
+import br.pucminas.eduka.backend.domain.financeiro.SituacaoProvedor;
+import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
+import br.pucminas.eduka.backend.domain.financeiro.StatusEventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.EventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
@@ -43,17 +43,17 @@ import br.pucminas.eduka.backend.pagamento.tipos.SituacaoCadastral;
 import br.pucminas.eduka.backend.pagamento.tipos.SituacaoContaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.StatusCobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.TipoEventoProvedor;
-import br.pucminas.eduka.backend.repository.CobrancaRepository;
-import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
-import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository.ContaPorIdExterno;
-import br.pucminas.eduka.backend.repository.EstornoCobrancaRepository;
-import br.pucminas.eduka.backend.repository.EventoProvedorRepository;
-import br.pucminas.eduka.backend.repository.FaturaPlataformaRepository;
-import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
-import br.pucminas.eduka.backend.service.AuditoriaService;
-import br.pucminas.eduka.backend.service.AvisoCobranca;
-import br.pucminas.eduka.backend.service.AvisoCobrancaService;
-import br.pucminas.eduka.backend.service.CobrancaParaAviso;
+import br.pucminas.eduka.backend.repository.escola.FaturaPlataformaRepository;
+import br.pucminas.eduka.backend.repository.financeiro.CobrancaRepository;
+import br.pucminas.eduka.backend.repository.financeiro.ContaRecebimentoEscolaRepository.ContaPorIdExterno;
+import br.pucminas.eduka.backend.repository.financeiro.ContaRecebimentoEscolaRepository;
+import br.pucminas.eduka.backend.repository.financeiro.EstornoCobrancaRepository;
+import br.pucminas.eduka.backend.repository.financeiro.EventoProvedorRepository;
+import br.pucminas.eduka.backend.repository.financeiro.PagamentoCobrancaRepository;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
+import br.pucminas.eduka.backend.service.financeiro.AvisoCobranca;
+import br.pucminas.eduka.backend.service.financeiro.AvisoCobrancaService;
+import br.pucminas.eduka.backend.service.financeiro.CobrancaParaAviso;
 
 /** Gravar e aplicar avisos do provedor: uma vez so, na escola da cobranca e da conta. */
 @ExtendWith(MockitoExtension.class)
@@ -87,14 +87,14 @@ class RoteadorEventosTest {
     private AuditoriaService auditoriaService;
 
     private RoteadorEventos roteador;
-    private br.pucminas.eduka.backend.domain.EventoProvedor registro;
+    private br.pucminas.eduka.backend.domain.financeiro.EventoProvedor registro;
 
     @BeforeEach
     void setUp() {
         roteador = new RoteadorEventos(eventoRepository, cobrancaRepository, contaRepository, pagamentoRepository,
                 estornoRepository, faturaRepository, avisoCobrancaService, auditoriaService,
                 new GravadorSituacaoConta(contaRepository, auditoriaService), Clock.fixed(AGORA, ZoneOffset.UTC));
-        registro = br.pucminas.eduka.backend.domain.EventoProvedor.builder()
+        registro = br.pucminas.eduka.backend.domain.financeiro.EventoProvedor.builder()
                 .id(EVENTO)
                 .idEventoExterno("evt_1&1")
                 .tipoOriginal("PAYMENT_RECEIVED")
@@ -122,15 +122,15 @@ class RoteadorEventosTest {
     void gravaOAvisoNovoComoRecebido() {
         when(eventoRepository.existsByIdEventoExterno("evt_1&1")).thenReturn(false);
         when(eventoRepository.saveAndFlush(any())).thenAnswer(i -> {
-            br.pucminas.eduka.backend.domain.EventoProvedor salvo = i.getArgument(0);
+            br.pucminas.eduka.backend.domain.financeiro.EventoProvedor salvo = i.getArgument(0);
             salvo.setId(EVENTO);
             return salvo;
         });
 
         assertThat(roteador.gravar(pagamentoRecebido(CONTA_ESCOLA))).contains(EVENTO);
 
-        ArgumentCaptor<br.pucminas.eduka.backend.domain.EventoProvedor> gravado = ArgumentCaptor
-                .forClass(br.pucminas.eduka.backend.domain.EventoProvedor.class);
+        ArgumentCaptor<br.pucminas.eduka.backend.domain.financeiro.EventoProvedor> gravado = ArgumentCaptor
+                .forClass(br.pucminas.eduka.backend.domain.financeiro.EventoProvedor.class);
         verify(eventoRepository).saveAndFlush(gravado.capture());
         assertThat(gravado.getValue().getStatus()).isEqualTo(StatusEventoProvedor.RECEBIDO);
         assertThat(gravado.getValue().getReferenciaExterna()).isEqualTo("EDK-B-" + COBRANCA);

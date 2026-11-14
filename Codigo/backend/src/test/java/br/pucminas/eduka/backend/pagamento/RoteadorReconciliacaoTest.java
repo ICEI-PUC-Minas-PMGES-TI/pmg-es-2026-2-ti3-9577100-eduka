@@ -23,14 +23,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 
-import br.pucminas.eduka.backend.domain.FaturaPlataforma;
+import br.pucminas.eduka.backend.domain.escola.FaturaPlataforma;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.CredencialProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 import br.pucminas.eduka.backend.pagamento.tipos.StatusCobrancaProvedor;
-import br.pucminas.eduka.backend.repository.CobrancaRepository;
-import br.pucminas.eduka.backend.repository.CobrancaRepository.EmissaoSemResposta;
-import br.pucminas.eduka.backend.repository.FaturaPlataformaRepository;
+import br.pucminas.eduka.backend.repository.escola.FaturaPlataformaRepository;
+import br.pucminas.eduka.backend.repository.financeiro.CobrancaRepository.EmissaoSemResposta;
+import br.pucminas.eduka.backend.repository.financeiro.CobrancaRepository;
 import br.pucminas.eduka.backend.security.PiiCryptoService;
 
 /** Reconciliacao: busca pela referencia na conta certa, sem parar numa falha. */
