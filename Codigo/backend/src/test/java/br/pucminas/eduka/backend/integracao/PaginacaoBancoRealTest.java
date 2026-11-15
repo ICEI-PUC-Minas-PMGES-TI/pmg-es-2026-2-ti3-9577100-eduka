@@ -190,6 +190,7 @@ class PaginacaoBancoRealTest extends BancoRealTest {
                 AlunoResponse.Situacao.MATRICULADO, 1L,
                 AlunoResponse.Situacao.TRANCADO, 0L,
                 AlunoResponse.Situacao.SEM_TURMA, 2L,
+                AlunoResponse.Situacao.INATIVO, 0L,
                 AlunoResponse.Situacao.ANONIMIZADO, 0L)));
     }
 
