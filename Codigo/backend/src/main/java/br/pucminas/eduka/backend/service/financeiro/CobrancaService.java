@@ -39,6 +39,7 @@ import br.pucminas.eduka.backend.domain.pessoas.AlunoResponsavelId;
 import br.pucminas.eduka.backend.domain.pessoas.Pessoa;
 import br.pucminas.eduka.backend.dto.comum.Paginacao;
 import br.pucminas.eduka.backend.dto.financeiro.AtualizarCobrancaRequest;
+import br.pucminas.eduka.backend.dto.financeiro.BaixaManualRequest;
 import br.pucminas.eduka.backend.dto.financeiro.CobrancaAlunoResponse;
 import br.pucminas.eduka.backend.dto.financeiro.CobrancaRequest;
 import br.pucminas.eduka.backend.dto.financeiro.CobrancaResponse;
@@ -352,10 +353,17 @@ public class CobrancaService {
     }
 
     /**
-     * Baixa manual: marca a cobranca em aberto como PAGA e avisa quem paga. Se
+     * Baixa manual (UC12): registra o pagamento feito fora do Eduka, com valor,
+     * dia e forma, marca a cobranca em aberto como PAGA e avisa quem paga. Se
      * o aluno ja gerou PIX ou boleto, a cobranca e removida no provedor antes,
      * fora de transacao, como no cancelar (spec §8.5): senao o PIX ou o boleto
      * continuariam pagaveis e o aluno pagaria duas vezes.
+     *
+     * <p>
+     * O dia informado vira o {@code PAGA_EM}, que e por onde o painel, os
+     * relatorios e o risco de atraso contam o recebido: hoje, o momento da
+     * baixa; um dia passado, a meia-noite dele no fuso da escola.
+     * </p>
      *
      * @throws CobrancaJaPagaException           se o provedor ja recebeu: o
      *                                           pagamento online fica
@@ -363,9 +371,11 @@ public class CobrancaService {
      * @throws PagamentoEmProcessamentoException se o pagamento esta sendo
      *                                           gerado agora
      * @throws IllegalArgumentException          se a cobranca ja foi paga ou
-     *                                           cancelada
+     *                                           cancelada, ou se o dia do
+     *                                           pagamento e futuro
      */
-    public CobrancaResponse confirmarPagamento(UUID id) {
+    public CobrancaResponse confirmarPagamento(UUID id, BaixaManualRequest baixa) {
+        Instant pagaEm = momentoDoPagamento(baixa.dataPagamento());
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         Cobranca lida = transacao.execute(status -> {
             Cobranca cobranca = buscarCobranca(id, escolaId);
@@ -390,7 +400,9 @@ public class CobrancaService {
             // fica CANCELADA e a baixa e recusada: ja saiu do provedor, entao nao ha pagamento em dobro.
             exigirEmAberto(cobranca, "paga");
             mudarStatus(cobranca, StatusCobranca.PAGA);
-            cobranca.setPagaEm(clock.instant());
+            cobranca.setPagaEm(pagaEm);
+            cobranca.setValorPagoManual(baixa.valorPago());
+            cobranca.setFormaPagamentoManual(baixa.forma());
             cobranca.setAtualizadoEm(clock.instant());
             CobrancaResponse resposta = salvarEAuditar(cobranca, OperacaoAuditoria.PAGAR, escolaId);
             // Dentro da transacao: o e-mail entra na fila junto com a baixa.
@@ -488,6 +500,21 @@ public class CobrancaService {
                 .map(status -> new PaginaCobrancasResponse.TotalPorStatus(status,
                         quantidades.getOrDefault(status, 0L), valores.getOrDefault(status, BigDecimal.ZERO)))
                 .toList();
+    }
+
+    /**
+     * {@code PAGA_EM} da baixa manual: o momento da baixa se o pagamento foi
+     * hoje; a meia-noite do dia no fuso da escola se foi antes, porque a hora
+     * nao e conhecida.
+     *
+     * @throws IllegalArgumentException se o dia e futuro
+     */
+    private Instant momentoDoPagamento(LocalDate dia) {
+        LocalDate hoje = hoje();
+        if (dia.isAfter(hoje)) {
+            throw new IllegalArgumentException("dataPagamento nao pode ser depois de hoje");
+        }
+        return dia.equals(hoje) ? clock.instant() : dia.atStartOfDay(FUSO_ESCOLA).toInstant();
     }
 
     /**
@@ -620,8 +647,13 @@ public class CobrancaService {
             return PagamentoDaCobrancaResponse.online(pagamento, linkComprovante.apply(cobranca.getId()));
         }
         return cobranca.getPagaEm() == null ? null
-                : PagamentoDaCobrancaResponse.manual(cobranca.getValor(),
-                        LocalDate.ofInstant(cobranca.getPagaEm(), FUSO_ESCOLA));
+                : PagamentoDaCobrancaResponse.manual(valorRecebidoNaBaixa(cobranca),
+                        LocalDate.ofInstant(cobranca.getPagaEm(), FUSO_ESCOLA), cobranca.getFormaPagamentoManual());
+    }
+
+    /** O informado na baixa; o valor da cobranca so se a linha nao tem (V49 preenche as antigas). */
+    static BigDecimal valorRecebidoNaBaixa(Cobranca cobranca) {
+        return cobranca.getValorPagoManual() != null ? cobranca.getValorPagoManual() : cobranca.getValor();
     }
 
     /** Comprovante pela rota da escola (MASTER e FINANCEIRO). */

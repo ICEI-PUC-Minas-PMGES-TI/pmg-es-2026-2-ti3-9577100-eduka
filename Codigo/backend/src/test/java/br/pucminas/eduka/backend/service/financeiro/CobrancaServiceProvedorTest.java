@@ -38,10 +38,12 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.financeiro.Cobranca;
+import br.pucminas.eduka.backend.domain.financeiro.FormaPagamentoManual;
 import br.pucminas.eduka.backend.domain.financeiro.SituacaoProvedor;
 import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
 import br.pucminas.eduka.backend.domain.pessoas.Aluno;
 import br.pucminas.eduka.backend.dto.financeiro.AtualizarCobrancaRequest;
+import br.pucminas.eduka.backend.dto.financeiro.BaixaManualRequest;
 import br.pucminas.eduka.backend.dto.financeiro.CobrancaResponse;
 import br.pucminas.eduka.backend.exception.financeiro.CobrancaJaPagaException;
 import br.pucminas.eduka.backend.exception.financeiro.CobrancaNaoEditavelException;
@@ -67,6 +69,9 @@ class CobrancaServiceProvedorTest {
     private static final UUID ESCOLA = UUID.randomUUID();
     private static final UUID COBRANCA = UUID.randomUUID();
     private static final Instant AGORA = Instant.parse("2026-10-20T15:00:00Z");
+    /** No dia de AGORA no fuso da escola (12h em Sao Paulo). */
+    private static final BaixaManualRequest BAIXA_DE_HOJE = new BaixaManualRequest(new BigDecimal("500.00"),
+            LocalDate.of(2026, 10, 20), FormaPagamentoManual.PIX);
     private static final LocalDate VENCIMENTO = LocalDate.of(2026, 10, 25);
 
     private CobrancaRepository cobrancaRepository;
@@ -214,7 +219,7 @@ class CobrancaServiceProvedorTest {
             return null;
         }).when(paymentRoutingService).cancelarNoProvedor(any());
 
-        CobrancaResponse resposta = service.confirmarPagamento(COBRANCA);
+        CobrancaResponse resposta = service.confirmarPagamento(COBRANCA, BAIXA_DE_HOJE);
 
         assertThat(transacaoNaChamada[0]).isFalse();
         assertThat(resposta.status()).isEqualTo(StatusCobranca.PAGA);
@@ -233,7 +238,7 @@ class CobrancaServiceProvedorTest {
         when(cobrancaRepository.findByIdAndEscolaId(COBRANCA, ESCOLA)).thenReturn(Optional.of(cobranca));
         doThrow(new CobrancaJaPagaException()).when(paymentRoutingService).cancelarNoProvedor(any());
 
-        assertThatThrownBy(() -> service.confirmarPagamento(COBRANCA))
+        assertThatThrownBy(() -> service.confirmarPagamento(COBRANCA, BAIXA_DE_HOJE))
                 .isInstanceOf(CobrancaJaPagaException.class)
                 .hasMessageContaining("pagamento online");
         assertThat(cobranca.getStatus()).isEqualTo(StatusCobranca.PENDENTE);
@@ -247,7 +252,7 @@ class CobrancaServiceProvedorTest {
                 .thenReturn(Optional.of(cobranca(StatusCobranca.PENDENTE, SituacaoProvedor.NAO_EMITIDA)))
                 .thenReturn(Optional.of(cobranca(StatusCobranca.PENDENTE, SituacaoProvedor.EMITINDO)));
 
-        assertThatThrownBy(() -> service.confirmarPagamento(COBRANCA))
+        assertThatThrownBy(() -> service.confirmarPagamento(COBRANCA, BAIXA_DE_HOJE))
                 .isInstanceOf(PagamentoEmProcessamentoException.class);
         verify(cobrancaRepository, never()).saveAndFlush(any());
         verifyNoInteractions(avisoCobrancaService);
@@ -260,7 +265,7 @@ class CobrancaServiceProvedorTest {
                 .thenReturn(Optional.of(cobranca(StatusCobranca.PENDENTE, SituacaoProvedor.EMITIDA)))
                 .thenReturn(Optional.of(jaCancelada));
 
-        assertThatThrownBy(() -> service.confirmarPagamento(COBRANCA))
+        assertThatThrownBy(() -> service.confirmarPagamento(COBRANCA, BAIXA_DE_HOJE))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(jaCancelada.getStatus()).isEqualTo(StatusCobranca.CANCELADA);
         verifyNoInteractions(avisoCobrancaService);
@@ -271,9 +276,36 @@ class CobrancaServiceProvedorTest {
         when(cobrancaRepository.findByIdAndEscolaId(COBRANCA, ESCOLA))
                 .thenReturn(Optional.of(cobranca(StatusCobranca.PAGA, SituacaoProvedor.EMITIDA)));
 
-        assertThatThrownBy(() -> service.confirmarPagamento(COBRANCA))
+        assertThatThrownBy(() -> service.confirmarPagamento(COBRANCA, BAIXA_DE_HOJE))
                 .isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(paymentRoutingService, avisoCobrancaService);
+    }
+
+    @Test
+    void baixaManualComDiaPassadoGuardaAMeiaNoiteDoDiaNaEscolaEOValorRecebido() {
+        when(cobrancaRepository.findByIdAndEscolaId(COBRANCA, ESCOLA))
+                .thenReturn(Optional.of(cobranca(StatusCobranca.EM_ATRASO, SituacaoProvedor.NAO_EMITIDA)));
+
+        CobrancaResponse resposta = service.confirmarPagamento(COBRANCA, new BaixaManualRequest(
+                new BigDecimal("515.30"), LocalDate.of(2026, 10, 3), FormaPagamentoManual.TRANSFERENCIA));
+
+        // 03/10 00:00 em Sao Paulo (UTC-3) e 03:00 em UTC.
+        assertThat(resposta.pagaEm()).isEqualTo(Instant.parse("2026-10-03T03:00:00Z"));
+        assertThat(resposta.pagamento().dataPagamento()).isEqualTo(LocalDate.of(2026, 10, 3));
+        assertThat(resposta.pagamento().valorPago()).isEqualByComparingTo("515.30");
+        assertThat(resposta.pagamento().formaManual()).isEqualTo(FormaPagamentoManual.TRANSFERENCIA);
+    }
+
+    @Test
+    void baixaManualComDiaFuturoNaEscolaRecusaSemLerACobranca() {
+        // AGORA e 20/10 em Sao Paulo: 21/10 ainda nao chegou para a escola.
+        BaixaManualRequest amanha = new BaixaManualRequest(new BigDecimal("500.00"), LocalDate.of(2026, 10, 21),
+                FormaPagamentoManual.DINHEIRO);
+
+        assertThatThrownBy(() -> service.confirmarPagamento(COBRANCA, amanha))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("dataPagamento");
+        verifyNoInteractions(cobrancaRepository, paymentRoutingService, auditoriaService, avisoCobrancaService);
     }
 
     // ---- apoio ----

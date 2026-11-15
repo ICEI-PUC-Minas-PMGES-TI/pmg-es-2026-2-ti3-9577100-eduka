@@ -31,7 +31,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Cobranca lancada para um aluno. Mapeia a tabela {@code COBRANCA} (V20, V21, V24, V26):
+ * Cobranca lancada para um aluno. Mapeia a tabela {@code COBRANCA} (V20, V21, V24, V26, V49):
  * cancelar muda o {@link StatusCobranca} em vez de apagar o registro.
  *
  * <p>
@@ -97,9 +97,22 @@ public class Cobranca {
     @Column(name = "CANCELADA_EM")
     private Instant canceladaEm;
 
-    /** Quando a cobranca foi dada como paga (V24). Nula enquanto nao paga. */
+    /**
+     * Quando a cobranca foi paga (V24). Nula enquanto nao paga. Na baixa
+     * manual com data passada, a meia-noite do dia no fuso da escola: a hora
+     * nao e conhecida (V49).
+     */
     @Column(name = "PAGA_EM")
     private Instant pagaEm;
+
+    /** O que a escola recebeu na baixa manual (V49). Nulo sem baixa manual. */
+    @Column(name = "VALOR_PAGO_MANUAL", precision = 10, scale = 2)
+    private BigDecimal valorPagoManual;
+
+    /** Como a escola recebeu na baixa manual (V49). Nula sem baixa manual e nas baixas anteriores a V49. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "FORMA_PAGAMENTO_MANUAL", length = 13)
+    private FormaPagamentoManual formaPagamentoManual;
 
     /**
      * Quando saiu o e-mail de vencimento proximo para o vencimento atual

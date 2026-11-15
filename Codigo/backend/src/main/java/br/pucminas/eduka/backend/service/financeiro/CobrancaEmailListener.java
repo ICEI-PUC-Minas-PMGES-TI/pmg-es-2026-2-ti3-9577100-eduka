@@ -3,7 +3,9 @@ package br.pucminas.eduka.backend.service.financeiro;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.Instant;
+import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -116,7 +118,7 @@ public class CobrancaEmailListener {
         detalhes.add(new String[] { "Valor", moeda(aviso.valor()) });
         detalhes.add(new String[] { "Vencimento", vencimento });
         if (aviso.pagaEm() != null) {
-            detalhes.add(new String[] { "Pago em", DATA_HORA.format(aviso.pagaEm()) });
+            detalhes.add(new String[] { "Pago em", pagoEm(aviso.pagaEm()) });
         }
 
         String texto = """
@@ -223,6 +225,15 @@ public class CobrancaEmailListener {
                 </html>
                 """.formatted(escapar(titulo), escapar(resumo), escapar(urlLogo), escapar(nome),
                 escapar(mensagem), linhas, escapar(urlLogin), escapar(fechamento), escapar(escola));
+    }
+
+    /**
+     * Dia e hora do pagamento. A baixa manual com data passada grava a
+     * meia-noite do dia, sem hora conhecida (ver {@link CobrancaService#confirmarPagamento}): so o dia.
+     */
+    private static String pagoEm(Instant pagaEm) {
+        ZonedDateTime naEscola = pagaEm.atZone(FUSO_ESCOLA);
+        return naEscola.toLocalTime().equals(LocalTime.MIDNIGHT) ? DATA.format(naEscola) : DATA_HORA.format(pagaEm);
     }
 
     /** So os caracteres especiais de HTML: o e-mail ja e UTF-8, acento fica como esta. */

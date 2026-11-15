@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import { simularApi } from '../../../../test/api'
+import { escolherDia } from '../../../../test/calendario'
 import type { Matricula } from '../../../../types/academico/matricula'
 import { NovaCobranca } from './NovaCobranca'
 
@@ -40,7 +41,7 @@ function backend(matriculas: Matricula[]) {
 
 async function preencherEEnviar(usuario: ReturnType<typeof userEvent.setup>) {
   await usuario.type(screen.getByLabelText('Valor'), '420,00')
-  await usuario.type(screen.getByLabelText(/Vencimento/), '2099-03-10')
+  await escolherDia(usuario, screen.getByLabelText(/Vencimento/), new Date())
   await usuario.click(screen.getByRole('button', { name: 'Criar cobrança' }))
 }
 

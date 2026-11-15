@@ -71,6 +71,7 @@ const PAINEL: DashboardFinanceiro = {
       descricao: 'Mensalidade de outubro',
       valor: 195,
       forma: 'PIX',
+      formaManual: null,
       origem: 'ONLINE',
       pagoEm: '2026-10-27T17:32:00Z',
     },
@@ -80,8 +81,20 @@ const PAINEL: DashboardFinanceiro = {
       descricao: 'Taxa de matrícula',
       valor: 100,
       forma: null,
+      formaManual: null,
       origem: 'MANUAL',
       pagoEm: '2026-10-26T12:05:00Z',
+    },
+    {
+      // Baixa com dia passado: meia-noite no fuso da escola, sem hora conhecida.
+      cobrancaId: 'cob-dinheiro',
+      alunoNome: 'Ana Souza',
+      descricao: 'Material didático',
+      valor: 80,
+      forma: null,
+      formaManual: 'DINHEIRO',
+      origem: 'MANUAL',
+      pagoEm: '2026-10-25T03:00:00Z',
     },
   ],
   ultimasAcoes: [],
@@ -164,6 +177,8 @@ describe('Início do financeiro', () => {
     const pagamentos = screen.getByRole('region', { name: 'Últimos pagamentos' })
     expect(within(pagamentos).getByText('Mensalidade de outubro · PIX · 27/10 às 14:32')).toBeInTheDocument()
     expect(within(pagamentos).getByText('Taxa de matrícula · Baixa manual · 26/10 às 09:05')).toBeInTheDocument()
+    // Baixa com a forma e dia passado: mostra a forma e só o dia.
+    expect(within(pagamentos).getByText('Material didático · Baixa manual (Dinheiro) · 25/10')).toBeInTheDocument()
 
     expect(screen.getByRole('img', { name: `Entrou em outubro de 2026: ${formatarMoeda(295)}` })).toBeInTheDocument()
     expect(screen.getByRole('img', { name: `Saiu em outubro de 2026: ${formatarMoeda(40)}` })).toBeInTheDocument()

@@ -18,6 +18,8 @@ import br.pucminas.eduka.backend.domain.financeiro.Cobranca;
  * @param alunoPessoaId       pessoa do aluno
  * @param responsavelPessoaId pessoa do responsavel financeiro; nula quando o
  *                            aluno paga
+ * @param valor               o da cobranca; depois da baixa manual, o que a
+ *                            escola recebeu
  */
 public record CobrancaParaAviso(
         UUID id,
@@ -31,7 +33,7 @@ public record CobrancaParaAviso(
 
     public static CobrancaParaAviso de(Cobranca cobranca) {
         return new CobrancaParaAviso(cobranca.getId(), cobranca.getEscolaId(), cobranca.getAluno().getPessoaId(),
-                cobranca.getResponsavelId(), cobranca.getDescricao(), cobranca.getValor(),
+                cobranca.getResponsavelId(), cobranca.getDescricao(), CobrancaService.valorRecebidoNaBaixa(cobranca),
                 cobranca.getDataVencimento(), cobranca.getPagaEm());
     }
 

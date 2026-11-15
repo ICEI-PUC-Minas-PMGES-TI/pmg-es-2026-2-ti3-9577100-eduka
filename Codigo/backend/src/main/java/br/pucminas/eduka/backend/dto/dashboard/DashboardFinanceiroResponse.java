@@ -10,6 +10,7 @@ import java.util.UUID;
 import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.financeiro.FormaPagamentoManual;
 import br.pucminas.eduka.backend.domain.financeiro.OrigemPagamento;
 import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
@@ -72,12 +73,16 @@ public record DashboardFinanceiroResponse(
     }
 
     /**
-     * @param valor  o valor pago no provedor; na baixa manual, o da cobranca
-     * @param forma  PIX ou BOLETO; nula na baixa manual
-     * @param origem ONLINE (confirmado pelo Asaas) ou MANUAL (baixa da escola)
+     * @param valor       o valor pago no provedor; na baixa manual, o informado
+     *                    nela
+     * @param forma       PIX ou BOLETO; nula na baixa manual
+     * @param formaManual como a escola recebeu, na baixa manual; nula no online
+     *                    e nas baixas anteriores a V49
+     * @param origem      ONLINE (confirmado pelo Asaas) ou MANUAL (baixa da
+     *                    escola)
      */
     public record PagamentoRecente(UUID cobrancaId, String alunoNome, String descricao, BigDecimal valor,
-            FormaPagamento forma, OrigemPagamento origem, Instant pagoEm) {
+            FormaPagamento forma, FormaPagamentoManual formaManual, OrigemPagamento origem, Instant pagoEm) {
     }
 
     public record AcaoRecente(UUID usuarioId, String usuarioNome, PerfilUsuario perfil, OperacaoAuditoria operacao,

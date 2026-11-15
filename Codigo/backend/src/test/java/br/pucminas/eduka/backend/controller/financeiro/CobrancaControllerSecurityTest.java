@@ -18,7 +18,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -47,6 +49,7 @@ import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.auditoria.LogAuditoria;
 import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.financeiro.Cobranca;
+import br.pucminas.eduka.backend.domain.financeiro.FormaPagamentoManual;
 import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
 import br.pucminas.eduka.backend.domain.pessoas.Aluno;
 import br.pucminas.eduka.backend.domain.pessoas.AlunoResponsavelId;
@@ -85,6 +88,10 @@ class CobrancaControllerSecurityTest {
     private static final UUID ESCOLA_A = UUID.randomUUID();
     private static final LocalDate NO_PRAZO = LocalDate.of(2099, 1, 10);
     private static final LocalDate VENCIDA = LocalDate.of(2020, 1, 10);
+    private static final ZoneId FUSO_ESCOLA = ZoneId.of("America/Sao_Paulo");
+    /** O servico usa o relogio do sistema: os dias da baixa manual saem do hoje da escola. */
+    private static final LocalDate HOJE = LocalDate.now(FUSO_ESCOLA);
+    private static final LocalDate ONTEM = HOJE.minusDays(1);
 
     @Autowired
     private MockMvc mockMvc;
@@ -175,6 +182,11 @@ class CobrancaControllerSecurityTest {
         return "{\"alunoId\":\"" + ana.getId() + "\"," + DADOS + extras + "}";
     }
 
+    /** Baixa manual de R$ 800,00 em dinheiro, abaixo dos R$ 850,50 da cobranca (desconto). */
+    private static String baixa(LocalDate dataPagamento) {
+        return "{\"valorPago\":800.00,\"dataPagamento\":\"" + dataPagamento + "\",\"forma\":\"DINHEIRO\"}";
+    }
+
     private Cobranca cobrancaDaAna(StatusCobranca status, LocalDate vencimento) {
         Cobranca cobranca = Cobranca.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).aluno(ana)
                 .descricao("Mensalidade").valor(new BigDecimal("850.50")).dataVencimento(vencimento).status(status)
@@ -201,7 +213,7 @@ class CobrancaControllerSecurityTest {
                     .andExpect(status().isForbidden());
             mockMvc.perform(com(patch("/cobrancas/" + UUID.randomUUID() + "/cancelar"), token))
                     .andExpect(status().isForbidden());
-            mockMvc.perform(com(patch("/cobrancas/" + UUID.randomUUID() + "/pagar"), token))
+            mockMvc.perform(json(patch("/cobrancas/" + UUID.randomUUID() + "/pagar"), token, baixa(ONTEM)))
                     .andExpect(status().isForbidden());
         }
         mockMvc.perform(json(post("/cobrancas"), accessToken("SUPER_ADMIN", null), cobrarAna("")))
@@ -626,18 +638,28 @@ class CobrancaControllerSecurityTest {
     // ---------- Baixa manual e avisos por e-mail ----------
 
     @Test
-    void pagarMarcaComoPagaAuditaEAvisa() throws Exception {
+    void pagarRegistraValorDiaEFormaAuditaEAvisa() throws Exception {
         UUID usuario = UUID.randomUUID();
         Cobranca cobranca = cobrancaDaAna(StatusCobranca.EM_ATRASO, VENCIDA);
         cobranca.setResponsavelId(maeDaAna.getId());
 
-        mockMvc.perform(com(patch("/cobrancas/" + cobranca.getId() + "/pagar"),
-                jwtService.generateAccessToken(usuario, "FINANCEIRO", ESCOLA_A)))
+        mockMvc.perform(json(patch("/cobrancas/" + cobranca.getId() + "/pagar"),
+                jwtService.generateAccessToken(usuario, "FINANCEIRO", ESCOLA_A), baixa(ONTEM)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PAGA"))
-                .andExpect(jsonPath("$.pagaEm").isNotEmpty());
+                .andExpect(jsonPath("$.valor").value(850.50))
+                .andExpect(jsonPath("$.pagamento.origem").value("MANUAL"))
+                .andExpect(jsonPath("$.pagamento.valorPago").value(800.00))
+                .andExpect(jsonPath("$.pagamento.dataPagamento").value(ONTEM.toString()))
+                .andExpect(jsonPath("$.pagamento.formaManual").value("DINHEIRO"))
+                .andExpect(jsonPath("$.pagamento.forma").isEmpty())
+                .andExpect(jsonPath("$.pagamento.comprovanteUrl").isEmpty());
 
         assertThat(cobranca.getStatus()).isEqualTo(StatusCobranca.PAGA);
+        assertThat(cobranca.getValorPagoManual()).isEqualByComparingTo("800.00");
+        assertThat(cobranca.getFormaPagamentoManual()).isEqualTo(FormaPagamentoManual.DINHEIRO);
+        // Dia passado: a hora nao e conhecida, fica a meia-noite dele no fuso da escola.
+        assertThat(cobranca.getPagaEm()).isEqualTo(ONTEM.atStartOfDay(FUSO_ESCOLA).toInstant());
         LogAuditoria log = logGravado();
         assertThat(log.getUsuarioId()).isEqualTo(usuario);
         assertThat(log.getOperacao()).isEqualTo(OperacaoAuditoria.PAGAR);
@@ -647,6 +669,46 @@ class CobrancaControllerSecurityTest {
         assertThat(aviso.getValue().id()).isEqualTo(cobranca.getId());
         assertThat(aviso.getValue().responsavelPessoaId()).isEqualTo(maeDaAna.getId());
         assertThat(aviso.getValue().pagaEm()).isEqualTo(cobranca.getPagaEm());
+        // O e-mail confirma o que a escola recebeu, nao o valor cheio da cobranca.
+        assertThat(aviso.getValue().valor()).isEqualByComparingTo("800.00");
+    }
+
+    @Test
+    void pagarComODiaDeHojeGuardaOMomentoDaBaixa() throws Exception {
+        Cobranca cobranca = cobrancaDaAna(StatusCobranca.PENDENTE, NO_PRAZO);
+        Instant antes = Instant.now();
+
+        mockMvc.perform(json(patch("/cobrancas/" + cobranca.getId() + "/pagar"), accessToken("MASTER", ESCOLA_A),
+                baixa(HOJE)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pagamento.dataPagamento").value(HOJE.toString()));
+
+        assertThat(cobranca.getPagaEm()).isBetween(antes, Instant.now());
+    }
+
+    @Test
+    void pagarComDiaFuturoOuCorpoInvalidoResponde400SemMexerNaCobranca() throws Exception {
+        Cobranca cobranca = cobrancaDaAna(StatusCobranca.PENDENTE, NO_PRAZO);
+        String token = accessToken("FINANCEIRO", ESCOLA_A);
+        String caminho = "/cobrancas/" + cobranca.getId() + "/pagar";
+
+        mockMvc.perform(json(patch(caminho), token, baixa(HOJE.plusDays(1))))
+                .andExpect(status().isBadRequest());
+        for (String corpo : List.of("{}",
+                "{\"valorPago\":0,\"dataPagamento\":\"" + ONTEM + "\",\"forma\":\"PIX\"}",
+                "{\"valorPago\":10.999,\"dataPagamento\":\"" + ONTEM + "\",\"forma\":\"PIX\"}",
+                "{\"valorPago\":10,\"dataPagamento\":\"" + ONTEM + "\"}",
+                "{\"valorPago\":10,\"dataPagamento\":\"" + ONTEM + "\",\"forma\":\"CHEQUE\"}")) {
+            mockMvc.perform(json(patch(caminho), token, corpo))
+                    .andExpect(status().isBadRequest());
+        }
+        mockMvc.perform(com(patch(caminho), token))
+                .andExpect(status().isBadRequest());
+
+        assertThat(cobranca.getStatus()).isEqualTo(StatusCobranca.PENDENTE);
+        verify(cobrancaRepository, never()).saveAndFlush(any());
+        verify(paymentRoutingService, never()).cancelarNoProvedor(any());
+        verifyNoInteractions(avisoCobrancaService);
     }
 
     @Test
@@ -654,10 +716,10 @@ class CobrancaControllerSecurityTest {
         String token = accessToken("MASTER", ESCOLA_A);
         for (StatusCobranca status : List.of(StatusCobranca.PAGA, StatusCobranca.CANCELADA)) {
             Cobranca cobranca = cobrancaDaAna(status, NO_PRAZO);
-            mockMvc.perform(com(patch("/cobrancas/" + cobranca.getId() + "/pagar"), token))
+            mockMvc.perform(json(patch("/cobrancas/" + cobranca.getId() + "/pagar"), token, baixa(ONTEM)))
                     .andExpect(status().isBadRequest());
         }
-        mockMvc.perform(com(patch("/cobrancas/" + UUID.randomUUID() + "/pagar"), token))
+        mockMvc.perform(json(patch("/cobrancas/" + UUID.randomUUID() + "/pagar"), token, baixa(ONTEM)))
                 .andExpect(status().isNotFound());
         verifyNoInteractions(avisoCobrancaService);
         verify(logAuditoriaRepository, never()).save(any());

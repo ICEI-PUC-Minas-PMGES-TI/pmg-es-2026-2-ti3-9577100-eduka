@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { descreverAcao, ROTULOS_PERFIL } from '../../../types/auditoria/auditoria'
 import type { AcaoRecente, CobrancaDaSemana, MesFinanceiro, PagamentoRecente } from '../../../types/dashboard/dashboard'
-import { ROTULOS_FORMA_PAGAMENTO } from '../../../types/financeiro/pagamentoAluno'
+import { ROTULOS_FORMA_PAGAMENTO, rotuloBaixaManual } from '../../../types/financeiro/pagamentoAluno'
 import { formatarDiaMes, formatarMoeda, formatarMoedaCompacta, hojeIso } from '../../../utils/formatters'
 import { useCarregamento } from '../../../hooks/useCarregamento'
 import { usePaginasDoPainel } from '../../../hooks/usePaginacao'
@@ -29,6 +29,15 @@ const DIA_E_HORA = new Intl.DateTimeFormat('pt-BR', {
 /** "27/10 às 14:32", no fuso da escola. */
 function diaEHora(instante: string): string {
   return DIA_E_HORA.format(new Date(instante)).replace(', ', ' às ')
+}
+
+/**
+ * Quando o pagamento entrou. A baixa manual com dia passado chega à
+ * meia-noite, sem hora conhecida: aí só o dia ("27/10").
+ */
+function quandoFoiPago(instante: string): string {
+  const [dia, hora] = diaEHora(instante).split(' às ')
+  return hora === '00:00' ? dia : `${dia} às ${hora}`
 }
 
 /** Atalhos de período: os últimos meses, que o painel já trouxe; trocar entre eles não busca de novo. */
@@ -291,8 +300,11 @@ export function UltimosPagamentos({ pagamentos }: { pagamentos: PagamentoRecente
               <div className={styles.corpo}>
                 <strong className={styles.titulo}>{pagamento.alunoNome ?? 'Aluno sem nome'}</strong>
                 <span className={styles.contexto}>
-                  {pagamento.descricao} · {pagamento.forma ? ROTULOS_FORMA_PAGAMENTO[pagamento.forma] : 'Baixa manual'}{' '}
-                  · {diaEHora(pagamento.pagoEm)}
+                  {pagamento.descricao} ·{' '}
+                  {pagamento.forma
+                    ? ROTULOS_FORMA_PAGAMENTO[pagamento.forma]
+                    : rotuloBaixaManual('Baixa manual', pagamento.formaManual)}{' '}
+                  · {quandoFoiPago(pagamento.pagoEm)}
                 </span>
               </div>
               <strong className={`${styles.valor} ${styles.recebido}`}>{formatarMoeda(pagamento.valor)}</strong>

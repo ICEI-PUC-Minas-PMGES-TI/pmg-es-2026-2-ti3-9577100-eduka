@@ -13,6 +13,7 @@ import { useRotasFinanceiras } from '../../../../../routes/areas'
 import { buscarHistoricoFinanceiroDoAluno, buscarRiscoAtrasoDoAluno } from '../../../../../services/pessoas/alunoService'
 import {
   ROTULOS_FORMA_PAGAMENTO,
+  rotuloBaixaManual,
   type CobrancaDoHistorico,
   type HistoricoFinanceiro,
   type StatusCobrancaAluno,
@@ -55,7 +56,9 @@ function noFiltro(cobranca: CobrancaDoHistorico, filtro: Filtro): boolean {
 /** Quando e como foi paga: pagamento online (com a forma) ou baixa manual. */
 function descreverPagamento(c: CobrancaDoHistorico): string | null {
   if (c.pagamento) {
-    const como = c.pagamento.forma ? ROTULOS_FORMA_PAGAMENTO[c.pagamento.forma] : 'Baixa manual'
+    const como = c.pagamento.forma
+      ? ROTULOS_FORMA_PAGAMENTO[c.pagamento.forma]
+      : rotuloBaixaManual('Baixa manual', c.pagamento.formaManual)
     const estornado =
       c.pagamento.valorEstornado > 0 ? ` · ${formatarMoeda(c.pagamento.valorEstornado)} estornados` : ''
     return `${formatarData(c.pagamento.dataPagamento)} · ${como}${estornado}`

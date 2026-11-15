@@ -11,7 +11,7 @@ actor "Serviço de E-mail\n(Brevo)" as BREVO <<sistema externo>>
 rectangle "Eduka — Gestão financeira" {
   usecase "UC09\nGerenciar Cobranças" as UC09
   usecase "UC11\nConsultar e Filtrar\nCobranças" as UC11 <<parcial>>
-  usecase "UC12\nRegistrar Pagamento\nManual" as UC12 <<parcial>>
+  usecase "UC12\nRegistrar Pagamento\nManual" as UC12
   usecase "UC13\nConsultar Histórico\nFinanceiro do Aluno" as UC13 <<parcial>>
   usecase "UC14\nGerenciar Despesas" as UC14 <<parcial>>
   usecase "UC15\nConsultar Relatórios\nFinanceiros" as UC15 <<planejado>>
@@ -31,14 +31,14 @@ FINANCEIRO --> UC09
 FINANCEIRO --> UC11
 FINANCEIRO --> UC14
 FINANCEIRO --> UC15
-FINANCEIRO -[#A0A8B4]-> UC12 : API
+FINANCEIRO --> UC12
 FINANCEIRO -[#A0A8B4]-> UC13 : API
 UC09 <-- MASTER
 UC11 <-- MASTER
 UC13 <-- MASTER
 UC14 <-- MASTER
 UC15 <-- MASTER
-UC12 <-[#A0A8B4]- MASTER : API
+UC12 <-- MASTER
 UC33 <-- MASTER
 ALUNO --> UC13
 UC09A ..> UC09 : <<extend>>

@@ -3,7 +3,7 @@ import type { Turno } from '../academico/alocacao'
 import type { EntidadeAuditada, OperacaoAuditoria } from '../auditoria/auditoria'
 import type { DiaSemana } from '../academico/horario'
 import type { StatusMatricula } from '../academico/matricula'
-import type { FormaPagamento, StatusCobrancaAluno } from '../financeiro/pagamentoAluno'
+import type { FormaPagamento, FormaPagamentoManual, StatusCobrancaAluno } from '../financeiro/pagamentoAluno'
 import type { TipoAvaliacao } from '../portal/portalAluno'
 
 // Espelha o DashboardEscolaResponse do backend (GET /dashboard/escola).
@@ -155,10 +155,12 @@ export type PagamentoRecente = {
   cobrancaId: string
   alunoNome: string | null
   descricao: string
-  /** O valor pago no Asaas; na baixa manual, o da cobrança. */
+  /** O valor pago no Asaas; na baixa manual, o informado nela. */
   valor: number
   /** Nula na baixa manual. */
   forma: FormaPagamento | null
+  /** Só na baixa manual; nula também nas baixas feitas antes de a forma ser pedida. */
+  formaManual: FormaPagamentoManual | null
   origem: OrigemPagamento
   /** Instante (ISO). */
   pagoEm: string
