@@ -108,6 +108,16 @@
   gap: 8px;
 }
 
+.alternar {
+  min-width: 104px;
+  justify-content: center;
+}
+
+/* Aluno inativo fica apagado, como o professor inativo. */
+.inativo .aluno {
+  opacity: 0.6;
+}
+
 .mensagem {
   display: flex;
   flex-direction: column;
@@ -178,5 +188,9 @@
   .acoes {
     flex-wrap: wrap;
     justify-content: flex-start;
+  }
+
+  .alternar {
+    min-width: 0;
   }
 }

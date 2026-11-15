@@ -10,8 +10,10 @@ import { useTermoAdiado } from '../../../../hooks/useTermoAdiado'
 import type { EstadoAbrirCadastro } from '../../../../routes/paths'
 import { listarTurmasAcademicas } from '../../../../services/academico/academicoService'
 import {
+  ativarAluno,
   atualizarAluno,
   cadastrarAluno,
+  inativarAluno,
   listarPaginaDeAlunos,
   reenviarAcessoAluno,
 } from '../../../../services/pessoas/alunoService'
@@ -38,6 +40,7 @@ const FILTROS: { valor: Filtro; rotulo: string }[] = [
   { valor: 'MATRICULADO', rotulo: 'Matriculados' },
   { valor: 'SEM_TURMA', rotulo: 'Sem turma' },
   { valor: 'TRANCADO', rotulo: 'Trancados' },
+  { valor: 'INATIVO', rotulo: 'Inativos' },
   { valor: 'ANONIMIZADO', rotulo: 'Anonimizados' },
 ]
 
@@ -53,6 +56,24 @@ function opcoesDeTurma(turmas: TurmaAcademica[]): OpcaoSelect<string>[] {
         rotulo: `${t.nome} · ${t.cursoNome} · ${ROTULOS_TURNO[t.turno]} (${livres} ${plural(livres, 'vaga', 'vagas')})`,
       }
     })
+}
+
+/** Situações cuja pílula só aparece quando há algum aluno nela (ou quando já está escolhida). */
+const SO_COM_ALUNOS: readonly Filtro[] = ['INATIVO', 'ANONIMIZADO']
+
+/** Mensagem para quando inativar ou reativar falha. */
+function motivoParaNaoAlternar(aluno: AlunoDaLista, e: unknown): string {
+  const inativo = aluno.situacao === 'INATIVO'
+  if (e instanceof ApiError && e.status === 409) {
+    if (/matricula ativa/i.test(e.detalhe ?? '')) {
+      return `"${aluno.nome}" tem matrícula ativa. Tranque, cancele ou conclua a matrícula em Matrículas antes de inativar.`
+    }
+    if (/anonimizado/i.test(e.detalhe ?? '')) {
+      return `"${aluno.nome}" foi anonimizado e não pode ser ${inativo ? 'reativado' : 'inativado'}.`
+    }
+  }
+  const detalhe = e instanceof ApiError ? ` ${e.message}` : ''
+  return `Não foi possível ${inativo ? 'reativar' : 'inativar'} "${aluno.nome}".${detalhe}`
 }
 
 /** Modal fechado, cadastro (sem aluno) ou edição de um aluno. */
@@ -89,6 +110,7 @@ export function Alunos() {
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
   const [reenviandoId, setReenviandoId] = useState<string | null>(null)
+  const [alternandoId, setAlternandoId] = useState<string | null>(null)
   const [vendo, setVendo] = useState<AlunoDaLista | null>(null)
 
   const buscarAlunos = useCallback(
@@ -117,11 +139,15 @@ export function Alunos() {
     if (location.state) navigate(location.pathname, { replace: true, state: null })
   }, [location.state, location.pathname, navigate])
 
-  // O anonimizado já saiu da escola: não conta como aluno cadastrado, e a pílula só aparece se houver algum.
+  // Inativo e anonimizado não estão mais na escola: não contam como alunos
+  // cadastrados, e as pílulas deles só aparecem se houver algum.
   const anonimizados = resumo?.porSituacao.ANONIMIZADO ?? 0
-  const naEscola = (resumo?.total ?? 0) - anonimizados
+  const inativos = resumo?.porSituacao.INATIVO ?? 0
+  const naEscola = (resumo?.total ?? 0) - anonimizados - inativos
   const semTurma = resumo?.porSituacao.SEM_TURMA ?? 0
-  const filtros = FILTROS.filter((f) => f.valor !== 'ANONIMIZADO' || anonimizados > 0 || filtro === 'ANONIMIZADO')
+  const filtros = FILTROS.filter(
+    (f) => !SO_COM_ALUNOS.includes(f.valor) || (resumo?.porSituacao[f.valor as SituacaoNaEscola] ?? 0) > 0 || filtro === f.valor,
+  )
   const mensagemVazia =
     resumo?.total === 0
       ? 'Nenhum aluno cadastrado ainda.'
@@ -200,6 +226,25 @@ export function Alunos() {
     }
   }
 
+  async function handleAlternarSituacao(aluno: AlunoDaLista) {
+    limparAvisos()
+    setAlternandoId(aluno.id)
+    const inativo = aluno.situacao === 'INATIVO'
+    try {
+      await (inativo ? ativarAluno(aluno.id) : inativarAluno(aluno.id))
+      setSucesso(
+        inativo
+          ? `"${aluno.nome}" foi reativado e já pode entrar no portal e ser matriculado.`
+          : `"${aluno.nome}" foi inativado. Os dados continuam guardados e ele não entra mais no portal.`,
+      )
+      lista.recarregar()
+    } catch (e) {
+      setErroAcao(motivoParaNaoAlternar(aluno, e))
+    } finally {
+      setAlternandoId(null)
+    }
+  }
+
   const alunoEmEdicao = modal.aberto ? modal.aluno : undefined
 
   return (
@@ -213,7 +258,12 @@ export function Alunos() {
     >
       {resumo && (
         <StatCards rotulo="Resumo dos alunos">
-          <StatCard label="Alunos cadastrados" value={naEscola} descricao="Na escola" destaque />
+          <StatCard
+            label="Alunos cadastrados"
+            value={naEscola}
+            descricao={inativos ? `Na escola · ${inativos} ${plural(inativos, 'inativo', 'inativos')}` : 'Na escola'}
+            destaque
+          />
           <StatCard label="Com turma" value={resumo.porSituacao.MATRICULADO} descricao="Com matrícula ativa" />
           <StatCard
             label="Sem turma"
@@ -280,10 +330,12 @@ export function Alunos() {
         erro={lista.erro}
         mensagemVazia={mensagemVazia}
         reenviandoId={reenviandoId}
+        alternandoId={alternandoId}
         onTentarNovamente={lista.recarregar}
         onVer={setVendo}
         onEditar={podeCadastrar ? abrirEdicao : undefined}
         onReenviarAcesso={podeCadastrar ? handleReenviarAcesso : undefined}
+        onAlternarSituacao={podeCadastrar ? handleAlternarSituacao : undefined}
       />
 
       {vendo && (

@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cortarPagina, parametros, simularApi, type ChamadaApi } from '../../../../test/api'
+import { cortarPagina, parametros, simularApi, type ChamadaApi, type RespostaApi } from '../../../../test/api'
 import { logarComo } from '../../../../test/sessao'
 import type { TurmaAcademica } from '../../../../types/academico/academico'
 import type { AlunoDaLista, ResumoAlunos, SituacaoNaEscola } from '../../../../types/pessoas/aluno'
@@ -41,9 +41,30 @@ function aluno(n: number, situacao: SituacaoNaEscola = 'SEM_TURMA'): AlunoDaList
   }
 }
 
-/** Faz o papel do GET /alunos/pagina: busca por nome ou matrícula, situação e o resumo da escola inteira. */
-function abrir(alunos: AlunoDaLista[], area = '/secretaria/alunos'): ChamadaApi[] {
-  const chamadas = simularApi(({ caminho }) => {
+/**
+ * Faz o papel do GET /alunos/pagina: busca por nome ou matrícula, situação e o
+ * resumo da escola inteira. `alternar` responde o PATCH de inativar/ativar; sem
+ * ele, o backend de mentira muda a situação do aluno na própria lista.
+ */
+function abrir(
+  alunos: AlunoDaLista[],
+  area = '/secretaria/alunos',
+  alternar?: (id: string, acao: string) => RespostaApi,
+): ChamadaApi[] {
+  const chamadas = simularApi(({ metodo, caminho }) => {
+    const patch = /^\/alunos\/([^/]+)\/(inativar|ativar)$/.exec(caminho)
+    if (metodo === 'PATCH' && patch) {
+      const [, id, acao] = patch
+      if (alternar) return alternar(id, acao)
+      const i = alunos.findIndex((a) => a.id === id)
+      alunos[i] = {
+        ...alunos[i],
+        situacao: acao === 'inativar' ? 'INATIVO' : 'SEM_TURMA',
+        turmaId: null,
+        turmaNome: null,
+      }
+      return { corpo: alunos[i] }
+    }
     if (caminho.startsWith('/alunos/pagina?')) {
       const { busca, situacao } = parametros(caminho)
       const termo = busca?.toLowerCase()
@@ -59,6 +80,7 @@ function abrir(alunos: AlunoDaLista[], area = '/secretaria/alunos'): ChamadaApi[
           MATRICULADO: contar('MATRICULADO'),
           TRANCADO: contar('TRANCADO'),
           SEM_TURMA: contar('SEM_TURMA'),
+          INATIVO: contar('INATIVO'),
           ANONIMIZADO: contar('ANONIMIZADO'),
         },
       }
@@ -212,5 +234,68 @@ describe('Alunos', () => {
     const resumo = screen.getByRole('region', { name: 'Resumo dos alunos' })
     expect(within(resumo).getByText('3')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^anonimizados/i })).toBeInTheDocument()
+  })
+
+  describe('inativar e reativar', () => {
+    it('a secretaria inativa um aluno sem turma: ele sai dos cadastrados e vai para Inativos', async () => {
+      const chamadas = abrir(ALUNOS.map((a) => ({ ...a })))
+
+      const linhaDoCaio = (await screen.findByText('Caio Dias')).closest('tr') as HTMLElement
+      await userEvent.click(within(linhaDoCaio).getByRole('button', { name: 'Inativar Caio Dias' }))
+
+      expect(await screen.findByRole('status')).toHaveTextContent('"Caio Dias" foi inativado.')
+      expect(chamadas.find((c) => c.metodo === 'PATCH')).toMatchObject({ caminho: '/alunos/caio/inativar' })
+      const linha = (await screen.findByText('Inativo')).closest('tr') as HTMLElement
+      expect(within(linha).getByRole('button', { name: 'Reativar Caio Dias' })).toBeInTheDocument()
+      // Inativo não entra no portal: reenviar o acesso não faz sentido.
+      expect(within(linha).queryByRole('button', { name: 'Reenviar acesso' })).not.toBeInTheDocument()
+      const resumo = screen.getByRole('region', { name: 'Resumo dos alunos' })
+      expect(resumo).toHaveTextContent(/Alunos cadastrados\s*2/)
+      expect(resumo).toHaveTextContent('1 inativo')
+      expect(screen.getByRole('button', { name: /^inativos/i })).toBeInTheDocument()
+    })
+
+    it('reativa um aluno inativo', async () => {
+      const inativo: AlunoDaLista = { ...ALUNOS[2], situacao: 'INATIVO' }
+      const chamadas = abrir([ALUNOS[0], ALUNOS[1], inativo])
+
+      const linha = (await screen.findByText('Caio Dias')).closest('tr') as HTMLElement
+      expect(within(linha).getByText('Inativo')).toBeInTheDocument()
+      await userEvent.click(within(linha).getByRole('button', { name: 'Reativar Caio Dias' }))
+
+      expect(await screen.findByRole('status')).toHaveTextContent('"Caio Dias" foi reativado')
+      expect(chamadas.find((c) => c.metodo === 'PATCH')).toMatchObject({ caminho: '/alunos/caio/ativar' })
+      expect(await screen.findByRole('button', { name: 'Inativar Caio Dias' })).toBeInTheDocument()
+    })
+
+    it('com matrícula ativa, explica que precisa trancar, cancelar ou concluir antes', async () => {
+      abrir(ALUNOS, '/secretaria/alunos', () => ({
+        status: 409,
+        corpo: { status: 409, detail: 'Aluno com matricula ativa; tranque, cancele ou conclua a matricula antes de inativar' },
+      }))
+
+      const linhaDaAna = (await screen.findByText('Ana Souza')).closest('tr') as HTMLElement
+      await userEvent.click(within(linhaDaAna).getByRole('button', { name: 'Inativar Ana Souza' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        '"Ana Souza" tem matrícula ativa. Tranque, cancele ou conclua a matrícula em Matrículas antes de inativar.',
+      )
+      expect(within(linhaDaAna).getByText('Matriculado')).toBeInTheDocument()
+    })
+
+    it('o financeiro não inativa nem reativa', async () => {
+      logarComo('FINANCEIRO')
+      abrir([...ALUNOS, { ...ALUNOS[2], id: 'dora', nome: 'Dora Reis', situacao: 'INATIVO' }], '/financeiro/alunos')
+
+      await screen.findByText('Ana Souza')
+      expect(screen.queryByRole('button', { name: /^(inativar|reativar) /i })).not.toBeInTheDocument()
+    })
+
+    it('aluno anonimizado não pode ser inativado nem reativado', async () => {
+      abrir([{ ...ALUNOS[2], nome: 'Aluno anonimizado', situacao: 'ANONIMIZADO' }])
+
+      const linha = (await screen.findByText('Aluno anonimizado')).closest('tr') as HTMLElement
+      expect(within(linha).queryByRole('button', { name: /inativar|reativar/i })).not.toBeInTheDocument()
+    })
   })
 })

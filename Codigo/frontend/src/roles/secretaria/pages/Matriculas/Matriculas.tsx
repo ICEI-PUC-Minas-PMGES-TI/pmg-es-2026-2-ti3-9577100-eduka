@@ -77,7 +77,9 @@ export function Matriculas() {
   const vagasLivres = turma ? Math.max(turma.vagas - ativas, 0) : 0
   // Quem pode entrar na turma: sem registro nela e com cadastro ativo (o mesmo corte da aba Matricular).
   const naTurma = new Set(daTurma.map((m) => m.alunoId))
-  const paraMatricular = alunos.filter((a) => !naTurma.has(a.id) && a.situacao !== 'ANONIMIZADO').length
+  const paraMatricular = alunos.filter(
+    (a) => !naTurma.has(a.id) && a.situacao !== 'ANONIMIZADO' && a.situacao !== 'INATIVO',
+  ).length
 
   // Resumo da escola inteira, acima da turma escolhida, contado no backend.
   const totalAtivas = resumo?.matriculasPorSituacao.ATIVA ?? 0

@@ -63,7 +63,7 @@ export function MatricularAlunos({
   )
   // Quem pode entrar: sem registro nesta turma e com cadastro ativo. Sem turma primeiro.
   const disponiveis = alunos
-    .filter((a) => !naTurma.has(a.id) && a.situacao !== 'ANONIMIZADO')
+    .filter((a) => !naTurma.has(a.id) && a.situacao !== 'ANONIMIZADO' && a.situacao !== 'INATIVO')
     .sort((a, b) => Number(a.situacao !== 'SEM_TURMA') - Number(b.situacao !== 'SEM_TURMA'))
   const visiveis = disponiveis.filter((a) => corresponde(a, busca))
   const { paginacao, topo } = usePaginacao<AlunoDaLista, HTMLDivElement>(visiveis, { reiniciarCom: busca })
