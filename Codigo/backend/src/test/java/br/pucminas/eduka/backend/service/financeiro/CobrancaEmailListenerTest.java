@@ -66,6 +66,15 @@ class CobrancaEmailListenerTest {
     }
 
     @Test
+    void baixaManualComDiaPassadoTrazSoODiaSemInventarAHora() {
+        // Meia-noite de 05/11 em Sao Paulo (03:00 UTC): a baixa com dia passado nao sabe a hora.
+        Email email = listener.montarEmail(aviso(AvisoCobranca.Tipo.PAGAMENTO_CONFIRMADO, false,
+                Instant.parse("2026-11-05T03:00:00Z")));
+
+        assertThat(email.texto()).contains("Pago em: 05/11/2026\n").doesNotContain("às 00:00");
+    }
+
+    @Test
     void enfileiraComOTipoEACobrancaDeReferencia() {
         AvisoCobranca aviso = aviso(AvisoCobranca.Tipo.PAGAMENTO_CONFIRMADO, false, Instant.now());
 

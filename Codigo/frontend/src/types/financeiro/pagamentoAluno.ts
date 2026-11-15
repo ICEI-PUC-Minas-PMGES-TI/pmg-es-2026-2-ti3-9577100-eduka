@@ -26,6 +26,27 @@ export const ROTULOS_FORMA_PAGAMENTO: Record<FormaPagamento, string> = {
   BOLETO: 'Boleto',
 }
 
+/**
+ * Como a escola recebeu na baixa manual (espelha o FormaPagamentoManual do
+ * backend): fora do Eduka, então PIX e boleto aqui são os recebidos direto na
+ * conta da escola.
+ */
+export type FormaPagamentoManual = 'DINHEIRO' | 'PIX' | 'TRANSFERENCIA' | 'CARTAO' | 'BOLETO'
+
+/** Na ordem em que a tela oferece. */
+export const ROTULOS_FORMA_PAGAMENTO_MANUAL: Record<FormaPagamentoManual, string> = {
+  DINHEIRO: 'Dinheiro',
+  PIX: 'PIX',
+  TRANSFERENCIA: 'Transferência',
+  CARTAO: 'Cartão',
+  BOLETO: 'Boleto',
+}
+
+/** "Baixa manual (Dinheiro)"; sem a forma (baixa antiga), só o rótulo. */
+export function rotuloBaixaManual(rotulo: string, forma: FormaPagamentoManual | null): string {
+  return forma ? `${rotulo} (${ROTULOS_FORMA_PAGAMENTO_MANUAL[forma]})` : rotulo
+}
+
 /** Pagamento registrado (online). */
 export type PagamentoResumo = {
   valorPago: number
@@ -42,7 +63,7 @@ export type OrigemPagamento = 'ONLINE' | 'MANUAL'
 /** Pagamento de uma cobrança paga no histórico: online (com comprovante) ou baixa manual. */
 export type PagamentoDaCobranca = {
   origem: OrigemPagamento
-  /** Na baixa manual, o valor da cobrança. */
+  /** Na baixa manual, o que a escola informou ter recebido. */
   valorPago: number
   /** Quanto do pago foi devolvido; a cobrança continua PAGA. */
   valorEstornado: number
@@ -50,6 +71,8 @@ export type PagamentoDaCobranca = {
   dataPagamento: string
   /** Nula na baixa manual. */
   forma: FormaPagamento | null
+  /** Só na baixa manual; nula também nas baixas feitas antes de a forma ser pedida. */
+  formaManual: FormaPagamentoManual | null
   /**
    * Caminho da API do comprovante, já na rota do perfil de quem pediu
    * (portal do aluno ou escola). Nulo na baixa manual, que não tem comprovante.

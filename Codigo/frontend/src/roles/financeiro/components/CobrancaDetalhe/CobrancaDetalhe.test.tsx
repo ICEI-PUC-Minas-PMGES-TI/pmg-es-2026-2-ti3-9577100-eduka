@@ -33,7 +33,9 @@ function cobranca(status: StatusCobranca): Cobranca {
 
 const SIMULAR = /simular pagamento/i
 
-const ACOES = { onEditar: vi.fn(), onCancelar: vi.fn(), onVerComprovante: vi.fn() }
+const ACOES = { onEditar: vi.fn(), onCancelar: vi.fn(), onRegistrarPagamento: vi.fn(), onVerComprovante: vi.fn() }
+
+const REGISTRAR = { name: /registrar pagamento/i }
 
 describe('CobrancaDetalhe', () => {
   it('cobrança em aberto mostra o atalho de Sandbox e avisa o resultado', async () => {
@@ -93,7 +95,7 @@ describe('CobrancaDetalhe', () => {
 
     expect(onEditar).toHaveBeenCalledWith(expect.objectContaining({ id: 'cob-1' }))
     expect(onCancelar).toHaveBeenCalledWith(expect.objectContaining({ id: 'cob-1' }))
-    expect(screen.getByText(/aguardando o aluno clicar em pagar/i)).toBeInTheDocument()
+    expect(screen.getByText(/^aguardando pagamento$/i)).toBeInTheDocument()
   })
 
   it('depois do Pagar, bloqueia a edição, mostra a forma e ainda deixa cancelar', () => {
@@ -128,6 +130,7 @@ describe('CobrancaDetalhe', () => {
             valorEstornado: 0,
             dataPagamento: '2026-10-09',
             forma: 'PIX',
+            formaManual: null,
             comprovanteUrl: '/cobrancas/cob-1/comprovante',
           },
         }}
@@ -140,6 +143,53 @@ describe('CobrancaDetalhe', () => {
 
     expect(onVerComprovante).toHaveBeenCalled()
     expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', REGISTRAR)).not.toBeInTheDocument()
     expect(screen.getByText(/pagamento confirmado · 09\/10\/2026/i)).toBeInTheDocument()
+  })
+
+  it('em aberto, mesmo depois do Pagar, oferece registrar o pagamento recebido fora do Eduka', async () => {
+    const onRegistrarPagamento = vi.fn()
+    const { rerender } = render(
+      <CobrancaDetalhe cobranca={cobranca('EM_ATRASO')} {...ACOES} onRegistrarPagamento={onRegistrarPagamento} />,
+    )
+
+    await userEvent.click(screen.getByRole('button', REGISTRAR))
+    expect(onRegistrarPagamento).toHaveBeenCalledWith(expect.objectContaining({ id: 'cob-1' }))
+
+    // Edição bloqueada não bloqueia a baixa: o backend tira a cobrança do Asaas antes.
+    rerender(
+      <CobrancaDetalhe
+        cobranca={{ ...cobranca('PENDENTE'), editavel: false, formaPagamento: 'BOLETO', pagamentoIniciadoEm: '2026-10-08T15:00:00Z' }}
+        {...ACOES}
+      />,
+    )
+    expect(screen.getByRole('button', REGISTRAR)).toBeEnabled()
+
+    rerender(<CobrancaDetalhe cobranca={cobranca('CANCELADA')} {...ACOES} />)
+    expect(screen.queryByRole('button', REGISTRAR)).not.toBeInTheDocument()
+  })
+
+  it('paga com baixa manual mostra o valor recebido, a forma e que não tem comprovante', () => {
+    render(
+      <CobrancaDetalhe
+        cobranca={{
+          ...cobranca('PAGA'),
+          pagaEm: '2026-10-07T03:00:00Z',
+          pagamento: {
+            origem: 'MANUAL',
+            valorPago: 800,
+            valorEstornado: 0,
+            dataPagamento: '2026-10-07',
+            forma: null,
+            formaManual: 'DINHEIRO',
+            comprovanteUrl: null,
+          },
+        }}
+        {...ACOES}
+      />,
+    )
+
+    expect(screen.getByText(/pago em 07\/10\/2026 · R\$\s800,00 · Dinheiro · baixa manual da escola/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /ver comprovante/i })).not.toBeInTheDocument()
   })
 })

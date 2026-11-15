@@ -137,9 +137,12 @@ class DashboardFinanceiroBancoRealTest extends BancoRealTest {
         assertThat(online.valor()).isEqualByComparingTo("195.00");
         assertThat(online.forma()).isEqualTo(FormaPagamento.PIX);
         assertThat(online.origem()).isEqualTo(OrigemPagamento.ONLINE);
+        assertThat(online.formaManual()).isNull();
         PagamentoRecente manual = pagamentos.get(1);
         assertThat(manual.cobrancaId()).isEqualTo(pagaManual);
         assertThat(manual.forma()).isNull();
+        // Baixa gravada sem a forma, como as anteriores a V49.
+        assertThat(manual.formaManual()).isNull();
         assertThat(manual.origem()).isEqualTo(OrigemPagamento.MANUAL);
 
         assertThat(painel.ultimasAcoes()).hasSize(2);

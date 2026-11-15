@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cortarPagina, problema, simularApi, type ChamadaApi } from '../../../../test/api'
+import { escolherDia } from '../../../../test/calendario'
 import type { Despesa, ResumoDespesas, SituacaoDespesa } from '../../../../types/financeiro/despesa'
 import { Despesas } from './Despesas'
 
@@ -43,6 +44,13 @@ function abrir(despesas: Despesa[]): ChamadaApi[] {
   const chamadas = simularApi(({ metodo, caminho, corpo }) => {
     if (caminho.startsWith('/despesas/pagina?')) return { corpo: paginaDe(despesas, caminho) }
     if (caminho === '/categorias-despesa') return { corpo: [{ id: 'cat-1', nome: 'Contas' }] }
+    if (metodo === 'POST' && caminho === '/despesas') {
+      const pedido = corpo as { descricao: string; categoriaId: string; valor: number; dataVencimento: string; paga: boolean }
+      return {
+        status: 201,
+        corpo: { ...LUZ, id: 'desp-nova', ...pedido, situacao: pedido.paga ? 'PAGA' : 'A_PAGAR' },
+      }
+    }
     const marcar = caminho.match(/^\/despesas\/([^/?]+)$/)
     if (marcar && metodo === 'PATCH') {
       const alvo = despesas.find((d) => d.id === marcar[1]) as Despesa
@@ -121,6 +129,54 @@ describe('Despesas', () => {
     expect(await screen.findByRole('button', { name: 'Desfazer' })).toBeInTheDocument()
     expect(resumo).toHaveTextContent(/Já pago no mês\s*R\$\s*40,00/)
     expect(resumo).toHaveTextContent(/Ainda falta pagar\s*R\$\s*0,00/)
+  })
+
+  /** O formulário "Lançar uma despesa", já com as categorias carregadas. */
+  async function formulario() {
+    const form = within(screen.getByRole('region', { name: 'Lançar uma despesa' }))
+    expect(await form.findByRole('button', { name: 'Contas' })).toHaveAttribute('aria-pressed', 'true')
+    return form
+  }
+
+  it('não lança sem descrição nem valor e mostra o erro em cada campo', async () => {
+    const chamadas = abrir([LUZ])
+    const form = await formulario()
+
+    await userEvent.click(form.getByRole('button', { name: 'Salvar despesa' }))
+
+    expect(form.getByLabelText(/o que foi pago/i)).toHaveAccessibleDescription('Informe a descrição do que foi pago.')
+    expect(form.getByLabelText(/o que foi pago/i)).toHaveFocus()
+    expect(form.getByLabelText(/valor/i)).toHaveAccessibleDescription(/maior que zero/)
+    expect(chamadas.some((c) => c.metodo === 'POST')).toBe(false)
+
+    // Corrigir o campo tira o erro dele.
+    await userEvent.type(form.getByLabelText(/o que foi pago/i), 'Conta de água')
+    expect(form.getByLabelText(/o que foi pago/i)).not.toHaveAccessibleDescription()
+  })
+
+  it('lança a despesa com a data escolhida no calendário', async () => {
+    const chamadas = abrir([LUZ])
+    const form = await formulario()
+    const hoje = new Date()
+    const primeiroDoMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+
+    await userEvent.type(form.getByLabelText(/o que foi pago/i), 'Conta de água')
+    await userEvent.type(form.getByLabelText(/valor/i), '1.250,40')
+    await escolherDia(userEvent.setup(), form.getByLabelText(/^data/i), primeiroDoMes)
+    expect(form.getByLabelText(/^data/i)).toHaveTextContent(
+      `01/${String(hoje.getMonth() + 1).padStart(2, '0')}/${hoje.getFullYear()}`,
+    )
+    await userEvent.click(form.getByRole('button', { name: 'Paga' }))
+    await userEvent.click(form.getByRole('button', { name: 'Salvar despesa' }))
+
+    expect(await form.findByRole('status')).toHaveTextContent('Despesa "Conta de água" salva.')
+    expect(chamadas.find((c) => c.metodo === 'POST')?.corpo).toEqual({
+      descricao: 'Conta de água',
+      categoriaId: 'cat-1',
+      valor: 1250.4,
+      dataVencimento: `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`,
+      paga: true,
+    })
   })
 
   it('gerencia as categorias: lista, cadastra e a nova já aparece no lançamento', async () => {

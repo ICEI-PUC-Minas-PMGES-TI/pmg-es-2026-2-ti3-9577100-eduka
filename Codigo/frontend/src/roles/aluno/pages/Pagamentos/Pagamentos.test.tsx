@@ -23,6 +23,7 @@ const ONLINE = cobranca('c-online', 'Setembro', '2026-09-10', 'PAGA', {
     valorEstornado: 0,
     dataPagamento: '2026-09-08',
     forma: 'PIX',
+    formaManual: null,
     comprovanteUrl: '/portal/aluno/cobrancas/c-online/comprovante',
   },
 })
@@ -34,6 +35,7 @@ const MANUAL = cobranca('c-manual', 'Agosto', '2026-08-10', 'PAGA', {
     valorEstornado: 0,
     dataPagamento: '2026-08-09',
     forma: null,
+    formaManual: null,
     comprovanteUrl: null,
   },
 })
@@ -74,6 +76,7 @@ const COMPROVANTE = {
   valorPago: 500,
   dataPagamento: '2026-09-08',
   forma: 'PIX',
+  formaManual: null,
   codigoTransacao: 'pay_1',
 }
 

@@ -1,6 +1,7 @@
 import type { Comprovante } from '../../types/escola/faturaPlataforma'
 import type {
   AtualizarCobrancaRequest,
+  BaixaManualRequest,
   Cobranca,
   NovaCobrancaRequest,
   PaginaCobrancas,
@@ -53,6 +54,16 @@ export function atualizarCobranca(id: string, dados: AtualizarCobrancaRequest): 
 /** Cancela (e remove no Asaas, se já emitida). 409 COBRANCA_JA_PAGA se já foi paga. */
 export function cancelarCobranca(id: string): Promise<Cobranca> {
   return apiRequest<Cobranca>(`/cobrancas/${id}/cancelar`, { method: 'PATCH' })
+}
+
+/**
+ * Baixa manual (UC12): pagamento recebido fora do Eduka, com valor, dia e forma.
+ * Se o aluno já gerou PIX ou boleto, o backend remove a cobrança no Asaas antes.
+ * 409 COBRANCA_JA_PAGA se o Asaas já recebeu; 409 PAGAMENTO_EM_PROCESSAMENTO
+ * enquanto o pagamento está sendo gerado.
+ */
+export function registrarPagamentoManual(id: string, dados: BaixaManualRequest): Promise<Cobranca> {
+  return apiRequest<Cobranca>(`/cobrancas/${id}/pagar`, { method: 'PATCH', body: JSON.stringify(dados) })
 }
 
 /** Comprovante do pagamento online, montado pelo Edúka (IU17-D). */

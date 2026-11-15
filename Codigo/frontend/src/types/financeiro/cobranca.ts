@@ -1,15 +1,29 @@
+import type { FormaPagamentoManual } from './pagamentoAluno'
+
 // Espelha o StatusCobranca do backend. PENDENTE vencida já chega como EM_ATRASO.
 export type StatusCobranca = 'PENDENTE' | 'EM_ATRASO' | 'PAGA' | 'CANCELADA'
 
 /** Pagamento de uma cobrança paga: online (provedor) ou baixa manual da escola. */
 export type PagamentoDaCobranca = {
   origem: 'ONLINE' | 'MANUAL'
+  /** Na baixa manual, o que a escola informou ter recebido. */
   valorPago: number
   /** Quanto do pago foi devolvido; a cobrança continua PAGA. */
   valorEstornado: number
   dataPagamento: string
+  /** PIX ou BOLETO do provedor; nula na baixa manual. */
   forma: string | null
+  /** Só na baixa manual; nula também nas baixas feitas antes de a forma ser pedida. */
+  formaManual: FormaPagamentoManual | null
   comprovanteUrl: string | null
+}
+
+/** Corpo do PATCH /cobrancas/{id}/pagar: o pagamento recebido fora do Eduka. */
+export type BaixaManualRequest = {
+  valorPago: number
+  /** ISO (AAAA-MM-DD), até hoje no fuso da escola. */
+  dataPagamento: string
+  forma: FormaPagamentoManual
 }
 
 // Espelha o CobrancaResponse do backend (GET /cobrancas).

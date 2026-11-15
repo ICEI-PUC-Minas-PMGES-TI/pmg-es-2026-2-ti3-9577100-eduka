@@ -5,22 +5,13 @@ import { ModalCadastro } from '../../../../components/modal/ModalCadastro/ModalC
 import { ApiError } from '../../../../services/api'
 import { atualizarCobranca } from '../../../../services/financeiro/cobrancaService'
 import type { Cobranca } from '../../../../types/financeiro/cobranca'
+import { textoParaValor, valorParaTexto } from '../../valorEmReais'
 
 // Limite da coluna DESCRICAO (V20), o mesmo da Nova cobrança.
 const MAX_DESCRICAO = 255
 
 type Campos = { descricao: string; valor: string; dataVencimento: string }
 type Erros = Partial<Record<keyof Campos, string>>
-
-/** 890.5 -> "890,50", como o financeiro digita. */
-function valorParaTexto(valor: number): string {
-  return valor.toFixed(2).replace('.', ',')
-}
-
-/** "1.890,50" -> 1890.5; NaN se não for número. */
-function textoParaValor(texto: string): number {
-  return parseFloat(texto.replace(/^R\$\s*/, '').replace(/\./g, '').replace(',', '.'))
-}
 
 function mensagemErro(erro: unknown): string {
   if (erro instanceof ApiError) {

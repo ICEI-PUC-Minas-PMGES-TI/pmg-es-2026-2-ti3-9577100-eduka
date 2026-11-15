@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
 import br.pucminas.eduka.backend.dto.financeiro.AtualizarCobrancaRequest;
+import br.pucminas.eduka.backend.dto.financeiro.BaixaManualRequest;
 import br.pucminas.eduka.backend.dto.financeiro.CobrancaRequest;
 import br.pucminas.eduka.backend.dto.financeiro.CobrancaResponse;
 import br.pucminas.eduka.backend.dto.financeiro.ComprovanteResponse;
@@ -154,12 +155,20 @@ public class CobrancaController {
     @PatchMapping("/{id}/pagar")
     @PreAuthorize(Perfis.FINANCEIRO)
     @Operation(summary = "Da baixa manual no pagamento de uma cobranca",
-            description = "Marca a cobranca como PAGA, registra no LOG_AUDITORIA e envia o e-mail de pagamento "
-                    + "confirmado ao responsavel financeiro (ou ao aluno).")
+            description = "Registra o pagamento recebido fora do Eduka: `valorPago` (pode diferir do valor da "
+                    + "cobranca), `dataPagamento` (ate hoje, no fuso da escola) e `forma` (DINHEIRO, PIX, "
+                    + "TRANSFERENCIA, CARTAO ou BOLETO). Marca a cobranca como PAGA, registra no LOG_AUDITORIA e "
+                    + "envia o e-mail de pagamento confirmado ao responsavel financeiro (ou ao aluno). Se o aluno "
+                    + "ja gerou PIX ou boleto, a cobranca e removida antes no Asaas.")
     @ApiResponse(responseCode = "200", description = "A cobranca paga.")
-    @ApiResponse(responseCode = "400", description = "Cobranca ja paga ou cancelada.")
+    @ApiResponse(responseCode = "400", description = "Corpo invalido, dia do pagamento futuro, ou cobranca ja paga "
+            + "ou cancelada.")
     @ApiResponse(responseCode = "404", description = "Cobranca nao encontrada na escola do token.")
-    public CobrancaResponse pagar(@PathVariable UUID id) {
-        return cobrancaService.confirmarPagamento(id);
+    @ApiResponse(responseCode = "409", description = "`COBRANCA_JA_PAGA` se o Asaas ja recebeu (fica paga sem "
+            + "baixa manual); `PAGAMENTO_EM_PROCESSAMENTO` enquanto o pagamento esta sendo gerado.")
+    @ApiResponse(responseCode = "503", description = "`PROVEDOR_INDISPONIVEL` ou `PROVEDOR_NAO_CONFIGURADO` ao "
+            + "remover no Asaas a cobranca ja emitida.")
+    public CobrancaResponse pagar(@PathVariable UUID id, @Valid @RequestBody BaixaManualRequest request) {
+        return cobrancaService.confirmarPagamento(id, request);
     }
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { Button } from '../../../../components/ui/Button/Button'
 import { Icon } from '../../../../components/ui/Icon/Icon'
+import { CampoData } from '../../../../components/formulario/CampoData/CampoData'
 import { Select } from '../../../../components/formulario/Select/Select'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { useRotasFinanceiras } from '../../../../routes/areas'
@@ -395,13 +396,12 @@ export function NovaCobranca() {
             <label htmlFor={IDS.vencimento} className={styles.secaoTitulo}>
               Vencimento
             </label>
-            <input
+            <CampoData
               id={IDS.vencimento}
-              type="date"
               className={styles.inputPadrao}
-              value={dataVencimento}
-              onChange={(e) => {
-                setDataVencimento(e.target.value)
+              valor={dataVencimento}
+              onChange={(data) => {
+                setDataVencimento(data)
                 corrigiu('vencimento')
               }}
               required

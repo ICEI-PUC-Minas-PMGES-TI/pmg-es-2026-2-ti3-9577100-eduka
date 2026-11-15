@@ -71,6 +71,7 @@ import br.pucminas.eduka.backend.domain.financeiro.CategoriaDespesa;
 import br.pucminas.eduka.backend.domain.financeiro.Cobranca;
 import br.pucminas.eduka.backend.domain.financeiro.Despesa;
 import br.pucminas.eduka.backend.domain.financeiro.EstornoCobranca;
+import br.pucminas.eduka.backend.domain.financeiro.FormaPagamentoManual;
 import br.pucminas.eduka.backend.domain.financeiro.OrigemPagamento;
 import br.pucminas.eduka.backend.domain.financeiro.PagamentoCobranca;
 import br.pucminas.eduka.backend.domain.financeiro.SituacaoDespesa;
@@ -1250,7 +1251,8 @@ public class MockDataSeeder implements ApplicationRunner {
 
     /**
      * De cada dez pagas, seis foram por PIX, tres por boleto e uma teve baixa
-     * manual, pela posicao, sem sortear.
+     * manual, pela posicao, sem sortear. A baixa manual e do valor da cobranca,
+     * alternando dinheiro e transferencia.
      *
      * <p>
      * A cobranca fica NAO_EMITIDA de proposito: ela nao existe no provedor, e
@@ -1263,8 +1265,13 @@ public class MockDataSeeder implements ApplicationRunner {
                 .filter(c -> c.getStatus() == StatusCobranca.PAGA).toList();
         for (int i = 0; i < pagas.size(); i++) {
             int posicao = i % 10;
+            Cobranca paga = pagas.get(i);
             if (posicao < 9) {
-                pagas.get(i).setFormaPagamento(posicao < 6 ? FormaPagamento.PIX : FormaPagamento.BOLETO);
+                paga.setFormaPagamento(posicao < 6 ? FormaPagamento.PIX : FormaPagamento.BOLETO);
+            } else {
+                paga.setValorPagoManual(paga.getValor());
+                paga.setFormaPagamentoManual(
+                        (i / 10) % 2 == 0 ? FormaPagamentoManual.DINHEIRO : FormaPagamentoManual.TRANSFERENCIA);
             }
         }
     }

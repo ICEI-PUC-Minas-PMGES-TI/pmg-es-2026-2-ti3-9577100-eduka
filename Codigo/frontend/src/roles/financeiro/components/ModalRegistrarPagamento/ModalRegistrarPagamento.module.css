@@ -1,0 +1,21 @@
+/* Os textos ocupam a linha inteira do grid de duas colunas do ModalCadastro. */
+.resumo,
+.aviso {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.resumo {
+  color: var(--color-text-muted);
+}
+
+.aviso {
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-warning-bg);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}

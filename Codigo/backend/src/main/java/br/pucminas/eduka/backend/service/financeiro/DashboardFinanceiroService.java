@@ -70,7 +70,7 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
  * Recebido e a cobranca PAGA, pela data em que foi dada como paga
  * ({@code PAGA_EM}): pelo aviso do Asaas ou pela baixa manual. O valor e o
  * pago no provedor quando ha {@code PAGAMENTO_COBRANCA}; na baixa manual, o
- * da cobranca. O estorno sai do recebido no mes em que aconteceu.
+ * informado nela. O estorno sai do recebido no mes em que aconteceu.
  * </p>
  */
 @Service
@@ -208,7 +208,8 @@ public class DashboardFinanceiroService {
                         .toList(),
                 ultimosRecebidos.stream()
                         .map(r -> new PagamentoRecente(r.cobranca().getId(), nomeDoAluno.apply(r.cobranca()),
-                                r.cobranca().getDescricao(), r.valor(), r.forma(), r.origem(), r.pagoEm()))
+                                r.cobranca().getDescricao(), r.valor(), r.forma(),
+                                r.cobranca().getFormaPagamentoManual(), r.origem(), r.pagoEm()))
                         .toList(),
                 acoes.stream()
                         .map(a -> {
@@ -240,7 +241,8 @@ public class DashboardFinanceiroService {
         return pagas.stream().map(c -> {
             PagamentoCobranca pagamento = pagamentos.get(c.getId());
             return pagamento == null
-                    ? new Recebido(c, c.getValor(), null, OrigemPagamento.MANUAL, c.getPagaEm())
+                    ? new Recebido(c, CobrancaService.valorRecebidoNaBaixa(c), null, OrigemPagamento.MANUAL,
+                            c.getPagaEm())
                     : new Recebido(c, pagamento.getValorPago(), pagamento.getFormaPagamento(),
                             pagamento.getOrigem(), c.getPagaEm());
         }).toList();

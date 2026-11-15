@@ -8,9 +8,9 @@ Diagramas UML e descrições de cada caso de uso, conferidos com o código da br
 | Diagramas (imagem) | [diagramas/png/](diagramas/png/) |
 | Diagramas (fonte PlantUML) | [diagramas/](diagramas/) |
 
-São 39 casos de uso: 22 completos, 12 parciais e 5 planejados para a Sprint 4.
+São 39 casos de uso: 25 completos, 10 parciais e 4 planejados.
 
-> O descritivo (DOCX/PDF) ainda não traz UC34 a UC41 nem as mudanças de situação desta revisão. Até ser atualizado, vale este README e os diagramas.
+> O descritivo (DOCX/PDF) ainda não traz UC34 a UC41 nem as demais mudanças de situação desta revisão; só o UC12 foi revisado nele (14/11, baixa manual com valor, dia e forma). Até ser atualizado, vale este README e os diagramas.
 
 ## Índice por módulo
 
@@ -58,7 +58,7 @@ São 39 casos de uso: 22 completos, 12 parciais e 5 planejados para a Sprint 4.
 |---|---|---|---|---|---|---|
 | UC09 | Gerenciar Cobranças | FINANCEIRO, MASTER | RF12, RF15, RF22 | Completo | `/financeiro/cobrancas`, `/master/cobrancas` | — |
 | UC11 | Consultar e Filtrar Cobranças | FINANCEIRO, MASTER | RF14 | Parcial | `/financeiro/cobrancas`, `/master/cobrancas` | PAG.1, PAG.2 |
-| UC12 | Registrar Pagamento Manual | FINANCEIRO | RF16 | Parcial | Sem tela (API `/cobrancas/{id}/pagar`) | — |
+| UC12 | Registrar Pagamento Manual | FINANCEIRO, MASTER | RF16 | Completo | `/financeiro/cobrancas`, `/master/cobrancas` (Registrar pagamento, com valor, dia e forma) | — |
 | UC13 | Consultar Histórico Financeiro do Aluno | ALUNO, MASTER, FINANCEIRO | RF17, RF25 | Parcial | `/aluno/pagamentos`; aba Financeiro do aluno em `/master/alunos` e `/financeiro/alunos` | RF17.1, RF17.2, RF17.3 |
 | UC14 | Gerenciar Despesas | FINANCEIRO, MASTER | RF18 | Parcial | `/financeiro/despesas`, `/master/despesas` | RF18.1 |
 | UC15 | Consultar Relatórios Financeiros | FINANCEIRO, MASTER | RF19 | Planejado | IU19 e IU19-A | RF19.1, RF19.2 |
@@ -142,7 +142,6 @@ A [visão geral](diagramas/png/00-visao-geral.png) reúne todos os casos de uso.
 | UC05 | Não há inativação de aluno. A data de nascimento só aceita até 2016 (RF08.6, Sprint 4). |
 | UC06 | O reenvio do acesso ao professor existe só na API. |
 | UC11 | A tela filtra por nome e situação, e por aluno quando aberta pela aba Financeiro dele. Período letivo e vencimento só na API. |
-| UC12 | Somente API, sem valor, data ou forma de pagamento. |
 | UC13 | O resumo financeiro no Início do aluno (IU27, RF25.5) ainda não existe. |
 | UC14 | Editar despesa só na API. |
 | UC24 | A tela mostra só o resumo da turma atual. |

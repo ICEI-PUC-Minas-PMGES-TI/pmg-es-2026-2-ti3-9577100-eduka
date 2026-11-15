@@ -48,10 +48,10 @@ public interface CobrancaRepository
     /**
      * Cobrancas da escola pagas de {@code desde} (inclusive) ate {@code antes}
      * (exclusive), com o que entrou: o valor pago no provedor ou, na baixa
-     * manual (sem pagamento registrado), o da cobranca. Para o painel somar
-     * por mes.
+     * manual (sem pagamento registrado), o informado na baixa. O valor da
+     * cobranca e so o ultimo recurso. Para o painel somar por mes.
      */
-    @Query("SELECT c.pagaEm AS pagaEm, COALESCE(p.valorPago, c.valor) AS valor FROM Cobranca c "
+    @Query("SELECT c.pagaEm AS pagaEm, COALESCE(p.valorPago, c.valorPagoManual, c.valor) AS valor FROM Cobranca c "
             + "LEFT JOIN PagamentoCobranca p ON p.cobrancaId = c.id AND p.escolaId = c.escolaId "
             + "WHERE c.escolaId = :escolaId AND c.status = br.pucminas.eduka.backend.domain.financeiro.StatusCobranca.PAGA "
             + "AND c.pagaEm >= :desde AND c.pagaEm < :antes")
@@ -66,7 +66,7 @@ public interface CobrancaRepository
      * pagamento. Do mais antigo ao mais recente. O que foi devolvido depois vem
      * de {@link EstornoCobrancaRepository#estornosEntre}.
      */
-    @Query("SELECT c.pagaEm AS pagaEm, COALESCE(p.valorPago, c.valor) AS valor, p.formaPagamento AS forma, "
+    @Query("SELECT c.pagaEm AS pagaEm, COALESCE(p.valorPago, c.valorPagoManual, c.valor) AS valor, p.formaPagamento AS forma, "
             + "c.descricao AS descricao, c.aluno.pessoaId AS pessoaId FROM Cobranca c "
             + "LEFT JOIN PagamentoCobranca p ON p.cobrancaId = c.id AND p.escolaId = c.escolaId "
             + "WHERE c.escolaId = :escolaId AND c.status = br.pucminas.eduka.backend.domain.financeiro.StatusCobranca.PAGA "
@@ -82,7 +82,7 @@ public interface CobrancaRepository
      */
     @Query("SELECT c.tipo AS tipo, curso.id AS cursoId, curso.nome AS cursoNome, c.status AS status, "
             + "c.dataVencimento AS vencimento, COUNT(c) AS quantidade, SUM(c.valor) AS valor, "
-            + "SUM(COALESCE(p.valorPago, c.valor) - COALESCE(p.valorEstornado, 0)) AS valorPago FROM Cobranca c "
+            + "SUM(COALESCE(p.valorPago, c.valorPagoManual, c.valor) - COALESCE(p.valorEstornado, 0)) AS valorPago FROM Cobranca c "
             + "LEFT JOIN c.matricula matricula LEFT JOIN matricula.turma turma LEFT JOIN turma.curso curso "
             + "LEFT JOIN PagamentoCobranca p ON p.cobrancaId = c.id AND p.escolaId = c.escolaId "
             + "WHERE c.escolaId = :escolaId AND c.status <> br.pucminas.eduka.backend.domain.financeiro.StatusCobranca.CANCELADA "
@@ -126,8 +126,8 @@ public interface CobrancaRepository
         BigDecimal getValor();
 
         /**
-         * O pago no provedor sem o estornado ou, sem pagamento registrado, o da
-         * cobranca. So tem sentido na PAGA.
+         * O pago no provedor sem o estornado ou, sem pagamento registrado, o
+         * informado na baixa manual. So tem sentido na PAGA.
          */
         BigDecimal getValorPago();
     }

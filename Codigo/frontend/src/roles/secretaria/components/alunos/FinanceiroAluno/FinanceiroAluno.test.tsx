@@ -41,6 +41,7 @@ const HISTORICO: HistoricoFinanceiro = {
       valorEstornado: 0,
       dataPagamento: '2026-08-09',
       forma: 'PIX',
+      formaManual: null,
       comprovanteUrl: '/cobrancas/cob-ago/comprovante',
     }),
     cobranca('cob-mat', 'Material didático', 300, '2026-07-05', 'PAGA', {
@@ -49,6 +50,7 @@ const HISTORICO: HistoricoFinanceiro = {
       valorEstornado: 0,
       dataPagamento: '2026-07-02',
       forma: null,
+      formaManual: 'TRANSFERENCIA',
       comprovanteUrl: null,
     }),
     cobranca('cob-uni', 'Uniforme', 240, '2026-06-30', 'CANCELADA'),
@@ -193,7 +195,7 @@ describe('Financeiro do aluno', () => {
     await screen.findByText('Mensalidade de agosto')
     expect(linha('Mensalidade de agosto')).toHaveTextContent('09/08/2026 · PIX')
     expect(within(linha('Mensalidade de agosto')).getByText('Paga')).toBeInTheDocument()
-    expect(linha('Material didático')).toHaveTextContent('02/07/2026 · Baixa manual')
+    expect(linha('Material didático')).toHaveTextContent('02/07/2026 · Baixa manual (Transferência)')
     expect(within(linha('Mensalidade de novembro')).getByText('A pagar')).toBeInTheDocument()
     expect(within(linha('Mensalidade de setembro')).getByText('Em atraso')).toBeInTheDocument()
     expect(within(linha('Uniforme')).getByText('Cancelada')).toBeInTheDocument()

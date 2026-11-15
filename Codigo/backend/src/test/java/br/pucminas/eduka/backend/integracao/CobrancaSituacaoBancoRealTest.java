@@ -5,7 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -13,15 +16,21 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.financeiro.FormaPagamentoManual;
+import br.pucminas.eduka.backend.domain.financeiro.OrigemPagamento;
 import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
 import br.pucminas.eduka.backend.dto.financeiro.AtualizarCobrancaRequest;
+import br.pucminas.eduka.backend.dto.financeiro.BaixaManualRequest;
 import br.pucminas.eduka.backend.dto.financeiro.CobrancaResponse;
+import br.pucminas.eduka.backend.dto.financeiro.PagamentoDaCobrancaResponse;
 import br.pucminas.eduka.backend.dto.financeiro.PaginaCobrancasResponse.TotalPorStatus;
 import br.pucminas.eduka.backend.dto.financeiro.PaginaCobrancasResponse;
 import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.exception.financeiro.CobrancaJaPagaException;
 import br.pucminas.eduka.backend.repository.financeiro.CobrancaFiltro;
+import br.pucminas.eduka.backend.repository.financeiro.CobrancaRepository;
 import br.pucminas.eduka.backend.service.financeiro.CobrancaService;
+import br.pucminas.eduka.backend.service.financeiro.DashboardFinanceiroService;
 
 /**
  * Mudancas de situacao da cobranca feitas pela escola (baixa manual, cancelar,
@@ -31,8 +40,16 @@ import br.pucminas.eduka.backend.service.financeiro.CobrancaService;
  */
 class CobrancaSituacaoBancoRealTest extends BancoRealTest {
 
+    private static final ZoneId FUSO_ESCOLA = ZoneId.of("America/Sao_Paulo");
+
     @Autowired
     private CobrancaService cobrancaService;
+
+    @Autowired
+    private CobrancaRepository cobrancaRepository;
+
+    @Autowired
+    private DashboardFinanceiroService dashboardFinanceiroService;
 
     private UUID escola;
     private UUID aluno;
@@ -50,16 +67,29 @@ class CobrancaSituacaoBancoRealTest extends BancoRealTest {
         return new AtualizarCobrancaRequest(null, null, "Mensalidade", new BigDecimal("120.00"), vencimento);
     }
 
+    /** R$ 95,00 em dinheiro hoje, abaixo dos R$ 100,00 da cobranca (desconto). */
+    private static BaixaManualRequest baixaDeHoje() {
+        return new BaixaManualRequest(new BigDecimal("95.00"), LocalDate.now(FUSO_ESCOLA),
+                FormaPagamentoManual.DINHEIRO);
+    }
+
     @Test
     void baixaManualPagaUmaVezSo() {
-        CobrancaResponse paga = cobrancaService.confirmarPagamento(cobranca);
+        CobrancaResponse paga = cobrancaService.confirmarPagamento(cobranca, baixaDeHoje());
 
         assertThat(paga.status()).isEqualTo(StatusCobranca.PAGA);
         assertThat(paga.pagaEm()).isNotNull();
         assertThat(dados.statusGravado(cobranca)).isEqualTo(StatusCobranca.PAGA);
+        // Relido do banco: valor, dia e forma da baixa ficam na cobranca, sem PAGAMENTO_COBRANCA.
+        PagamentoDaCobrancaResponse pagamento = cobrancaService.buscar(cobranca).pagamento();
+        assertThat(pagamento.origem()).isEqualTo(OrigemPagamento.MANUAL);
+        assertThat(pagamento.valorPago()).isEqualByComparingTo("95.00");
+        assertThat(pagamento.dataPagamento()).isEqualTo(LocalDate.now(FUSO_ESCOLA));
+        assertThat(pagamento.formaManual()).isEqualTo(FormaPagamentoManual.DINHEIRO);
+        assertThat(dados.valor(cobranca)).isEqualByComparingTo("100.00");
 
         // Paga nao volta atras pela escola: nem paga de novo, nem cancela, nem edita.
-        assertThatThrownBy(() -> cobrancaService.confirmarPagamento(cobranca))
+        assertThatThrownBy(() -> cobrancaService.confirmarPagamento(cobranca, baixaDeHoje()))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> cobrancaService.cancelar(cobranca)).isInstanceOf(CobrancaJaPagaException.class);
         assertThatThrownBy(() -> cobrancaService.atualizar(cobranca, edicao(LocalDate.now().plusDays(5))))
@@ -70,6 +100,26 @@ class CobrancaSituacaoBancoRealTest extends BancoRealTest {
     }
 
     @Test
+    void baixaComDiaPassadoEntraNoRecebidoDaqueleDiaComOValorInformado() {
+        LocalDate diaDoPagamento = LocalDate.now(FUSO_ESCOLA).minusDays(3);
+
+        cobrancaService.confirmarPagamento(cobranca, new BaixaManualRequest(new BigDecimal("87.40"), diaDoPagamento,
+                FormaPagamentoManual.TRANSFERENCIA));
+
+        Instant inicioDoDia = diaDoPagamento.atStartOfDay(FUSO_ESCOLA).toInstant();
+        // O painel e os relatorios somam pelo PAGA_EM: a baixa conta no dia do pagamento, nao no da baixa.
+        assertThat(cobrancaRepository.recebidosEntre(escola, inicioDoDia, inicioDoDia.plus(Duration.ofDays(1))))
+                .singleElement()
+                .satisfies(recebido -> assertThat(recebido.getValor()).isEqualByComparingTo("87.40"));
+        assertThat(cobrancaService.buscar(cobranca).pagamento().dataPagamento()).isEqualTo(diaDoPagamento);
+        assertThat(dashboardFinanceiroService.painel().ultimosPagamentos()).singleElement().satisfies(recente -> {
+            assertThat(recente.valor()).isEqualByComparingTo("87.40");
+            assertThat(recente.formaManual()).isEqualTo(FormaPagamentoManual.TRANSFERENCIA);
+            assertThat(recente.pagoEm()).isEqualTo(inicioDoDia);
+        });
+    }
+
+    @Test
     void canceladaEFinal() {
         CobrancaResponse cancelada = cobrancaService.cancelar(cobranca);
 
@@ -77,7 +127,7 @@ class CobrancaSituacaoBancoRealTest extends BancoRealTest {
         assertThat(cancelada.canceladaEm()).isNotNull();
 
         assertThatThrownBy(() -> cobrancaService.cancelar(cobranca)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> cobrancaService.confirmarPagamento(cobranca))
+        assertThatThrownBy(() -> cobrancaService.confirmarPagamento(cobranca, baixaDeHoje()))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> cobrancaService.atualizar(cobranca, edicao(LocalDate.now().plusDays(5))))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -105,7 +155,7 @@ class CobrancaSituacaoBancoRealTest extends BancoRealTest {
     void emAtrasoAindaPodeSerPaga() {
         UUID atrasada = dados.cobranca(escola, aluno, StatusCobranca.EM_ATRASO, LocalDate.now().minusDays(15));
 
-        assertThat(cobrancaService.confirmarPagamento(atrasada).status()).isEqualTo(StatusCobranca.PAGA);
+        assertThat(cobrancaService.confirmarPagamento(atrasada, baixaDeHoje()).status()).isEqualTo(StatusCobranca.PAGA);
     }
 
     @Test
@@ -156,7 +206,7 @@ class CobrancaSituacaoBancoRealTest extends BancoRealTest {
         autenticarComo(dados.usuario(outraEscola, "FINANCEIRO", "Outro Financeiro"), "FINANCEIRO", outraEscola);
 
         assertThatThrownBy(() -> cobrancaService.buscar(cobranca)).isInstanceOf(RecursoNaoEncontradoException.class);
-        assertThatThrownBy(() -> cobrancaService.confirmarPagamento(cobranca))
+        assertThatThrownBy(() -> cobrancaService.confirmarPagamento(cobranca, baixaDeHoje()))
                 .isInstanceOf(RecursoNaoEncontradoException.class);
         assertThatThrownBy(() -> cobrancaService.cancelar(cobranca)).isInstanceOf(RecursoNaoEncontradoException.class);
         assertThatThrownBy(() -> cobrancaService.atualizar(cobranca, edicao(LocalDate.now().plusDays(5))))
