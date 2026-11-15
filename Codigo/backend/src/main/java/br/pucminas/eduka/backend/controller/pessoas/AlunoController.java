@@ -9,6 +9,7 @@ import org.springframework.data.domain.Sort.Direction;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -65,7 +66,7 @@ public class AlunoController {
     @PreAuthorize(Perfis.LEITURA_ALUNOS)
     @Operation(summary = "Lista os alunos em paginas", description = "Perfis: MASTER, SECRETARIA, FINANCEIRO. "
             + "Filtros opcionais por parte do nome ou da matricula (`busca`) e por situacao (MATRICULADO, "
-            + "TRANCADO, SEM_TURMA, ANONIMIZADO). `pagina` comeca em 0; `tamanho` vai de 1 a 100. `ordenarPor`: NOME "
+            + "TRANCADO, SEM_TURMA, INATIVO, ANONIMIZADO). `pagina` comeca em 0; `tamanho` vai de 1 a 100. `ordenarPor`: NOME "
             + "(padrao) ou MATRICULA; `direcao`: ASC (padrao) ou DESC. O `resumo` conta os alunos da escola "
             + "inteira por situacao, sem a busca nem o filtro de situacao.")
     @ApiResponse(responseCode = "200", description = "A pagina de alunos, com o resumo da escola.")
@@ -100,6 +101,25 @@ public class AlunoController {
     @Operation(summary = "Atualiza os dados de um aluno", description = "Substitui o registro inteiro; os responsaveis nao mudam por aqui. Trocar o e-mail troca o login. Responde 409 se o numero de matricula ou o e-mail ja estiverem em uso. Perfis: MASTER, SECRETARIA.")
     public AlunoResponse atualizar(@PathVariable UUID id, @Valid @RequestBody AlunoRequest request) {
         return alunoService.atualizar(id, request);
+    }
+
+    /** Aluno que saiu, sem apagar o dado pessoal: registro fica, login bloqueado. */
+    @PatchMapping("/{id}/inativar")
+    @PreAuthorize(Perfis.CADASTRO_ACADEMICO)
+    @Operation(summary = "Inativa um aluno", description = "O registro e o dado pessoal ficam; o login fica bloqueado e o aluno nao pode ser matriculado. Responde 409 se ele tem matricula ativa ou esta anonimizado. Perfis: MASTER, SECRETARIA.")
+    @ApiResponse(responseCode = "200", description = "O aluno, com situacao INATIVO.")
+    @ApiResponse(responseCode = "409", description = "Aluno com matricula ativa ou anonimizado.")
+    public AlunoResponse inativar(@PathVariable UUID id) {
+        return alunoService.inativar(id);
+    }
+
+    @PatchMapping("/{id}/ativar")
+    @PreAuthorize(Perfis.CADASTRO_ACADEMICO)
+    @Operation(summary = "Reativa um aluno", description = "O login volta a funcionar com a senha que o aluno ja tinha. Responde 409 se ele esta anonimizado. Perfis: MASTER, SECRETARIA.")
+    @ApiResponse(responseCode = "200", description = "O aluno reativado.")
+    @ApiResponse(responseCode = "409", description = "Aluno anonimizado.")
+    public AlunoResponse ativar(@PathVariable UUID id) {
+        return alunoService.ativar(id);
     }
 
     /** Reenvia o e-mail de primeiro acesso com uma senha provisoria renovada. */

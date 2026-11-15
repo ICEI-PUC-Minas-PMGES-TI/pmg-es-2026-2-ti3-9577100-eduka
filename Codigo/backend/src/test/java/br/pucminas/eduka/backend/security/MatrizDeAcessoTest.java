@@ -157,6 +157,8 @@ class MatrizDeAcessoTest {
                 "POST /alunos",
                 "PUT /alunos/{id}",
                 "POST /alunos/{id}/primeiro-acesso",
+                "PATCH /alunos/{id}/inativar",
+                "PATCH /alunos/{id}/ativar",
                 "GET /alunos/{id}/dados-pessoais",
                 "GET /alunos/correcoes",
                 "PATCH /alunos/correcoes/{id}/atender",

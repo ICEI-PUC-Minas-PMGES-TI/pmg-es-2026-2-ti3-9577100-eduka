@@ -45,6 +45,19 @@ export function reenviarAcessoAluno(id: string): Promise<void> {
   return apiRequest<void>(`/alunos/${id}/primeiro-acesso`, { method: 'POST' })
 }
 
+/**
+ * Inativa o aluno sem apagar os dados: o login fica bloqueado e ele não pode
+ * ser matriculado. 409 se ele tem matrícula ativa ou foi anonimizado.
+ */
+export function inativarAluno(id: string): Promise<Aluno> {
+  return apiRequest<Aluno>(`/alunos/${id}/inativar`, { method: 'PATCH' })
+}
+
+/** Reativa o aluno: o login volta a funcionar com a senha que ele já tinha. 409 se foi anonimizado. */
+export function ativarAluno(id: string): Promise<Aluno> {
+  return apiRequest<Aluno>(`/alunos/${id}/ativar`, { method: 'PATCH' })
+}
+
 /** Resumo, cobranças e pagamentos de um aluno. Só MASTER e FINANCEIRO; os demais recebem 403. */
 export function buscarHistoricoFinanceiroDoAluno(id: string, signal?: AbortSignal): Promise<HistoricoFinanceiro> {
   return apiRequest<HistoricoFinanceiro>(`/alunos/${id}/financeiro`, { signal })

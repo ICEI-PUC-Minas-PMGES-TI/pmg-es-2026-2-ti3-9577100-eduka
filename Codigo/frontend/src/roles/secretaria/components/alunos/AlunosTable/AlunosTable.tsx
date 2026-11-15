@@ -14,6 +14,7 @@ const BADGE_SITUACAO: Record<SituacaoNaEscola, { rotulo: string; tom: 'success' 
   MATRICULADO: { rotulo: 'Matriculado', tom: 'success' },
   TRANCADO: { rotulo: 'Trancado', tom: 'neutral' },
   SEM_TURMA: { rotulo: 'Sem turma', tom: 'danger' },
+  INATIVO: { rotulo: 'Inativo', tom: 'neutral' },
   ANONIMIZADO: { rotulo: 'Anonimizado', tom: 'neutral' },
 }
 
@@ -30,12 +31,16 @@ type AlunosTableProps = {
   mensagemVazia: string
   /** Aluno com reenvio de acesso em andamento. */
   reenviandoId: string | null
+  /** Aluno sendo inativado ou reativado. */
+  alternandoId?: string | null
   onTentarNovamente: () => void
   onVer: (aluno: AlunoDaLista) => void
   /** Sem ela, a linha não mostra Editar (perfil só de consulta, como o FINANCEIRO). */
   onEditar?: (aluno: AlunoDaLista) => void
   /** Sem ela, a linha não mostra Reenviar acesso. */
   onReenviarAcesso?: (aluno: AlunoDaLista) => void
+  /** Sem ela, a linha não mostra Inativar nem Reativar. */
+  onAlternarSituacao?: (aluno: AlunoDaLista) => void
 }
 
 /** Tabela de alunos num card de vidro, com os estados de carregando, erro e vazio. */
@@ -47,10 +52,12 @@ export function AlunosTable({
   erro,
   mensagemVazia,
   reenviandoId,
+  alternandoId = null,
   onTentarNovamente,
   onVer,
   onEditar,
   onReenviarAcesso,
+  onAlternarSituacao,
 }: AlunosTableProps) {
   const alunos = !erro && paginacao ? paginacao.itensDaPagina : []
   return (
@@ -74,8 +81,10 @@ export function AlunosTable({
                 const badge = BADGE_SITUACAO[aluno.situacao]
                 // Sem dado pessoal, não há o que editar nem acesso para reenviar.
                 const anonimizado = aluno.situacao === 'ANONIMIZADO'
+                // Inativo não entra no portal: reenviar o acesso não adianta até reativar.
+                const inativo = aluno.situacao === 'INATIVO'
                 return (
-                  <tr key={aluno.id}>
+                  <tr key={aluno.id} className={inativo ? styles.inativo : undefined}>
                     <td className={styles.colPrincipal}>
                       <div className={styles.aluno}>
                         <span className={styles.avatar} aria-hidden="true">
@@ -101,7 +110,7 @@ export function AlunosTable({
                             Editar
                           </Button>
                         )}
-                        {!anonimizado && onReenviarAcesso && (
+                        {!anonimizado && !inativo && onReenviarAcesso && (
                           <Dica texto="Envia uma nova senha provisória para o e-mail do aluno">
                             <Button
                               size="sm"
@@ -110,6 +119,26 @@ export function AlunosTable({
                               onClick={() => onReenviarAcesso(aluno)}
                             >
                               Reenviar acesso
+                            </Button>
+                          </Dica>
+                        )}
+                        {!anonimizado && onAlternarSituacao && (
+                          <Dica
+                            texto={
+                              inativo
+                                ? 'Devolve o acesso ao portal com a senha que o aluno já tinha'
+                                : 'Bloqueia o acesso ao portal sem apagar os dados do aluno'
+                            }
+                          >
+                            <Button
+                              size="sm"
+                              className={styles.alternar}
+                              icon={inativo ? 'check' : 'pause'}
+                              disabled={alternandoId === aluno.id}
+                              aria-label={`${inativo ? 'Reativar' : 'Inativar'} ${aluno.nome}`}
+                              onClick={() => onAlternarSituacao(aluno)}
+                            >
+                              {inativo ? 'Reativar' : 'Inativar'}
                             </Button>
                           </Dica>
                         )}

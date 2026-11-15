@@ -146,8 +146,9 @@ public class AlunoService {
     }
 
     private static AlunoResponse resumo(Aluno aluno, Pessoa pessoa, MatriculaTurmaRepository.Vigente vigente) {
-        if (aluno.isAnonimizado()) {
-            return AlunoResponse.deResumo(aluno, pessoa, AlunoResponse.Situacao.ANONIMIZADO, null, null);
+        AlunoResponse.Situacao doCadastro = AlunoResponse.situacaoDoCadastro(aluno);
+        if (doCadastro != null) {
+            return AlunoResponse.deResumo(aluno, pessoa, doCadastro, null, null);
         }
         if (vigente == null) {
             return AlunoResponse.deResumo(aluno, pessoa, AlunoResponse.Situacao.SEM_TURMA, null, null);
@@ -269,6 +270,7 @@ public class AlunoService {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         Aluno aluno = alunoRepository.findByIdAndEscolaId(id, escolaId).orElseThrow(AlunoService::naoEncontrado);
         exigirNaoAnonimizado(aluno);
+        exigirAtivo(aluno);
         Pessoa pessoa = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
                 .orElseThrow(AlunoService::naoEncontrado);
         Usuario usuario = acessoService.enviarAcessoInicial(pessoa, PerfilUsuario.ALUNO);
@@ -277,6 +279,56 @@ public class AlunoService {
             alunoRepository.save(aluno);
         }
         auditoriaService.registrar(OperacaoAuditoria.REENVIAR_ACESSO, EntidadeAuditada.ALUNO, aluno.getId());
+    }
+
+    /**
+     * Inativa o aluno sem apagar nada (alternativa a anonimizar, para quem
+     * saiu mas ainda tem historico em uso): o login fica bloqueado e ele nao
+     * pode ser matriculado. Inativar quem ja esta inativo nao faz nada.
+     *
+     * @throws RegistroEmUsoException se o aluno esta anonimizado ou tem
+     *         matricula ATIVA (tranque, cancele ou conclua antes)
+     */
+    @Transactional
+    public AlunoResponse inativar(UUID id) {
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        Aluno aluno = alunoRepository.findByIdAndEscolaId(id, escolaId).orElseThrow(AlunoService::naoEncontrado);
+        exigirNaoAnonimizado(aluno);
+        if (aluno.isAtivo() && matriculaRepository.existsByEscolaIdAndAlunoIdAndStatus(escolaId, aluno.getId(),
+                StatusMatricula.ATIVA)) {
+            throw new RegistroEmUsoException(
+                    "Aluno com matricula ativa; tranque, cancele ou conclua a matricula antes de inativar");
+        }
+        return alterarAtivo(aluno, escolaId, false);
+    }
+
+    /**
+     * Reativa o aluno: o login volta a funcionar com a senha que ele ja tinha
+     * e ele pode ser matriculado de novo. Reativar quem ja esta ativo nao faz
+     * nada.
+     *
+     * @throws RegistroEmUsoException se o aluno esta anonimizado
+     */
+    @Transactional
+    public AlunoResponse ativar(UUID id) {
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        Aluno aluno = alunoRepository.findByIdAndEscolaId(id, escolaId).orElseThrow(AlunoService::naoEncontrado);
+        exigirNaoAnonimizado(aluno);
+        return alterarAtivo(aluno, escolaId, true);
+    }
+
+    private AlunoResponse alterarAtivo(Aluno aluno, UUID escolaId, boolean ativo) {
+        Pessoa pessoa = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
+                .orElseThrow(AlunoService::naoEncontrado);
+        if (aluno.isAtivo() != ativo) {
+            aluno.setAtivo(ativo);
+            aluno.setAtualizadoEm(clock.instant());
+            aluno = alunoRepository.save(aluno);
+            acessoService.definirAtivo(pessoa, ativo);
+            auditoriaService.registrar(ativo ? OperacaoAuditoria.ATIVAR : OperacaoAuditoria.INATIVAR,
+                    EntidadeAuditada.ALUNO, aluno.getId());
+        }
+        return AlunoResponse.de(aluno, pessoa, responsavelService.responsaveisDoAluno(aluno.getId(), escolaId));
     }
 
     private Pessoa criarPessoa(UUID escolaId, String nome, String cpf, java.time.LocalDate dataNascimento,
@@ -316,6 +368,13 @@ public class AlunoService {
     public static void exigirNaoAnonimizado(Aluno aluno) {
         if (aluno.isAnonimizado()) {
             throw new RegistroEmUsoException("Aluno anonimizado: os dados pessoais foram apagados");
+        }
+    }
+
+    /** Aluno inativo nao e matriculado nem ganha acesso ate ser reativado (409). */
+    public static void exigirAtivo(Aluno aluno) {
+        if (!aluno.isAtivo()) {
+            throw new RegistroEmUsoException("Aluno inativo; reative o aluno antes");
         }
     }
 
