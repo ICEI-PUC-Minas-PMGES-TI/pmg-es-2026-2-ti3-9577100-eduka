@@ -664,6 +664,7 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | Confidencialidade de senha | BCrypt custo 12; a coluna `senha_hash` nunca recebe texto puro |
 | Confidencialidade de dados pessoais | `PESSOA` cifrada com AES-256-GCM pela aplicação; o banco nunca vê a chave |
 | Auditoria (RNF05) | Operações financeiras gravam autor, operação, entidade, registro e data/hora em `LOG_AUDITORIA`, na mesma transação; o que vem do Asaas entra sem autor, com origem `PROVEDOR` |
+| Retenção de dados pessoais (RNF05, LGPD) | Aluno inativo há 5 anos (`app.lgpd.retencao.anos`) é anonimizado pela rotina diária, com as mesmas travas da anonimização manual e com origem `SISTEMA` no `LOG_AUDITORIA`; ver [política de retenção](politica-de-retencao-lgpd.md) |
 | Não vazamento de informação | Login inexistente, senha errada e usuário inativo devolvem a mesma mensagem |
 | Portabilidade de ambiente | Todo o stack sobe por Docker Compose, em dev e em prod |
 
