@@ -27,6 +27,7 @@ import br.pucminas.eduka.backend.exception.acesso.CodigoVerificacaoIncorretoExce
 import br.pucminas.eduka.backend.exception.acesso.CredenciaisInvalidasException;
 import br.pucminas.eduka.backend.exception.acesso.ReenvioCodigoIndisponivelException;
 import br.pucminas.eduka.backend.exception.acesso.SenhaProvisoriaExpiradaException;
+import br.pucminas.eduka.backend.exception.acesso.SessaoExpiradaException;
 import br.pucminas.eduka.backend.exception.acesso.VerificacaoLoginEncerradaException;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.service.acesso.AuthService;
@@ -237,6 +238,44 @@ class AuthControllerTest {
                                 {"verificacaoId":"%s"}
                                 """.formatted(UUID.randomUUID())))
                 .andExpect(status().isTooManyRequests());
+    }
+
+    @Test
+    void renovacaoEhPublicaEDevolveNovosTokens() throws Exception {
+        when(authService.renovarSessao("refresh-antigo"))
+                .thenReturn(LoginResponse.autenticado("access-novo", "refresh-novo", UUID.randomUUID(),
+                        PerfilUsuario.FINANCEIRO));
+
+        mockMvc.perform(post("/login/renovacao")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"refreshToken":"refresh-antigo"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("access-novo"))
+                .andExpect(jsonPath("$.refreshToken").value("refresh-novo"));
+    }
+
+    @Test
+    void renovacaoComSessaoExpiradaResponde401ComCodigo() throws Exception {
+        when(authService.renovarSessao(anyString())).thenThrow(new SessaoExpiradaException());
+
+        mockMvc.perform(post("/login/renovacao")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"refreshToken":"vencido"}
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.codigo").value("SESSAO_EXPIRADA"));
+    }
+
+    @Test
+    void renovacaoSemRefreshTokenResponde400() throws Exception {
+        mockMvc.perform(post("/login/renovacao")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(authService);
     }
 
     @Test

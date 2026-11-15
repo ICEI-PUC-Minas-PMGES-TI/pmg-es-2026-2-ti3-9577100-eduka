@@ -1,4 +1,4 @@
-import { ACCESS_TOKEN_KEY, apiRequest } from '../api'
+import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, apiRequest } from '../api'
 
 export const USUARIO_KEY = 'eduka.usuario'
 
@@ -132,6 +132,9 @@ export function salvarSessao(dados: LoginResponse, login: string): void {
 
   try {
     localStorage.setItem(ACCESS_TOKEN_KEY, dados.accessToken)
+    // O refresh renova o access antes de ele vencer (ver renovarSessao em api.ts).
+    if (dados.refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, dados.refreshToken)
+    else localStorage.removeItem(REFRESH_TOKEN_KEY)
     // Só o login (e-mail) é guardado à parte: id e perfil não vêm daqui, são
     // sempre lidos das claims do token em obterUsuarioLogado.
     localStorage.setItem(USUARIO_KEY, JSON.stringify({ login }))
@@ -200,6 +203,7 @@ export function obterUsuarioLogado(): UsuarioSessao | null {
 export function limparSessao(): void {
   try {
     localStorage.removeItem(ACCESS_TOKEN_KEY)
+    localStorage.removeItem(REFRESH_TOKEN_KEY)
     localStorage.removeItem(USUARIO_KEY)
   } catch {
     // Ignora erros ao limpar

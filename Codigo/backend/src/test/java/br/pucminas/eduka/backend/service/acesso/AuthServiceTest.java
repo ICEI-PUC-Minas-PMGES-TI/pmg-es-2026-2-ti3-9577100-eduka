@@ -22,6 +22,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jwt.JwtException;
 
 import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.acesso.Usuario;
@@ -32,12 +33,14 @@ import br.pucminas.eduka.backend.dto.acesso.VerificacaoLoginResponse;
 import br.pucminas.eduka.backend.exception.acesso.CredenciaisInvalidasException;
 import br.pucminas.eduka.backend.exception.acesso.SenhaInvalidaException;
 import br.pucminas.eduka.backend.exception.acesso.SenhaProvisoriaExpiradaException;
+import br.pucminas.eduka.backend.exception.acesso.SessaoExpiradaException;
 import br.pucminas.eduka.backend.exception.acesso.VerificacaoLoginEncerradaException;
 import br.pucminas.eduka.backend.exception.escola.EscolaSuspensaException;
 import br.pucminas.eduka.backend.repository.acesso.UsuarioRepository;
 import br.pucminas.eduka.backend.repository.escola.EscolaRepository;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.security.PasswordEncoderConfig;
+import br.pucminas.eduka.backend.security.RefreshTokenClaims;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -395,5 +398,121 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.definirSenhaDefinitiva("maria", "11144477735", "nova-senha-forte"))
                 .isInstanceOf(CredenciaisInvalidasException.class);
         verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void definirSenhaDefinitivaMarcaATrocaDeSenha() {
+        comSenhaProvisoria(AGORA.plusSeconds(3600));
+
+        authService.definirSenhaDefinitiva("maria", CPF, "nova-senha-forte");
+
+        assertThat(usuario.getSenhaAlteradaEm()).isEqualTo(AGORA);
+    }
+
+    // ---- Renovacao da sessao (POST /login/renovacao) ----
+
+    private void comRefreshValido(Instant emitidoEm) {
+        when(jwtService.verifyRefreshToken("refresh-antigo"))
+                .thenReturn(new RefreshTokenClaims(usuario.getId(), emitidoEm));
+    }
+
+    @Test
+    void renovarSessaoDevolveNovoParDeTokens() {
+        comRefreshValido(AGORA.minusSeconds(3600));
+        when(usuarioRepository.findById(usuario.getId())).thenReturn(Optional.of(usuario));
+        when(jwtService.generateAccessToken(usuario.getId(), "FINANCEIRO", usuario.getEscolaId()))
+                .thenReturn("access-novo");
+        when(jwtService.generateRefreshToken(usuario.getId())).thenReturn("refresh-novo");
+
+        LoginResponse response = authService.renovarSessao("refresh-antigo");
+
+        assertThat(response.accessToken()).isEqualTo("access-novo");
+        assertThat(response.refreshToken()).isEqualTo("refresh-novo");
+        assertThat(response.perfil()).isEqualTo(PerfilUsuario.FINANCEIRO);
+        verify(usuarioRepository).registrarAcesso(usuario.getId(), AGORA);
+    }
+
+    @Test
+    void renovarSessaoUsaOPerfilAtualDoCadastro() {
+        // O perfil mudou depois do login: o token novo sai com o perfil de agora.
+        usuario.setPerfil(PerfilUsuario.SECRETARIA);
+        comRefreshValido(AGORA.minusSeconds(60));
+        when(usuarioRepository.findById(usuario.getId())).thenReturn(Optional.of(usuario));
+
+        authService.renovarSessao("refresh-antigo");
+
+        verify(jwtService).generateAccessToken(usuario.getId(), "SECRETARIA", usuario.getEscolaId());
+    }
+
+    @Test
+    void renovarSessaoComRefreshInvalidoEhRecusada() {
+        when(jwtService.verifyRefreshToken("adulterado")).thenThrow(new JwtException("assinatura invalida"));
+
+        assertThatThrownBy(() -> authService.renovarSessao("adulterado"))
+                .isInstanceOf(SessaoExpiradaException.class);
+        verifyNoInteractions(usuarioRepository);
+    }
+
+    @Test
+    void renovarSessaoDeUsuarioInativoEhRecusada() {
+        usuario.setAtivo(false);
+        comRefreshValido(AGORA.minusSeconds(60));
+        when(usuarioRepository.findById(usuario.getId())).thenReturn(Optional.of(usuario));
+
+        assertThatThrownBy(() -> authService.renovarSessao("refresh-antigo"))
+                .isInstanceOf(SessaoExpiradaException.class);
+        verify(jwtService, never()).generateAccessToken(any(), any(), any());
+    }
+
+    @Test
+    void renovarSessaoDeUsuarioInexistenteEhRecusada() {
+        comRefreshValido(AGORA.minusSeconds(60));
+        when(usuarioRepository.findById(usuario.getId())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.renovarSessao("refresh-antigo"))
+                .isInstanceOf(SessaoExpiradaException.class);
+    }
+
+    @Test
+    void renovarSessaoComSenhaVoltandoAProvisoriaEhRecusada() {
+        usuario.setSenhaProvisoria(true);
+        comRefreshValido(AGORA.minusSeconds(60));
+        when(usuarioRepository.findById(usuario.getId())).thenReturn(Optional.of(usuario));
+
+        assertThatThrownBy(() -> authService.renovarSessao("refresh-antigo"))
+                .isInstanceOf(SessaoExpiradaException.class);
+    }
+
+    @Test
+    void renovarSessaoEmitidaAntesDaTrocaDeSenhaEhRecusada() {
+        usuario.trocarSenha(usuario.getSenhaHash(), AGORA.minusSeconds(10));
+        comRefreshValido(AGORA.minusSeconds(3600));
+        when(usuarioRepository.findById(usuario.getId())).thenReturn(Optional.of(usuario));
+
+        assertThatThrownBy(() -> authService.renovarSessao("refresh-antigo"))
+                .isInstanceOf(SessaoExpiradaException.class);
+    }
+
+    @Test
+    void renovarSessaoEmitidaNoMesmoSegundoDaTrocaDeSenhaContinuaValendo() {
+        // O iat do JWT so tem segundos: o login logo depois da troca nao pode cair.
+        usuario.trocarSenha(usuario.getSenhaHash(), AGORA.plusMillis(700));
+        comRefreshValido(AGORA);
+        when(usuarioRepository.findById(usuario.getId())).thenReturn(Optional.of(usuario));
+
+        authService.renovarSessao("refresh-antigo");
+
+        verify(jwtService).generateRefreshToken(usuario.getId());
+    }
+
+    @Test
+    void renovarSessaoDeEscolaSuspensaRespondeComoNoLogin() {
+        comRefreshValido(AGORA.minusSeconds(60));
+        when(usuarioRepository.findById(usuario.getId())).thenReturn(Optional.of(usuario));
+        when(escolaRepository.findById(usuario.getEscolaId())).thenReturn(Optional.of(escola(false)));
+
+        assertThatThrownBy(() -> authService.renovarSessao("refresh-antigo"))
+                .isInstanceOf(EscolaSuspensaException.class);
+        verify(jwtService, never()).generateRefreshToken(any());
     }
 }
