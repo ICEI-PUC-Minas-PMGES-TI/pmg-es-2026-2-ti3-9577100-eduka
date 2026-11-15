@@ -21,7 +21,8 @@ public record AlunoResponse(
         List<ResponsavelResponse> responsaveis,
         Situacao situacao,
         Long turmaId,
-        String turmaNome) {
+        String turmaNome,
+        LocalDate anonimizacaoPrevistaEm) {
 
     /**
      * Onde o aluno esta hoje, pelas matriculas: com uma ATIVA, so com uma
@@ -41,7 +42,7 @@ public record AlunoResponse(
     public static AlunoResponse deResumo(Aluno aluno, Pessoa pessoa, Situacao situacao, Long turmaId,
             String turmaNome) {
         return new AlunoResponse(aluno.getId(), aluno.getEscolaId(), pessoa.getNome(), null, null, null, null,
-                aluno.getMatricula(), aluno.getGenero(), List.of(), situacao, turmaId, turmaNome);
+                aluno.getMatricula(), aluno.getGenero(), List.of(), situacao, turmaId, turmaNome, null);
     }
 
     /** Detalhe de um aluno especifico: todo dado pessoal, ja decifrado. Situacao so se anonimizado ou inativo. */
@@ -50,7 +51,16 @@ public record AlunoResponse(
                 pessoa.getEmail(),
                 pessoa.getDataNascimento() == null ? null : LocalDate.parse(pessoa.getDataNascimento()),
                 enderecoDe(pessoa), aluno.getMatricula(), aluno.getGenero(), responsaveis,
-                situacaoDoCadastro(aluno), null, null);
+                situacaoDoCadastro(aluno), null, null, null);
+    }
+
+    /**
+     * O detalhe com o dia em que a politica de retencao anonimiza o aluno
+     * inativo (nulo para os demais).
+     */
+    public AlunoResponse comAnonimizacaoPrevistaEm(LocalDate dia) {
+        return new AlunoResponse(id, escolaId, nome, cpf, email, dataNascimento, endereco, matricula, genero,
+                responsaveis, situacao, turmaId, turmaNome, dia);
     }
 
     /** O que vale acima das matriculas: anonimizado, depois inativo. Nulo se nenhum dos dois. */

@@ -1,16 +1,24 @@
 package br.pucminas.eduka.backend.repository.pessoas;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import br.pucminas.eduka.backend.domain.pessoas.Aluno;
 
 public interface AlunoRepository extends JpaRepository<Aluno, UUID> {
 
     List<Aluno> findAllByEscolaId(UUID escolaId);
+
+    /** Inativos (ainda nao anonimizados) da escola, inativados ate {@code inativadosAte}: ja cumpriram a retencao. */
+    @Query("SELECT a.id FROM Aluno a WHERE a.escolaId = :escolaId AND a.ativo = false "
+            + "AND a.anonimizadoEm IS NULL AND a.inativadoEm <= :inativadosAte")
+    List<UUID> listarInativosAte(@Param("escolaId") UUID escolaId, @Param("inativadosAte") Instant inativadosAte);
 
     long countByEscolaId(UUID escolaId);
 

@@ -60,6 +60,7 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 import br.pucminas.eduka.backend.service.acesso.AcessoService;
 import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
+import br.pucminas.eduka.backend.service.privacidade.PoliticaRetencao;
 
 /**
  * Isolamento por escola no servico de aluno: toda consulta e escrita usa a
@@ -103,7 +104,8 @@ class AlunoServiceTest {
                 alunoResponsavelRepository, alunoRepository, pessoaRepository, pessoaPapelRepository,
                 cobrancaRepository, isolamentoEscola);
         alunoService = new AlunoService(alunoRepository, pessoaRepository, pessoaPapelRepository,
-                responsavelService, isolamentoEscola, acessoService, matriculaRepository, RELOGIO, auditoriaService);
+                responsavelService, isolamentoEscola, acessoService, matriculaRepository, RELOGIO, auditoriaService,
+                new PoliticaRetencao(5));
     }
 
     @AfterEach
@@ -682,6 +684,8 @@ class AlunoServiceTest {
 
         assertThat(ana.isAtivo()).isFalse();
         assertThat(ana.getAtualizadoEm()).isEqualTo(RELOGIO.instant());
+        assertThat(ana.getInativadoEm()).isEqualTo(RELOGIO.instant());
+        assertThat(resposta.anonimizacaoPrevistaEm()).isEqualTo(HOJE_NA_ESCOLA.plusYears(5));
         assertThat(resposta.situacao()).isEqualTo(AlunoResponse.Situacao.INATIVO);
         assertThat(resposta.cpf()).isEqualTo("12345678900");
         verify(acessoService).definirAtivo(pessoaAna, false);
@@ -735,6 +739,7 @@ class AlunoServiceTest {
         Pessoa pessoaAna = pessoa("Ana");
         Aluno ana = alunoDaEscolaA(pessoaAna);
         ana.setAtivo(false);
+        ana.setInativadoEm(RELOGIO.instant());
         when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
         when(alunoRepository.save(ana)).thenReturn(ana);
 
@@ -742,6 +747,8 @@ class AlunoServiceTest {
 
         assertThat(ana.isAtivo()).isTrue();
         assertThat(resposta.situacao()).isNull();
+        assertThat(ana.getInativadoEm()).isNull();
+        assertThat(resposta.anonimizacaoPrevistaEm()).isNull();
         verify(acessoService).definirAtivo(pessoaAna, true);
         verify(auditoriaService).registrar(OperacaoAuditoria.ATIVAR, EntidadeAuditada.ALUNO, ana.getId());
     }

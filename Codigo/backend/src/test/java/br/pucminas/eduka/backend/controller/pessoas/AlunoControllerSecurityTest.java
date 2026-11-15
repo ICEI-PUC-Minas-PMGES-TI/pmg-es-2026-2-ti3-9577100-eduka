@@ -49,6 +49,7 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.security.PasswordEncoderConfig;
+import br.pucminas.eduka.backend.service.privacidade.PoliticaRetencao;
 import br.pucminas.eduka.backend.service.acesso.AcessoService;
 import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 import br.pucminas.eduka.backend.service.pessoas.AlunoService;
@@ -62,7 +63,8 @@ import br.pucminas.eduka.backend.service.pessoas.ResponsavelService;
  */
 @WebMvcTest(AlunoController.class)
 @Import({ JwtConfig.class, JwtService.class, IsolamentoEscola.class, ApiExceptionHandler.class,
-        AlunoService.class, ResponsavelService.class, AcessoService.class, PasswordEncoderConfig.class })
+        AlunoService.class, PoliticaRetencao.class, ResponsavelService.class, AcessoService.class,
+        PasswordEncoderConfig.class })
 class AlunoControllerSecurityTest {
 
     private static final UUID ESCOLA_A = UUID.randomUUID();

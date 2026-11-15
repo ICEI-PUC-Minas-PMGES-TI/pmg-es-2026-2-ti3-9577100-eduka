@@ -177,3 +177,28 @@ describe('Detalhes do aluno: identificação (IU18, campo 1)', () => {
     expect(chamadas.some((c) => c.caminho.startsWith('/matriculas'))).toBe(false)
   })
 })
+
+describe('Detalhes do aluno: política de retenção', () => {
+  function abrirComo(aluno: Aluno) {
+    simularApi(({ caminho }) => (caminho === '/alunos/ana' ? { corpo: aluno } : undefined))
+    render(
+      <DetalhesAlunoModal
+        aluno={{ id: 'ana', nome: 'Ana Souza', matricula: '2026001', genero: null, turmaNome: null }}
+        onFechar={() => undefined}
+      />,
+    )
+  }
+
+  it('aluno inativo mostra quando será anonimizado', async () => {
+    abrirComo({ ...ANA, situacao: 'INATIVO', anonimizacaoPrevistaEm: '2031-11-15' })
+
+    expect(await screen.findByText(/serão anonimizados automaticamente em 15\/11\/2031/)).toBeInTheDocument()
+  })
+
+  it('aluno ativo não mostra o aviso', async () => {
+    abrirComo(ANA)
+
+    await screen.findByText('529.982.247-25')
+    expect(screen.queryByText(/anonimizados automaticamente/)).not.toBeInTheDocument()
+  })
+})
