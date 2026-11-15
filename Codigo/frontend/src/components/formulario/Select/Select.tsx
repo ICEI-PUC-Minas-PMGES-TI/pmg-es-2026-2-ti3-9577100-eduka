@@ -14,6 +14,11 @@ type SelectProps<T extends string> = {
   onChange: (valor: T) => void
   /** Texto exibido quando o valor atual não corresponde a nenhuma opção (ex.: ''). */
   placeholder?: string
+  /**
+   * Opção destacada ao abrir enquanto nada foi escolhido (ex.: o mês atual
+   * numa lista longa de meses); sem ela, a primeira.
+   */
+  sugestao?: T
   /** Classe do botão; o Campo passa a dele para ficar igual aos inputs. */
   className?: string
   /** Aplicada ao botão quando há uma opção escolhida. */
@@ -40,6 +45,7 @@ export function Select<T extends string>({
   valor,
   onChange,
   placeholder = 'Selecione…',
+  sugestao,
   className,
   classNamePreenchido,
   id,
@@ -71,16 +77,19 @@ export function Select<T extends string>({
     if (aberto) listaRef.current?.focus({ preventScroll: true })
   }, [aberto])
 
-  // Mantém a opção destacada visível em listas com rolagem (ex.: UFs).
+  // Mantém a opção destacada visível em listas com rolagem (ex.: UFs). Depende
+  // também da posição: a lista só é montada (pelo portal) depois de posicionada,
+  // e sem ela o efeito rodaria antes de a lista existir.
   useEffect(() => {
     if (!aberto) return
     document.getElementById(`${idBase}-opcao-${destacado}`)?.scrollIntoView({ block: 'nearest' })
-  }, [aberto, destacado, idBase])
+  }, [aberto, destacado, idBase, posicao])
 
   useEffect(() => () => window.clearTimeout(busca.current.timer), [])
 
   function abrir() {
-    setDestacado(Math.max(indiceAtual, 0))
+    const indiceSugerido = sugestao === undefined ? -1 : opcoes.findIndex((o) => o.valor === sugestao)
+    setDestacado(indiceAtual >= 0 ? indiceAtual : Math.max(indiceSugerido, 0))
     setAberto(true)
   }
 

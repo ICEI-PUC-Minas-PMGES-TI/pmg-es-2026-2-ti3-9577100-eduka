@@ -1,10 +1,13 @@
 import { useState, type FormEvent } from 'react'
+import { Select } from '../../../../../components/formulario/Select/Select'
 import { Button } from '../../../../../components/ui/Button/Button'
 import { Modal } from '../../../../../components/modal/Modal/Modal'
 import { ApiError } from '../../../../../services/api'
 import { atualizarAulaDaGrade, criarAulaNaGrade, removerAulaDaGrade } from '../../../../../services/academico/horarioService'
 import { DIAS_SEMANA, horaCurta, type DiaSemana, type HorarioTurma } from '../../../../../types/academico/horario'
 import styles from './ModalHorarioDisciplina.module.css'
+
+const OPCOES_DIA = DIAS_SEMANA.map((d) => ({ valor: d.dia, rotulo: d.longo }))
 
 /** Uma aula no formulário; sem id ainda não está na grade. */
 type Linha = { id?: string; diaSemana: DiaSemana; horaInicio: string; horaFim: string }
@@ -113,18 +116,13 @@ export function ModalHorarioDisciplina({
       <ul className={styles.linhas}>
         {linhas.map((linha, indice) => (
           <li key={linha.id ?? `nova-${indice}`} className={styles.linha}>
-            <select
+            <Select
               className={styles.campo}
               aria-label={`Dia da aula ${indice + 1}`}
-              value={linha.diaSemana}
-              onChange={(e) => alterar(indice, 'diaSemana', e.target.value)}
-            >
-              {DIAS_SEMANA.map((d) => (
-                <option key={d.dia} value={d.dia}>
-                  {d.longo}
-                </option>
-              ))}
-            </select>
+              opcoes={OPCOES_DIA}
+              valor={linha.diaSemana}
+              onChange={(dia) => alterar(indice, 'diaSemana', dia)}
+            />
             <input
               type="time"
               className={styles.campo}

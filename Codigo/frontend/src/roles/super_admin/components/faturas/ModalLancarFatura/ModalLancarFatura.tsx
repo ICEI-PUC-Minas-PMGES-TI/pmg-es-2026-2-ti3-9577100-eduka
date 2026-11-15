@@ -1,10 +1,31 @@
 import { useState } from 'react'
 import { Campo } from '../../../../../components/formulario/Campo/Campo'
 import { CampoData } from '../../../../../components/formulario/CampoData/CampoData'
+import { Select } from '../../../../../components/formulario/Select/Select'
 import { ModalCadastro } from '../../../../../components/modal/ModalCadastro/ModalCadastro'
 import type { LancarFaturaRequest } from '../../../../../types/escola/faturaPlataforma'
 import { hojeIso } from '../../../../../utils/formatters'
 import { lerValor, MAX_DESCRICAO, traduzirErroLancar } from '../FormLancarFatura/regrasFatura'
+
+/** Meses oferecidos na competência, antes e depois do atual. */
+const MESES_EM_VOLTA = 12
+
+/**
+ * Opções da competência ("Novembro de 2026" -> "2026-11"), do mês atual
+ * para trás e para a frente, na ordem do calendário. No lugar do
+ * <input type="month">, cujo seletor é desenhado pelo navegador.
+ */
+function mesesEmVolta(mesAtual: string): { valor: string; rotulo: string }[] {
+  const [ano, mes] = mesAtual.split('-').map(Number)
+  return Array.from({ length: MESES_EM_VOLTA * 2 + 1 }, (_, i) => {
+    const data = new Date(ano, mes - 1 - MESES_EM_VOLTA + i, 1)
+    const rotulo = data.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+    return {
+      valor: `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`,
+      rotulo: rotulo.charAt(0).toUpperCase() + rotulo.slice(1),
+    }
+  })
+}
 
 type Campos = { competencia: string; descricao: string; valor: string; dataVencimento: string }
 type Erros = Partial<Record<keyof Campos, string>>
@@ -25,6 +46,7 @@ export function ModalLancarFatura({ escolaNome, onFechar, onLancar }: ModalLanca
     dataVencimento: '',
   })
   const [erros, setErros] = useState<Erros>({})
+  const [opcoesCompetencia] = useState(() => mesesEmVolta(hojeIso().slice(0, 7)))
 
   function alterar(campo: keyof Campos, valor: string) {
     setCampos((c) => ({ ...c, [campo]: valor }))
@@ -60,12 +82,14 @@ export function ModalLancarFatura({ escolaNome, onFechar, onLancar }: ModalLanca
     >
       <Campo label="Competência" erro={erros.competencia} obrigatorio>
         {(props) => (
-          <input
+          <Select
             {...props}
-            type="month"
             name="competencia"
-            value={campos.competencia}
-            onChange={(e) => alterar('competencia', e.target.value)}
+            placeholder="Escolha o mês"
+            opcoes={opcoesCompetencia}
+            sugestao={hojeIso().slice(0, 7)}
+            valor={campos.competencia}
+            onChange={(competencia) => alterar('competencia', competencia)}
           />
         )}
       </Campo>
