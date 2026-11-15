@@ -51,3 +51,28 @@ describe('Select: onde a lista abre', () => {
     expect(screen.getByRole('combobox', { name: 'Escolha' })).toHaveTextContent('Opção B')
   })
 })
+
+describe('Select: opção destacada ao abrir', () => {
+  function SemEscolha({ sugestao }: { sugestao?: string }) {
+    const [valor, setValor] = useState('')
+    return <Select aria-label="Escolha" opcoes={OPCOES} valor={valor} sugestao={sugestao} onChange={setValor} />
+  }
+
+  it('sem nada escolhido, destaca a sugestão; Enter escolhe ela', async () => {
+    render(<SemEscolha sugestao="b" />)
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Escolha' }))
+    await userEvent.keyboard('{Enter}')
+
+    expect(screen.getByRole('combobox', { name: 'Escolha' })).toHaveTextContent('Opção B')
+  })
+
+  it('sem sugestão, destaca a primeira', async () => {
+    render(<SemEscolha />)
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Escolha' }))
+    await userEvent.keyboard('{Enter}')
+
+    expect(screen.getByRole('combobox', { name: 'Escolha' })).toHaveTextContent('Opção A')
+  })
+})

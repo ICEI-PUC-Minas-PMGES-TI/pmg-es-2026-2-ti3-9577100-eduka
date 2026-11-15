@@ -45,7 +45,8 @@ describe('ModalHorarioDisciplina', () => {
 
     expect(screen.getByLabelText('Início da aula 1')).toHaveValue('07:30')
     await userEvent.click(screen.getByRole('button', { name: /adicionar aula/i }))
-    await userEvent.selectOptions(screen.getByLabelText('Dia da aula 2'), 'QUARTA')
+    await userEvent.click(screen.getByRole('combobox', { name: 'Dia da aula 2' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Quarta' }))
     await userEvent.click(screen.getByRole('button', { name: /salvar horário/i }))
 
     expect(chamadas).toHaveLength(1)
