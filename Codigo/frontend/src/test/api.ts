@@ -23,7 +23,13 @@ export function cortarPagina<T>(itens: T[], caminho: string): PaginaDoBackend<T>
 /** O que o backend responde: o corpo vira JSON; status padrão 200. */
 export type RespostaApi = { status?: number; corpo?: unknown }
 
-export type ChamadaApi = { metodo: string; caminho: string; corpo: unknown }
+export type ChamadaApi = {
+  metodo: string
+  caminho: string
+  corpo: unknown
+  /** Token do header Authorization, sem o "Bearer ", ou null quando foi sem. */
+  token: string | null
+}
 
 /** ProblemDetail de erro como o ApiExceptionHandler devolve, com o `codigo` que as telas leem. */
 export function problema(status: number, codigo: string, detail?: string): RespostaApi {
@@ -47,6 +53,7 @@ export function simularApi(responder: (chamada: ChamadaApi) => RespostaApi | und
         metodo: init.method ?? 'GET',
         caminho: url.replace(/^https?:\/\/[^/]+/, '').replace(/^\/api(?=\/)/, ''),
         corpo: typeof init.body === 'string' ? JSON.parse(init.body) : undefined,
+        token: new Headers(init.headers).get('Authorization')?.replace(/^Bearer /, '') ?? null,
       }
       chamadas.push(chamada)
       const resposta = responder(chamada)

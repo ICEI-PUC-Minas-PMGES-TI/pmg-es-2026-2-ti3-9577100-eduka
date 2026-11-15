@@ -125,7 +125,7 @@ describe('ModalPagamentoFatura', () => {
 
     expect(await screen.findByAltText('QR Code do PIX para pagar a fatura')).toBeInTheDocument()
     expect(screen.getByLabelText('PIX copia e cola')).toHaveValue('00020126580014br.gov.bcb.pix')
-    expect(chamadas[0]).toEqual({ metodo: 'POST', caminho: '/config-pagamento/faturas/fatura-1/pagar', corpo: { forma: 'PIX' } })
+    expect(chamadas[0]).toMatchObject({ metodo: 'POST', caminho: '/config-pagamento/faturas/fatura-1/pagar', corpo: { forma: 'PIX' } })
 
     await esperarConsulta()
     expect(screen.queryByText('Pagamento confirmado!')).not.toBeInTheDocument()
