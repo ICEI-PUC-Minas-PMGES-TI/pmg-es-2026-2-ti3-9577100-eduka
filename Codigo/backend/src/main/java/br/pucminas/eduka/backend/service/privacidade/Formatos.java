@@ -11,9 +11,9 @@ import java.util.Locale;
 /**
  * Como os dados aparecem para gente, no padrao brasileiro (documentos para
  * imprimir ou entregar ao titular). Valor nulo vira nulo: quem desenha decide
- * o que mostrar no lugar.
+ * o que mostrar no lugar. Tambem o cabecalho da planilha do relatorio financeiro.
  */
-final class Formatos {
+public final class Formatos {
 
     private static final Locale BRASIL = Locale.forLanguageTag("pt-BR");
     private static final ZoneId FUSO_ESCOLA = ZoneId.of("America/Sao_Paulo");
@@ -23,16 +23,16 @@ final class Formatos {
     private Formatos() {
     }
 
-    static String data(LocalDate data) {
+    public static String data(LocalDate data) {
         return data == null ? null : DATA.format(data);
     }
 
-    static String data(Instant instante) {
+    public static String data(Instant instante) {
         return instante == null ? null : DATA.format(instante.atZone(FUSO_ESCOLA));
     }
 
     /** "08/11/2026 às 14:32", no horario da escola. */
-    static String dataHora(Instant instante) {
+    public static String dataHora(Instant instante) {
         if (instante == null) {
             return null;
         }
@@ -41,7 +41,7 @@ final class Formatos {
     }
 
     /** "R$ 1.234,56", com espaco comum (o NumberFormat usa o nao separavel). */
-    static String moeda(BigDecimal valor) {
+    public static String moeda(BigDecimal valor) {
         if (valor == null) {
             return null;
         }
@@ -49,7 +49,7 @@ final class Formatos {
     }
 
     /** "8,5": sem zeros sobrando a direita. */
-    static String numero(BigDecimal valor) {
+    public static String numero(BigDecimal valor) {
         if (valor == null) {
             return null;
         }
@@ -58,7 +58,7 @@ final class Formatos {
         return formato.format(valor);
     }
 
-    static String cpf(String cpf) {
+    public static String cpf(String cpf) {
         String digitos = digitos(cpf);
         if (digitos == null || digitos.length() != 11) {
             return cpf;
@@ -67,7 +67,7 @@ final class Formatos {
     }
 
     /** CPF ou CNPJ, pelo numero de digitos. */
-    static String documento(String documento) {
+    public static String documento(String documento) {
         String digitos = digitos(documento);
         if (digitos != null && digitos.length() == 14) {
             return digitos.replaceFirst("(\\d{2})(\\d{3})(\\d{3})(\\d{4})(\\d{2})", "$1.$2.$3/$4-$5");
@@ -75,7 +75,7 @@ final class Formatos {
         return cpf(documento);
     }
 
-    static String cep(String cep) {
+    public static String cep(String cep) {
         String digitos = digitos(cep);
         if (digitos == null || digitos.length() != 8) {
             return cep;
@@ -83,7 +83,7 @@ final class Formatos {
         return digitos.substring(0, 5) + "-" + digitos.substring(5);
     }
 
-    static String telefone(String telefone) {
+    public static String telefone(String telefone) {
         String digitos = digitos(telefone);
         if (digitos == null) {
             return telefone;

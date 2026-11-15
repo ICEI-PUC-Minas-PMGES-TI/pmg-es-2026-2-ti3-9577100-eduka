@@ -1,0 +1,84 @@
+.seta {
+  flex-shrink: 0;
+  margin-left: -2px;
+  transition: transform 0.15s;
+}
+
+.setaAberta {
+  transform: rotate(180deg);
+}
+
+/* O mesmo vidro opaco da lista do Select; fixo na tela, posicionado pelo hook. */
+.menu {
+  position: fixed;
+  z-index: 100;
+  margin: 0;
+  padding: 8px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: max-content;
+  max-width: min(340px, calc(100vw - 16px));
+  background: var(--glass-bg-opaque);
+  border: var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow-opaque);
+  color: var(--color-text);
+  animation: var(--animacao-surgir);
+}
+
+.menu:focus {
+  outline: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition:
+    background-color 0.12s,
+    border-color 0.12s;
+}
+
+/* Sob o mouse/teclado: pílula de vidro lavanda, como a opção do Select. */
+.itemDestacado {
+  border-color: rgba(255, 255, 255, 0.9);
+  background: var(--glass-bg-tint);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 8px rgba(150, 103, 224, 0.12);
+}
+
+.icone {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+}
+
+.texto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.texto strong {
+  font-family: var(--font-display);
+  font-size: 14.5px;
+  font-weight: 800;
+}
+
+.texto span {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}

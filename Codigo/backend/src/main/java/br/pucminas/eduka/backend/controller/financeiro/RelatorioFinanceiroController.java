@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.pucminas.eduka.backend.dto.comum.ArquivoCsv;
+import br.pucminas.eduka.backend.dto.comum.ArquivoPlanilha;
 import br.pucminas.eduka.backend.dto.financeiro.RelatorioFinanceiroResponse;
 import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.financeiro.RelatorioFinanceiroService;
@@ -34,6 +35,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public class RelatorioFinanceiroController {
 
     private static final MediaType CSV = new MediaType("text", "csv", StandardCharsets.UTF_8);
+    static final String XLSX_VALUE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     private final RelatorioFinanceiroService relatorioFinanceiroService;
 
@@ -77,6 +79,27 @@ public class RelatorioFinanceiroController {
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.attachment().filename(arquivo.nome()).build().toString())
                 // Traz nomes de alunos e valores: nao fica em cache compartilhado.
+                .cacheControl(CacheControl.noStore())
+                .body(arquivo.conteudo());
+    }
+
+    @GetMapping("/planilha")
+    @PreAuthorize(Perfis.FINANCEIRO)
+    @Operation(summary = "Exportar o relatorio em planilha (.xlsx)",
+            description = "Planilha editavel com a identidade da escola (nome, documento e contato no topo de cada "
+                    + "aba, e o nome dela no arquivo). A aba Resumo traz os numeros da tela; as abas Cobrancas, "
+                    + "Pagamentos e Despesas trazem as mesmas linhas do CSV como tabelas do Excel, com filtro, "
+                    + "listas suspensas e totais por formula. Vem como anexo, sem cache. Perfis: MASTER, FINANCEIRO.")
+    @ApiResponse(responseCode = "200", description = "A planilha .xlsx.",
+            content = @Content(mediaType = XLSX_VALUE, schema = @Schema(type = "string", format = "binary")))
+    @ApiResponse(responseCode = "400", description = "Periodo invertido, com mais de 24 meses ou data invalida.")
+    public ResponseEntity<byte[]> exportarPlanilha(@RequestParam @DateTimeFormat(iso = ISO.DATE) LocalDate de,
+            @RequestParam @DateTimeFormat(iso = ISO.DATE) LocalDate ate) {
+        ArquivoPlanilha arquivo = relatorioFinanceiroService.exportarPlanilha(de, ate);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(XLSX_VALUE))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename(arquivo.nome()).build().toString())
                 .cacheControl(CacheControl.noStore())
                 .body(arquivo.conteudo());
     }

@@ -245,6 +245,33 @@ export async function apiBaixarArquivo(caminho: string, accept: string, signal?:
   return resposta.blob()
 }
 
+/**
+ * Como o apiBaixarArquivo, com o nome que o backend deu ao anexo (o
+ * Content-Disposition, exposto pelo CORS); nulo se não veio.
+ */
+export async function apiBaixarArquivoComNome(
+  caminho: string,
+  accept: string,
+): Promise<{ conteudo: Blob; nome: string | null }> {
+  const resposta = await enviar(caminho, {}, accept)
+  return { conteudo: await resposta.blob(), nome: nomeDoAnexo(resposta.headers.get('Content-Disposition')) }
+}
+
+/** `attachment; filename="a.xlsx"` (ou filename*=UTF-8''a.xlsx) → "a.xlsx". */
+export function nomeDoAnexo(cabecalho: string | null): string | null {
+  if (!cabecalho) return null
+  const codificado = /filename\*=UTF-8''([^;]+)/i.exec(cabecalho)
+  if (codificado) {
+    try {
+      return decodeURIComponent(codificado[1].trim())
+    } catch {
+      // Codificação quebrada: tenta o filename simples.
+    }
+  }
+  const simples = /filename="?([^";]+)"?/i.exec(cabecalho)
+  return simples ? simples[1].trim() : null
+}
+
 /** Login certo de escola suspensa pelo SUPER_ADMIN (RF24): a tela vai para o aviso (IU04). */
 export function ehEscolaSuspensa(erro: unknown): boolean {
   return erro instanceof ApiError && erro.codigo === 'ESCOLA_SUSPENSA'

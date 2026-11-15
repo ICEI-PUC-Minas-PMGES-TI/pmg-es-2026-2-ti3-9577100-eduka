@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Badge } from '../../../../components/ui/Badge/Badge'
 import { Button } from '../../../../components/ui/Button/Button'
+import { MenuBotao } from '../../../../components/ui/MenuBotao/MenuBotao'
 import { Campo } from '../../../../components/formulario/Campo/Campo'
 import { CampoData } from '../../../../components/formulario/CampoData/CampoData'
 import type { Periodo } from '../../../../components/formulario/CampoPeriodo/CampoPeriodo'
@@ -15,7 +16,11 @@ import { Pilulas } from '../../../../components/financeiro/PainelFinanceiro/Pain
 import { erroDoPeriodo, nomeDoMes, quantasCobrancas, rotuladorDeMeses } from '../../../../components/financeiro/PainelFinanceiro/textos'
 import { StatCard, StatCards } from '../../../../components/ui/StatCard/StatCard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
-import { obterRelatorioFinanceiro } from '../../../../services/financeiro/relatorioFinanceiroService'
+import { ApiError } from '../../../../services/api'
+import {
+  exportarPlanilhaRelatorioFinanceiro,
+  obterRelatorioFinanceiro,
+} from '../../../../services/financeiro/relatorioFinanceiroService'
 import { ROTULOS_TIPO_COBRANCA, type TipoCobranca } from '../../../../types/financeiro/cobranca'
 import { ROTULOS_FORMA_PAGAMENTO } from '../../../../types/financeiro/pagamentoAluno'
 import type { FormaRelatorio, LinhaResumo, RelatorioFinanceiro } from '../../../../types/financeiro/relatorioFinanceiro'
@@ -26,6 +31,7 @@ import {
   hojeIso,
   plural,
 } from '../../../../utils/formatters'
+import { salvarArquivo } from '../../../../utils/arquivos'
 import { ModalExportarCsv } from '../../components/ModalExportarCsv/ModalExportarCsv'
 import { FinanceiroLayout } from '../../layouts/FinanceiroLayout'
 import { datasDoPeriodoRapido, PERIODOS_RAPIDOS, type PeriodoRapido } from './periodos'
@@ -33,7 +39,7 @@ import styles from './Relatorios.module.css'
 
 const PERIODO_INICIAL: PeriodoRapido = 'BIMESTRE'
 
-/** Relatórios financeiros (IU19): o período, os números dele e a exportação em CSV. */
+/** Relatórios financeiros (IU19): o período, os números dele e a exportação em CSV ou planilha. */
 export function Relatorios() {
   const [periodo, setPeriodo] = useState<Periodo>(() => datasDoPeriodoRapido(PERIODO_INICIAL, hojeIso()))
   const [rapido, setRapido] = useState<PeriodoRapido | null>(PERIODO_INICIAL)
@@ -42,6 +48,8 @@ export function Relatorios() {
   const [ate, setAte] = useState(periodo.ate)
   const [erroPeriodo, setErroPeriodo] = useState<string | null>(null)
   const [exportando, setExportando] = useState(false)
+  const [gerandoPlanilha, setGerandoPlanilha] = useState(false)
+  const [erroPlanilha, setErroPlanilha] = useState<string | null>(null)
 
   const buscar = useMemo(() => (signal: AbortSignal) => obterRelatorioFinanceiro(periodo, signal), [periodo])
   const { dados, carregando, erro, recarregar } = useCarregamento<RelatorioFinanceiro | null>(
@@ -70,14 +78,48 @@ export function Relatorios() {
     if (!problema) setPeriodo({ de, ate })
   }
 
+  /** A planilha sai direto, com o período da tela: não há o que escolher, ela traz tudo. */
+  async function baixarPlanilha() {
+    setGerandoPlanilha(true)
+    setErroPlanilha(null)
+    try {
+      const { conteudo, nome } = await exportarPlanilhaRelatorioFinanceiro(periodo)
+      salvarArquivo(conteudo, nome)
+    } catch (e) {
+      setErroPlanilha(e instanceof ApiError ? (e.detalhe ?? e.message) : 'Não foi possível gerar a planilha.')
+    } finally {
+      setGerandoPlanilha(false)
+    }
+  }
+
   return (
     <FinanceiroLayout
       titulo="Relatórios financeiros"
-      subtitulo="Escolha o período, confira os números e exporte em CSV."
+      subtitulo="Escolha o período, confira os números e exporte em CSV ou planilha."
       acao={
-        <Button variant="primary" icon="download" disabled={!dados} onClick={() => setExportando(true)}>
-          Exportar CSV
-        </Button>
+        <MenuBotao
+          variant="primary"
+          icon="download"
+          disabled={!dados || gerandoPlanilha}
+          itens={[
+            {
+              id: 'csv',
+              rotulo: 'CSV',
+              descricao: 'Arquivo simples, para importar em outros sistemas',
+              icone: 'fileText',
+              onSelecionar: () => setExportando(true),
+            },
+            {
+              id: 'planilha',
+              rotulo: 'Planilha',
+              descricao: 'Excel com a identidade da escola, resumo, filtros e totais',
+              icone: 'sheet',
+              onSelecionar: baixarPlanilha,
+            },
+          ]}
+        >
+          {gerandoPlanilha ? 'Gerando planilha…' : 'Exportar'}
+        </MenuBotao>
       }
     >
       <section className={styles.filtros} aria-label="Período do relatório">
@@ -116,6 +158,11 @@ export function Relatorios() {
         {erroPeriodo && (
           <p className={styles.erroPeriodo} role="alert">
             {erroPeriodo}
+          </p>
+        )}
+        {erroPlanilha && (
+          <p className={styles.erroPeriodo} role="alert">
+            {erroPlanilha}
           </p>
         )}
       </section>

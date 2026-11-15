@@ -153,6 +153,12 @@ const paths = {
       <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
     </>
   ),
+  sheet: (
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M3 9h18M3 15h18M9 9v12M15 9v12" />
+    </>
+  ),
   dollarSign: (
     <>
       <line x1="12" y1="1" x2="12" y2="23" />

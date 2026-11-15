@@ -199,6 +199,7 @@ class MatrizDeAcessoTest {
                 "GET /dashboard/financeiro/movimento",
                 "GET /relatorios/financeiro",
                 "GET /relatorios/financeiro/exportar",
+                "GET /relatorios/financeiro/planilha",
                 "GET /alunos/{alunoId}/financeiro",
                 "GET /alunos/{alunoId}/financeiro/risco",
                 "GET /cobrancas",
