@@ -160,7 +160,7 @@ public class RecuperacaoSenhaService {
             throw new CodigoRecuperacaoInvalidoException();
         }
 
-        usuario.setSenhaHash(passwordEncoder.encode(novaSenha));
+        usuario.trocarSenha(passwordEncoder.encode(novaSenha), agora);
         usuario.setSenhaProvisoria(false);
         usuario.setSenhaProvisoriaExpiraEm(null);
         usuarioRepository.save(usuario);

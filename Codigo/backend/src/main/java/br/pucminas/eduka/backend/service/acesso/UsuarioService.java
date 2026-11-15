@@ -1,6 +1,7 @@
 package br.pucminas.eduka.backend.service.acesso;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -37,12 +38,14 @@ public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
     private final IsolamentoEscola isolamentoEscola;
+    private final Clock clock;
 
     public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
-            IsolamentoEscola isolamentoEscola) {
+            IsolamentoEscola isolamentoEscola, Clock clock) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.isolamentoEscola = isolamentoEscola;
+        this.clock = clock;
     }
 
     /**
@@ -92,7 +95,7 @@ public class UsuarioService {
         }
 
         validarSenha(novaSenha);
-        usuario.setSenhaHash(passwordEncoder.encode(novaSenha));
+        usuario.trocarSenha(passwordEncoder.encode(novaSenha), clock.instant());
         usuarioRepository.save(usuario);
     }
 

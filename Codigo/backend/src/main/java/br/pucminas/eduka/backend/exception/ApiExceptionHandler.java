@@ -30,6 +30,7 @@ import br.pucminas.eduka.backend.exception.acesso.LoginJaCadastradoException;
 import br.pucminas.eduka.backend.exception.acesso.ReenvioCodigoIndisponivelException;
 import br.pucminas.eduka.backend.exception.acesso.SenhaInvalidaException;
 import br.pucminas.eduka.backend.exception.acesso.SenhaProvisoriaExpiradaException;
+import br.pucminas.eduka.backend.exception.acesso.SessaoExpiradaException;
 import br.pucminas.eduka.backend.exception.acesso.VerificacaoLoginEncerradaException;
 import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.exception.comum.RegistroEmUsoException;
@@ -89,6 +90,13 @@ public class ApiExceptionHandler {
     public ResponseEntity<ProblemDetail> credenciaisInvalidas(CredenciaisInvalidasException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(problema(HttpStatus.UNAUTHORIZED, ex.getMessage()));
+    }
+
+    /** O front reconhece pelo {@code codigo}, descarta a sessao e volta ao login. */
+    @ExceptionHandler(SessaoExpiradaException.class)
+    public ResponseEntity<ProblemDetail> sessaoExpirada(SessaoExpiradaException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(problema(HttpStatus.UNAUTHORIZED, ex.getMessage(), "SESSAO_EXPIRADA"));
     }
 
     /** O front reconhece pelo {@code codigo} e mostra o aviso de suspensao (IU04). */

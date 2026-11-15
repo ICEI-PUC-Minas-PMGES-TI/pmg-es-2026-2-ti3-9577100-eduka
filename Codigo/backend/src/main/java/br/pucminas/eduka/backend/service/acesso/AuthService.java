@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.util.UUID;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,11 +15,13 @@ import br.pucminas.eduka.backend.dto.acesso.VerificacaoLoginResponse;
 import br.pucminas.eduka.backend.exception.acesso.CredenciaisInvalidasException;
 import br.pucminas.eduka.backend.exception.acesso.SenhaInvalidaException;
 import br.pucminas.eduka.backend.exception.acesso.SenhaProvisoriaExpiradaException;
+import br.pucminas.eduka.backend.exception.acesso.SessaoExpiradaException;
 import br.pucminas.eduka.backend.exception.acesso.VerificacaoLoginEncerradaException;
 import br.pucminas.eduka.backend.exception.escola.EscolaSuspensaException;
 import br.pucminas.eduka.backend.repository.acesso.UsuarioRepository;
 import br.pucminas.eduka.backend.repository.escola.EscolaRepository;
 import br.pucminas.eduka.backend.security.JwtService;
+import br.pucminas.eduka.backend.security.RefreshTokenClaims;
 
 /**
  * Login (RF03). A senha recebida nunca e comparada com a coluna diretamente:
@@ -102,7 +105,7 @@ public class AuthService {
             throw new SenhaInvalidaException("Nova senha deve ser diferente da senha provisoria");
         }
 
-        usuario.setSenhaHash(passwordEncoder.encode(novaSenha));
+        usuario.trocarSenha(passwordEncoder.encode(novaSenha), clock.instant());
         usuario.setSenhaProvisoria(false);
         usuario.setSenhaProvisoriaExpiraEm(null);
         usuarioRepository.save(usuario);
@@ -128,6 +131,39 @@ public class AuthService {
 
     public VerificacaoLoginResponse reenviarCodigo(UUID verificacaoId) {
         return verificacaoLoginService.reenviar(verificacaoId);
+    }
+
+    /**
+     * Troca um refresh token valido por um novo par de tokens, para o front
+     * renovar o acesso antes de ele vencer sem pedir a senha de novo.
+     *
+     * <p>
+     * Perfil e escola saem do cadastro atual, nunca do token antigo. Valem as
+     * mesmas barreiras do login: usuario inativo, com senha provisoria ou com
+     * a senha trocada depois da emissao do refresh nao renova
+     * ({@link SessaoExpiradaException}); escola suspensa responde como no
+     * login ({@link EscolaSuspensaException}).
+     * </p>
+     */
+    @Transactional
+    public LoginResponse renovarSessao(String refreshToken) {
+        RefreshTokenClaims claims;
+        try {
+            claims = jwtService.verifyRefreshToken(refreshToken);
+        } catch (JwtException | IllegalArgumentException e) {
+            throw new SessaoExpiradaException();
+        }
+        if (claims.issuedAt() == null) {
+            throw new SessaoExpiradaException();
+        }
+
+        Usuario usuario = usuarioRepository.findById(claims.userId())
+                .filter(Usuario::isAtivo)
+                .filter(u -> !u.isSenhaProvisoria())
+                .filter(u -> !u.sessaoAnteriorATrocaDeSenha(claims.issuedAt()))
+                .orElseThrow(SessaoExpiradaException::new);
+        exigirEscolaAtiva(usuario);
+        return emitirTokens(usuario);
     }
 
     /** Login inexistente, senha errada e usuario inativo sao indistinguiveis. */

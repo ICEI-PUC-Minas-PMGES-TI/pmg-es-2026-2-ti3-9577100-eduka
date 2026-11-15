@@ -10,6 +10,7 @@ import br.pucminas.eduka.backend.dto.acesso.LoginRequest;
 import br.pucminas.eduka.backend.dto.acesso.LoginResponse;
 import br.pucminas.eduka.backend.dto.acesso.PrimeiroAcessoRequest;
 import br.pucminas.eduka.backend.dto.acesso.ReenviarCodigoRequest;
+import br.pucminas.eduka.backend.dto.acesso.RenovarSessaoRequest;
 import br.pucminas.eduka.backend.dto.acesso.VerificacaoLoginResponse;
 import br.pucminas.eduka.backend.dto.acesso.VerificarCodigoRequest;
 import br.pucminas.eduka.backend.service.acesso.AuthService;
@@ -54,6 +55,17 @@ public class AuthController {
                     + "e e preciso fazer o login de novo.")
     public LoginResponse confirmarCodigo(@Valid @RequestBody VerificarCodigoRequest request) {
         return authService.confirmarCodigo(request.verificacaoId(), request.codigo());
+    }
+
+    /** Publica: quem chega aqui tem o access vencendo ou ja vencido, e o refresh e a credencial. */
+    @PostMapping("/login/renovacao")
+    @Operation(summary = "Renova a sessao com o refresh token",
+            description = "Devolve um novo par de access e refresh token. O front chama antes de o access "
+                    + "vencer. Responde 401 (`SESSAO_EXPIRADA`) quando o refresh venceu, foi adulterado, o "
+                    + "usuario foi inativado ou a senha mudou depois da emissao; nesses casos e preciso "
+                    + "entrar de novo. Escola suspensa responde 403 `ESCOLA_SUSPENSA`, como no login.")
+    public LoginResponse renovarSessao(@Valid @RequestBody RenovarSessaoRequest request) {
+        return authService.renovarSessao(request.refreshToken());
     }
 
     @PostMapping("/login/codigo/reenvio")

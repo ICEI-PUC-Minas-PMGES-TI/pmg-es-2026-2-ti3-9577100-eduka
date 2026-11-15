@@ -217,6 +217,8 @@ class RecuperacaoSenhaServiceTest {
         assertThat(passwordEncoder.matches(NOVA_SENHA, usuario.getSenhaHash())).isTrue();
         assertThat(usuario.isSenhaProvisoria()).isFalse();
         assertThat(usuario.getSenhaProvisoriaExpiraEm()).isNull();
+        // Quem pediu a recuperacao derruba as sessoes de quem ainda tem a senha antiga.
+        assertThat(usuario.getSenhaAlteradaEm()).isEqualTo(AGORA);
         verify(usuarioRepository).save(usuario);
         verify(recuperacaoRepository).delete(gravada);
         verify(verificacaoLoginRepository).deleteByUsuarioId(usuario.getId());

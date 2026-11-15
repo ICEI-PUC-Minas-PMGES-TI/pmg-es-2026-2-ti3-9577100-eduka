@@ -7,6 +7,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -41,6 +44,8 @@ class UsuarioServiceTest {
 
     private static final String SENHA = "senha-forte-123";
     private static final UUID ESCOLA_DO_TOKEN = UUID.randomUUID();
+    private static final Instant AGORA = Instant.parse("2026-11-14T12:00:00Z");
+    private static final Clock RELOGIO = Clock.fixed(AGORA, ZoneOffset.UTC);
 
     @Mock
     private UsuarioRepository usuarioRepository;
@@ -52,7 +57,7 @@ class UsuarioServiceTest {
 
     @BeforeEach
     void setUp() {
-        usuarioService = new UsuarioService(usuarioRepository, passwordEncoder, new IsolamentoEscola());
+        usuarioService = new UsuarioService(usuarioRepository, passwordEncoder, new IsolamentoEscola(), RELOGIO);
         // Padrao dos testes de senha/login: um MASTER cadastrando uma secretaria.
         autenticarComo("MASTER", ESCOLA_DO_TOKEN);
     }
@@ -168,6 +173,8 @@ class UsuarioServiceTest {
 
         assertThat(usuario.getSenhaHash()).isNotEqualTo(hashAntigo);
         assertThat(passwordEncoder.matches("nova-senha-456", usuario.getSenhaHash())).isTrue();
+        // Encerra as sessoes abertas com a senha anterior (renovacao pelo refresh).
+        assertThat(usuario.getSenhaAlteradaEm()).isEqualTo(AGORA);
         verify(usuarioRepository).save(usuario);
     }
 

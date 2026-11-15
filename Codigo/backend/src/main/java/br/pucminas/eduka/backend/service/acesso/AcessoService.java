@@ -84,8 +84,9 @@ public class AcessoService {
             trocarLogin(usuario, login);
         }
 
-        Instant expiraEm = clock.instant().plus(validadeSenhaProvisoria);
-        usuario.setSenhaHash(passwordEncoder.encode(cpf));
+        Instant agora = clock.instant();
+        Instant expiraEm = agora.plus(validadeSenhaProvisoria);
+        usuario.trocarSenha(passwordEncoder.encode(cpf), agora);
         usuario.setSenhaProvisoria(true);
         usuario.setSenhaProvisoriaExpiraEm(expiraEm);
         usuario = usuarioRepository.save(usuario);

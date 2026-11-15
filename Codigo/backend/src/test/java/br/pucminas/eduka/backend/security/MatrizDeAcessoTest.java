@@ -70,6 +70,7 @@ class MatrizDeAcessoTest {
             "POST /login",
             "POST /login/codigo",
             "POST /login/codigo/reenvio",
+            "POST /login/renovacao",
             "POST /primeiro-acesso",
             "POST /senha/recuperacao",
             "POST /senha/redefinicao",

@@ -1,6 +1,7 @@
 package br.pucminas.eduka.backend.domain.acesso;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import org.hibernate.annotations.Generated;
@@ -70,6 +71,13 @@ public class Usuario {
     @Column(name = "SENHA_PROVISORIA_EXPIRA_EM")
     private Instant senhaProvisoriaExpiraEm;
 
+    /**
+     * Ultima troca de senha. Refresh token emitido antes disso nao renova mais
+     * a sessao (ver {@link #sessaoAnteriorATrocaDeSenha}).
+     */
+    @Column(name = "SENHA_ALTERADA_EM")
+    private Instant senhaAlteradaEm;
+
     /** Preenchido pelo DEFAULT da coluna e relido apos o insert. */
     @Generated(event = EventType.INSERT)
     @Column(name = "CRIADO_EM", nullable = false, updatable = false)
@@ -77,6 +85,24 @@ public class Usuario {
 
     public boolean senhaProvisoriaExpirada(Instant agora) {
         return senhaProvisoriaExpiraEm != null && !agora.isBefore(senhaProvisoriaExpiraEm);
+    }
+
+    /**
+     * Grava a senha nova e marca a troca: as sessoes abertas com a senha
+     * anterior deixam de ser renovadas.
+     */
+    public void trocarSenha(String novoHash, Instant agora) {
+        this.senhaHash = novoHash;
+        this.senhaAlteradaEm = agora;
+    }
+
+    /**
+     * O {@code iat} do JWT tem precisao de segundos e a troca, de
+     * microssegundos: a comparacao e feita no segundo da troca, para um token
+     * emitido logo depois dela, no mesmo segundo, continuar valendo.
+     */
+    public boolean sessaoAnteriorATrocaDeSenha(Instant emitidaEm) {
+        return senhaAlteradaEm != null && emitidaEm.isBefore(senhaAlteradaEm.truncatedTo(ChronoUnit.SECONDS));
     }
 
     /**
