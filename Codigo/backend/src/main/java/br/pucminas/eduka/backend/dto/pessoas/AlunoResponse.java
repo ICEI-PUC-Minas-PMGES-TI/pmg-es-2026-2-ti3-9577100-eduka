@@ -25,12 +25,13 @@ public record AlunoResponse(
 
     /**
      * Onde o aluno esta hoje, pelas matriculas: com uma ATIVA, so com uma
-     * TRANCADA, ou sem nenhuma das duas. ANONIMIZADO e o aluno que saiu e teve
-     * o dado pessoal apagado (LGPD). Vem na listagem; no detalhe, so o
-     * ANONIMIZADO.
+     * TRANCADA, ou sem nenhuma das duas. INATIVO e o aluno que a escola
+     * inativou (registro e dado pessoal ficam, sem login). ANONIMIZADO e o
+     * aluno que saiu e teve o dado pessoal apagado (LGPD). Vem na listagem; no
+     * detalhe, so INATIVO e ANONIMIZADO.
      */
     public enum Situacao {
-        MATRICULADO, TRANCADO, SEM_TURMA, ANONIMIZADO
+        MATRICULADO, TRANCADO, SEM_TURMA, INATIVO, ANONIMIZADO
     }
 
     /**
@@ -43,13 +44,21 @@ public record AlunoResponse(
                 aluno.getMatricula(), aluno.getGenero(), List.of(), situacao, turmaId, turmaNome);
     }
 
-    /** Detalhe de um aluno especifico: todo dado pessoal, ja decifrado. Situacao so se anonimizado. */
+    /** Detalhe de um aluno especifico: todo dado pessoal, ja decifrado. Situacao so se anonimizado ou inativo. */
     public static AlunoResponse de(Aluno aluno, Pessoa pessoa, List<ResponsavelResponse> responsaveis) {
         return new AlunoResponse(aluno.getId(), aluno.getEscolaId(), pessoa.getNome(), pessoa.getCpf(),
                 pessoa.getEmail(),
                 pessoa.getDataNascimento() == null ? null : LocalDate.parse(pessoa.getDataNascimento()),
                 enderecoDe(pessoa), aluno.getMatricula(), aluno.getGenero(), responsaveis,
-                aluno.isAnonimizado() ? Situacao.ANONIMIZADO : null, null, null);
+                situacaoDoCadastro(aluno), null, null);
+    }
+
+    /** O que vale acima das matriculas: anonimizado, depois inativo. Nulo se nenhum dos dois. */
+    public static Situacao situacaoDoCadastro(Aluno aluno) {
+        if (aluno.isAnonimizado()) {
+            return Situacao.ANONIMIZADO;
+        }
+        return aluno.isAtivo() ? null : Situacao.INATIVO;
     }
 
     private static EnderecoResponse enderecoDe(Pessoa pessoa) {

@@ -62,6 +62,14 @@ public class Aluno {
     @Column(name = "genero_aluno", length = 30)
     private String genero;
 
+    /**
+     * Falso quando a escola inativou o aluno (V51): o registro e o dado
+     * pessoal ficam, o login fica bloqueado e ele nao e matriculado.
+     */
+    @Builder.Default
+    @Column(name = "ativo", nullable = false)
+    private boolean ativo = true;
+
     /** Preenchido pelo DEFAULT da coluna e relido apos o insert. */
     @Generated(event = EventType.INSERT)
     @Column(name = "criado_em", nullable = false, updatable = false)

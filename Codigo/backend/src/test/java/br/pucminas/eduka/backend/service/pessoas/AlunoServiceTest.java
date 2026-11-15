@@ -33,6 +33,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
 import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.acesso.Usuario;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.pessoas.Aluno;
 import br.pucminas.eduka.backend.domain.pessoas.AlunoResponsavel;
 import br.pucminas.eduka.backend.domain.pessoas.PapelPessoa;
@@ -45,6 +47,7 @@ import br.pucminas.eduka.backend.dto.pessoas.AlunoResponse;
 import br.pucminas.eduka.backend.dto.pessoas.ResponsavelRequest;
 import br.pucminas.eduka.backend.exception.acesso.AcessoJaAtivadoException;
 import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.exception.comum.RegistroEmUsoException;
 import br.pucminas.eduka.backend.exception.pessoas.NumeroMatriculaJaCadastradoException;
 import br.pucminas.eduka.backend.repository.academico.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.financeiro.CobrancaRepository;
@@ -657,5 +660,135 @@ class AlunoServiceTest {
         assertThatThrownBy(() -> alunoService.buscarMeusDados())
                 .isInstanceOf(RecursoNaoEncontradoException.class);
         verify(pessoaRepository, never()).findByIdAndEscolaId(any(), any());
+    }
+
+    // ---- Inativar e reativar (sem anonimizar) ----
+
+    private Aluno alunoDaEscolaA(Pessoa pessoa) {
+        Aluno aluno = aluno(ESCOLA_A, pessoa.getId());
+        when(alunoRepository.findByIdAndEscolaId(aluno.getId(), ESCOLA_A)).thenReturn(Optional.of(aluno));
+        return aluno;
+    }
+
+    @Test
+    void inativarBloqueiaOLoginAuditaEDevolveSituacaoInativo() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Pessoa pessoaAna = pessoa("Ana");
+        Aluno ana = alunoDaEscolaA(pessoaAna);
+        when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+        when(alunoRepository.save(ana)).thenReturn(ana);
+
+        AlunoResponse resposta = alunoService.inativar(ana.getId());
+
+        assertThat(ana.isAtivo()).isFalse();
+        assertThat(ana.getAtualizadoEm()).isEqualTo(RELOGIO.instant());
+        assertThat(resposta.situacao()).isEqualTo(AlunoResponse.Situacao.INATIVO);
+        assertThat(resposta.cpf()).isEqualTo("12345678900");
+        verify(acessoService).definirAtivo(pessoaAna, false);
+        verify(auditoriaService).registrar(OperacaoAuditoria.INATIVAR, EntidadeAuditada.ALUNO, ana.getId());
+    }
+
+    @Test
+    void inativarComMatriculaAtivaResponde409SemMexerNoLogin() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Aluno ana = alunoDaEscolaA(pessoa("Ana"));
+        when(matriculaRepository.existsByEscolaIdAndAlunoIdAndStatus(ESCOLA_A, ana.getId(), StatusMatricula.ATIVA))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> alunoService.inativar(ana.getId()))
+                .isInstanceOf(RegistroEmUsoException.class)
+                .hasMessageContaining("matricula ativa");
+        assertThat(ana.isAtivo()).isTrue();
+        verify(acessoService, never()).definirAtivo(any(), eq(false));
+        verify(alunoRepository, never()).save(any());
+    }
+
+    @Test
+    void inativarAlunoAnonimizadoResponde409() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Aluno ana = alunoDaEscolaA(pessoa("Aluno anonimizado"));
+        ana.setAnonimizadoEm(RELOGIO.instant());
+
+        assertThatThrownBy(() -> alunoService.inativar(ana.getId())).isInstanceOf(RegistroEmUsoException.class);
+        verify(alunoRepository, never()).save(any());
+    }
+
+    @Test
+    void inativarQuemJaEstaInativoNaoGravaNemAuditaDeNovo() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Pessoa pessoaAna = pessoa("Ana");
+        Aluno ana = alunoDaEscolaA(pessoaAna);
+        ana.setAtivo(false);
+        when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+
+        AlunoResponse resposta = alunoService.inativar(ana.getId());
+
+        assertThat(resposta.situacao()).isEqualTo(AlunoResponse.Situacao.INATIVO);
+        verify(alunoRepository, never()).save(any());
+        verify(acessoService, never()).definirAtivo(any(), eq(false));
+        verify(auditoriaService, never()).registrar(any(), any(), any());
+    }
+
+    @Test
+    void ativarDevolveOLoginEAudita() {
+        autenticarComo("MASTER", ESCOLA_A);
+        Pessoa pessoaAna = pessoa("Ana");
+        Aluno ana = alunoDaEscolaA(pessoaAna);
+        ana.setAtivo(false);
+        when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+        when(alunoRepository.save(ana)).thenReturn(ana);
+
+        AlunoResponse resposta = alunoService.ativar(ana.getId());
+
+        assertThat(ana.isAtivo()).isTrue();
+        assertThat(resposta.situacao()).isNull();
+        verify(acessoService).definirAtivo(pessoaAna, true);
+        verify(auditoriaService).registrar(OperacaoAuditoria.ATIVAR, EntidadeAuditada.ALUNO, ana.getId());
+    }
+
+    @Test
+    void ativarAlunoAnonimizadoResponde409() {
+        autenticarComo("MASTER", ESCOLA_A);
+        Aluno ana = alunoDaEscolaA(pessoa("Aluno anonimizado"));
+        ana.setAtivo(false);
+        ana.setAnonimizadoEm(RELOGIO.instant());
+
+        assertThatThrownBy(() -> alunoService.ativar(ana.getId())).isInstanceOf(RegistroEmUsoException.class);
+        assertThat(ana.isAtivo()).isFalse();
+    }
+
+    @Test
+    void inativarAlunoDeOutraEscolaEhTratadoComoInexistente() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        UUID daEscolaB = UUID.randomUUID();
+        when(alunoRepository.findByIdAndEscolaId(daEscolaB, ESCOLA_A)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> alunoService.inativar(daEscolaB)).isInstanceOf(RecursoNaoEncontradoException.class);
+        assertThatThrownBy(() -> alunoService.ativar(daEscolaB)).isInstanceOf(RecursoNaoEncontradoException.class);
+    }
+
+    @Test
+    void reenviarAcessoDeAlunoInativoResponde409SemEnviarEmail() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Aluno ana = alunoDaEscolaA(pessoa("Ana"));
+        ana.setAtivo(false);
+
+        assertThatThrownBy(() -> alunoService.reenviarAcesso(ana.getId())).isInstanceOf(RegistroEmUsoException.class);
+        verify(acessoService, never()).enviarAcessoInicial(any(), any());
+    }
+
+    @Test
+    void listarMostraOInativoAcimaDaMatricula() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Pessoa pessoaAna = pessoa("Ana");
+        Aluno ana = aluno(ESCOLA_A, pessoaAna.getId());
+        ana.setAtivo(false);
+        when(alunoRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of(ana));
+        when(pessoaRepository.findAllByIdInAndEscolaId(any(), eq(ESCOLA_A))).thenReturn(List.of(pessoaAna));
+        when(matriculaRepository.listarVigentes(ESCOLA_A))
+                .thenReturn(List.of(vigente(ana, StatusMatricula.TRANCADA, 1L, "1A")));
+
+        assertThat(alunoService.listar(null)).extracting(AlunoResponse::situacao, AlunoResponse::turmaId)
+                .containsExactly(tuple(AlunoResponse.Situacao.INATIVO, null));
     }
 }
