@@ -32,6 +32,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import br.pucminas.eduka.backend.dto.comum.ArquivoCsv;
+import br.pucminas.eduka.backend.dto.comum.ArquivoPlanilha;
 import br.pucminas.eduka.backend.dto.financeiro.RelatorioFinanceiroResponse.Forma;
 import br.pucminas.eduka.backend.dto.financeiro.RelatorioFinanceiroResponse.Inadimplencia;
 import br.pucminas.eduka.backend.dto.financeiro.RelatorioFinanceiroResponse.Linha;
@@ -61,6 +62,7 @@ class RelatorioFinanceiroControllerSecurityTest {
     private static final LocalDate ATE = LocalDate.of(2026, 9, 30);
     private static final String RELATORIO = "/relatorios/financeiro?de=2026-08-01&ate=2026-09-30";
     private static final String EXPORTAR = "/relatorios/financeiro/exportar?de=2026-08-01&ate=2026-09-30";
+    private static final String PLANILHA = "/relatorios/financeiro/planilha?de=2026-08-01&ate=2026-09-30";
     private static final List<String> SEM_ACESSO = List.of("SECRETARIA", "PROFESSOR", "ALUNO", "SUPER_ADMIN");
 
     @Autowired
@@ -87,6 +89,7 @@ class RelatorioFinanceiroControllerSecurityTest {
     void semTokenResponde401() throws Exception {
         mockMvc.perform(get(RELATORIO)).andExpect(status().isUnauthorized());
         mockMvc.perform(get(EXPORTAR + "&conjuntos=DESPESAS")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get(PLANILHA)).andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -131,6 +134,7 @@ class RelatorioFinanceiroControllerSecurityTest {
         for (String perfil : SEM_ACESSO) {
             mockMvc.perform(como(RELATORIO, perfil)).andExpect(status().isForbidden());
             mockMvc.perform(como(EXPORTAR + "&conjuntos=COBRANCAS", perfil)).andExpect(status().isForbidden());
+            mockMvc.perform(como(PLANILHA, perfil)).andExpect(status().isForbidden());
         }
         verifyNoInteractions(relatorioFinanceiroService);
     }
@@ -181,6 +185,36 @@ class RelatorioFinanceiroControllerSecurityTest {
                 .andExpect(status().isBadRequest());
 
         verify(relatorioFinanceiroService, never()).exportar(any(), any(), any(), any());
+    }
+
+    @Test
+    void planilhaVemComoAnexoXlsxComONomeDaEscolaESemCache() throws Exception {
+        byte[] conteudo = { 'P', 'K', 3, 4 };
+        when(relatorioFinanceiroService.exportarPlanilha(DE, ATE)).thenReturn(new ArquivoPlanilha(
+                "relatorio-financeiro-colegio-sao-jose-2026-08-01-a-2026-09-30.xlsx", conteudo));
+
+        for (String perfil : List.of("MASTER", "FINANCEIRO")) {
+            mockMvc.perform(como(PLANILHA, perfil))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentType(
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, containsString(
+                            "attachment; filename=\"relatorio-financeiro-colegio-sao-jose-2026-08-01-a-2026-09-30.xlsx\"")))
+                    .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
+                    .andExpect(content().bytes(conteudo));
+        }
+    }
+
+    @Test
+    void planilhaComPeriodoInvalidoResponde400() throws Exception {
+        when(relatorioFinanceiroService.exportarPlanilha(ATE, DE))
+                .thenThrow(new IllegalArgumentException("de nao pode ser depois de ate"));
+
+        mockMvc.perform(como("/relatorios/financeiro/planilha?de=2026-09-30&ate=2026-08-01", "FINANCEIRO"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("de nao pode ser depois de ate"));
+        mockMvc.perform(como("/relatorios/financeiro/planilha?de=2026-08-01", "FINANCEIRO"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

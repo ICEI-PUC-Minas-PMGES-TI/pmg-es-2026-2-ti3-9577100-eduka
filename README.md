@@ -2,7 +2,7 @@
 
 Plataforma SaaS de gestão escolar que centraliza informações acadêmicas, administrativas e financeiras de várias instituições de ensino em um único sistema multi-tenant, com dados isolados por escola e acesso controlado por perfil de usuário (SUPER_ADMIN, MASTER, SECRETARIA, FINANCEIRO, PROFESSOR e ALUNO).
 
-O sistema cobre cadastro de escolas, usuários, alunos, professores, cursos, turmas e matrículas; avaliações, notas, chamada e horário das turmas; e o financeiro da escola: cobranças pagas pelo aluno por PIX ou boleto no Asaas, com a confirmação automática pelo webhook, despesas, relatórios financeiros com exportação em CSV e a fatura que a escola paga ao Edúka. Aplicativo mobile fica para versões futuras. Os requisitos completos estão em [`Artefatos/visão-requisitos/`](Artefatos/visão-requisitos/).
+O sistema cobre cadastro de escolas, usuários, alunos, professores, cursos, turmas e matrículas; avaliações, notas, chamada e horário das turmas; e o financeiro da escola: cobranças pagas pelo aluno por PIX ou boleto no Asaas, com a confirmação automática pelo webhook, despesas, relatórios financeiros com exportação em CSV ou em planilha Excel com a identidade da escola e a fatura que a escola paga ao Edúka. Aplicativo mobile fica para versões futuras. Os requisitos completos estão em [`Artefatos/visão-requisitos/`](Artefatos/visão-requisitos/).
 
 ## Alunos integrantes da equipe
 

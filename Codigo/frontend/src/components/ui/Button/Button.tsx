@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from 'react'
+import type { ButtonHTMLAttributes, Ref } from 'react'
 import { Icon, type IconName } from '../Icon/Icon'
 import styles from './Button.module.css'
 
@@ -10,6 +10,8 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'primary' | 'accent' | 'outline' | 'danger' | 'dangerOutline'
   size?: 'sm' | 'md'
   icon?: IconName
+  /** Para quem ancora um popover no botão (ex.: MenuBotao); no React 19 o ref chega como prop. */
+  ref?: Ref<HTMLButtonElement>
 }
 
 export function Button({

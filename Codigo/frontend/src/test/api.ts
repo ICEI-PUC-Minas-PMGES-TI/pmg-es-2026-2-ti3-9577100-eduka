@@ -20,8 +20,8 @@ export function cortarPagina<T>(itens: T[], caminho: string): PaginaDoBackend<T>
   }
 }
 
-/** O que o backend responde: o corpo vira JSON; status padrão 200. */
-export type RespostaApi = { status?: number; corpo?: unknown }
+/** O que o backend responde: o corpo vira JSON; status padrão 200. `cabecalhos` somam aos de sempre. */
+export type RespostaApi = { status?: number; corpo?: unknown; cabecalhos?: Record<string, string> }
 
 export type ChamadaApi = {
   metodo: string
@@ -61,7 +61,10 @@ export function simularApi(responder: (chamada: ChamadaApi) => RespostaApi | und
       const status = resposta.status ?? 200
       return new Response(status === 204 ? null : JSON.stringify(resposta.corpo ?? null), {
         status,
-        headers: { 'Content-Type': status >= 400 ? 'application/problem+json' : 'application/json' },
+        headers: {
+          'Content-Type': status >= 400 ? 'application/problem+json' : 'application/json',
+          ...resposta.cabecalhos,
+        },
       })
     }),
   )

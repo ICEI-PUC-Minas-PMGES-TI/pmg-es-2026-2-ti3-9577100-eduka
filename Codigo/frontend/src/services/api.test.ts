@@ -7,6 +7,7 @@ import {
   MARGEM_RENOVACAO_MS,
   REFRESH_TOKEN_KEY,
   apiRequest,
+  nomeDoAnexo,
 } from './api'
 
 const AGORA = new Date('2026-11-14T12:00:00Z').getTime()
@@ -135,5 +136,15 @@ describe('renovação da sessão', () => {
 
     expect(chamadas.map((c) => c.caminho)).toEqual(['/login'])
     expect(chamadas[0].token).toBeNull()
+  })
+})
+
+describe('nome do anexo', () => {
+  it('lê o filename simples, o codificado em UTF-8 e devolve nulo sem cabeçalho', () => {
+    expect(nomeDoAnexo('attachment; filename="relatorio.xlsx"')).toBe('relatorio.xlsx')
+    expect(nomeDoAnexo('attachment; filename=relatorio.csv')).toBe('relatorio.csv')
+    expect(nomeDoAnexo("attachment; filename=\"x.xlsx\"; filename*=UTF-8''col%C3%A9gio.xlsx")).toBe('colégio.xlsx')
+    expect(nomeDoAnexo('attachment')).toBeNull()
+    expect(nomeDoAnexo(null)).toBeNull()
   })
 })
