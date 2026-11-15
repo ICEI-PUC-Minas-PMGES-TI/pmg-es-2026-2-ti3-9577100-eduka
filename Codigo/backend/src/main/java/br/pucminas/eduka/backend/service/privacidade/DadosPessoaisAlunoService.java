@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -158,19 +159,63 @@ public class DadosPessoaisAlunoService {
     public void anonimizar(UUID alunoId) {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         Aluno aluno = buscarAluno(alunoId, escolaId);
-        if (aluno.isAnonimizado()) {
-            throw new RegistroEmUsoException("Aluno ja anonimizado");
+        motivoParaNaoAnonimizar(aluno, escolaId).ifPresent(motivo -> {
+            throw new RegistroEmUsoException(motivo);
+        });
+        apagarDadosPessoais(aluno, escolaId);
+        auditoriaService.registrar(OperacaoAuditoria.ANONIMIZAR, EntidadeAuditada.ALUNO, aluno.getId());
+    }
+
+    /**
+     * Anonimizacao da politica de retencao ({@link RetencaoDadosAlunoService}),
+     * sem usuario: a escola tem que estar no contexto antes de a transacao
+     * abrir ({@link br.pucminas.eduka.backend.security.ContextoDoSistema}).
+     * Vale tudo o que vale para a manual; se o aluno ainda nao pode ser
+     * anonimizado, nada muda.
+     *
+     * @return se o aluno foi anonimizado
+     */
+    @Transactional
+    public boolean anonimizarPorRetencao(UUID alunoId, UUID escolaId) {
+        Aluno aluno = buscarAluno(alunoId, escolaId);
+        if (aluno.isAtivo()) {
+            return false;
         }
-        List<MatriculaTurma> matriculas = matriculaRepository.findAllByEscolaIdAndAlunoId(escolaId, aluno.getId());
-        if (matriculas.stream().anyMatch(m -> VIGENTES.contains(m.getStatus()))) {
-            throw new RegistroEmUsoException(
+        Optional<String> motivo = motivoParaNaoAnonimizar(aluno, escolaId);
+        if (motivo.isPresent()) {
+            return false;
+        }
+        apagarDadosPessoais(aluno, escolaId);
+        auditoriaService.registrarDoSistema(OperacaoAuditoria.ANONIMIZAR, EntidadeAuditada.ALUNO, aluno.getId(),
+                escolaId);
+        return true;
+    }
+
+    /**
+     * Por que o aluno ainda nao pode ser anonimizado: ja foi, ou a escola ainda
+     * precisa dele para dar aula (matricula ativa ou trancada) ou cobrar
+     * (cobranca em aberto). Vazio se pode.
+     */
+    private Optional<String> motivoParaNaoAnonimizar(Aluno aluno, UUID escolaId) {
+        if (aluno.isAnonimizado()) {
+            return Optional.of("Aluno ja anonimizado");
+        }
+        if (matriculaRepository.findAllByEscolaIdAndAlunoId(escolaId, aluno.getId()).stream()
+                .anyMatch(m -> VIGENTES.contains(m.getStatus()))) {
+            return Optional.of(
                     "Aluno com matricula ativa ou trancada; cancele ou conclua a matricula antes de anonimizar");
         }
-        List<Cobranca> cobrancas = cobrancaRepository.findAllByEscolaIdAndAlunoId(escolaId, aluno.getId());
-        if (cobrancas.stream().anyMatch(c -> c.getStatus().emAberto())) {
-            throw new RegistroEmUsoException(
-                    "Aluno com cobranca em aberto; receba ou cancele a cobranca antes de anonimizar");
+        if (cobrancaRepository.findAllByEscolaIdAndAlunoId(escolaId, aluno.getId()).stream()
+                .anyMatch(c -> c.getStatus().emAberto())) {
+            return Optional.of("Aluno com cobranca em aberto; receba ou cancele a cobranca antes de anonimizar");
         }
+        return Optional.empty();
+    }
+
+    /** Apaga o dado pessoal; o historico fica, sem nada que identifique o aluno. */
+    private void apagarDadosPessoais(Aluno aluno, UUID escolaId) {
+        List<MatriculaTurma> matriculas = matriculaRepository.findAllByEscolaIdAndAlunoId(escolaId, aluno.getId());
+        List<Cobranca> cobrancas = cobrancaRepository.findAllByEscolaIdAndAlunoId(escolaId, aluno.getId());
 
         Pessoa pessoa = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
                 .orElseThrow(DadosPessoaisAlunoService::naoEncontrado);
@@ -218,7 +263,6 @@ public class DadosPessoaisAlunoService {
         aluno.setAnonimizadoEm(agora);
         aluno.setAtualizadoEm(agora);
         alunoRepository.save(aluno);
-        auditoriaService.registrar(OperacaoAuditoria.ANONIMIZAR, EntidadeAuditada.ALUNO, aluno.getId());
     }
 
     /** O login para de existir: some o e-mail e nenhuma senha entra mais. */

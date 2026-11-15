@@ -11,8 +11,8 @@ import java.util.List;
  */
 public final class AvisoPrivacidade {
 
-    public static final String VERSAO = "1.0";
-    public static final LocalDate PUBLICADO_EM = LocalDate.of(2026, 11, 11);
+    public static final String VERSAO = "1.1";
+    public static final LocalDate PUBLICADO_EM = LocalDate.of(2026, 11, 15);
 
     /** Um item do resumo: o icone e da tela (nome do Icon do frontend). */
     public record ItemResumo(String icone, String titulo, String texto) {
@@ -56,6 +56,15 @@ public final class AvisoPrivacidade {
                     "Nome, CPF, data de nascimento, contatos e endereço ficam cifrados no banco de dados. O acesso "
                             + "exige login com senha e pode exigir também um código enviado por e-mail.",
                     "As alterações feitas no sistema ficam registradas, com quem fez e quando.")),
+            new Secao("Por quanto tempo guardamos", List.of(
+                    "Os dados do aluno ficam guardados enquanto ele estuda na escola. Quando o aluno sai, a escola "
+                            + "o inativa: o acesso ao sistema é bloqueado, mas os dados continuam guardados, porque a "
+                            + "escola ainda pode precisar deles para cobranças e documentos.",
+                    "Cinco anos depois da inativação, o sistema anonimiza o aluno automaticamente: nome, CPF, data "
+                            + "de nascimento, contatos e endereço são apagados. As notas, a frequência e o histórico "
+                            + "financeiro continuam, sem nada que identifique o aluno. Se nessa data ainda houver "
+                            + "matrícula ou cobrança em aberto, a anonimização espera até elas serem encerradas.",
+                    "Você também pode pedir a anonimização antes desse prazo à secretaria da escola.")),
             new Secao("Seus direitos", List.of(
                     "Pela Lei Geral de Proteção de Dados (Lei 13.709/2018), você pode pedir a confirmação de que "
                             + "seus dados são tratados, uma cópia deles, a correção do que estiver errado e a exclusão "

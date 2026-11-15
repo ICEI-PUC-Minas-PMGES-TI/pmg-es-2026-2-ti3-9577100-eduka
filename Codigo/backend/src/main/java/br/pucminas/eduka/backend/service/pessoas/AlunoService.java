@@ -46,6 +46,7 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 import br.pucminas.eduka.backend.service.acesso.AcessoService;
 import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
+import br.pucminas.eduka.backend.service.privacidade.PoliticaRetencao;
 
 /**
  * Regras de aluno com isolamento por escola (RF05, RNF03).
@@ -82,11 +83,13 @@ public class AlunoService {
     private final MatriculaTurmaRepository matriculaRepository;
     private final Clock clock;
     private final AuditoriaService auditoriaService;
+    private final PoliticaRetencao politicaRetencao;
 
     public AlunoService(AlunoRepository alunoRepository, PessoaRepository pessoaRepository,
             PessoaPapelRepository pessoaPapelRepository, ResponsavelService responsavelService,
             IsolamentoEscola isolamentoEscola, AcessoService acessoService,
-            MatriculaTurmaRepository matriculaRepository, Clock clock, AuditoriaService auditoriaService) {
+            MatriculaTurmaRepository matriculaRepository, Clock clock, AuditoriaService auditoriaService,
+            PoliticaRetencao politicaRetencao) {
         this.alunoRepository = alunoRepository;
         this.pessoaRepository = pessoaRepository;
         this.pessoaPapelRepository = pessoaPapelRepository;
@@ -96,6 +99,7 @@ public class AlunoService {
         this.matriculaRepository = matriculaRepository;
         this.clock = clock;
         this.auditoriaService = auditoriaService;
+        this.politicaRetencao = politicaRetencao;
     }
 
     /**
@@ -164,7 +168,13 @@ public class AlunoService {
         Aluno aluno = alunoRepository.findByIdAndEscolaId(id, escolaId).orElseThrow(AlunoService::naoEncontrado);
         Pessoa pessoa = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
                 .orElseThrow(AlunoService::naoEncontrado);
-        return AlunoResponse.de(aluno, pessoa, responsavelService.responsaveisDoAluno(aluno.getId(), escolaId));
+        return detalhe(aluno, pessoa, escolaId);
+    }
+
+    /** Detalhe para a escola: com o dia previsto da anonimizacao, se o aluno esta inativo. */
+    private AlunoResponse detalhe(Aluno aluno, Pessoa pessoa, UUID escolaId) {
+        return AlunoResponse.de(aluno, pessoa, responsavelService.responsaveisDoAluno(aluno.getId(), escolaId))
+                .comAnonimizacaoPrevistaEm(politicaRetencao.anonimizacaoPrevista(aluno));
     }
 
     /**
@@ -321,14 +331,17 @@ public class AlunoService {
         Pessoa pessoa = pessoaRepository.findByIdAndEscolaId(aluno.getPessoaId(), escolaId)
                 .orElseThrow(AlunoService::naoEncontrado);
         if (aluno.isAtivo() != ativo) {
+            Instant agora = clock.instant();
             aluno.setAtivo(ativo);
-            aluno.setAtualizadoEm(clock.instant());
+            // A retencao conta da inativacao; reativar zera o prazo.
+            aluno.setInativadoEm(ativo ? null : agora);
+            aluno.setAtualizadoEm(agora);
             aluno = alunoRepository.save(aluno);
             acessoService.definirAtivo(pessoa, ativo);
             auditoriaService.registrar(ativo ? OperacaoAuditoria.ATIVAR : OperacaoAuditoria.INATIVAR,
                     EntidadeAuditada.ALUNO, aluno.getId());
         }
-        return AlunoResponse.de(aluno, pessoa, responsavelService.responsaveisDoAluno(aluno.getId(), escolaId));
+        return detalhe(aluno, pessoa, escolaId);
     }
 
     private Pessoa criarPessoa(UUID escolaId, String nome, String cpf, java.time.LocalDate dataNascimento,

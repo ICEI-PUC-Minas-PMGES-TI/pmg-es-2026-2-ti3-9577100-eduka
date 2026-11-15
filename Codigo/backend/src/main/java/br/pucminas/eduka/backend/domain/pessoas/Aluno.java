@@ -70,6 +70,13 @@ public class Aluno {
     @Column(name = "ativo", nullable = false)
     private boolean ativo = true;
 
+    /**
+     * Quando o aluno foi inativado (V52); nulo enquanto ativo. A politica de
+     * retencao conta o prazo para anonimizar a partir daqui.
+     */
+    @Column(name = "inativado_em")
+    private Instant inativadoEm;
+
     /** Preenchido pelo DEFAULT da coluna e relido apos o insert. */
     @Generated(event = EventType.INSERT)
     @Column(name = "criado_em", nullable = false, updatable = false)
