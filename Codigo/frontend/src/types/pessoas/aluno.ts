@@ -67,6 +67,11 @@ export type Aluno = AlunoResumo & {
   responsaveis: Responsavel[]
   /** No detalhe, só vem preenchida para o aluno inativo ou anonimizado. */
   situacao?: SituacaoNaEscola | null
+  /**
+   * ISO (yyyy-MM-dd). Só para o aluno inativo: o dia em que a política de
+   * retenção (LGPD) anonimiza o aluno, se até lá ele não for reativado.
+   */
+  anonimizacaoPrevistaEm?: string | null
 }
 
 export type ResponsavelRequest = {
