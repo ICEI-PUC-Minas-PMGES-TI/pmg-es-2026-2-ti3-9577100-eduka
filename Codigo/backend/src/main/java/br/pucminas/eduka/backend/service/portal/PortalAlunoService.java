@@ -2,6 +2,7 @@ package br.pucminas.eduka.backend.service.portal;
 
 import java.math.BigDecimal;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -14,14 +15,18 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.pucminas.eduka.backend.domain.academico.AlocacaoProfessor;
 import br.pucminas.eduka.backend.domain.academico.Avaliacao;
+import br.pucminas.eduka.backend.domain.academico.Bimestres;
 import br.pucminas.eduka.backend.domain.academico.Disciplina;
 import br.pucminas.eduka.backend.domain.academico.MatriculaTurma;
 import br.pucminas.eduka.backend.domain.academico.Nota;
+import br.pucminas.eduka.backend.domain.academico.PeriodoLetivo;
 import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
 import br.pucminas.eduka.backend.domain.academico.Turma;
 import br.pucminas.eduka.backend.domain.pessoas.Aluno;
 import br.pucminas.eduka.backend.domain.pessoas.Pessoa;
 import br.pucminas.eduka.backend.dto.academico.AvaliacaoDoAlunoResponse;
+import br.pucminas.eduka.backend.dto.academico.BoletimTurmaResponse.BimestreDaDisciplina;
+import br.pucminas.eduka.backend.dto.academico.BoletimTurmaResponse.BimestreDaTurma;
 import br.pucminas.eduka.backend.dto.academico.BoletimTurmaResponse.BoletimDisciplina;
 import br.pucminas.eduka.backend.dto.academico.BoletimTurmaResponse.Frequencia;
 import br.pucminas.eduka.backend.dto.academico.BoletimTurmaResponse;
@@ -31,6 +36,7 @@ import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.academico.AlocacaoProfessorRepository;
 import br.pucminas.eduka.backend.repository.academico.AvaliacaoRepository;
 import br.pucminas.eduka.backend.repository.academico.FrequenciaRepository.FrequenciaDaDisciplina;
+import br.pucminas.eduka.backend.repository.academico.FrequenciaRepository.FrequenciaDoDia;
 import br.pucminas.eduka.backend.repository.academico.FrequenciaRepository;
 import br.pucminas.eduka.backend.repository.academico.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.academico.NotaRepository;
@@ -113,6 +119,11 @@ public class PortalAlunoService {
      * data), a nota do aluno em cada uma, os totais de pontos e a frequencia
      * (aulas com chamada, faltas e alerta acima de 25%). Disciplina sem aula
      * registrada vem com frequencia nula ("sem aulas"), nunca 0% ou 100%.
+     *
+     * <p>
+     * Tudo vem tambem separado por bimestre (ver {@link Bimestres}): cada
+     * avaliacao cai no bimestre da data dela, e cada aula, no da data da aula.
+     * </p>
      */
     @Transactional(readOnly = true)
     public List<BoletimTurmaResponse> boletim() {
@@ -131,6 +142,10 @@ public class PortalAlunoService {
                 .sorted(ATIVAS_PRIMEIRO)
                 .map(m -> {
                     Turma turma = m.getTurma();
+                    PeriodoLetivo periodo = turma.getPeriodoLetivo();
+                    Bimestres bimestres = Bimestres.doPeriodo(periodo);
+                    Map<Long, Map<Integer, Frequencia>> frequenciasPorBimestre = frequenciasPorBimestre(escolaId,
+                            aluno, turma, bimestres);
                     Map<Long, FrequenciaDaDisciplina> frequencias = frequenciaRepository
                             .resumirPorDisciplina(escolaId, aluno.getId(), turma.getId()).stream()
                             .collect(Collectors.toMap(FrequenciaDaDisciplina::getDisciplinaId,
@@ -142,14 +157,21 @@ public class PortalAlunoService {
                                 Frequencia frequencia = resumo == null ? null
                                         : Frequencia.de(resumo.getAulas(), resumo.getFaltas());
                                 return boletimDaDisciplina(d, professores.get(chave),
-                                        avaliacoesPorDisciplina.getOrDefault(chave, List.of()), notas, frequencia);
+                                        avaliacoesPorDisciplina.getOrDefault(chave, List.of()), notas, frequencia,
+                                        bimestres, frequenciasPorBimestre.getOrDefault(d.getId(), Map.of()));
                             })
                             .toList();
                     Frequencia geral = Frequencia
                             .somar(disciplinas.stream().map(BoletimDisciplina::frequencia).toList());
-                    return new BoletimTurmaResponse(turma.getId(), turma.getNome(),
-                            turma.getPeriodoLetivo().getNome(), turma.getCurso().getNome(), m.getStatus(),
-                            disciplinas, geral, BoletimTurmaResponse.LIMITE_FALTAS_PERCENTUAL);
+                    List<BimestreDaTurma> bimestresDaTurma = bimestres.lista().stream()
+                            .map(b -> new BimestreDaTurma(b.numero(), b.inicio(), b.fim(), Frequencia.somar(
+                                    disciplinas.stream().map(d -> frequenciaNoBimestre(d, b.numero())).toList())))
+                            .toList();
+                    return new BoletimTurmaResponse(turma.getId(), turma.getNome(), periodo.getNome(),
+                            turma.getCurso().getNome(), m.getStatus(), disciplinas, geral,
+                            BoletimTurmaResponse.LIMITE_FALTAS_PERCENTUAL,
+                            periodo.getDataInicio() == null ? null : periodo.getDataInicio().getYear(),
+                            periodo.getDataInicio(), periodo.getDataFim(), bimestresDaTurma);
                 })
                 .toList();
     }
@@ -173,24 +195,78 @@ public class PortalAlunoService {
     }
 
     private static BoletimDisciplina boletimDaDisciplina(Disciplina disciplina, String professorNome,
-            List<Avaliacao> avaliacoes, Map<UUID, Nota> notas, Frequencia frequencia) {
-        BigDecimal obtidos = BigDecimal.ZERO;
-        BigDecimal avaliados = BigDecimal.ZERO;
-        BigDecimal distribuidos = BigDecimal.ZERO;
+            List<Avaliacao> avaliacoes, Map<UUID, Nota> notas, Frequencia frequencia, Bimestres bimestres,
+            Map<Integer, Frequencia> frequenciasPorBimestre) {
+        Totais geral = new Totais();
+        Map<Integer, Totais> porBimestre = new HashMap<>();
         List<Avaliacao> ordenadas = avaliacoes.stream().sorted(POR_DATA).toList();
         for (Avaliacao avaliacao : ordenadas) {
-            distribuidos = distribuidos.add(avaliacao.getValor());
             Nota nota = notas.get(avaliacao.getId());
+            geral.somar(avaliacao, nota);
+            Integer bimestre = bimestres.numeroDe(avaliacao.getData());
+            if (bimestre != null) {
+                porBimestre.computeIfAbsent(bimestre, n -> new Totais()).somar(avaliacao, nota);
+            }
+        }
+        List<AvaliacaoDoAlunoResponse> itens = ordenadas.stream()
+                .map(a -> AvaliacaoDoAlunoResponse.de(a, notas.get(a.getId()), bimestres))
+                .toList();
+        List<BimestreDaDisciplina> bimestresDaDisciplina = bimestres.lista().stream()
+                .map(b -> {
+                    Totais t = porBimestre.getOrDefault(b.numero(), new Totais());
+                    return new BimestreDaDisciplina(b.numero(), t.obtidos, t.avaliados, t.distribuidos,
+                            frequenciasPorBimestre.get(b.numero()));
+                })
+                .toList();
+        return new BoletimDisciplina(disciplina.getId(), disciplina.getNome(), professorNome, itens, geral.obtidos,
+                geral.avaliados, geral.distribuidos, frequencia, bimestresDaDisciplina);
+    }
+
+    /** Pontos somados de um conjunto de avaliacoes: a disciplina toda ou um bimestre. */
+    private static final class Totais {
+        private BigDecimal obtidos = BigDecimal.ZERO;
+        private BigDecimal avaliados = BigDecimal.ZERO;
+        private BigDecimal distribuidos = BigDecimal.ZERO;
+
+        void somar(Avaliacao avaliacao, Nota nota) {
+            distribuidos = distribuidos.add(avaliacao.getValor());
             if (nota != null) {
                 obtidos = obtidos.add(nota.getValor());
                 avaliados = avaliados.add(avaliacao.getValor());
             }
         }
-        List<AvaliacaoDoAlunoResponse> itens = ordenadas.stream()
-                .map(a -> AvaliacaoDoAlunoResponse.de(a, notas.get(a.getId())))
-                .toList();
-        return new BoletimDisciplina(disciplina.getId(), disciplina.getNome(), professorNome, itens, obtidos,
-                avaliados, distribuidos, frequencia);
+    }
+
+    /**
+     * Frequencia do aluno em cada disciplina e bimestre da turma, pelo dia de
+     * cada aula; bimestre sem aula com chamada fica de fora (frequencia nula).
+     */
+    private Map<Long, Map<Integer, Frequencia>> frequenciasPorBimestre(UUID escolaId, Aluno aluno, Turma turma,
+            Bimestres bimestres) {
+        if (bimestres.lista().isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, Map<Integer, long[]>> aulasEFaltas = new HashMap<>();
+        for (FrequenciaDoDia dia : frequenciaRepository.resumirPorDisciplinaEDia(escolaId, aluno.getId(),
+                turma.getId())) {
+            long[] soma = aulasEFaltas.computeIfAbsent(dia.getDisciplinaId(), d -> new HashMap<>())
+                    .computeIfAbsent(bimestres.numeroDe(dia.getData()), n -> new long[2]);
+            soma[0] += dia.getAulas();
+            soma[1] += dia.getFaltas();
+        }
+        Map<Long, Map<Integer, Frequencia>> frequencias = new HashMap<>();
+        aulasEFaltas.forEach((disciplina, porBimestre) -> porBimestre.forEach((bimestre, soma) -> frequencias
+                .computeIfAbsent(disciplina, d -> new HashMap<>())
+                .put(bimestre, Frequencia.de(soma[0], soma[1]))));
+        return frequencias;
+    }
+
+    private static Frequencia frequenciaNoBimestre(BoletimDisciplina disciplina, int bimestre) {
+        return disciplina.bimestres().stream()
+                .filter(b -> b.numero() == bimestre)
+                .findFirst()
+                .map(BimestreDaDisciplina::frequencia)
+                .orElse(null);
     }
 
     /** Aluno dono do login. 404 se o login nao e de um aluno da escola. */

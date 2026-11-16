@@ -196,7 +196,7 @@ As pastas [`../casos-de-uso-descritivo`](../casos-de-uso-descritivo/) e [`../cas
 | MASTER gerencia SECRETARIA e FINANCEIRO em UC04 | Só SECRETARIA, e somente pela API. |
 | *Registrar Operação na Auditoria* como `<<include>>` | Removido dos diagramas, por ser ação interna do sistema. |
 | Dependências rotuladas `pré-condição` | Removidas, por não serem relacionamento UML. Constam nas precondições das descrições. |
-| Boletim com média ponderada | O boletim mostra pontos obtidos, avaliados e distribuídos. |
+| Boletim com média ponderada | O boletim mostra pontos obtidos, avaliados e distribuídos, por ano letivo e por bimestre. |
 
 ## Como renderizar os diagramas
 

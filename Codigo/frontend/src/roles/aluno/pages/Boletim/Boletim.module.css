@@ -42,71 +42,169 @@
 .painel {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 20px;
 }
 
-/* Etiquetas "Na média" / "Recuperação" e "Faltas acima do limite" abaixo do professor. */
-.situacao {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
-}
+/* ---- Cabeçalho: ano letivo, turmas e o recorte (ano todo ou bimestre) ---- */
 
-/* Texto das regras de aprovação (média mínima e limite de faltas). */
-.regras {
-  color: var(--color-text-muted);
-  font-size: 13.5px;
-}
-
-.regras strong {
-  color: var(--color-text);
-}
-
-.total .faltasAlerta {
-  color: var(--color-danger);
-  font-weight: 700;
-}
-
-.turma {
+.cabecalho {
   display: flex;
   flex-direction: column;
+  gap: 20px;
+  padding: 24px 26px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(120% 140% at 100% 0%, var(--color-primary-soft) 0%, transparent 55%),
+    var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+}
+
+.cabecalhoTopo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 16px;
 }
 
-.turmaTopo {
+.identificacao {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sobretitulo {
+  color: var(--color-primary-text);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.anoTitulo {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: -0.8px;
+  line-height: 1.1;
+}
+
+.turmas {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.turmaNome {
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 900;
-  letter-spacing: -0.3px;
-}
-
-.turmaInfo {
+  gap: 6px 16px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
   color: var(--color-text-muted);
   font-size: 14px;
 }
 
-.disciplinas {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr));
-  gap: 18px;
+.turmas li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
-/* Card de vidro de cada disciplina, como os cards de turma do professor. */
-.cartao {
+.turmas strong {
+  color: var(--color-text);
+}
+
+.turmas svg {
+  flex-shrink: 0;
+  color: var(--color-primary-text);
+}
+
+.campoAno {
+  width: 200px;
+}
+
+/* Os recortes: "Ano todo" e um botão por bimestre, com as datas. */
+.recortes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.recorte {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s,
+    transform 0.15s;
+}
+
+.recorte:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.recorte:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.recorteAtivo,
+.recorteAtivo:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.recorteNome {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.recorteDatas {
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+}
+
+.recorteAtivo .recorteDatas {
+  color: inherit;
+  opacity: 0.85;
+}
+
+/* Etiqueta "agora" no bimestre de hoje. */
+.agora {
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+/* ---- Quadro de notas ---- */
+
+.quadro {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   min-width: 0;
-  padding: 20px 22px;
+  padding: 22px 24px;
   border: var(--glass-border);
   border-radius: var(--radius-xl);
   background: var(--glass-bg);
@@ -114,55 +212,66 @@
   backdrop-filter: var(--glass-blur);
 }
 
-.cartaoTopo {
+.quadroTopo {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
 }
 
-.cartaoTitulo {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.cartaoTitulo h3 {
+.quadroTitulo {
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 900;
+  letter-spacing: -0.3px;
 }
 
-/* Só o filho direto: a etiqueta de situação (Badge) também é um span. */
-.cartaoTitulo > span:not(.situacao) {
+.quadroDica {
   color: var(--color-text-muted);
   font-size: 13.5px;
 }
 
-.total {
+.quadroAcoes {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  text-align: right;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
 }
 
-.total strong {
-  color: var(--color-primary-text);
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 900;
-}
-
-.total small {
-  color: var(--color-text-muted);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.total span {
+.legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
   color: var(--color-text-muted);
   font-size: 12.5px;
+}
+
+.legenda li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ponto {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.ponto.na-media {
+  background: var(--color-success);
+}
+
+.ponto.abaixo {
+  background: var(--color-danger);
+}
+
+.ponto.sem-notas {
+  background: var(--color-border-strong);
 }
 
 .rolagem {
@@ -173,11 +282,13 @@
 
 .tabela {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
-.tabela th {
-  padding: 8px 10px;
+.tabela thead th {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
   color: var(--color-text-muted);
   font-family: var(--font-display);
   font-size: 12px;
@@ -188,44 +299,354 @@
   white-space: nowrap;
 }
 
-.tabela td {
-  padding: 10px;
-  border-top: 1px solid var(--color-border);
-  font-size: 14.5px;
-  vertical-align: top;
+.tabela td,
+.tabela tbody th {
+  padding: 12px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
 }
 
-.tabela .numero {
-  text-align: right;
+.linha {
+  transition: background-color 0.15s;
+}
+
+.linha:hover,
+.linhaAberta {
+  background: var(--glass-bg-tint);
+}
+
+.linhaAberta > td,
+.linhaAberta > th {
+  border-bottom-color: transparent;
+}
+
+.tabela thead .colNota,
+.colNota {
+  text-align: center;
   white-space: nowrap;
 }
 
-.secundario {
+/* Coluna do recorte escolhido (o bimestre, ou o total no ano todo). */
+.tabela thead .colAtiva {
+  color: var(--color-primary-text);
+}
+
+.colAtiva {
+  background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+}
+
+.colTotal {
+  border-left: 1px dashed var(--color-border);
+}
+
+.colDisciplina {
+  min-width: 200px;
+  text-align: left;
+}
+
+.disciplina {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.disciplina:focus-visible {
+  border-radius: var(--radius-sm);
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
+}
+
+.disciplinaTexto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.disciplinaNome {
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 800;
+}
+
+.professor {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.seta {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform 0.2s var(--curva, ease);
+}
+
+.linhaAberta .seta {
+  transform: rotate(180deg);
+}
+
+/* Nota: número grande na cor da situação, com "de X" embaixo. */
+.nota {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 58px;
+  padding: 5px 10px;
+  border-radius: var(--radius-md);
+  line-height: 1.15;
+}
+
+.nota strong {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.nota small {
+  font-size: 11.5px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.nota.na-media {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.nota.abaixo {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.nota.sem-notas {
+  background: var(--color-neutral-bg);
   color: var(--color-text-muted);
 }
 
-/* Etiqueta pequena do tipo antes do título: "Prova", "Trabalho"... */
-.tipo {
-  display: inline-block;
-  margin-right: 8px;
-  padding: 1px 8px;
-  border-radius: var(--radius-pill);
+.colTotal .nota {
+  min-width: 68px;
+  box-shadow: inset 0 0 0 1.5px currentColor;
+}
+
+.semAvaliacao {
+  color: var(--color-text-subtle);
+  font-size: 13px;
+}
+
+.frequencia {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.2;
+}
+
+.frequencia strong {
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 800;
+}
+
+.frequencia small {
+  color: var(--color-text-muted);
+  font-size: 11.5px;
+}
+
+.frequenciaAlerta strong,
+.frequenciaAlerta small {
+  color: var(--color-danger);
+}
+
+.colSituacao {
+  min-width: 140px;
+}
+
+.situacao {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ---- Detalhe da disciplina: as avaliações do recorte ---- */
+
+.detalhe > td {
+  padding: 0 12px 16px;
+  background: var(--glass-bg-tint);
+}
+
+.detalheConteudo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  animation: var(--animacao-aparecer, none);
+}
+
+.detalheTopo {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: 14px;
+}
+
+.detalheTopo span {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.avaliacoes {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.avaliacao {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.avaliacao:first-child {
+  border-top: 0;
+}
+
+/* Data num bloquinho de calendário: dia grande, mês embaixo. */
+.data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-md);
   background: var(--glass-bg-tint);
   color: var(--color-primary-text);
-  font-size: 12px;
+  line-height: 1.05;
+}
+
+.data strong {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.data small {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.avaliacaoTexto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.avaliacaoEtiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Etiqueta pequena do tipo: "Prova", "Trabalho"... */
+.tipo,
+.etiquetaBimestre {
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
   font-weight: 700;
 }
 
+.tipo {
+  background: var(--glass-bg-tint);
+  color: var(--color-primary-text);
+}
+
+.etiquetaBimestre {
+  background: var(--color-neutral-bg);
+  color: var(--color-text-muted);
+}
+
+.avaliacaoTitulo {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
 .observacao {
-  display: block;
-  margin-top: 2px;
   color: var(--color-text-muted);
   font-size: 13px;
+}
+
+.avaliacaoNota {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.barra {
+  width: 72px;
+  height: 5px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-neutral-bg);
+}
+
+.barraValor {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.4s var(--curva, ease);
+}
+
+.barraValor.na-media {
+  background: var(--color-success);
+}
+
+.barraValor.abaixo {
+  background: var(--color-danger);
 }
 
 .vazio {
   color: var(--color-text-muted);
   font-size: 14px;
+}
+
+/* ---- Regras e mensagens ---- */
+
+.regras {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--color-text-muted);
+  font-size: 13.5px;
+}
+
+.regras svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-primary-text);
+}
+
+.regras strong {
+  color: var(--color-text);
 }
 
 .mensagem {
@@ -246,19 +667,38 @@
   color: var(--color-text);
 }
 
-@media (max-width: 640px) {
-  .total {
-    align-items: flex-start;
-    text-align: left;
+/* Celular: cada disciplina vira um card, com os bimestres lado a lado e o resto embaixo. */
+@media (max-width: 760px) {
+  .cabecalho,
+  .quadro {
+    padding: 18px 16px;
   }
-}
 
-/* Celular: cada linha vira um bloco, com o rótulo em cima de cada dado, sem rolagem lateral. */
-@media (max-width: 640px) {
+  .anoTitulo {
+    font-size: 28px;
+  }
+
+  .campoAno {
+    width: 100%;
+  }
+
+  .recortes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* "Ano todo" na largura toda; os bimestres, dois a dois embaixo. */
+  .recorte:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .recorteNome {
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+
   .tabela,
   .tabela tbody {
     display: block;
-    min-width: 0;
   }
 
   .tabela thead {
@@ -270,43 +710,85 @@
     white-space: nowrap;
   }
 
-  .tabela tbody tr {
+  .tabela tbody tr.linha {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px 12px;
-    padding: 14px 6px;
+    grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+    gap: 10px 8px;
+    padding: 14px 4px;
     border-top: 1px solid var(--color-border);
   }
 
-  .tabela tbody tr:first-child {
+  .tabela tbody tr.linha:first-child {
     border-top: 0;
   }
 
-  .tabela tbody tr > td,
-  .tabela tbody tr > td.numero {
-    display: block;
-    width: auto;
-    min-width: 0;
+  .tabela tbody tr.linha > th,
+  .tabela tbody tr.linha > td {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     padding: 0;
     border: 0;
-    text-align: left;
-    white-space: normal;
-    overflow-wrap: anywhere;
+    background: none;
   }
 
-  .tabela tbody tr > td[data-rotulo]::before {
+  .tabela tbody tr.linha > .colDisciplina,
+  .tabela tbody tr.linha > .colSituacao {
+    grid-column: 1 / -1;
+    align-items: stretch;
+    min-width: 0;
+  }
+
+  .tabela tbody tr.linha > .colSituacao {
+    order: 1;
+  }
+
+  .tabela tbody tr.linha > td[data-rotulo]::before {
     content: attr(data-rotulo);
-    display: block;
-    margin-bottom: 2px;
+    margin-bottom: 4px;
     color: var(--color-text-subtle);
-    font-size: 11.5px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.4px;
     text-transform: uppercase;
   }
 
-  .tabela tbody tr > .colAvaliacao {
-    grid-column: 1 / -1;
-    order: -1;
+  .tabela tbody tr.linha > .colSituacao::before {
+    display: none;
+  }
+
+  .tabela tbody tr.linha > .colAtiva .nota {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  .colTotal {
+    border-left: 0;
+  }
+
+  .tabela tbody tr.detalhe {
+    display: block;
+  }
+
+  .tabela tbody tr.detalhe > td {
+    display: block;
+    padding: 0 0 14px;
+    background: none;
+  }
+
+  .avaliacao {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .avaliacaoNota {
+    grid-column: 2;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .tabela tbody tr.linha .nota {
+    min-width: 0;
+    width: 100%;
   }
 }

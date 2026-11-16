@@ -60,6 +60,7 @@ function disciplina(
     pontosAvaliados: avaliados,
     pontosDistribuidos: 100,
     frequencia: freq,
+    bimestres: [],
   }
 }
 
@@ -73,6 +74,10 @@ function turma(disciplinas: BoletimDisciplina[], freq: FrequenciaBoletim | null)
     disciplinas,
     frequencia: freq,
     limiteFaltasPercentual: 25,
+    ano: 2026,
+    periodoLetivoInicio: null,
+    periodoLetivoFim: null,
+    bimestres: [],
   }
 }
 
@@ -90,6 +95,7 @@ function avaliacao(id: string, titulo: string, data: string): AvaliacaoDoAluno {
     valor: 10,
     nota: null,
     observacao: null,
+    bimestre: null,
   }
 }
 
