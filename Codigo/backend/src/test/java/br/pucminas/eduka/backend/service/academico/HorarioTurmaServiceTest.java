@@ -42,6 +42,7 @@ import br.pucminas.eduka.backend.repository.pessoas.PessoaRepository;
 import br.pucminas.eduka.backend.repository.pessoas.ProfessorRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
 /**
  * Regras da grade semanal: alocacao da turma e da escola, inicio antes do fim
@@ -53,6 +54,8 @@ class HorarioTurmaServiceTest {
 
     private static final UUID ESCOLA_A = UUID.randomUUID();
 
+    @Mock
+    private AuditoriaService auditoriaService;
     @Mock
     private HorarioTurmaRepository horarioRepository;
     @Mock
@@ -77,7 +80,7 @@ class HorarioTurmaServiceTest {
     @BeforeEach
     void setUp() {
         horarioService = new HorarioTurmaService(horarioRepository, alocacaoRepository, turmaRepository,
-                professorRepository, pessoaRepository, new IsolamentoEscola());
+                professorRepository, pessoaRepository, new IsolamentoEscola(), auditoriaService);
         autenticarComo("SECRETARIA", ESCOLA_A);
 
         pessoaAna = Pessoa.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).nome("Ana").ativo(true).build();

@@ -51,7 +51,7 @@ class HorarioTurmaBancoRealTest extends BancoRealTest {
         alocacaoMatematica1A = alocar(ana, turma1A, matematica);
         alocacaoHistoria1A = alocar(bruno, turma1A, historia);
         alocacaoMatematica2B = alocar(ana, turma2B, matematica);
-        autenticarComo("SECRETARIA", escola);
+        entrarComo("SECRETARIA", escola);
     }
 
     private long disciplina(String nome) {
@@ -180,7 +180,7 @@ class HorarioTurmaBancoRealTest extends BancoRealTest {
     @Test
     void outraEscolaNaoVeNemMontaAGradeDaTurma() {
         HorarioTurmaResponse aula = criar(turma1A, alocacaoMatematica1A, DiaSemana.SEGUNDA, 8, 9);
-        autenticarComo("SECRETARIA", dados.escola());
+        entrarComo("SECRETARIA", dados.escola());
 
         assertThatThrownBy(() -> horarioService.listar(turma1A)).isInstanceOf(RecursoNaoEncontradoException.class);
         assertThatThrownBy(() -> criar(turma1A, alocacaoHistoria1A, DiaSemana.TERCA, 8, 9))

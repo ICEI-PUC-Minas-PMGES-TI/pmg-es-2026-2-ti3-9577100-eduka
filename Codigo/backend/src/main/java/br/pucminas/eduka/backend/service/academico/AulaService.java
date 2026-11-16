@@ -47,6 +47,9 @@ import br.pucminas.eduka.backend.repository.pessoas.PessoaRepository;
 import br.pucminas.eduka.backend.repository.pessoas.ProfessorRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
 /**
  * Aulas e chamada, pelo professor autenticado (portal do professor).
@@ -95,12 +98,13 @@ public class AulaService {
     private final PessoaRepository pessoaRepository;
     private final IsolamentoEscola isolamentoEscola;
     private final Clock clock;
+    private final AuditoriaService auditoriaService;
 
     public AulaService(AulaRepository aulaRepository, FrequenciaRepository frequenciaRepository,
             ProfessorRepository professorRepository, AlocacaoProfessorRepository alocacaoRepository,
             TurmaRepository turmaRepository, DisciplinaRepository disciplinaRepository,
             MatriculaTurmaRepository matriculaRepository, PessoaRepository pessoaRepository,
-            IsolamentoEscola isolamentoEscola, Clock clock) {
+            IsolamentoEscola isolamentoEscola, Clock clock, AuditoriaService auditoriaService) {
         this.aulaRepository = aulaRepository;
         this.frequenciaRepository = frequenciaRepository;
         this.professorRepository = professorRepository;
@@ -111,6 +115,7 @@ public class AulaService {
         this.pessoaRepository = pessoaRepository;
         this.isolamentoEscola = isolamentoEscola;
         this.clock = clock;
+        this.auditoriaService = auditoriaService;
     }
 
     /**
@@ -198,6 +203,8 @@ public class AulaService {
                         .build())
                 .toList());
         frequenciaRepository.flush();
+        // A chamada nasce com a aula: um registro so, nao um por aluno.
+        auditoriaService.registrar(OperacaoAuditoria.CRIAR, EntidadeAuditada.AULA, aula.getId());
         return resposta(aula.getId(), escolaId);
     }
 
@@ -225,6 +232,7 @@ public class AulaService {
         aulaRepository.save(aula);
 
         List<Frequencia> novas = new ArrayList<>();
+        List<Frequencia> corrigidas = new ArrayList<>();
         for (ChamadaItem item : request.chamada()) {
             Frequencia existente = registradas.get(item.alunoId());
             if (existente == null) {
@@ -237,10 +245,17 @@ public class AulaService {
             } else if (existente.isPresente() != item.presente()) {
                 existente.setPresente(item.presente());
                 existente.setAtualizadoEm(agora);
+                corrigidas.add(existente);
             }
         }
         frequenciaRepository.saveAll(novas);
         frequenciaRepository.flush();
+        // A correcao fica por aluno: quem teve a presenca trocada e quem entrou na chamada agora.
+        auditoriaService.registrar(OperacaoAuditoria.EDITAR, EntidadeAuditada.AULA, aula.getId());
+        corrigidas.forEach(f -> auditoriaService.registrar(OperacaoAuditoria.EDITAR, EntidadeAuditada.FREQUENCIA,
+                f.getId()));
+        novas.forEach(f -> auditoriaService.registrar(OperacaoAuditoria.CRIAR, EntidadeAuditada.FREQUENCIA,
+                f.getId()));
         return resposta(id, escolaId);
     }
 
@@ -255,6 +270,7 @@ public class AulaService {
         Aula aula = buscarAula(id, escolaId, professorAtual(escolaId));
         frequenciaRepository.apagarDaAula(escolaId, id);
         aulaRepository.delete(aula);
+        auditoriaService.registrar(OperacaoAuditoria.EXCLUIR, EntidadeAuditada.AULA, id);
     }
 
     /**

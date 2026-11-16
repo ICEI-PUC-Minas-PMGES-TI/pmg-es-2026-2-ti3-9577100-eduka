@@ -24,6 +24,9 @@ import br.pucminas.eduka.backend.repository.pessoas.PessoaRepository;
 import br.pucminas.eduka.backend.repository.pessoas.SolicitacaoCorrecaoRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
 /**
  * Pedido de correcao de dados (IU15): o aluno so consulta os proprios dados e
@@ -38,15 +41,17 @@ public class SolicitacaoCorrecaoService {
     private final PessoaRepository pessoaRepository;
     private final IsolamentoEscola isolamentoEscola;
     private final Clock clock;
+    private final AuditoriaService auditoriaService;
 
     public SolicitacaoCorrecaoService(SolicitacaoCorrecaoRepository solicitacaoRepository,
             AlunoRepository alunoRepository, PessoaRepository pessoaRepository, IsolamentoEscola isolamentoEscola,
-            Clock clock) {
+            Clock clock, AuditoriaService auditoriaService) {
         this.solicitacaoRepository = solicitacaoRepository;
         this.alunoRepository = alunoRepository;
         this.pessoaRepository = pessoaRepository;
         this.isolamentoEscola = isolamentoEscola;
         this.clock = clock;
+        this.auditoriaService = auditoriaService;
     }
 
     /**
@@ -67,6 +72,7 @@ public class SolicitacaoCorrecaoService {
                     .alunoId(aluno.getId())
                     .mensagem(mensagem.trim())
                     .build());
+            auditoriaService.registrar(OperacaoAuditoria.CRIAR, EntidadeAuditada.PEDIDO_CORRECAO, salva.getId());
             return SolicitacaoCorrecaoResponse.de(salva, null, null);
         } catch (DataIntegrityViolationException e) {
             // Dois envios ao mesmo tempo: o indice parcial segura o segundo.
@@ -110,6 +116,8 @@ public class SolicitacaoCorrecaoService {
         if (solicitacao.getStatus() == StatusSolicitacaoCorrecao.ABERTA) {
             solicitacao.setStatus(StatusSolicitacaoCorrecao.ATENDIDA);
             solicitacao.setAtendidaEm(clock.instant());
+            auditoriaService.registrar(OperacaoAuditoria.ATENDER, EntidadeAuditada.PEDIDO_CORRECAO,
+                    solicitacao.getId());
         }
         return SolicitacaoCorrecaoResponse.de(solicitacao, null, null);
     }

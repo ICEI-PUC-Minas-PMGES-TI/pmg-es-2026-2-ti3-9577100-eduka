@@ -38,6 +38,7 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.pessoas.ResponsavelService;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
 /**
  * Contrato de {@code POST /alunos/{id}/responsaveis}: filter chain, tokens,
@@ -58,6 +59,8 @@ class AlunoResponsavelControllerSecurityTest {
     @Autowired
     private JwtService jwtService;
 
+    @MockitoBean
+    private AuditoriaService auditoriaService;
     @MockitoBean
     private ResponsavelRepository responsavelRepository;
     @MockitoBean

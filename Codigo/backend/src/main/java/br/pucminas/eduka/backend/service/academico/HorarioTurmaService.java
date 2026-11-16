@@ -29,6 +29,9 @@ import br.pucminas.eduka.backend.repository.academico.TurmaRepository;
 import br.pucminas.eduka.backend.repository.pessoas.PessoaRepository;
 import br.pucminas.eduka.backend.repository.pessoas.ProfessorRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
 /**
  * Grade semanal das turmas (IU26), montada a partir das alocacoes de
@@ -64,17 +67,19 @@ public class HorarioTurmaService {
     private final ProfessorRepository professorRepository;
     private final PessoaRepository pessoaRepository;
     private final IsolamentoEscola isolamentoEscola;
+    private final AuditoriaService auditoriaService;
 
     public HorarioTurmaService(HorarioTurmaRepository horarioRepository,
             AlocacaoProfessorRepository alocacaoRepository, TurmaRepository turmaRepository,
             ProfessorRepository professorRepository, PessoaRepository pessoaRepository,
-            IsolamentoEscola isolamentoEscola) {
+            IsolamentoEscola isolamentoEscola, AuditoriaService auditoriaService) {
         this.horarioRepository = horarioRepository;
         this.alocacaoRepository = alocacaoRepository;
         this.turmaRepository = turmaRepository;
         this.professorRepository = professorRepository;
         this.pessoaRepository = pessoaRepository;
         this.isolamentoEscola = isolamentoEscola;
+        this.auditoriaService = auditoriaService;
     }
 
     /** A grade da turma, de segunda a sabado e por hora de inicio. */
@@ -114,6 +119,7 @@ public class HorarioTurmaService {
                 .horaInicio(request.horaInicio())
                 .horaFim(request.horaFim())
                 .build());
+        auditoriaService.registrar(OperacaoAuditoria.CRIAR, EntidadeAuditada.HORARIO, aula.getId());
         return responder(List.of(aula), escolaId).get(0);
     }
 
@@ -132,7 +138,9 @@ public class HorarioTurmaService {
         aula.setHoraInicio(request.horaInicio());
         aula.setHoraFim(request.horaFim());
         aula.setAtualizadoEm(Instant.now());
-        return responder(List.of(horarioRepository.saveAndFlush(aula)), escolaId).get(0);
+        HorarioTurma salva = horarioRepository.saveAndFlush(aula);
+        auditoriaService.registrar(OperacaoAuditoria.EDITAR, EntidadeAuditada.HORARIO, salva.getId());
+        return responder(List.of(salva), escolaId).get(0);
     }
 
     @Transactional
@@ -140,7 +148,9 @@ public class HorarioTurmaService {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         Turma turma = turmaRepository.findByIdAndEscolaId(turmaId, escolaId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Turma nao encontrada"));
-        horarioRepository.delete(buscarAula(horarioId, turma, escolaId));
+        HorarioTurma aula = buscarAula(horarioId, turma, escolaId);
+        horarioRepository.delete(aula);
+        auditoriaService.registrar(OperacaoAuditoria.EXCLUIR, EntidadeAuditada.HORARIO, aula.getId());
     }
 
     private Turma travarTurma(Long turmaId, UUID escolaId) {

@@ -37,6 +37,8 @@ import org.springframework.data.domain.Sort.Direction;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.academico.Aula;
 import br.pucminas.eduka.backend.domain.academico.Disciplina;
 import br.pucminas.eduka.backend.domain.academico.Frequencia;
@@ -65,6 +67,7 @@ import br.pucminas.eduka.backend.repository.pessoas.PessoaRepository;
 import br.pucminas.eduka.backend.repository.pessoas.ProfessorRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
 /**
  * Regras de aula e chamada: o professor so mexe no que esta alocado a ele,
@@ -79,6 +82,8 @@ class AulaServiceTest {
     private static final Instant AGORA = Instant.parse("2026-11-01T18:00:00Z");
     private static final LocalDate HOJE = LocalDate.of(2026, 11, 1);
 
+    @Mock
+    private AuditoriaService auditoriaService;
     @Mock
     private AulaRepository aulaRepository;
     @Mock
@@ -123,7 +128,7 @@ class AulaServiceTest {
     private AulaService servico(Instant agora) {
         return new AulaService(aulaRepository, frequenciaRepository, professorRepository, alocacaoRepository,
                 turmaRepository, disciplinaRepository, matriculaRepository, pessoaRepository,
-                new IsolamentoEscola(), Clock.fixed(agora, ZoneOffset.UTC));
+                new IsolamentoEscola(), Clock.fixed(agora, ZoneOffset.UTC), auditoriaService);
     }
 
     private void alocado(boolean alocado) {
@@ -243,7 +248,10 @@ class AulaServiceTest {
         assertThat(resposta.chamada()).extracting("alunoNome", "presente")
                 .containsExactly(tuple("Ana", true),
                         tuple("Bruno", false));
-        assertThat(resposta.chamada().get(0).situacaoMatricula()).isEqualTo(StatusMatricula.ATIVA);
+        assertThat(resposta.chamada().get(0).situacaoMatricula()).isEqualTo(StatusMatricula.ATIVA);        // A chamada nasce com a aula: um registro so no log, nao um por aluno.
+        verify(auditoriaService).registrar(OperacaoAuditoria.CRIAR, EntidadeAuditada.AULA,
+                aula.getValue().getId());
+        verify(auditoriaService, never()).registrar(any(), eq(EntidadeAuditada.FREQUENCIA), any());
     }
 
     @Test
@@ -468,7 +476,11 @@ class AulaServiceTest {
         assertThat(deBruno.isPresente()).isTrue();
         assertThat(deBruno.getAtualizadoEm()).isEqualTo(AGORA);
         assertThat(resposta.faltas()).isZero();
-        assertThat(resposta.presentes()).isEqualTo(2);
+        assertThat(resposta.presentes()).isEqualTo(2);        // A correcao da chamada deixa rastro por aluno: so o Bruno mudou.
+        verify(auditoriaService).registrar(OperacaoAuditoria.EDITAR, EntidadeAuditada.AULA, aula.getId());
+        verify(auditoriaService).registrar(OperacaoAuditoria.EDITAR, EntidadeAuditada.FREQUENCIA, deBruno.getId());
+        verify(auditoriaService, never()).registrar(OperacaoAuditoria.EDITAR, EntidadeAuditada.FREQUENCIA,
+                deAna.getId());
     }
 
     @Test

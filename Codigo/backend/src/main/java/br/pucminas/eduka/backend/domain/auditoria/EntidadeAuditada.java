@@ -30,5 +30,30 @@ public enum EntidadeAuditada {
     /** Nota de um aluno numa avaliacao (V44). */
     NOTA,
     /** A escola: dados, plano, assinatura e situacao (V44). */
-    ESCOLA
+    ESCOLA,
+    /**
+     * Periodo letivo (V53). Curso, disciplina, periodo e turma tem id numerico;
+     * o REGISTRO_ID guarda o numero num UUID ({@code AuditoriaService#idNumerico}).
+     */
+    PERIODO_LETIVO,
+    /** Curso (V53); id numerico. */
+    CURSO,
+    /** Disciplina (V53); id numerico. */
+    DISCIPLINA,
+    /** Turma, com a grade de disciplinas (V53); id numerico. */
+    TURMA,
+    /** Professor alocado numa disciplina da turma (V53). */
+    ALOCACAO,
+    /** Aula da grade semanal da turma (V53). */
+    HORARIO,
+    /** Aula registrada pelo professor, com conteudo e chamada (V53). */
+    AULA,
+    /** Presenca ou falta de um aluno numa aula: so a correcao da chamada (V53). */
+    FREQUENCIA,
+    /** Cadastro do responsavel e o vinculo dele com o aluno (V53). */
+    RESPONSAVEL,
+    /** Categoria de despesa (V53). */
+    CATEGORIA_DESPESA,
+    /** Pedido de correcao de dados feito pelo aluno (V53). */
+    PEDIDO_CORRECAO
 }

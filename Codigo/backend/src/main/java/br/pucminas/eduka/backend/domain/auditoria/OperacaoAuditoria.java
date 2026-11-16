@@ -35,5 +35,15 @@ public enum OperacaoAuditoria {
     /** Os dados pessoais do aluno foram exportados a pedido do titular (LGPD, V45). */
     EXPORTAR_DADOS,
     /** O dado pessoal do aluno foi apagado e o historico financeiro ficou (LGPD, V45). */
-    ANONIMIZAR
+    ANONIMIZAR,
+    /** O periodo letivo em andamento foi encerrado antes do fim (V53). */
+    ENCERRAR,
+    /** As matriculas de um periodo planejado foram liberadas (V53). */
+    ABRIR_MATRICULAS,
+    /** O responsavel foi ligado a um aluno, ou o vinculo mudou (V53). */
+    VINCULAR,
+    /** O responsavel deixou de estar ligado a um aluno (V53). */
+    DESVINCULAR,
+    /** A secretaria atendeu o pedido de correcao do aluno (V53). */
+    ATENDER
 }
