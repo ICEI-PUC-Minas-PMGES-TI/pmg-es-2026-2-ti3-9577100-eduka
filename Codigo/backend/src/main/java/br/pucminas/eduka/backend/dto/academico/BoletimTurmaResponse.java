@@ -2,6 +2,7 @@ package br.pucminas.eduka.backend.dto.academico;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.List;
 
 import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
@@ -15,6 +16,12 @@ import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
  * @param limiteFaltasPercentual limite de faltas, em % das aulas dadas, que
  *                               dispara o alerta; e o mesmo numero que o
  *                               texto "Regras de aprovacao" do boletim mostra
+ * @param ano                    ano letivo (do inicio do periodo); nulo se o
+ *                               periodo nao tem datas
+ * @param bimestres              os bimestres do periodo (ver
+ *                               {@link br.pucminas.eduka.backend.domain.academico.Bimestres}),
+ *                               com a frequencia da turma em cada um; vazio se
+ *                               o periodo nao tem datas
  */
 public record BoletimTurmaResponse(
         Long turmaId,
@@ -24,7 +31,11 @@ public record BoletimTurmaResponse(
         StatusMatricula situacaoMatricula,
         List<BoletimDisciplina> disciplinas,
         Frequencia frequencia,
-        int limiteFaltasPercentual) {
+        int limiteFaltasPercentual,
+        Integer ano,
+        LocalDate periodoLetivoInicio,
+        LocalDate periodoLetivoFim,
+        List<BimestreDaTurma> bimestres) {
 
     /** Limite unico de faltas (% das aulas dadas): acima dele, alerta. */
     public static final int LIMITE_FALTAS_PERCENTUAL = 25;
@@ -37,12 +48,35 @@ public record BoletimTurmaResponse(
      *                           disciplina, com ou sem nota
      * @param frequencia         {@code null} enquanto a disciplina nao teve
      *                           aula com chamada ("sem aulas")
+     * @param bimestres          os mesmos totais e a frequencia em cada
+     *                           bimestre da turma, na ordem
      */
     public record BoletimDisciplina(
             Long disciplinaId,
             String disciplinaNome,
             String professorNome,
             List<AvaliacaoDoAlunoResponse> avaliacoes,
+            BigDecimal pontosObtidos,
+            BigDecimal pontosAvaliados,
+            BigDecimal pontosDistribuidos,
+            Frequencia frequencia,
+            List<BimestreDaDisciplina> bimestres) {
+    }
+
+    /**
+     * Um bimestre da turma: as datas que ele cobre e a frequencia do aluno
+     * nele (todas as disciplinas); {@code null} sem aula com chamada.
+     */
+    public record BimestreDaTurma(
+            int numero,
+            LocalDate inicio,
+            LocalDate fim,
+            Frequencia frequencia) {
+    }
+
+    /** A disciplina num bimestre: os totais de pontos e a frequencia so dele. */
+    public record BimestreDaDisciplina(
+            int numero,
             BigDecimal pontosObtidos,
             BigDecimal pontosAvaliados,
             BigDecimal pontosDistribuidos,

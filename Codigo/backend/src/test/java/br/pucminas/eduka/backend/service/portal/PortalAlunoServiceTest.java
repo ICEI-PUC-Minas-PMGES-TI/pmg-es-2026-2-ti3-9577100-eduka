@@ -39,6 +39,8 @@ import br.pucminas.eduka.backend.domain.pessoas.Aluno;
 import br.pucminas.eduka.backend.domain.pessoas.Pessoa;
 import br.pucminas.eduka.backend.domain.pessoas.Professor;
 import br.pucminas.eduka.backend.dto.academico.AvaliacaoDoAlunoResponse;
+import br.pucminas.eduka.backend.dto.academico.BoletimTurmaResponse.BimestreDaDisciplina;
+import br.pucminas.eduka.backend.dto.academico.BoletimTurmaResponse.BimestreDaTurma;
 import br.pucminas.eduka.backend.dto.academico.BoletimTurmaResponse.BoletimDisciplina;
 import br.pucminas.eduka.backend.dto.academico.BoletimTurmaResponse;
 import br.pucminas.eduka.backend.dto.academico.TurmaDoAlunoResponse;
@@ -46,6 +48,7 @@ import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.academico.AlocacaoProfessorRepository;
 import br.pucminas.eduka.backend.repository.academico.AvaliacaoRepository;
 import br.pucminas.eduka.backend.repository.academico.FrequenciaRepository.FrequenciaDaDisciplina;
+import br.pucminas.eduka.backend.repository.academico.FrequenciaRepository.FrequenciaDoDia;
 import br.pucminas.eduka.backend.repository.academico.FrequenciaRepository;
 import br.pucminas.eduka.backend.repository.academico.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.academico.NotaRepository;
@@ -241,6 +244,69 @@ class PortalAlunoServiceTest {
         assertThat(boletim.disciplinas()).extracting(d -> d.frequencia().alertaFaltas()).containsOnly(false);
         assertThat(boletim.frequencia().alertaFaltas()).isFalse();
         assertThat(boletim.frequencia().percentualFrequencia()).isEqualByComparingTo("75");
+    }
+
+    @Test
+    void boletimSeparaNotasEFrequenciaPorBimestreDoPeriodo() {
+        // Primeiro semestre: 1o bimestre de 02/02 a 18/04, 2o de 19/04 a 03/07.
+        turma.setPeriodoLetivo(PeriodoLetivo.builder().id(5L).nome("2026/1").dataInicio(LocalDate.of(2026, 2, 2))
+                .dataFim(LocalDate.of(2026, 7, 3)).build());
+        when(matriculaRepository.findAllByEscolaIdAndAlunoId(ESCOLA, aluno.getId()))
+                .thenReturn(List.of(matricula(turma, StatusMatricula.ATIVA)));
+        Avaliacao prova1 = avaliacao(matematica, "Prova 1", LocalDate.of(2026, 3, 10), "10");
+        Avaliacao prova2 = avaliacao(matematica, "Prova 2", LocalDate.of(2026, 5, 10), "20");
+        when(avaliacaoRepository.findAllByEscolaIdAndTurmaIdIn(eq(ESCOLA), anyCollection()))
+                .thenReturn(List.of(prova1, prova2));
+        when(notaRepository.findAllByEscolaIdAndAlunoId(ESCOLA, aluno.getId()))
+                .thenReturn(List.of(nota(prova1, "7"), nota(prova2, "18")));
+        when(frequenciaRepository.resumirPorDisciplinaEDia(ESCOLA, aluno.getId(), 1L)).thenReturn(List.of(
+                dia(matematica.getId(), LocalDate.of(2026, 3, 2), 2, 1),
+                dia(matematica.getId(), LocalDate.of(2026, 3, 9), 2, 0),
+                dia(fisica.getId(), LocalDate.of(2026, 5, 4), 4, 2)));
+
+        BoletimTurmaResponse boletim = service.boletim().get(0);
+
+        assertThat(boletim.ano()).isEqualTo(2026);
+        assertThat(boletim.bimestres()).extracting(BimestreDaTurma::numero).containsExactly(1, 2);
+        assertThat(boletim.bimestres().get(0).frequencia().faltas()).isEqualTo(1);
+        assertThat(boletim.bimestres().get(1).frequencia().totalAulas()).isEqualTo(4);
+        BoletimDisciplina mat = boletim.disciplinas().get(1);
+        assertThat(mat.avaliacoes()).extracting(AvaliacaoDoAlunoResponse::bimestre).containsExactly(1, 2);
+        BimestreDaDisciplina primeiro = mat.bimestres().get(0);
+        assertThat(primeiro.pontosObtidos()).isEqualByComparingTo("7");
+        assertThat(primeiro.pontosDistribuidos()).isEqualByComparingTo("10");
+        assertThat(primeiro.frequencia().totalAulas()).isEqualTo(4);
+        BimestreDaDisciplina segundo = mat.bimestres().get(1);
+        assertThat(segundo.pontosObtidos()).isEqualByComparingTo("18");
+        // Matematica nao teve aula no 2o bimestre: sem frequencia, nao 0% nem 100%.
+        assertThat(segundo.frequencia()).isNull();
+        BoletimDisciplina fis = boletim.disciplinas().get(0);
+        assertThat(fis.bimestres().get(1).frequencia().percentualFrequencia()).isEqualByComparingTo("50");
+        assertThat(fis.bimestres().get(0).pontosDistribuidos()).isEqualByComparingTo("0");
+    }
+
+    private static FrequenciaDoDia dia(Long disciplinaId, LocalDate data, long aulas, long faltas) {
+        return new FrequenciaDoDia() {
+            @Override
+            public Long getDisciplinaId() {
+                return disciplinaId;
+            }
+
+            @Override
+            public LocalDate getData() {
+                return data;
+            }
+
+            @Override
+            public long getAulas() {
+                return aulas;
+            }
+
+            @Override
+            public long getFaltas() {
+                return faltas;
+            }
+        };
     }
 
     private static FrequenciaDaDisciplina resumo(Long disciplinaId, long aulas, long faltas) {
