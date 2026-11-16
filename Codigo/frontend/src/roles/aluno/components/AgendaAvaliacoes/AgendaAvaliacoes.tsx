@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useSearchParams } from 'react-router'
 import { Button } from '../../../../components/ui/Button/Button'
 import { Icon, type IconName } from '../../../../components/ui/Icon/Icon'
 import { listarMinhasAvaliacoes } from '../../../../services/portal/portalAlunoService'
@@ -17,14 +18,35 @@ const ICONE_DO_TIPO: Record<TipoAvaliacao, IconName> = {
   TAREFA: 'list',
 }
 
-/** Aba "Tarefas e provas" do boletim: o que vem pela frente e o que já foi feito. */
+/**
+ * Aba "Tarefas e provas" do boletim: o que vem pela frente e o que já foi
+ * feito, de todos os bimestres ou de um só (?bimestre=3, o mesmo parâmetro da
+ * aba Boletim).
+ */
 export function AgendaAvaliacoes() {
   const { dados: avaliacoes, carregando, erro, recarregar } = useDadosDoAluno(listarMinhasAvaliacoes, NENHUMA)
+  const [params, setParams] = useSearchParams()
+
+  // Só os bimestres que têm avaliação; período sem datas não tem bimestre.
+  const bimestres = [...new Set(avaliacoes.map((a) => a.bimestre).filter((n): n is number => n !== null))].sort(
+    (a, b) => a - b,
+  )
+  const pedido = Number(params.get('bimestre'))
+  const bimestre = bimestres.includes(pedido) ? pedido : null
+  const doRecorte = bimestre === null ? avaliacoes : avaliacoes.filter((a) => a.bimestre === bimestre)
 
   // O backend já manda por data; as realizadas aparecem da mais recente para trás.
   const hoje = hojeIso()
-  const proximas = avaliacoes.filter((a) => a.data >= hoje)
-  const realizadas = avaliacoes.filter((a) => a.data < hoje).reverse()
+  const proximas = doRecorte.filter((a) => a.data >= hoje)
+  const realizadas = doRecorte.filter((a) => a.data < hoje).reverse()
+  const noRecorte = bimestre === null ? '' : ` no ${bimestre}º bimestre`
+
+  function escolher(numero: number | null) {
+    const novos = new URLSearchParams(params)
+    if (numero === null) novos.delete('bimestre')
+    else novos.set('bimestre', String(numero))
+    setParams(novos, { replace: true })
+  }
 
   if (carregando) {
     return (
@@ -56,8 +78,43 @@ export function AgendaAvaliacoes() {
 
   return (
     <>
-      <SecaoAvaliacoes titulo="Próximas" vazio="Nada marcado daqui para frente." avaliacoes={proximas} resumo />
-      <SecaoAvaliacoes titulo="Já realizadas" vazio="Nenhuma avaliação realizada ainda." avaliacoes={realizadas} />
+      {bimestres.length > 0 && (
+        <div className={styles.filtro} role="group" aria-label="Filtrar por bimestre">
+          <button
+            type="button"
+            aria-pressed={bimestre === null}
+            className={`${styles.opcao} ${bimestre === null ? styles.opcaoAtiva : ''}`}
+            onClick={() => escolher(null)}
+          >
+            Todos <span className={styles.opcaoContador}>{avaliacoes.length}</span>
+          </button>
+          {bimestres.map((numero) => (
+            <button
+              key={numero}
+              type="button"
+              aria-pressed={bimestre === numero}
+              className={`${styles.opcao} ${bimestre === numero ? styles.opcaoAtiva : ''}`}
+              onClick={() => escolher(numero)}
+            >
+              {numero}º bimestre{' '}
+              <span className={styles.opcaoContador}>{avaliacoes.filter((a) => a.bimestre === numero).length}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <SecaoAvaliacoes
+        titulo="Próximas"
+        vazio={`Nada marcado daqui para frente${noRecorte}.`}
+        avaliacoes={proximas}
+        resumo
+        mostrarBimestre={bimestre === null}
+      />
+      <SecaoAvaliacoes
+        titulo="Já realizadas"
+        vazio={`Nenhuma avaliação realizada${noRecorte} ainda.`}
+        avaliacoes={realizadas}
+        mostrarBimestre={bimestre === null}
+      />
     </>
   )
 }
@@ -70,13 +127,22 @@ type SecaoAvaliacoesProps = {
   resumo?: boolean
   /** Botão no rodapé do painel (ex.: "Ver todas"). */
   acao?: ReactNode
+  /** Falso quando a lista já é de um bimestre só. */
+  mostrarBimestre?: boolean
 }
 
 /**
  * Painel de avaliações agrupadas por dia, com quanto falta para cada dia;
  * também usado no Início do aluno.
  */
-export function SecaoAvaliacoes({ titulo, vazio, avaliacoes, resumo = false, acao }: SecaoAvaliacoesProps) {
+export function SecaoAvaliacoes({
+  titulo,
+  vazio,
+  avaliacoes,
+  resumo = false,
+  acao,
+  mostrarBimestre = true,
+}: SecaoAvaliacoesProps) {
   const hoje = hojeIso()
   const dias = agruparPorDia(avaliacoes)
   const pontos = avaliacoes.reduce((soma, a) => soma + a.valor, 0)
@@ -112,7 +178,12 @@ export function SecaoAvaliacoes({ titulo, vazio, avaliacoes, resumo = false, aca
                 </div>
                 <ul className={styles.itens}>
                   {dia.avaliacoes.map((avaliacao) => (
-                    <ItemAvaliacao key={avaliacao.id} avaliacao={avaliacao} passou={faltam < 0} />
+                    <ItemAvaliacao
+                      key={avaliacao.id}
+                      avaliacao={avaliacao}
+                      passou={faltam < 0}
+                      mostrarBimestre={mostrarBimestre}
+                    />
                   ))}
                 </ul>
               </li>
@@ -127,7 +198,9 @@ export function SecaoAvaliacoes({ titulo, vazio, avaliacoes, resumo = false, aca
 }
 
 /** `passou`: o dia já foi; sem nota, a avaliação está esperando o professor lançar. */
-function ItemAvaliacao({ avaliacao, passou }: { avaliacao: AvaliacaoDoAluno; passou: boolean }) {
+type ItemAvaliacaoProps = { avaliacao: AvaliacaoDoAluno; passou: boolean; mostrarBimestre: boolean }
+
+function ItemAvaliacao({ avaliacao, passou, mostrarBimestre }: ItemAvaliacaoProps) {
   const tipo = avaliacao.tipo.toLowerCase() as 'prova' | 'trabalho' | 'tarefa'
   const naMedia = avaliacao.nota !== null && atingiuMedia(avaliacao.nota, avaliacao.valor)
 
@@ -144,7 +217,7 @@ function ItemAvaliacao({ avaliacao, passou }: { avaliacao: AvaliacaoDoAluno; pas
         </span>
         <span className={styles.disciplina}>
           {avaliacao.titulo}
-          {avaliacao.bimestre !== null && <span className={styles.bimestre}> · {avaliacao.bimestre}º bimestre</span>}
+          {mostrarBimestre && avaliacao.bimestre !== null && <span className={styles.bimestre}> · {avaliacao.bimestre}º bimestre</span>}
         </span>
         {avaliacao.descricao && <p className={styles.descricao}>{avaliacao.descricao}</p>}
       </div>
@@ -153,7 +226,7 @@ function ItemAvaliacao({ avaliacao, passou }: { avaliacao: AvaliacaoDoAluno; pas
           <>
             <strong>{formatarPontos(avaliacao.valor)}</strong>
             <span>{plural(avaliacao.valor, 'ponto', 'pontos')}</span>
-            {passou && <span className={styles.aguardando}>aguardando nota</span>}
+            {passou && <span className={styles.aguardando}>sem nota</span>}
           </>
         ) : (
           <span className={`${styles.nota} ${naMedia ? styles.naMedia : styles.abaixo}`}>

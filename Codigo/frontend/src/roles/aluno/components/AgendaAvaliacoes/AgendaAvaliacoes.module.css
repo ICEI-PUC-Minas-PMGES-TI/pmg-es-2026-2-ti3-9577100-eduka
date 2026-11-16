@@ -316,6 +316,60 @@
   justify-content: flex-end;
 }
 
+/* Filtro por bimestre: pílulas com quantas avaliações cada um tem. */
+.filtro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.opcao {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+}
+
+.opcao:hover {
+  border-color: var(--color-primary);
+}
+
+.opcao:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.opcaoAtiva,
+.opcaoAtiva:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.opcaoContador {
+  padding: 0 7px;
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg-tint);
+  color: var(--color-primary-text);
+  font-size: 12px;
+}
+
+.opcaoAtiva .opcaoContador {
+  background: color-mix(in srgb, var(--color-on-primary) 22%, transparent);
+  color: inherit;
+}
+
 .mensagem {
   display: flex;
   flex-direction: column;
