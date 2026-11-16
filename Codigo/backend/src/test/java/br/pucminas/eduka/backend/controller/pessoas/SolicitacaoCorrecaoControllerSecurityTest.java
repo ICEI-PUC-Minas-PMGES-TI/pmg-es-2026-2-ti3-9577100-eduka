@@ -34,6 +34,7 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.pessoas.SolicitacaoCorrecaoService;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
 /**
  * Quem pede correcao de dados e quem atende, ponta a ponta: filter chain,
@@ -53,6 +54,8 @@ class SolicitacaoCorrecaoControllerSecurityTest {
     @Autowired
     private JwtService jwtService;
 
+    @MockitoBean
+    private AuditoriaService auditoriaService;
     @MockitoBean
     private SolicitacaoCorrecaoRepository solicitacaoRepository;
     @MockitoBean

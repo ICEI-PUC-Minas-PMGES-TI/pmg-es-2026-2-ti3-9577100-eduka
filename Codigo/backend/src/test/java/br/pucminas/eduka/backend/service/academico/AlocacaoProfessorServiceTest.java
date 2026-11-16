@@ -42,6 +42,7 @@ import br.pucminas.eduka.backend.repository.pessoas.PessoaRepository;
 import br.pucminas.eduka.backend.repository.pessoas.ProfessorRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
 /**
  * Regras de alocacao de professor em disciplina de turma: isolamento por
@@ -53,6 +54,8 @@ class AlocacaoProfessorServiceTest {
 
     private static final UUID ESCOLA_A = UUID.randomUUID();
 
+    @Mock
+    private AuditoriaService auditoriaService;
     @Mock
     private AlocacaoProfessorRepository alocacaoRepository;
     @Mock
@@ -74,7 +77,7 @@ class AlocacaoProfessorServiceTest {
     @BeforeEach
     void setUp() {
         alocacaoService = new AlocacaoProfessorService(alocacaoRepository, professorRepository, pessoaRepository,
-                turmaRepository, disciplinaRepository, new IsolamentoEscola());
+                turmaRepository, disciplinaRepository, new IsolamentoEscola(), auditoriaService);
         autenticarComo("SECRETARIA", ESCOLA_A);
 
         pessoaAna = Pessoa.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).nome("Ana").ativo(true).build();

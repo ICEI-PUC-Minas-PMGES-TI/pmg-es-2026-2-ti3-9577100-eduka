@@ -102,7 +102,7 @@ class AlunoServiceTest {
         IsolamentoEscola isolamentoEscola = new IsolamentoEscola();
         ResponsavelService responsavelService = new ResponsavelService(responsavelRepository,
                 alunoResponsavelRepository, alunoRepository, pessoaRepository, pessoaPapelRepository,
-                cobrancaRepository, isolamentoEscola);
+                cobrancaRepository, isolamentoEscola, auditoriaService);
         alunoService = new AlunoService(alunoRepository, pessoaRepository, pessoaPapelRepository,
                 responsavelService, isolamentoEscola, acessoService, matriculaRepository, RELOGIO, auditoriaService,
                 new PoliticaRetencao(5));

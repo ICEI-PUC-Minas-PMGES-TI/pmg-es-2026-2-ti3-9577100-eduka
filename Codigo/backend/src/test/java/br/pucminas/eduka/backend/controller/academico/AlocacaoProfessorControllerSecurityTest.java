@@ -43,6 +43,7 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.academico.AlocacaoProfessorService;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
 /**
  * Contrato de seguranca das alocacoes de professor, ponta a ponta: filter
@@ -63,6 +64,8 @@ class AlocacaoProfessorControllerSecurityTest {
     @Autowired
     private JwtService jwtService;
 
+    @MockitoBean
+    private AuditoriaService auditoriaService;
     @MockitoBean
     private AlocacaoProfessorRepository alocacaoRepository;
     @MockitoBean
