@@ -68,6 +68,15 @@ export function Boletim() {
   const [params, setParams] = useSearchParams()
   const aba: Aba = params.get('aba') === 'provas' ? 'provas' : 'boletim'
 
+  // O bimestre escolhido vale nas duas abas; o ano é só do boletim.
+  function trocarAba(nova: Aba) {
+    const novos = new URLSearchParams()
+    if (nova === 'provas') novos.set('aba', 'provas')
+    const bimestre = params.get('bimestre')
+    if (bimestre) novos.set('bimestre', bimestre)
+    setParams(novos, { replace: true })
+  }
+
   return (
     <AlunoLayout titulo="Boletim" subtitulo="Suas notas por ano e bimestre, a frequência e as tarefas e provas.">
       <div className={styles.abas} role="tablist" aria-label="Boletim">
@@ -80,7 +89,7 @@ export function Boletim() {
             aria-selected={aba === a.id}
             aria-controls="painel-boletim"
             className={`${styles.aba} ${aba === a.id ? styles.abaAtiva : ''}`}
-            onClick={() => setParams(a.id === 'boletim' ? {} : { aba: a.id }, { replace: true })}
+            onClick={() => trocarAba(a.id)}
           >
             {a.rotulo}
           </button>

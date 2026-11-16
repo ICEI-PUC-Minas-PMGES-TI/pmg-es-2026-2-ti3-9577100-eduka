@@ -165,22 +165,32 @@ describe('Início do aluno', () => {
     expect(screen.queryByRole('button', { name: /^Pagar/ })).not.toBeInTheDocument()
   })
 
-  it('mostra a média de 0 a 10, as disciplinas em recuperação e a frequência com a disciplina de mais faltas', async () => {
+  it('mostra a média de 0 a 10, as disciplinas abaixo da média e a frequência com a disciplina de mais faltas', async () => {
     abrir()
 
     const resumo = await screen.findByRole('region', { name: 'Seu desempenho' })
     // 40 de 80 pontos avaliados: média 5, abaixo de 6.
     expect(within(resumo).getByText('5')).toBeInTheDocument()
-    expect(within(resumo).getByText(/em recuperação: História/)).toBeInTheDocument()
+    expect(within(resumo).getByText('Abaixo da média: História')).toBeInTheDocument()
     expect(within(resumo).getByText('80%')).toBeInTheDocument()
     expect(within(resumo).getByText('Mais faltas em História: 6 faltas')).toBeInTheDocument()
   })
 
-  it('lista só as provas e tarefas dos próximos 15 dias', async () => {
+  it('lista o aproveitamento de cada disciplina, do pior para o melhor', async () => {
+    abrir()
+
+    const resumo = await screen.findByRole('region', { name: 'Seu desempenho' })
+    const linhas = within(resumo).getAllByRole('listitem').map((li) => li.textContent)
+    // História: 10 de 40 = 25%; Matemática: 30 de 40 = 75%.
+    expect(linhas).toEqual(['História25%', 'Matemática75%'])
+  })
+
+  it('lista só as provas e tarefas dos próximos 15 dias, por dia, com quanto falta', async () => {
     abrir({
       avaliacoes: [
         avaliacao('passada', 'Prova passada', diasDepois(-1)),
         avaliacao('hoje', 'Prova de hoje', diasDepois(0)),
+        avaliacao('amanha', 'Tarefa de amanhã', diasDepois(1)),
         avaliacao('quinze', 'Trabalho no dia 15', diasDepois(15)),
         avaliacao('longe', 'Prova distante', diasDepois(16)),
       ],
@@ -191,6 +201,10 @@ describe('Início do aluno', () => {
     expect(within(secao).getByText('Trabalho no dia 15')).toBeInTheDocument()
     expect(within(secao).queryByText('Prova passada')).not.toBeInTheDocument()
     expect(within(secao).queryByText('Prova distante')).not.toBeInTheDocument()
+    expect(within(secao).getByText('Hoje')).toBeInTheDocument()
+    expect(within(secao).getByText('Amanhã')).toBeInTheDocument()
+    expect(within(secao).getByText('Em 15 dias')).toBeInTheDocument()
+    expect(within(secao).getByText(/3 provas/)).toBeInTheDocument()
   })
 
   it('Ver boletim abre o boletim', async () => {
