@@ -144,7 +144,7 @@ public class EscolaService {
 
     /**
      * Quem mexe na escola e o SUPER_ADMIN, que nao tem escola: a linha vai
-     * para a escola afetada, e o MASTER dela ve no registro de atividades.
+     * para a escola afetada, mas nao aparece no registro de atividades dela.
      */
     private void auditar(OperacaoAuditoria operacao, UUID escolaId) {
         auditoriaService.registrarNaEscola(operacao, EntidadeAuditada.ESCOLA, escolaId, escolaId);

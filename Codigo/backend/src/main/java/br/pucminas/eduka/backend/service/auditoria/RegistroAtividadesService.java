@@ -19,6 +19,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.acesso.Usuario;
 import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.auditoria.LogAuditoria;
@@ -34,6 +35,8 @@ import br.pucminas.eduka.backend.repository.auditoria.LogAuditoriaRepository;
 import br.pucminas.eduka.backend.repository.pessoas.PessoaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 
 /**
  * Leitura do LOG_AUDITORIA da escola do token: o Registro de atividades
@@ -44,6 +47,12 @@ public class RegistroAtividadesService {
 
     /** O periodo segue o calendario da escola, nao o de UTC. */
     private static final ZoneId FUSO_ESCOLA = ZoneId.of("America/Sao_Paulo");
+
+    /**
+     * As acoes do SUPER_ADMIN na escola (suspender, reativar, criar o MASTER)
+     * continuam no LOG_AUDITORIA, mas a escola nao as ve.
+     */
+    private static final PerfilUsuario PERFIL_OCULTO = PerfilUsuario.SUPER_ADMIN;
 
     private final LogAuditoriaRepository logAuditoriaRepository;
     private final UsuarioRepository usuarioRepository;
@@ -76,6 +85,11 @@ public class RegistroAtividadesService {
         Specification<LogAuditoria> filtro = (log, query, cb) -> {
             List<Predicate> condicoes = new ArrayList<>();
             condicoes.add(cb.equal(log.get("escolaId"), escolaId));
+            // O que o SUPER_ADMIN faz na escola fica gravado, mas nao aparece para ela.
+            Subquery<UUID> superAdmins = query.subquery(UUID.class);
+            Root<Usuario> usuario = superAdmins.from(Usuario.class);
+            superAdmins.select(usuario.get("id")).where(cb.equal(usuario.get("perfil"), PERFIL_OCULTO));
+            condicoes.add(cb.or(cb.isNull(log.get("usuarioId")), cb.not(log.get("usuarioId").in(superAdmins))));
             if (usuarioId != null) {
                 condicoes.add(cb.equal(log.get("usuarioId"), usuarioId));
             }
@@ -115,7 +129,7 @@ public class RegistroAtividadesService {
     @Transactional(readOnly = true)
     public List<AutorAtividadeResponse> listarAutores() {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
-        return autores(escolaId, logAuditoriaRepository.listarAutores(escolaId)).values().stream()
+        return autores(escolaId, logAuditoriaRepository.listarAutores(escolaId, PERFIL_OCULTO)).values().stream()
                 .sorted(Comparator.comparing(AutorAtividadeResponse::nome,
                         Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .toList();

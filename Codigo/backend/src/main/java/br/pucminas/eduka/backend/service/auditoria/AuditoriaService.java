@@ -86,8 +86,8 @@ public class AuditoriaService {
     /**
      * Registra que o usuario autenticado fez {@code operacao} num registro de
      * outra escola que nao a do token: o SUPER_ADMIN, que nao tem escola,
-     * mexendo numa escola. A linha fica com a escola afetada, para o MASTER
-     * dela ver no registro de atividades.
+     * mexendo numa escola. A linha fica com a escola afetada, mas o registro
+     * de atividades da escola nao mostra o que o SUPER_ADMIN fez.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void registrarNaEscola(OperacaoAuditoria operacao, EntidadeAuditada entidade, UUID registroId,
