@@ -38,6 +38,7 @@ import br.pucminas.eduka.backend.repository.pessoas.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.pessoas.PessoaRepository;
 import br.pucminas.eduka.backend.repository.pessoas.ProfessorRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
+import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 import br.pucminas.eduka.backend.service.acesso.AcessoService;
 import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
@@ -136,6 +137,18 @@ public class ProfessorService {
         String termo = nome == null || nome.isBlank() ? null : nome.trim().toLowerCase(Locale.ROOT);
         return professor -> (ativo == null || professor.ativo() == ativo)
                 && (termo == null || professor.nome().toLowerCase(Locale.ROOT).contains(termo));
+    }
+
+    /**
+     * Dados do proprio professor (Meu perfil), com o CPF. Professor e escola
+     * saem do token: um professor nao consegue ler o cadastro de outro. 404 se
+     * o login nao e de um professor cadastrado na escola.
+     */
+    public ProfessorResponse buscarMeusDados() {
+        UsuarioAutenticado usuario = isolamentoEscola.usuarioAtual();
+        Professor professor = professorRepository.findByUsuarioIdAndEscolaId(usuario.id(), usuario.escolaId())
+                .orElseThrow(ProfessorService::naoEncontrado);
+        return resposta(professor, buscarPessoa(professor, usuario.escolaId()));
     }
 
     public ProfessorResponse buscarPorId(UUID id) {

@@ -224,6 +224,7 @@ class MatrizDeAcessoTest {
                 "POST /categorias-despesa");
 
         libera(matriz, SO_PROFESSOR,
+                "GET /portal/professor/me",
                 "GET /portal/professor/dashboard",
                 "GET /portal/professor/turmas",
                 "GET /portal/professor/turmas/{turmaId}/alunos",

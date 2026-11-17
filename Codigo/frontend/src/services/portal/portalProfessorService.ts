@@ -9,10 +9,16 @@ import type {
 } from '../../types/academico/avaliacaoProfessor'
 import type { DashboardProfessor } from '../../types/dashboard/dashboard'
 import type { AlunoDaTurma, TurmaDoProfessor } from '../../types/academico/turmaProfessor'
+import type { Professor } from '../../types/pessoas/professor'
 import { apiRequest } from '../api'
 
 const AVALIACOES = '/portal/professor/avaliacoes'
 const AULAS = '/portal/professor/aulas'
+
+/** Dados do próprio professor (Meu perfil), com o CPF. 404 se o login não é de um professor. */
+export function buscarMeuPerfil(signal?: AbortSignal): Promise<Professor> {
+  return apiRequest<Professor>('/portal/professor/me', { signal })
+}
 
 // Professor e escola saem do token: não há como pedir as turmas de outro professor.
 export function listarMinhasTurmas(signal?: AbortSignal): Promise<TurmaDoProfessor[]> {
