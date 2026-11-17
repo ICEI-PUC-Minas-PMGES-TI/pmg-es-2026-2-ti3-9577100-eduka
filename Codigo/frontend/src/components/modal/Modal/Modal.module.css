@@ -134,6 +134,12 @@
 }
 
 @media (max-width: 520px) {
+  /* Nome longo (de aluno, de escola) no título não toma o modal inteiro. */
+  .titulo {
+    font-size: 21px;
+    letter-spacing: -0.3px;
+  }
+
   .rodape {
     flex-direction: column-reverse;
   }
