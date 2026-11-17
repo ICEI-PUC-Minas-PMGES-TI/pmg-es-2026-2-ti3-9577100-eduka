@@ -138,6 +138,32 @@ class ProfessorServiceTest {
     }
 
     @Test
+    void listarDizQuemAindaNaoFezOPrimeiroAcesso() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Pessoa pessoaAna = pessoa("Ana", "11111111111");
+        Pessoa pessoaBia = pessoa("Bia", "22222222222");
+        Pessoa pessoaCaio = pessoa("Caio", "33333333333");
+        Professor ana = professor(ESCOLA_A, pessoaAna.getId());
+        ana.setUsuarioId(UUID.randomUUID());
+        Professor bia = professor(ESCOLA_A, pessoaBia.getId());
+        bia.setUsuarioId(UUID.randomUUID());
+        // Cadastro antigo, sem login: o reenvio cria o acesso.
+        Professor caio = professor(ESCOLA_A, pessoaCaio.getId());
+        caio.setUsuarioId(null);
+        when(professorRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of(ana, bia, caio));
+        when(pessoaRepository.findAllByIdInAndEscolaId(any(), eq(ESCOLA_A)))
+                .thenReturn(List.of(pessoaAna, pessoaBia, pessoaCaio));
+        when(acessoService.aguardandoPrimeiroAcesso(any())).thenReturn(java.util.Set.of(ana.getUsuarioId()));
+
+        assertThat(professorService.listar(null, null))
+                .extracting(ProfessorResponse::nome, ProfessorResponse::aguardandoPrimeiroAcesso)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple("Ana", true),
+                        org.assertj.core.groups.Tuple.tuple("Bia", false),
+                        org.assertj.core.groups.Tuple.tuple("Caio", true));
+    }
+
+    @Test
     void listarFiltraPorNomeParcialEPorAtivo() {
         autenticarComo("SECRETARIA", ESCOLA_A);
         Pessoa pessoaAna = pessoa("Ana Silva", "11111111111");

@@ -2,11 +2,11 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { cortarPagina, parametros, simularApi, type ChamadaApi } from '../../../../test/api'
+import { cortarPagina, parametros, problema, simularApi, type ChamadaApi, type RespostaApi } from '../../../../test/api'
 import type { Professor, ResumoProfessores } from '../../../../types/pessoas/professor'
 import { Professores } from './Professores'
 
-function professor(n: number, ativo = true): Professor {
+function professor(n: number, ativo = true, aguardandoPrimeiroAcesso = false): Professor {
   return {
     id: `prof-${n}`,
     escolaId: 'escola-1',
@@ -18,12 +18,14 @@ function professor(n: number, ativo = true): Professor {
     dataAdmissao: null,
     vinculo: n === 1 ? null : 'CLT_40H',
     ativo,
+    aguardandoPrimeiroAcesso,
   }
 }
 
-/** Faz o papel do GET /professores/pagina e do PATCH de inativar. */
-function abrir(professores: Professor[]): ChamadaApi[] {
+/** Faz o papel do GET /professores/pagina, do PATCH de inativar e do POST de reenviar o acesso. */
+function abrir(professores: Professor[], reenvio: RespostaApi = { status: 204 }): ChamadaApi[] {
   const chamadas = simularApi(({ metodo, caminho }) => {
+    if (metodo === 'POST' && /^\/professores\/[^/]+\/primeiro-acesso$/.test(caminho)) return reenvio
     if (caminho.startsWith('/professores/pagina?')) {
       const nome = parametros(caminho).nome?.toLowerCase()
       const filtrados = professores.filter((p) => !nome || p.nome.toLowerCase().includes(nome))
@@ -98,5 +100,39 @@ describe('Professores', () => {
 
     await waitFor(() => expect(resumo).toHaveTextContent(/Professores ativos\s*1\s*De 2/))
     expect(screen.getByRole('status')).toHaveTextContent('"Professor 02" foi inativado.')
+  })
+
+  it('Reenviar acesso aparece só para o professor ativo que ainda não entrou', async () => {
+    abrir([professor(1, true, true), professor(2, true, false), professor(3, false, true)])
+
+    const pendente = (await screen.findByText('Professor 01')).closest('tr') as HTMLElement
+    expect(within(pendente).getByText('Aguardando acesso')).toBeInTheDocument()
+    expect(within(pendente).getByRole('button', { name: 'Reenviar acesso de Professor 01' })).toBeInTheDocument()
+
+    const jaEntrou = screen.getByText('Professor 02').closest('tr') as HTMLElement
+    expect(within(jaEntrou).queryByRole('button', { name: /Reenviar acesso/ })).not.toBeInTheDocument()
+    // Inativo não recebe acesso: o backend recusaria.
+    const inativo = screen.getByText('Professor 03').closest('tr') as HTMLElement
+    expect(within(inativo).queryByRole('button', { name: /Reenviar acesso/ })).not.toBeInTheDocument()
+  })
+
+  it('reenvia o acesso e confirma para qual e-mail foi', async () => {
+    const chamadas = abrir([professor(1, true, true)])
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Reenviar acesso de Professor 01' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'O acesso de "Professor 01" foi reenviado para p1@escola.com, com uma nova senha provisória.',
+    )
+    expect(chamadas.find((c) => c.metodo === 'POST')?.caminho).toBe('/professores/prof-1/primeiro-acesso')
+  })
+
+  it('quem já definiu a senha não recebe reenvio: explica e lê a lista de novo', async () => {
+    const chamadas = abrir([professor(1, true, true)], problema(409, 'ACESSO_JA_ATIVADO'))
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Reenviar acesso de Professor 01' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('"Professor 01" já definiu a senha')
+    await waitFor(() => expect(consultas(chamadas)).toHaveLength(2))
   })
 })

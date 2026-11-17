@@ -25,10 +25,13 @@ type ProfessoresTableProps = {
   mensagemVazia: string
   /** Professor com inativação/reativação em andamento. */
   alternandoId: string | null
+  /** Professor com o reenvio do acesso em andamento. */
+  reenviandoId: string | null
   onTentarNovamente: () => void
   onVer: (professor: Professor) => void
   onEditar: (professor: Professor) => void
   onAlternarSituacao: (professor: Professor) => void
+  onReenviarAcesso: (professor: Professor) => void
   onExcluir: (professor: Professor) => void
 }
 
@@ -41,10 +44,12 @@ export function ProfessoresTable({
   erro,
   mensagemVazia,
   alternandoId,
+  reenviandoId,
   onTentarNovamente,
   onVer,
   onEditar,
   onAlternarSituacao,
+  onReenviarAcesso,
   onExcluir,
 }: ProfessoresTableProps) {
   const professores = !erro && paginacao ? paginacao.itensDaPagina : []
@@ -83,11 +88,18 @@ export function ProfessoresTable({
                     <td data-rotulo="Vínculo">{professor.vinculo ? ROTULOS_VINCULO[professor.vinculo] : SEM_DADO}</td>
                     <td className={styles.semDado}>{SEM_DADO}</td>
                     <td data-rotulo="Situação">
-                      {professor.ativo ? (
-                        <Badge tone="success">Ativo</Badge>
-                      ) : (
-                        <Badge tone="neutral">Inativo</Badge>
-                      )}
+                      <div className={styles.situacao}>
+                        {professor.ativo ? (
+                          <Badge tone="success">Ativo</Badge>
+                        ) : (
+                          <Badge tone="neutral">Inativo</Badge>
+                        )}
+                        {professor.ativo && professor.aguardandoPrimeiroAcesso && (
+                          <Dica texto="Ainda não definiu a senha. O acesso vale por alguns dias; depois, reenvie.">
+                            <Badge tone="warning">Aguardando acesso</Badge>
+                          </Dica>
+                        )}
+                      </div>
                     </td>
                     <td className={styles.colAcoes}>
                       <div className={styles.acoes}>
@@ -97,6 +109,19 @@ export function ProfessoresTable({
                         <Button size="sm" icon="edit" onClick={() => onEditar(professor)}>
                           Editar
                         </Button>
+                        {professor.ativo && professor.aguardandoPrimeiroAcesso && (
+                          <Dica texto="Gera uma nova senha provisória e manda o e-mail de novo">
+                            <Button
+                              size="sm"
+                              icon="mail"
+                              disabled={reenviandoId === professor.id}
+                              aria-label={`Reenviar acesso de ${professor.nome}`}
+                              onClick={() => onReenviarAcesso(professor)}
+                            >
+                              {reenviandoId === professor.id ? 'Reenviando…' : 'Reenviar acesso'}
+                            </Button>
+                          </Dica>
+                        )}
                         <Dica texto={professor.ativo ? 'Afastamento temporário, como licença' : null}>
                           <Button
                             size="sm"

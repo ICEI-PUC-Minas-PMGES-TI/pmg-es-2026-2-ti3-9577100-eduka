@@ -114,6 +114,14 @@
   justify-content: center;
 }
 
+/* Situação e, se for o caso, o selo de acesso pendente. */
+.situacao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
 /* Professor inativo fica apagado, como a escola suspensa no Super Admin. */
 .inativo .professor {
   opacity: 0.6;
