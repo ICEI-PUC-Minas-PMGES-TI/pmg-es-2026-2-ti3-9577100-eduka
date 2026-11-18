@@ -2,7 +2,7 @@ package br.pucminas.eduka.backend.security;
 
 import java.util.UUID;
 
-import br.pucminas.eduka.backend.domain.PerfilUsuario;
+import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
 
 /**
  * Quem esta fazendo a requisicao, extraido do access token. E o principal do

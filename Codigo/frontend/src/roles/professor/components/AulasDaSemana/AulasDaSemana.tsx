@@ -1,7 +1,7 @@
-import { Button } from '../../../../components/Button/Button'
-import { Icon } from '../../../../components/Icon/Icon'
-import type { AulaDaSemana } from '../../../../types/dashboard'
-import { DIAS_SEMANA, formatarHora } from '../../../../types/horario'
+import { Button } from '../../../../components/ui/Button/Button'
+import { Icon } from '../../../../components/ui/Icon/Icon'
+import type { AulaDaSemana } from '../../../../types/dashboard/dashboard'
+import { DIAS_SEMANA, formatarHora } from '../../../../types/academico/horario'
 import styles from './AulasDaSemana.module.css'
 
 type AulasDaSemanaProps = {

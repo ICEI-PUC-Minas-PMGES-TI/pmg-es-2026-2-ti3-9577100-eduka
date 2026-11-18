@@ -43,82 +43,83 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import br.pucminas.eduka.backend.domain.AceitePrivacidade;
-import br.pucminas.eduka.backend.domain.AlocacaoProfessor;
-import br.pucminas.eduka.backend.domain.Aluno;
-import br.pucminas.eduka.backend.domain.AlunoResponsavel;
-import br.pucminas.eduka.backend.domain.AlunoResponsavelId;
-import br.pucminas.eduka.backend.domain.Aula;
-import br.pucminas.eduka.backend.domain.Avaliacao;
-import br.pucminas.eduka.backend.domain.CategoriaDespesa;
-import br.pucminas.eduka.backend.domain.Cobranca;
-import br.pucminas.eduka.backend.domain.Curso;
-import br.pucminas.eduka.backend.domain.Despesa;
-import br.pucminas.eduka.backend.domain.Disciplina;
-import br.pucminas.eduka.backend.domain.EntidadeAuditada;
-import br.pucminas.eduka.backend.domain.Endereco;
-import br.pucminas.eduka.backend.domain.Escola;
-import br.pucminas.eduka.backend.domain.EstornoCobranca;
-import br.pucminas.eduka.backend.domain.FaturaPlataforma;
-import br.pucminas.eduka.backend.domain.HorarioTurma;
-import br.pucminas.eduka.backend.domain.LogAuditoria;
-import br.pucminas.eduka.backend.domain.MatriculaTurma;
-import br.pucminas.eduka.backend.domain.ModuloEscola;
-import br.pucminas.eduka.backend.domain.Nota;
-import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
-import br.pucminas.eduka.backend.domain.OrigemAuditoria;
-import br.pucminas.eduka.backend.domain.OrigemPagamento;
-import br.pucminas.eduka.backend.domain.PagamentoCobranca;
-import br.pucminas.eduka.backend.domain.PapelPessoa;
-import br.pucminas.eduka.backend.domain.PerfilUsuario;
-import br.pucminas.eduka.backend.domain.PeriodoLetivo;
-import br.pucminas.eduka.backend.domain.Pessoa;
-import br.pucminas.eduka.backend.domain.PessoaPapel;
-import br.pucminas.eduka.backend.domain.PlanoEscola;
-import br.pucminas.eduka.backend.domain.Professor;
-import br.pucminas.eduka.backend.domain.Responsavel;
-import br.pucminas.eduka.backend.domain.SituacaoDespesa;
-import br.pucminas.eduka.backend.domain.SolicitacaoCorrecao;
-import br.pucminas.eduka.backend.domain.StatusCobranca;
-import br.pucminas.eduka.backend.domain.StatusMatricula;
-import br.pucminas.eduka.backend.domain.StatusSolicitacaoCorrecao;
-import br.pucminas.eduka.backend.domain.TipoAvaliacao;
-import br.pucminas.eduka.backend.domain.TipoCobranca;
-import br.pucminas.eduka.backend.domain.Turma;
-import br.pucminas.eduka.backend.domain.Turno;
-import br.pucminas.eduka.backend.domain.Usuario;
-import br.pucminas.eduka.backend.domain.VinculoProfessor;
+import br.pucminas.eduka.backend.domain.academico.AlocacaoProfessor;
+import br.pucminas.eduka.backend.domain.academico.Aula;
+import br.pucminas.eduka.backend.domain.academico.Avaliacao;
+import br.pucminas.eduka.backend.domain.academico.Curso;
+import br.pucminas.eduka.backend.domain.academico.Disciplina;
+import br.pucminas.eduka.backend.domain.academico.HorarioTurma;
+import br.pucminas.eduka.backend.domain.academico.MatriculaTurma;
+import br.pucminas.eduka.backend.domain.academico.Nota;
+import br.pucminas.eduka.backend.domain.academico.PeriodoLetivo;
+import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
+import br.pucminas.eduka.backend.domain.academico.TipoAvaliacao;
+import br.pucminas.eduka.backend.domain.academico.Turma;
+import br.pucminas.eduka.backend.domain.academico.Turno;
+import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
+import br.pucminas.eduka.backend.domain.acesso.Usuario;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.LogAuditoria;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.auditoria.OrigemAuditoria;
+import br.pucminas.eduka.backend.domain.comum.Endereco;
+import br.pucminas.eduka.backend.domain.escola.Escola;
+import br.pucminas.eduka.backend.domain.escola.FaturaPlataforma;
+import br.pucminas.eduka.backend.domain.escola.ModuloEscola;
+import br.pucminas.eduka.backend.domain.escola.PlanoEscola;
+import br.pucminas.eduka.backend.domain.financeiro.CategoriaDespesa;
+import br.pucminas.eduka.backend.domain.financeiro.Cobranca;
+import br.pucminas.eduka.backend.domain.financeiro.Despesa;
+import br.pucminas.eduka.backend.domain.financeiro.EstornoCobranca;
+import br.pucminas.eduka.backend.domain.financeiro.FormaPagamentoManual;
+import br.pucminas.eduka.backend.domain.financeiro.OrigemPagamento;
+import br.pucminas.eduka.backend.domain.financeiro.PagamentoCobranca;
+import br.pucminas.eduka.backend.domain.financeiro.SituacaoDespesa;
+import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
+import br.pucminas.eduka.backend.domain.financeiro.TipoCobranca;
+import br.pucminas.eduka.backend.domain.pessoas.Aluno;
+import br.pucminas.eduka.backend.domain.pessoas.AlunoResponsavel;
+import br.pucminas.eduka.backend.domain.pessoas.AlunoResponsavelId;
+import br.pucminas.eduka.backend.domain.pessoas.PapelPessoa;
+import br.pucminas.eduka.backend.domain.pessoas.Pessoa;
+import br.pucminas.eduka.backend.domain.pessoas.PessoaPapel;
+import br.pucminas.eduka.backend.domain.pessoas.Professor;
+import br.pucminas.eduka.backend.domain.pessoas.Responsavel;
+import br.pucminas.eduka.backend.domain.pessoas.SolicitacaoCorrecao;
+import br.pucminas.eduka.backend.domain.pessoas.StatusSolicitacaoCorrecao;
+import br.pucminas.eduka.backend.domain.pessoas.VinculoProfessor;
+import br.pucminas.eduka.backend.domain.privacidade.AceitePrivacidade;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
-import br.pucminas.eduka.backend.repository.AceitePrivacidadeRepository;
-import br.pucminas.eduka.backend.repository.AlocacaoProfessorRepository;
-import br.pucminas.eduka.backend.repository.AlunoRepository;
-import br.pucminas.eduka.backend.repository.AlunoResponsavelRepository;
-import br.pucminas.eduka.backend.repository.AulaRepository;
-import br.pucminas.eduka.backend.repository.AvaliacaoRepository;
-import br.pucminas.eduka.backend.repository.CategoriaDespesaRepository;
-import br.pucminas.eduka.backend.repository.CobrancaRepository;
-import br.pucminas.eduka.backend.repository.CursoRepository;
-import br.pucminas.eduka.backend.repository.DespesaRepository;
-import br.pucminas.eduka.backend.repository.DisciplinaRepository;
-import br.pucminas.eduka.backend.repository.EscolaRepository;
-import br.pucminas.eduka.backend.repository.EstornoCobrancaRepository;
-import br.pucminas.eduka.backend.repository.FaturaPlataformaRepository;
-import br.pucminas.eduka.backend.repository.HorarioTurmaRepository;
-import br.pucminas.eduka.backend.repository.LogAuditoriaRepository;
-import br.pucminas.eduka.backend.repository.MatriculaTurmaRepository;
-import br.pucminas.eduka.backend.repository.NotaRepository;
-import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
-import br.pucminas.eduka.backend.repository.PeriodoLetivoRepository;
-import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
-import br.pucminas.eduka.backend.repository.PessoaRepository;
-import br.pucminas.eduka.backend.repository.ProfessorRepository;
-import br.pucminas.eduka.backend.repository.ResponsavelRepository;
-import br.pucminas.eduka.backend.repository.SolicitacaoCorrecaoRepository;
-import br.pucminas.eduka.backend.repository.TurmaRepository;
-import br.pucminas.eduka.backend.repository.UsuarioRepository;
+import br.pucminas.eduka.backend.repository.academico.AlocacaoProfessorRepository;
+import br.pucminas.eduka.backend.repository.academico.AulaRepository;
+import br.pucminas.eduka.backend.repository.academico.AvaliacaoRepository;
+import br.pucminas.eduka.backend.repository.academico.CursoRepository;
+import br.pucminas.eduka.backend.repository.academico.DisciplinaRepository;
+import br.pucminas.eduka.backend.repository.academico.HorarioTurmaRepository;
+import br.pucminas.eduka.backend.repository.academico.MatriculaTurmaRepository;
+import br.pucminas.eduka.backend.repository.academico.NotaRepository;
+import br.pucminas.eduka.backend.repository.academico.PeriodoLetivoRepository;
+import br.pucminas.eduka.backend.repository.academico.TurmaRepository;
+import br.pucminas.eduka.backend.repository.acesso.UsuarioRepository;
+import br.pucminas.eduka.backend.repository.auditoria.LogAuditoriaRepository;
+import br.pucminas.eduka.backend.repository.escola.EscolaRepository;
+import br.pucminas.eduka.backend.repository.escola.FaturaPlataformaRepository;
+import br.pucminas.eduka.backend.repository.financeiro.CategoriaDespesaRepository;
+import br.pucminas.eduka.backend.repository.financeiro.CobrancaRepository;
+import br.pucminas.eduka.backend.repository.financeiro.DespesaRepository;
+import br.pucminas.eduka.backend.repository.financeiro.EstornoCobrancaRepository;
+import br.pucminas.eduka.backend.repository.financeiro.PagamentoCobrancaRepository;
+import br.pucminas.eduka.backend.repository.pessoas.AlunoRepository;
+import br.pucminas.eduka.backend.repository.pessoas.AlunoResponsavelRepository;
+import br.pucminas.eduka.backend.repository.pessoas.PessoaPapelRepository;
+import br.pucminas.eduka.backend.repository.pessoas.PessoaRepository;
+import br.pucminas.eduka.backend.repository.pessoas.ProfessorRepository;
+import br.pucminas.eduka.backend.repository.pessoas.ResponsavelRepository;
+import br.pucminas.eduka.backend.repository.pessoas.SolicitacaoCorrecaoRepository;
+import br.pucminas.eduka.backend.repository.privacidade.AceitePrivacidadeRepository;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
-import br.pucminas.eduka.backend.service.AvisoPrivacidade;
-import br.pucminas.eduka.backend.service.CategoriaDespesaService;
+import br.pucminas.eduka.backend.service.financeiro.CategoriaDespesaService;
+import br.pucminas.eduka.backend.service.privacidade.AvisoPrivacidade;
 import jakarta.persistence.EntityManager;
 
 /**
@@ -1250,7 +1251,8 @@ public class MockDataSeeder implements ApplicationRunner {
 
     /**
      * De cada dez pagas, seis foram por PIX, tres por boleto e uma teve baixa
-     * manual, pela posicao, sem sortear.
+     * manual, pela posicao, sem sortear. A baixa manual e do valor da cobranca,
+     * alternando dinheiro e transferencia.
      *
      * <p>
      * A cobranca fica NAO_EMITIDA de proposito: ela nao existe no provedor, e
@@ -1263,8 +1265,13 @@ public class MockDataSeeder implements ApplicationRunner {
                 .filter(c -> c.getStatus() == StatusCobranca.PAGA).toList();
         for (int i = 0; i < pagas.size(); i++) {
             int posicao = i % 10;
+            Cobranca paga = pagas.get(i);
             if (posicao < 9) {
-                pagas.get(i).setFormaPagamento(posicao < 6 ? FormaPagamento.PIX : FormaPagamento.BOLETO);
+                paga.setFormaPagamento(posicao < 6 ? FormaPagamento.PIX : FormaPagamento.BOLETO);
+            } else {
+                paga.setValorPagoManual(paga.getValor());
+                paga.setFormaPagamentoManual(
+                        (i / 10) % 2 == 0 ? FormaPagamentoManual.DINHEIRO : FormaPagamentoManual.TRANSFERENCIA);
             }
         }
     }

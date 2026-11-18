@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '../../../services/api'
-import { listarMinhasTurmas } from '../../../services/portalProfessorService'
-import type { TurmaDoProfessor } from '../../../types/turmaProfessor'
+import { listarMinhasTurmas } from '../../../services/portal/portalProfessorService'
+import type { TurmaDoProfessor } from '../../../types/academico/turmaProfessor'
 
 function mensagemDeErro(erro: unknown): string {
   // O 404 aqui é o login sem cadastro de PROFESSOR vinculado na escola.

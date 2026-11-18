@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
-import { Badge } from '../../../../components/Badge/Badge'
-import { Icon } from '../../../../components/Icon/Icon'
-import { NivelRisco } from '../../../../components/RiscoAtraso/RiscoAtraso'
-import { ROTULOS_STATUS_COBRANCA, type Cobranca, type StatusCobranca } from '../../../../types/cobranca'
-import type { RiscoAtraso } from '../../../../types/riscoAtraso'
+import { Badge } from '../../../../components/ui/Badge/Badge'
+import { Icon } from '../../../../components/ui/Icon/Icon'
+import { NivelRisco } from '../../../../components/financeiro/RiscoAtraso/RiscoAtraso'
+import { ROTULOS_STATUS_COBRANCA, type Cobranca, type StatusCobranca } from '../../../../types/financeiro/cobranca'
+import type { RiscoAtraso } from '../../../../types/financeiro/riscoAtraso'
 import { formatarDiaMes, formatarMoeda } from '../../../../utils/formatters'
 import styles from './CobrancaCard.module.css'
 
@@ -45,8 +45,10 @@ export function CobrancaCard({ cobranca, aberta, onAlternar, risco, children }: 
       >
         <div className={styles.infoEsquerda}>
           <span className={styles.nomeAluno}>{cobranca.alunoNome ?? 'Aluno sem nome'}</span>
+          {/* Descrição longa encolhe com reticências; o vencimento fica sempre à vista. */}
           <span className={styles.descricao}>
-            {cobranca.descricao} · vence {formatarDiaMes(cobranca.dataVencimento)}
+            <span className={styles.descricaoTexto}>{cobranca.descricao}</span>
+            <span className={styles.vencimento}>{' · vence '}{formatarDiaMes(cobranca.dataVencimento)}</span>
           </span>
           {risco && (
             <span className={styles.risco}>

@@ -82,10 +82,10 @@ public class JwtService {
                 jwt.getExpiresAt());
     }
 
-    public UUID verifyRefreshToken(String token) {
+    public RefreshTokenClaims verifyRefreshToken(String token) {
         Jwt jwt = jwtDecoder.decode(token);
         requireTokenType(jwt, TOKEN_TYPE_REFRESH);
-        return UUID.fromString(jwt.getSubject());
+        return new RefreshTokenClaims(UUID.fromString(jwt.getSubject()), jwt.getIssuedAt());
     }
 
     private void requireTokenType(Jwt jwt, String expectedType) {

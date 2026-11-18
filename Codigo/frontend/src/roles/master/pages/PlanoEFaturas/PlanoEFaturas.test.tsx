@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { simularApi } from '../../../../test/api'
-import type { Assinatura, FaturaPlataforma } from '../../../../types/faturaPlataforma'
+import type { Assinatura, FaturaPlataforma } from '../../../../types/escola/faturaPlataforma'
 import { PlanoEFaturas } from './PlanoEFaturas'
 import { faturasAnteriores, mesPorExtenso, proximaFatura, referenciaDaFatura } from './proximaFatura'
 

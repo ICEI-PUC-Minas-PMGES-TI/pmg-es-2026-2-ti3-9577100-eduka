@@ -1,6 +1,7 @@
-import { Button } from '../../../../components/Button/Button'
-import { Icon } from '../../../../components/Icon/Icon'
-import type { Cobranca } from '../../../../types/cobranca'
+import { Button } from '../../../../components/ui/Button/Button'
+import { Icon } from '../../../../components/ui/Icon/Icon'
+import type { Cobranca } from '../../../../types/financeiro/cobranca'
+import { ROTULOS_FORMA_PAGAMENTO_MANUAL } from '../../../../types/financeiro/pagamentoAluno'
 import { formatarMoeda } from '../../../../utils/formatters'
 import styles from './CobrancaDetalhe.module.css'
 
@@ -11,6 +12,8 @@ type CobrancaDetalheProps = {
   cobranca: Cobranca
   onEditar: (cobranca: Cobranca) => void
   onCancelar: (cobranca: Cobranca) => void
+  /** Baixa manual (UC12): pagamento recebido fora do Eduka. */
+  onRegistrarPagamento: (cobranca: Cobranca) => void
   onVerComprovante: (cobranca: Cobranca) => void
   /** Atalho de teste do Sandbox; sem ele o botão não aparece. */
   onSimularPagamento?: (cobranca: Cobranca) => void
@@ -55,7 +58,7 @@ function etapasDoPagamento(cobranca: Cobranca): Etapa[] {
     const forma = cobranca.formaPagamento ? `${ROTULOS_FORMA[cobranca.formaPagamento]} · ` : ''
     etapas.push({ titulo: `Aluno clicou em Pagar · ${forma}${formatarDataBr(clicou)}`, situacao: 'feita' })
   } else if (!paga) {
-    etapas.push({ titulo: 'Aguardando o aluno clicar em Pagar', situacao: cancelada ? 'futura' : 'atual' })
+    etapas.push({ titulo: 'Aguardando pagamento', situacao: cancelada ? 'futura' : 'atual' })
   }
 
   if (paga) {
@@ -75,6 +78,7 @@ export function CobrancaDetalhe({
   cobranca,
   onEditar,
   onCancelar,
+  onRegistrarPagamento,
   onVerComprovante,
   onSimularPagamento,
   simulandoPagamento = false,
@@ -146,6 +150,7 @@ export function CobrancaDetalhe({
           <span>
             Pago em {formatarDataBr(pagamento.dataPagamento)} · {formatarMoeda(pagamento.valorPago)}
             {pagamento.forma && ` · ${ROTULOS_FORMA[pagamento.forma] ?? pagamento.forma}`}
+            {pagamento.formaManual && ` · ${ROTULOS_FORMA_PAGAMENTO_MANUAL[pagamento.formaManual]}`}
             {pagamento.origem === 'MANUAL' ? ' · baixa manual da escola' : ' · online'}
             {pagamento.valorEstornado > 0 && ` · ${formatarMoeda(pagamento.valorEstornado)} estornados`}
           </span>
@@ -155,6 +160,9 @@ export function CobrancaDetalhe({
       <div className={styles.acoes}>
         {emAberto && (
           <>
+            <Button variant="accent" icon="dollarSign" onClick={() => onRegistrarPagamento(cobranca)}>
+              Registrar pagamento
+            </Button>
             <Button variant="outline" icon="edit" onClick={() => onEditar(cobranca)} disabled={!cobranca.editavel}>
               Editar
             </Button>

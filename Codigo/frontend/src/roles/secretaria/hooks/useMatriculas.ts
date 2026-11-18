@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { listarTurmasAcademicas } from '../../../services/academicoService'
+import { listarTurmasAcademicas } from '../../../services/academico/academicoService'
 import { ApiError } from '../../../services/api'
-import { obterDashboardSecretaria } from '../../../services/dashboardService'
-import { listarAlunos } from '../../../services/matriculaService'
-import type { TurmaAcademica } from '../../../types/academico'
-import type { AlunoDaLista } from '../../../types/aluno'
-import type { DashboardSecretaria } from '../../../types/dashboard'
+import { obterDashboardSecretaria } from '../../../services/dashboard/dashboardService'
+import { listarAlunos } from '../../../services/academico/matriculaService'
+import type { TurmaAcademica } from '../../../types/academico/academico'
+import type { AlunoDaLista } from '../../../types/pessoas/aluno'
+import type { DashboardSecretaria } from '../../../types/dashboard/dashboard'
 
 function mensagemDeErro(erro: unknown): string {
   return erro instanceof ApiError ? erro.message : 'Erro inesperado ao carregar as matrículas.'

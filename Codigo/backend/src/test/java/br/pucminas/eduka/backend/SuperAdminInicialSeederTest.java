@@ -17,13 +17,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import br.pucminas.eduka.backend.domain.PerfilUsuario;
-import br.pucminas.eduka.backend.domain.Pessoa;
-import br.pucminas.eduka.backend.domain.Usuario;
-import br.pucminas.eduka.backend.exception.SenhaInvalidaException;
-import br.pucminas.eduka.backend.repository.PessoaPapelRepository;
-import br.pucminas.eduka.backend.repository.PessoaRepository;
-import br.pucminas.eduka.backend.repository.UsuarioRepository;
+import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
+import br.pucminas.eduka.backend.domain.acesso.Usuario;
+import br.pucminas.eduka.backend.domain.pessoas.Pessoa;
+import br.pucminas.eduka.backend.exception.acesso.SenhaInvalidaException;
+import br.pucminas.eduka.backend.repository.acesso.UsuarioRepository;
+import br.pucminas.eduka.backend.repository.pessoas.PessoaPapelRepository;
+import br.pucminas.eduka.backend.repository.pessoas.PessoaRepository;
 import br.pucminas.eduka.backend.security.PasswordEncoderConfig;
 
 @ExtendWith(MockitoExtension.class)

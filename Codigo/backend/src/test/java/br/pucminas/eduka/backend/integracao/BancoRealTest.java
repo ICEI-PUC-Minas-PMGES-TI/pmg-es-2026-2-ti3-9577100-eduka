@@ -105,6 +105,14 @@ public abstract class BancoRealTest {
     }
 
     /**
+     * Cria um USUARIO do perfil na escola e entra com ele: para os services
+     * que auditam, ja que o log aponta para o usuario.
+     */
+    protected UsuarioAutenticado entrarComo(String perfil, UUID escolaId) {
+        return autenticarComo(dados.usuario(escolaId, perfil, "Usuario " + perfil), perfil, escolaId);
+    }
+
+    /**
      * Com o id de um USUARIO gravado: precisa quando o service audita (o log
      * aponta para o usuario) ou procura o aluno pelo login.
      */

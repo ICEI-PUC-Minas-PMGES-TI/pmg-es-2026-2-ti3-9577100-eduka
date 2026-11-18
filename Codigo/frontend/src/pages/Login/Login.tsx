@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import logoEduka from '../../assets/eduka-logo-branca.svg'
-import { Icon } from '../../components/Icon/Icon'
-import { VerificacaoCodigo } from '../../components/VerificacaoCodigo/VerificacaoCodigo'
+import { Icon } from '../../components/ui/Icon/Icon'
+import { VerificacaoCodigo } from '../../components/acesso/VerificacaoCodigo/VerificacaoCodigo'
 import { rotaInicialPorPerfil } from '../../routes/paths'
 import { ApiError, ehEscolaSuspensa, motivoDaSuspensao, rotaAcessoSuspenso } from '../../services/api'
 import {
@@ -12,7 +12,7 @@ import {
   obterUsuarioLogado,
   type LoginResponse,
   type VerificacaoLogin,
-} from '../../services/authService'
+} from '../../services/acesso/authService'
 import styles from './Login.module.css'
 import { RecuperarSenha } from './RecuperarSenha'
 

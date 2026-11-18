@@ -10,8 +10,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import br.pucminas.eduka.backend.domain.StatusNotificacao;
-import br.pucminas.eduka.backend.repository.NotificacaoRepository;
+import br.pucminas.eduka.backend.domain.notificacao.StatusNotificacao;
+import br.pucminas.eduka.backend.repository.notificacao.NotificacaoRepository;
 
 /**
  * Reprocessa a fila de notificacoes a cada {@code app.notificacao.intervalo}:

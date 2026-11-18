@@ -10,10 +10,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import br.pucminas.eduka.backend.domain.StatusMatricula;
-import br.pucminas.eduka.backend.dto.BoletimTurmaResponse;
-import br.pucminas.eduka.backend.dto.BoletimTurmaResponse.BoletimDisciplina;
-import br.pucminas.eduka.backend.service.PortalAlunoService;
+import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
+import br.pucminas.eduka.backend.dto.academico.BoletimTurmaResponse.BoletimDisciplina;
+import br.pucminas.eduka.backend.dto.academico.BoletimTurmaResponse;
+import br.pucminas.eduka.backend.service.portal.PortalAlunoService;
 
 /**
  * Frequencia no boletim do aluno, ponta a ponta no Postgres: aulas e faltas
@@ -114,6 +114,15 @@ class BoletimFrequenciaBancoRealTest extends BancoRealTest {
         assertThat(geral.faltas()).isEqualTo(2);
         assertThat(geral.percentualFrequencia()).isEqualByComparingTo("66.7");
         assertThat(geral.alertaFaltas()).isTrue();
+
+        // Periodo de ~6 meses = dois bimestres; as aulas (ultimos 4 dias, periodo comecou ha 30) caem no primeiro.
+        assertThat(turmaDaAna.bimestres()).hasSize(2);
+        var primeiro = turmaDaAna.bimestres().get(0);
+        assertThat(primeiro.frequencia().totalAulas()).isEqualTo(6);
+        assertThat(primeiro.frequencia().faltas()).isEqualTo(2);
+        assertThat(turmaDaAna.bimestres().get(1).frequencia()).isNull();
+        assertThat(disciplina(turmaDaAna, fisica).bimestres().get(0).frequencia().faltas()).isEqualTo(1);
+        assertThat(disciplina(turmaDaAna, artes).bimestres().get(0).frequencia()).isNull();
     }
 
     @Test

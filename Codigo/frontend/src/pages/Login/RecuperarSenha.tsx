@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Icon } from '../../components/Icon/Icon'
+import { Icon } from '../../components/ui/Icon/Icon'
 import { ApiError } from '../../services/api'
-import { redefinirSenha, solicitarRecuperacaoSenha } from '../../services/authService'
+import { redefinirSenha, solicitarRecuperacaoSenha } from '../../services/acesso/authService'
 import styles from './Login.module.css'
 
 // Mesmo mínimo do backend (UsuarioService.validarSenha).

@@ -8,6 +8,15 @@ const API_URL =
 // Chave onde o fluxo de login deve gravar o accessToken retornado por POST /login.
 export const ACCESS_TOKEN_KEY = 'eduka.accessToken'
 
+// Refresh token do login: troca o access por um novo antes de ele vencer
+// (POST /login/renovacao), sem pedir a senha de novo.
+export const REFRESH_TOKEN_KEY = 'eduka.refreshToken'
+
+const ROTA_RENOVACAO = '/login/renovacao'
+
+/** Faltando menos que isto para o access vencer, a requisição renova antes de sair. */
+export const MARGEM_RENOVACAO_MS = 60_000
+
 // Rotas abertas do backend (ver SecurityConfig/JwtConfig): login e primeiro acesso.
 const ROTAS_PUBLICAS = new Set([
   '/health',
@@ -15,6 +24,7 @@ const ROTAS_PUBLICAS = new Set([
   '/login/codigo',
   '/login/codigo/reenvio',
   '/primeiro-acesso',
+  ROTA_RENOVACAO,
   '/senha/recuperacao',
   '/senha/redefinicao',
   // Acesso de demonstração (perfil demo): voltar ao /login/demo com o token
@@ -56,11 +66,100 @@ export class ApiError extends Error {
 export const EVENTO_ESCOLA_SUSPENSA = 'eduka:escola-suspensa'
 
 
-function lerToken(): string | null {
+function lerStorage(chave: string): string | null {
   try {
-    return localStorage.getItem(ACCESS_TOKEN_KEY)
+    return localStorage.getItem(chave)
   } catch {
     return null
+  }
+}
+
+function lerToken(): string | null {
+  return lerStorage(ACCESS_TOKEN_KEY)
+}
+
+/** Instante (ms) em que o JWT vence, pela claim `exp`. Null se não der para ler. */
+function expiracaoDoToken(token: string): number | null {
+  const payload = token.split('.')[1]
+  if (!payload) return null
+  try {
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const { exp } = JSON.parse(atob(base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '='))) as {
+      exp?: unknown
+    }
+    return typeof exp === 'number' ? exp * 1000 : null
+  } catch {
+    return null
+  }
+}
+
+let renovacaoEmAndamento: Promise<boolean> | null = null
+
+/**
+ * Troca o refresh token guardado por um novo par de tokens. Várias requisições
+ * ao mesmo tempo dividem uma única chamada. Devolve se a sessão foi renovada.
+ *
+ * 401 quer dizer que a sessão acabou de vez (refresh vencido, senha trocada,
+ * usuário inativado): os tokens são descartados e a requisição original
+ * segue para dar 401, que as telas já tratam voltando ao login.
+ */
+export function renovarSessao(): Promise<boolean> {
+  renovacaoEmAndamento ??= executarRenovacao().finally(() => {
+    renovacaoEmAndamento = null
+  })
+  return renovacaoEmAndamento
+}
+
+async function executarRenovacao(): Promise<boolean> {
+  const refreshToken = lerStorage(REFRESH_TOKEN_KEY)
+  if (!refreshToken) return false
+
+  let resposta: Response
+  try {
+    resposta = await fetch(`${API_URL}${ROTA_RENOVACAO}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json, application/problem+json' },
+      body: JSON.stringify({ refreshToken }),
+    })
+  } catch {
+    // Sem rede: mantém a sessão; a requisição original sai com o token atual.
+    return false
+  }
+
+  if (!resposta.ok) {
+    const { codigo, motivo } = await lerProblema(resposta)
+    if (codigo === 'ESCOLA_SUSPENSA') {
+      window.dispatchEvent(new CustomEvent(EVENTO_ESCOLA_SUSPENSA, { detail: motivo }))
+    } else if (resposta.status === 401 && lerStorage(REFRESH_TOKEN_KEY) === refreshToken) {
+      // Só descarta se ninguém (outra aba, um login novo) gravou outra sessão nesse meio-tempo.
+      try {
+        localStorage.removeItem(ACCESS_TOKEN_KEY)
+        localStorage.removeItem(REFRESH_TOKEN_KEY)
+      } catch {
+        // Ignora erros de storage
+      }
+    }
+    return false
+  }
+
+  try {
+    const dados = (await resposta.json()) as { accessToken?: unknown; refreshToken?: unknown }
+    if (typeof dados.accessToken !== 'string' || typeof dados.refreshToken !== 'string') return false
+    localStorage.setItem(ACCESS_TOKEN_KEY, dados.accessToken)
+    localStorage.setItem(REFRESH_TOKEN_KEY, dados.refreshToken)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Renova antes de enviar quando o access está vencido ou perto de vencer. */
+async function renovarSeVencendo(): Promise<void> {
+  const token = lerToken()
+  if (!token) return
+  const expiraEm = expiracaoDoToken(token)
+  if (expiraEm !== null && expiraEm - Date.now() < MARGEM_RENOVACAO_MS) {
+    await renovarSessao()
   }
 }
 
@@ -99,14 +198,26 @@ async function enviar(caminho: string, init: RequestInit, accept: string): Promi
   }
   // Rota pública vai sem token: um token vencido ou de outra chave faria o
   // backend responder 401 antes mesmo de conferir a senha.
-  const token = ROTAS_PUBLICAS.has(caminho.split('?')[0]) ? null : lerToken()
-  if (token) headers.set('Authorization', `Bearer ${token}`)
+  const publica = ROTAS_PUBLICAS.has(caminho.split('?')[0])
+  if (!publica) await renovarSeVencendo()
 
-  let resposta: Response
-  try {
-    resposta = await fetch(`${API_URL}${caminho}`, { ...init, headers })
-  } catch {
-    throw new ApiError(0, 'Não foi possível conectar ao servidor.')
+  async function disparar(token: string | null): Promise<Response> {
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+    try {
+      return await fetch(`${API_URL}${caminho}`, { ...init, headers })
+    } catch {
+      throw new ApiError(0, 'Não foi possível conectar ao servidor.')
+    }
+  }
+
+  let token = publica ? null : lerToken()
+  let resposta = await disparar(token)
+
+  // O access venceu mesmo assim (relógio do aparelho adiantado/atrasado, aba
+  // parada): renova uma vez e repete a requisição com o token novo.
+  if (resposta.status === 401 && token && (await renovarSessao())) {
+    token = lerToken()
+    resposta = await disparar(token)
   }
 
   if (!resposta.ok) {
@@ -132,6 +243,33 @@ export async function apiRequest<T>(caminho: string, init: RequestInit = {}): Pr
 export async function apiBaixarArquivo(caminho: string, accept: string, signal?: AbortSignal): Promise<Blob> {
   const resposta = await enviar(caminho, { signal }, accept)
   return resposta.blob()
+}
+
+/**
+ * Como o apiBaixarArquivo, com o nome que o backend deu ao anexo (o
+ * Content-Disposition, exposto pelo CORS); nulo se não veio.
+ */
+export async function apiBaixarArquivoComNome(
+  caminho: string,
+  accept: string,
+): Promise<{ conteudo: Blob; nome: string | null }> {
+  const resposta = await enviar(caminho, {}, accept)
+  return { conteudo: await resposta.blob(), nome: nomeDoAnexo(resposta.headers.get('Content-Disposition')) }
+}
+
+/** `attachment; filename="a.xlsx"` (ou filename*=UTF-8''a.xlsx) → "a.xlsx". */
+export function nomeDoAnexo(cabecalho: string | null): string | null {
+  if (!cabecalho) return null
+  const codificado = /filename\*=UTF-8''([^;]+)/i.exec(cabecalho)
+  if (codificado) {
+    try {
+      return decodeURIComponent(codificado[1].trim())
+    } catch {
+      // Codificação quebrada: tenta o filename simples.
+    }
+  }
+  const simples = /filename="?([^";]+)"?/i.exec(cabecalho)
+  return simples ? simples[1].trim() : null
 }
 
 /** Login certo de escola suspensa pelo SUPER_ADMIN (RF24): a tela vai para o aviso (IU04). */

@@ -8,8 +8,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
-import br.pucminas.eduka.backend.exception.EscolaSuspensaException;
-import br.pucminas.eduka.backend.repository.EscolaRepository;
+import br.pucminas.eduka.backend.exception.escola.EscolaSuspensaException;
+import br.pucminas.eduka.backend.repository.escola.EscolaRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

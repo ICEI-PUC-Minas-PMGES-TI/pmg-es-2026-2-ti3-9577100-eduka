@@ -14,13 +14,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 
-import br.pucminas.eduka.backend.domain.DiaSemana;
-import br.pucminas.eduka.backend.dto.AtualizarHorarioTurmaRequest;
-import br.pucminas.eduka.backend.dto.HorarioTurmaRequest;
-import br.pucminas.eduka.backend.dto.HorarioTurmaResponse;
-import br.pucminas.eduka.backend.exception.HorarioConflitanteException;
-import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
-import br.pucminas.eduka.backend.service.HorarioTurmaService;
+import br.pucminas.eduka.backend.domain.academico.DiaSemana;
+import br.pucminas.eduka.backend.dto.academico.AtualizarHorarioTurmaRequest;
+import br.pucminas.eduka.backend.dto.academico.HorarioTurmaRequest;
+import br.pucminas.eduka.backend.dto.academico.HorarioTurmaResponse;
+import br.pucminas.eduka.backend.exception.academico.HorarioConflitanteException;
+import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.service.academico.HorarioTurmaService;
 
 /**
  * Grade semanal no banco: migration V36, mapeamento da entidade, as consultas
@@ -51,7 +51,7 @@ class HorarioTurmaBancoRealTest extends BancoRealTest {
         alocacaoMatematica1A = alocar(ana, turma1A, matematica);
         alocacaoHistoria1A = alocar(bruno, turma1A, historia);
         alocacaoMatematica2B = alocar(ana, turma2B, matematica);
-        autenticarComo("SECRETARIA", escola);
+        entrarComo("SECRETARIA", escola);
     }
 
     private long disciplina(String nome) {
@@ -180,7 +180,7 @@ class HorarioTurmaBancoRealTest extends BancoRealTest {
     @Test
     void outraEscolaNaoVeNemMontaAGradeDaTurma() {
         HorarioTurmaResponse aula = criar(turma1A, alocacaoMatematica1A, DiaSemana.SEGUNDA, 8, 9);
-        autenticarComo("SECRETARIA", dados.escola());
+        entrarComo("SECRETARIA", dados.escola());
 
         assertThatThrownBy(() -> horarioService.listar(turma1A)).isInstanceOf(RecursoNaoEncontradoException.class);
         assertThatThrownBy(() -> criar(turma1A, alocacaoHistoria1A, DiaSemana.TERCA, 8, 9))

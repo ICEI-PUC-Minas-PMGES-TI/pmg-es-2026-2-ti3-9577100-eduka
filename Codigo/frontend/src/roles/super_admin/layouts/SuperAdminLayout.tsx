@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import { PainelLayout, type ItemMenu } from '../../../components/PainelLayout/PainelLayout'
+import { PainelLayout, type ItemMenu } from '../../../components/layout/PainelLayout/PainelLayout'
 import { paths } from '../../../routes/paths'
-import { obterUsuarioLogado } from '../../../services/authService'
+import { obterUsuarioLogado } from '../../../services/acesso/authService'
 
 const MENU: ItemMenu[] = [
   { label: 'Escolas', icon: 'home', to: paths.superAdmin.escolas },

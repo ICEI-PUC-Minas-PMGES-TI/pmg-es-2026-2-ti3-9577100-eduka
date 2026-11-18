@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import br.pucminas.eduka.backend.domain.Cobranca;
-import br.pucminas.eduka.backend.domain.SituacaoProvedor;
+import br.pucminas.eduka.backend.domain.financeiro.Cobranca;
+import br.pucminas.eduka.backend.domain.financeiro.SituacaoProvedor;
 
 /** O que o {@code CobrancaService} pergunta ao roteador antes de editar e cancelar (R24, spec §8.5). */
 class PaymentRoutingServiceCobrancaTest {

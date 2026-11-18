@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { PainelLayout, type ItemMenu } from '../../../components/PainelLayout/PainelLayout'
+import { PainelLayout, type ItemMenu } from '../../../components/layout/PainelLayout/PainelLayout'
 import { paths } from '../../../routes/paths'
 
 const MENU: ItemMenu[] = [
@@ -7,8 +7,7 @@ const MENU: ItemMenu[] = [
   { label: 'Minhas turmas', icon: 'users', to: paths.professor.turmas },
   { label: 'Chamada', icon: 'calendar', to: paths.professor.chamada },
   { label: 'Avaliações', icon: 'list', to: paths.professor.avaliacoes },
-  // Em breve: precisa de um endpoint de dados do próprio professor, que ainda não existe.
-  { label: 'Meu perfil', icon: 'user' },
+  { label: 'Meu perfil', icon: 'user', to: paths.professor.meuPerfil },
 ]
 
 type ProfessorLayoutProps = {

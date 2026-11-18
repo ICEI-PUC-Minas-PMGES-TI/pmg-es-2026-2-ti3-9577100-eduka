@@ -1,4 +1,4 @@
-import type { PerfilUsuario } from '../services/authService'
+import type { PerfilUsuario } from '../services/acesso/authService'
 import { ACCESS_TOKEN_KEY } from '../services/api'
 
 /**

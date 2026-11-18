@@ -2,59 +2,63 @@
 !include _estilo.puml
 title Eduka — Casos de Uso: Gestão Financeira (UC09, UC11 a UC15, UC33, UC40)
 
+left to right direction
+
+actor "ALUNO" as ALUNO
 actor "FINANCEIRO" as FINANCEIRO
 actor "MASTER" as MASTER
-actor "ALUNO" as ALUNO
 actor "Gateway de Pagamento\n(Asaas)" as ASAAS <<sistema externo>>
 actor "Serviço de E-mail\n(Brevo)" as BREVO <<sistema externo>>
 
 rectangle "Eduka — Gestão financeira" {
+  usecase "UC13\nConsultar Histórico\nFinanceiro do Aluno" as UC13
+  usecase "Ver Comprovante\nde Pagamento" as UC13A
+  usecase "UC11\nConsultar e Filtrar\nCobranças" as UC11
+  usecase "UC40\nAvaliar Risco\nde Atraso" as UC40
   usecase "UC09\nGerenciar Cobranças" as UC09
-  usecase "UC11\nConsultar e Filtrar\nCobranças" as UC11 <<parcial>>
-  usecase "UC12\nRegistrar Pagamento\nManual" as UC12 <<parcial>>
-  usecase "UC13\nConsultar Histórico\nFinanceiro do Aluno" as UC13 <<parcial>>
-  usecase "UC14\nGerenciar Despesas" as UC14 <<parcial>>
-  usecase "UC15\nConsultar Relatórios\nFinanceiros" as UC15 <<planejado>>
-  usecase "UC33\nAtivar Recebimento\nOnline" as UC33
-  usecase "UC40\nAvaliar Risco\nde Atraso" as UC40 <<planejado>>
   usecase "Editar Cobrança" as UC09A
   usecase "Cancelar Cobrança" as UC09B
+  usecase "UC12\nRegistrar Pagamento\nManual" as UC12
   usecase "UC32\nEnviar Notificações\npor E-mail" as UC32
-  usecase "Ver Comprovante\nde Pagamento" as UC13A
+  usecase "UC14\nGerenciar Despesas" as UC14 <<parcial>>
   usecase "Cancelar Despesa e\nGerenciar Categorias" as UC14A
   usecase "Editar Despesa" as UC14B <<parcial>>
-  usecase "Exportar em CSV" as UC15A <<planejado>>
+  usecase "UC15\nConsultar Relatórios\nFinanceiros" as UC15
+  usecase "Exportar em CSV\nou Planilha" as UC15A
+  usecase "UC33\nAtivar Recebimento\nOnline" as UC33
   usecase "Sincronizar Situação\nda Conta" as UC33A
 }
 
+' O MASTER herda do FINANCEIRO (mesma coluna, um abaixo do outro)
+FINANCEIRO <|- MASTER : " "
+
 FINANCEIRO --> UC09
 FINANCEIRO --> UC11
+FINANCEIRO --> UC12
+FINANCEIRO --> UC13
 FINANCEIRO --> UC14
 FINANCEIRO --> UC15
-FINANCEIRO -[#A0A8B4]-> UC12 : API
-FINANCEIRO -[#A0A8B4]-> UC13 : API
-UC09 <-- MASTER
-UC11 <-- MASTER
-UC13 <-- MASTER
-UC14 <-- MASTER
-UC15 <-- MASTER
-UC12 <-[#A0A8B4]- MASTER : API
-UC33 <-- MASTER
+MASTER --> UC33
 ALUNO --> UC13
-UC09A ..> UC09 : <<extend>>
-UC09B ..> UC09 : <<extend>>
-UC32 ..> UC09 : <<extend>>
+
+' Extensões escritas do caso base para a extensão (a seta continua
+' apontando para o caso base), para o desenho fluir da esquerda para a direita
+UC09 <.. UC09A : <<extend>>
+UC09 <.. UC09B : <<extend>>
+UC09 <.. UC32 : <<extend>>
+UC11 <.. UC40 : <<extend>>
 UC12 ..> UC32 : <<include>>
-UC13A ..> UC13 : <<extend>>
-UC14A ..> UC14 : <<extend>>
-UC14B ..> UC14 : <<extend>>
-UC15A ..> UC15 : <<extend>>
-UC40 ..> UC11 : <<extend>>
-UC33A ..> UC33 : <<extend>>
+UC13 <.. UC13A : <<extend>>
+UC14 <.. UC14A : <<extend>>
+UC14 <.. UC14B : <<extend>>
+UC15 <.. UC15A : <<extend>>
+UC33 <.. UC33A : <<extend>>
+
 UC09B --> ASAAS
 UC12 --> ASAAS
-UC33 --> ASAAS
+UC33A --> ASAAS
 UC32 --> BREVO
 
+note "O MASTER herda do FINANCEIRO: usa todas as telas\nfinanceiras e, só ele, ativa o recebimento online.\nEditar Despesa existe só na API; a tela é da Sprint 5 (S5-07)." as N1
 
 @enduml

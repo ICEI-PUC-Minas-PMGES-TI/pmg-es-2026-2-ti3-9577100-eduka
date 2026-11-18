@@ -1,22 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useBlocker, useLocation, useNavigate, useSearchParams } from 'react-router'
-import { Button } from '../../../../components/Button/Button'
-import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/ConfirmarExclusao'
-import { Modal } from '../../../../components/Modal/Modal'
+import { Button } from '../../../../components/ui/Button/Button'
+import { ConfirmarExclusao } from '../../../../components/modal/ConfirmarExclusao/ConfirmarExclusao'
+import { Modal } from '../../../../components/modal/Modal/Modal'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
 import type { EstadoNovaAvaliacao } from '../../../../routes/paths'
-import { obterToken } from '../../../../services/authService'
+import { obterToken } from '../../../../services/acesso/authService'
 import {
   atualizarAvaliacao,
   cadastrarAvaliacao,
   excluirAvaliacao,
   listarAvaliacoes,
   listarNotas,
-} from '../../../../services/portalProfessorService'
-import type { AvaliacaoDoProfessor, NotaDoAluno } from '../../../../types/avaliacaoProfessor'
-import { ROTULOS_TIPO_AVALIACAO } from '../../../../types/portalAluno'
+} from '../../../../services/portal/portalProfessorService'
+import type { AvaliacaoDoProfessor, NotaDoAluno } from '../../../../types/academico/avaliacaoProfessor'
+import { ROTULOS_TIPO_AVALIACAO } from '../../../../types/portal/portalAluno'
 import { formatarPontos, hojeIso, plural } from '../../../../utils/formatters'
-import { formatarData } from '../../../secretaria/components/PainelSecretaria/formatacao'
+import { formatarData } from '../../../../utils/formatacao'
 import { DiarioNotas } from '../../components/DiarioNotas/DiarioNotas'
 import { EstadoTurmas } from '../../components/EstadoTurmas/EstadoTurmas'
 import { FormularioAvaliacao, type EscolhaInicial } from '../../components/FormularioAvaliacao/FormularioAvaliacao'
@@ -24,7 +24,7 @@ import { SeletorTurmaDisciplina } from '../../components/SeletorTurmaDisciplina/
 import { useTurmaDisciplina } from '../../hooks/useTurmaDisciplina'
 import { ProfessorLayout } from '../../layouts/ProfessorLayout'
 import { mensagemErroAvaliacao } from '../../notas'
-import { Dica } from '../../../../components/Dica/Dica'
+import { Dica } from '../../../../components/ui/Dica/Dica'
 import styles from './Avaliacoes.module.css'
 
 const NENHUMA_AVALIACAO: AvaliacaoDoProfessor[] = []

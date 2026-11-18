@@ -1,4 +1,4 @@
-import type { PerfilUsuario } from '../services/authService'
+import type { PerfilUsuario } from '../services/acesso/authService'
 
 // Caminhos da aplicação, agrupados por papel. Use sempre estas constantes em
 // vez de strings soltas, para que renomear uma rota seja uma mudança só.
@@ -93,6 +93,8 @@ export const paths = {
     notas: '/professor/notas',
     /** Aula do dia e histórico de uma turma/disciplina (?turma=&disciplina=&data=&aula=). */
     chamada: '/professor/chamada',
+    /** Dados do próprio professor, só para leitura. */
+    meuPerfil: '/professor/meu-perfil',
   },
   aluno: {
     raiz: '/aluno',

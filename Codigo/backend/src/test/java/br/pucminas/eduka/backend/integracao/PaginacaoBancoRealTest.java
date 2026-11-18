@@ -16,33 +16,33 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort.Direction;
 
-import br.pucminas.eduka.backend.domain.EntidadeAuditada;
-import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
-import br.pucminas.eduka.backend.domain.PerfilUsuario;
-import br.pucminas.eduka.backend.domain.SituacaoDespesa;
-import br.pucminas.eduka.backend.domain.StatusCobranca;
-import br.pucminas.eduka.backend.domain.StatusMatricula;
-import br.pucminas.eduka.backend.dto.AlunoResponse;
-import br.pucminas.eduka.backend.dto.AtividadeResponse;
-import br.pucminas.eduka.backend.dto.DespesaResponse;
-import br.pucminas.eduka.backend.dto.FaturaPlataformaResponse;
-import br.pucminas.eduka.backend.dto.MatriculaTurmaResponse;
-import br.pucminas.eduka.backend.dto.Ordenacao;
-import br.pucminas.eduka.backend.dto.PaginaComResumoResponse;
-import br.pucminas.eduka.backend.dto.PaginaResponse;
-import br.pucminas.eduka.backend.dto.Paginacao;
-import br.pucminas.eduka.backend.dto.ProfessorResponse;
-import br.pucminas.eduka.backend.dto.ResumoAlunosResponse;
-import br.pucminas.eduka.backend.dto.ResumoDespesasResponse;
-import br.pucminas.eduka.backend.dto.ResumoProfessoresResponse;
-import br.pucminas.eduka.backend.dto.TurmaResponse;
+import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
+import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.financeiro.SituacaoDespesa;
+import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
+import br.pucminas.eduka.backend.dto.academico.MatriculaTurmaResponse;
+import br.pucminas.eduka.backend.dto.academico.TurmaResponse;
+import br.pucminas.eduka.backend.dto.auditoria.AtividadeResponse;
+import br.pucminas.eduka.backend.dto.comum.Ordenacao;
+import br.pucminas.eduka.backend.dto.comum.PaginaComResumoResponse;
+import br.pucminas.eduka.backend.dto.comum.PaginaResponse;
+import br.pucminas.eduka.backend.dto.comum.Paginacao;
+import br.pucminas.eduka.backend.dto.escola.FaturaPlataformaResponse;
+import br.pucminas.eduka.backend.dto.financeiro.DespesaResponse;
+import br.pucminas.eduka.backend.dto.financeiro.ResumoDespesasResponse;
+import br.pucminas.eduka.backend.dto.pessoas.AlunoResponse;
+import br.pucminas.eduka.backend.dto.pessoas.ProfessorResponse;
+import br.pucminas.eduka.backend.dto.pessoas.ResumoAlunosResponse;
+import br.pucminas.eduka.backend.dto.pessoas.ResumoProfessoresResponse;
 import br.pucminas.eduka.backend.pagamento.PaymentRoutingService;
-import br.pucminas.eduka.backend.service.AcademicoSecretariaService;
-import br.pucminas.eduka.backend.service.AlunoService;
-import br.pucminas.eduka.backend.service.DespesaService;
-import br.pucminas.eduka.backend.service.MatriculaTurmaService;
-import br.pucminas.eduka.backend.service.ProfessorService;
-import br.pucminas.eduka.backend.service.RegistroAtividadesService;
+import br.pucminas.eduka.backend.service.academico.AcademicoSecretariaService;
+import br.pucminas.eduka.backend.service.academico.MatriculaTurmaService;
+import br.pucminas.eduka.backend.service.auditoria.RegistroAtividadesService;
+import br.pucminas.eduka.backend.service.financeiro.DespesaService;
+import br.pucminas.eduka.backend.service.pessoas.AlunoService;
+import br.pucminas.eduka.backend.service.pessoas.ProfessorService;
 
 /**
  * As listagens paginadas (#289) no Postgres: filtro, ordem, contagem e
@@ -190,6 +190,7 @@ class PaginacaoBancoRealTest extends BancoRealTest {
                 AlunoResponse.Situacao.MATRICULADO, 1L,
                 AlunoResponse.Situacao.TRANCADO, 0L,
                 AlunoResponse.Situacao.SEM_TURMA, 2L,
+                AlunoResponse.Situacao.INATIVO, 0L,
                 AlunoResponse.Situacao.ANONIMIZADO, 0L)));
     }
 

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router'
-import { Button } from '../../../../components/Button/Button'
+import { Button } from '../../../../components/ui/Button/Button'
 import {
   Atalhos,
   Colunas,
@@ -9,19 +9,19 @@ import {
   Painel,
   PainelVazio,
   Pilha,
-} from '../../../../components/Dashboard/Dashboard'
+} from '../../../../components/layout/Dashboard/Dashboard'
 import {
   EntrouESaiu,
   UltimasAcoes,
   VencemNaSemana,
-} from '../../../../components/PainelFinanceiro/PainelFinanceiro'
-import { AlunosEmRisco } from '../../../../components/RiscoAtraso/RiscoAtraso'
-import { descricaoInadimplencia, quantasCobrancas } from '../../../../components/PainelFinanceiro/textos'
-import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
+} from '../../../../components/financeiro/PainelFinanceiro/PainelFinanceiro'
+import { AlunosEmRisco } from '../../../../components/financeiro/RiscoAtraso/RiscoAtraso'
+import { descricaoInadimplencia, quantasCobrancas } from '../../../../components/financeiro/PainelFinanceiro/textos'
+import { StatCard, StatCards } from '../../../../components/ui/StatCard/StatCard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { paths, type EstadoAbrirCadastro } from '../../../../routes/paths'
-import { obterDashboardEscola, obterDashboardFinanceiro } from '../../../../services/dashboardService'
-import type { DashboardEscola, DashboardFinanceiro } from '../../../../types/dashboard'
+import { obterDashboardEscola, obterDashboardFinanceiro } from '../../../../services/dashboard/dashboardService'
+import type { DashboardEscola, DashboardFinanceiro } from '../../../../types/dashboard/dashboard'
 import { formatarMoeda, plural } from '../../../../utils/formatters'
 import { MasterLayout } from '../../layouts/MasterLayout'
 import styles from './Inicio.module.css'

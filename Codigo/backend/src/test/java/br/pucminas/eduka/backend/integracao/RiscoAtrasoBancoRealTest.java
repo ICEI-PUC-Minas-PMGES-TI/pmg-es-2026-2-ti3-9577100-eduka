@@ -13,11 +13,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-import br.pucminas.eduka.backend.domain.NivelRiscoAtraso;
-import br.pucminas.eduka.backend.domain.StatusCobranca;
-import br.pucminas.eduka.backend.dto.RiscoAtrasoResponse;
+import br.pucminas.eduka.backend.domain.financeiro.NivelRiscoAtraso;
+import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
+import br.pucminas.eduka.backend.dto.financeiro.RiscoAtrasoResponse;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
-import br.pucminas.eduka.backend.service.RiscoAtrasoService;
+import br.pucminas.eduka.backend.service.financeiro.RiscoAtrasoService;
 
 /**
  * A consulta do risco de atraso no Postgres: janela, canceladas, pagamento

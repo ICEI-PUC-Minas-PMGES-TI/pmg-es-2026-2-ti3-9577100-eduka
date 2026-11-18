@@ -1,4 +1,4 @@
-import type { FaturaPlataforma } from '../../../../types/faturaPlataforma'
+import type { FaturaPlataforma } from '../../../../types/escola/faturaPlataforma'
 
 /** A fatura em aberto que vence (ou venceu) primeiro: a "próxima" do destaque. */
 export function proximaFatura(faturas: FaturaPlataforma[]): FaturaPlataforma | null {

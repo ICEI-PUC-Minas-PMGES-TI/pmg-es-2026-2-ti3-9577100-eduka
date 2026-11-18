@@ -4,7 +4,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EstadoNovaAvaliacao } from '../../../../routes/paths'
 import { simularApi } from '../../../../test/api'
-import type { DisciplinaDoProfessor, TurmaDoProfessor } from '../../../../types/turmaProfessor'
+import type { DisciplinaDoProfessor, TurmaDoProfessor } from '../../../../types/academico/turmaProfessor'
 import { Avaliacoes } from './Avaliacoes'
 
 function disciplina(id: number, nome: string): DisciplinaDoProfessor {

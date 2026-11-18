@@ -9,14 +9,14 @@ import java.util.UUID;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 
-import br.pucminas.eduka.backend.domain.EntidadeAuditada;
-import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
-import br.pucminas.eduka.backend.domain.SituacaoDespesa;
-import br.pucminas.eduka.backend.domain.SituacaoProvedor;
-import br.pucminas.eduka.backend.domain.StatusCobranca;
-import br.pucminas.eduka.backend.domain.StatusEventoProvedor;
-import br.pucminas.eduka.backend.domain.StatusMatricula;
-import br.pucminas.eduka.backend.domain.TipoCobranca;
+import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.financeiro.SituacaoDespesa;
+import br.pucminas.eduka.backend.domain.financeiro.SituacaoProvedor;
+import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
+import br.pucminas.eduka.backend.domain.financeiro.StatusEventoProvedor;
+import br.pucminas.eduka.backend.domain.financeiro.TipoCobranca;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 import br.pucminas.eduka.backend.security.PiiCryptoService;
 

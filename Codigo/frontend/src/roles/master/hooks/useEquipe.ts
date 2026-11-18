@@ -6,8 +6,8 @@ import {
   cadastrarMembroEquipe,
   inativarMembroEquipe,
   listarEquipe,
-} from '../../../services/equipeService'
-import type { MembroEquipe, MembroEquipeRequest, MembroEquipeUpdateRequest } from '../../../types/equipe'
+} from '../../../services/escola/equipeService'
+import type { MembroEquipe, MembroEquipeRequest, MembroEquipeUpdateRequest } from '../../../types/escola/equipe'
 
 function porNome(a: MembroEquipe, b: MembroEquipe): number {
   return a.nome.localeCompare(b.nome, 'pt-BR')

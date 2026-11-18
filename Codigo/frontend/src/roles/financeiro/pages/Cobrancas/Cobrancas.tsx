@@ -1,39 +1,40 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
-import { Button } from '../../../../components/Button/Button'
-import { Campo } from '../../../../components/Campo/Campo'
-import { CampoData } from '../../../../components/CampoData/CampoData'
-import { ModalComprovante } from '../../../../components/Comprovante/ModalComprovante'
-import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/ConfirmarExclusao'
-import { Icon } from '../../../../components/Icon/Icon'
-import { Paginacao } from '../../../../components/Paginacao/Paginacao'
-import { Select } from '../../../../components/Select/Select'
+import { Button } from '../../../../components/ui/Button/Button'
+import { Campo } from '../../../../components/formulario/Campo/Campo'
+import { CampoData } from '../../../../components/formulario/CampoData/CampoData'
+import { ModalComprovante } from '../../../../components/financeiro/Comprovante/ModalComprovante'
+import { ConfirmarExclusao } from '../../../../components/modal/ConfirmarExclusao/ConfirmarExclusao'
+import { Icon } from '../../../../components/ui/Icon/Icon'
+import { Paginacao } from '../../../../components/ui/Paginacao/Paginacao'
+import { Select } from '../../../../components/formulario/Select/Select'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { useListaPaginada } from '../../../../hooks/usePaginacao'
 import { useTermoAdiado } from '../../../../hooks/useTermoAdiado'
 import { useRotasFinanceiras } from '../../../../routes/areas'
 import { type EstadoCobrancaCriada } from '../../../../routes/paths'
-import { listarPeriodosLetivos } from '../../../../services/academicoService'
-import { buscarAluno } from '../../../../services/alunoService'
+import { listarPeriodosLetivos } from '../../../../services/academico/academicoService'
+import { buscarAluno } from '../../../../services/pessoas/alunoService'
 import { ApiError } from '../../../../services/api'
 import {
   buscarComprovanteDaCobranca,
   cancelarCobranca,
   listarCobrancas,
   listarRiscoAtraso,
-} from '../../../../services/cobrancaService'
+} from '../../../../services/financeiro/cobrancaService'
 import {
   atalhosSandboxHabilitados,
   mensagemErroSandbox,
   simularPagamentoNoSandbox,
-} from '../../../../services/sandboxService'
-import type { PeriodoLetivo } from '../../../../types/academico'
-import type { Aluno } from '../../../../types/aluno'
-import type { Cobranca, FiltroCobranca, PaginaCobrancas, StatusCobranca } from '../../../../types/cobranca'
-import type { RiscoAtraso } from '../../../../types/riscoAtraso'
+} from '../../../../services/financeiro/sandboxService'
+import type { PeriodoLetivo } from '../../../../types/academico/academico'
+import type { Aluno } from '../../../../types/pessoas/aluno'
+import type { Cobranca, FiltroCobranca, PaginaCobrancas, StatusCobranca } from '../../../../types/financeiro/cobranca'
+import type { RiscoAtraso } from '../../../../types/financeiro/riscoAtraso'
 import { CobrancaCard } from '../../components/CobrancaCard/CobrancaCard'
 import { CobrancaDetalhe, type MensagemSandbox } from '../../components/CobrancaDetalhe/CobrancaDetalhe'
 import { ModalEditarCobranca } from '../../components/ModalEditarCobranca/ModalEditarCobranca'
+import { ModalRegistrarPagamento } from '../../components/ModalRegistrarPagamento/ModalRegistrarPagamento'
 import { FinanceiroLayout } from '../../layouts/FinanceiroLayout'
 import styles from './Cobrancas.module.css'
 
@@ -115,6 +116,7 @@ export function Cobrancas() {
   const temFiltroDePeriodo = Boolean(periodoLetivoId || vencimentoDe || vencimentoAte)
   const [editando, setEditando] = useState<Cobranca | null>(null)
   const [cancelando, setCancelando] = useState<Cobranca | null>(null)
+  const [registrandoPagamento, setRegistrandoPagamento] = useState<Cobranca | null>(null)
   const [comprovanteDe, setComprovanteDe] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [simulando, setSimulando] = useState(false)
@@ -179,7 +181,7 @@ export function Cobrancas() {
 
   const buscarComprovante = useCallback(() => buscarComprovanteDaCobranca(comprovanteDe ?? ''), [comprovanteDe])
 
-  /** Depois de editar ou cancelar: confirma e lê a página de novo. */
+  /** Depois de editar, cancelar ou registrar o pagamento: confirma e lê a página de novo. */
   function concluir(mensagem: string) {
     setAviso(mensagem)
     recarregar()
@@ -353,6 +355,7 @@ export function Cobrancas() {
                 cobranca={c}
                 onEditar={setEditando}
                 onCancelar={setCancelando}
+                onRegistrarPagamento={setRegistrandoPagamento}
                 onVerComprovante={(cobranca) => setComprovanteDe(cobranca.id)}
                 onSimularPagamento={atalhosSandboxHabilitados ? simularPagamento : undefined}
                 simulandoPagamento={simulando}
@@ -375,6 +378,17 @@ export function Cobrancas() {
             setEditando(null)
             concluir(`Cobrança "${cobranca.descricao}" atualizada.`)
           }}
+        />
+      )}
+      {registrandoPagamento && (
+        <ModalRegistrarPagamento
+          cobranca={registrandoPagamento}
+          onFechar={() => setRegistrandoPagamento(null)}
+          onRegistrado={(cobranca) => {
+            setRegistrandoPagamento(null)
+            concluir(`Pagamento de "${cobranca.descricao}" registrado.`)
+          }}
+          onDesatualizada={recarregar}
         />
       )}
       {cancelando && (

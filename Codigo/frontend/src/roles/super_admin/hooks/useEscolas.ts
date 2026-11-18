@@ -6,8 +6,8 @@ import {
   listarEscolas,
   listarUsoDasEscolas,
   suspenderEscola,
-} from '../../../services/escolaService'
-import type { Escola, EscolaRequest, UsoEscola } from '../../../types/escola'
+} from '../../../services/escola/escolaService'
+import type { Escola, EscolaRequest, UsoEscola } from '../../../types/escola/escola'
 
 function mensagemDeErro(erro: unknown): string {
   return erro instanceof ApiError ? erro.message : 'Erro inesperado ao carregar as escolas.'

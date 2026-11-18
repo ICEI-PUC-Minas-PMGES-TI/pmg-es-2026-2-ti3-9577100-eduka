@@ -1,24 +1,24 @@
 import { useState } from 'react'
-import { Badge } from '../../../../components/Badge/Badge'
-import { Button } from '../../../../components/Button/Button'
-import { Icon } from '../../../../components/Icon/Icon'
-import { buscarMeusDados } from '../../../../services/alunoService'
-import { obterUsuarioLogado } from '../../../../services/authService'
-import { listarMinhasTurmas } from '../../../../services/portalAlunoService'
-import { buscarMinhaCorrecaoAberta } from '../../../../services/solicitacaoCorrecaoService'
-import { ROTULOS_TURNO } from '../../../../types/alocacao'
-import type { Aluno, Endereco } from '../../../../types/aluno'
-import { ROTULOS_STATUS_MATRICULA } from '../../../../types/matricula'
-import type { TurmaDoAluno } from '../../../../types/portalAluno'
-import type { SolicitacaoCorrecao } from '../../../../types/solicitacaoCorrecao'
+import { Badge } from '../../../../components/ui/Badge/Badge'
+import { Button } from '../../../../components/ui/Button/Button'
+import { Icon } from '../../../../components/ui/Icon/Icon'
+import { buscarMeusDados } from '../../../../services/pessoas/alunoService'
+import { obterUsuarioLogado } from '../../../../services/acesso/authService'
+import { listarMinhasTurmas } from '../../../../services/portal/portalAlunoService'
+import { buscarMinhaCorrecaoAberta } from '../../../../services/pessoas/solicitacaoCorrecaoService'
+import { ROTULOS_TURNO } from '../../../../types/academico/alocacao'
+import type { Aluno, Endereco } from '../../../../types/pessoas/aluno'
+import { ROTULOS_STATUS_MATRICULA, TOM_DO_STATUS } from '../../../../types/academico/matricula'
+import type { TurmaDoAluno } from '../../../../types/portal/portalAluno'
+import type { SolicitacaoCorrecao } from '../../../../types/pessoas/solicitacaoCorrecao'
 import { formatarCnpjCpf, iniciais, mascararCep, mascararTelefone } from '../../../../utils/formatters'
-import { formatarData } from '../../../secretaria/components/PainelSecretaria/formatacao'
+import { formatarData } from '../../../../utils/formatacao'
 import { ModalCorrecaoDados } from '../../components/ModalCorrecaoDados/ModalCorrecaoDados'
 import { useDadosDoAluno } from '../../hooks/useDadosDoAluno'
 import { AlunoLayout } from '../../layouts/AlunoLayout'
 import styles from './MeusDados.module.css'
 
-type AbaPerfil = 'pessoais' | 'responsaveis' | 'acesso'
+type AbaPerfil = 'pessoais' | 'responsaveis' | 'turmas' | 'acesso'
 
 const SEM_DADO = '—'
 const SEM_TURMAS: TurmaDoAluno[] = []
@@ -41,7 +41,12 @@ function buscarAlunoOuNulo(signal: AbortSignal): Promise<Aluno | null> {
 
 export function MeusDados() {
   const { dados: aluno, carregando, erro, recarregar } = useDadosDoAluno(buscarAlunoOuNulo, null)
-  const { dados: turmas } = useDadosDoAluno(listarMinhasTurmas, SEM_TURMAS)
+  const {
+    dados: turmas,
+    carregando: carregandoTurmas,
+    erro: erroTurmas,
+    recarregar: recarregarTurmas,
+  } = useDadosDoAluno(listarMinhasTurmas, SEM_TURMAS)
   const [abaAtiva, setAbaAtiva] = useState<AbaPerfil>('pessoais')
   // IU15: um pedido de correção aberto por vez; o enviado agora vale até a próxima leitura.
   const { dados: correcaoAberta } = useDadosDoAluno<SolicitacaoCorrecao | null>(buscarMinhaCorrecaoAberta, null)
@@ -92,6 +97,9 @@ export function MeusDados() {
                 <LinhaInfo rotulo="Curso" valor={turma.cursoNome} />
                 <LinhaInfo rotulo="Período" valor={turma.periodoLetivoNome} />
                 <LinhaInfo rotulo="Turno" valor={ROTULOS_TURNO[turma.turno]} />
+                <Button size="sm" icon="book" onClick={() => setAbaAtiva('turmas')}>
+                  {turmas.length > 1 ? `Ver as ${turmas.length} turmas e disciplinas` : 'Ver disciplinas'}
+                </Button>
               </div>
             )}
 
@@ -115,6 +123,9 @@ export function MeusDados() {
               <Aba id="responsaveis" ativa={abaAtiva} onSelecionar={setAbaAtiva}>
                 Responsáveis
               </Aba>
+              <Aba id="turmas" ativa={abaAtiva} onSelecionar={setAbaAtiva}>
+                Turmas
+              </Aba>
               <Aba id="acesso" ativa={abaAtiva} onSelecionar={setAbaAtiva}>
                 Acesso
               </Aba>
@@ -128,6 +139,14 @@ export function MeusDados() {
             >
               {abaAtiva === 'pessoais' && <DadosPessoais aluno={aluno} />}
               {abaAtiva === 'responsaveis' && <Responsaveis aluno={aluno} />}
+              {abaAtiva === 'turmas' && (
+                <Turmas
+                  turmas={turmas}
+                  carregando={carregandoTurmas}
+                  erro={erroTurmas}
+                  onTentarNovamente={recarregarTurmas}
+                />
+              )}
               {abaAtiva === 'acesso' && (
                 <div>
                   <h3 className={styles.tituloSecao}>Acesso ao Eduka</h3>
@@ -194,6 +213,80 @@ function Responsaveis({ aluno }: { aluno: Aluno }) {
         ))
       )}
       <Aviso>Só a secretaria pode alterar estes dados.</Aviso>
+    </div>
+  )
+}
+
+/** Todas as turmas do aluno (ativas primeiro, como o backend devolve), cada uma com a grade. */
+function Turmas({
+  turmas,
+  carregando,
+  erro,
+  onTentarNovamente,
+}: {
+  turmas: TurmaDoAluno[]
+  carregando: boolean
+  erro: string | null
+  onTentarNovamente: () => void
+}) {
+  return (
+    <div>
+      <h3 className={styles.tituloSecao}>Turmas e disciplinas</h3>
+      {carregando && <p className={styles.campoValor} role="status">Carregando suas turmas…</p>}
+      {!carregando && erro && (
+        <div className={styles.erroTurmas} role="alert">
+          <span>{erro}</span>
+          <Button size="sm" onClick={onTentarNovamente}>
+            Tentar novamente
+          </Button>
+        </div>
+      )}
+      {!carregando && !erro && turmas.length === 0 && (
+        <p className={styles.campoValor}>Você ainda não está matriculado em nenhuma turma.</p>
+      )}
+      {!carregando && !erro && turmas.length > 0 && (
+        <ul className={styles.listaTurmas}>
+          {turmas.map((t) => (
+            <li key={t.matriculaId}>
+              <article className={styles.turmaCard} aria-label={`Turma ${t.turmaNome}`}>
+                <header className={styles.turmaCabecalho}>
+                  <div>
+                    <h4 className={styles.turmaNome}>
+                      {t.turmaNome}
+                      {t.turmaCodigo && <span className={styles.turmaCodigo}> · {t.turmaCodigo}</span>}
+                    </h4>
+                    <p className={styles.turmaMeta}>
+                      {t.cursoNome} · {t.periodoLetivoNome} · {ROTULOS_TURNO[t.turno]}
+                    </p>
+                    <p className={styles.turmaMeta}>Matrícula em {formatarData(t.dataMatricula)}</p>
+                  </div>
+                  <Badge tone={TOM_DO_STATUS[t.situacaoMatricula]}>
+                    {ROTULOS_STATUS_MATRICULA[t.situacaoMatricula]}
+                  </Badge>
+                </header>
+                {t.disciplinas.length === 0 ? (
+                  <p className={styles.turmaMeta}>A grade desta turma ainda não tem disciplinas.</p>
+                ) : (
+                  <ul className={styles.listaDisciplinas} aria-label={`Disciplinas de ${t.turmaNome}`}>
+                    {t.disciplinas.map((d) => (
+                      <li key={d.id} className={styles.disciplina}>
+                        <span className={styles.disciplinaNome}>
+                          {d.nome}
+                          {d.codigo && <span className={styles.turmaCodigo}> · {d.codigo}</span>}
+                        </span>
+                        <span className={styles.disciplinaDetalhe}>
+                          {d.professorNome ?? 'Professor a definir'}{' '}
+                          <span className={styles.semQuebra}>· {d.cargaHoraria} h</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </article>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

@@ -17,19 +17,19 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import br.pucminas.eduka.backend.domain.Cobranca;
-import br.pucminas.eduka.backend.domain.EventoProvedor;
-import br.pucminas.eduka.backend.domain.OrigemPagamento;
-import br.pucminas.eduka.backend.domain.PagamentoCobranca;
-import br.pucminas.eduka.backend.domain.StatusCobranca;
-import br.pucminas.eduka.backend.domain.StatusEventoProvedor;
+import br.pucminas.eduka.backend.domain.financeiro.Cobranca;
+import br.pucminas.eduka.backend.domain.financeiro.EventoProvedor;
+import br.pucminas.eduka.backend.domain.financeiro.OrigemPagamento;
+import br.pucminas.eduka.backend.domain.financeiro.PagamentoCobranca;
+import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
+import br.pucminas.eduka.backend.domain.financeiro.StatusEventoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 import br.pucminas.eduka.backend.pagamento.tipos.TipoEventoProvedor;
-import br.pucminas.eduka.backend.repository.CobrancaRepository;
-import br.pucminas.eduka.backend.repository.EventoProvedorRepository;
-import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
+import br.pucminas.eduka.backend.repository.financeiro.CobrancaRepository;
+import br.pucminas.eduka.backend.repository.financeiro.EventoProvedorRepository;
+import br.pucminas.eduka.backend.repository.financeiro.PagamentoCobrancaRepository;
 import br.pucminas.eduka.backend.security.PiiCryptoService;
-import br.pucminas.eduka.backend.service.CobrancaService;
+import br.pucminas.eduka.backend.service.financeiro.CobrancaService;
 
 /**
  * O que o pagamento confia ao banco e os testes com mock nao enxergam: as

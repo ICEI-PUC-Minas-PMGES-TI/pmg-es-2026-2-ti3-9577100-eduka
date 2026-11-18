@@ -1,44 +1,55 @@
 package br.pucminas.eduka.backend.integracao;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.xssf.usermodel.XSSFFormulaEvaluator;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.MockMvc;
 
-import br.pucminas.eduka.backend.domain.SituacaoDespesa;
-import br.pucminas.eduka.backend.domain.StatusCobranca;
-import br.pucminas.eduka.backend.domain.TipoCobranca;
-import br.pucminas.eduka.backend.dto.ArquivoCsv;
-import br.pucminas.eduka.backend.dto.CobrancaRequest;
-import br.pucminas.eduka.backend.dto.DashboardFinanceiroResponse;
-import br.pucminas.eduka.backend.dto.HistoricoFinanceiroResponse;
-import br.pucminas.eduka.backend.dto.RelatorioFinanceiroResponse;
-import br.pucminas.eduka.backend.dto.RelatorioFinanceiroResponse.Forma;
-import br.pucminas.eduka.backend.dto.RelatorioFinanceiroResponse.Linha;
-import br.pucminas.eduka.backend.dto.RelatorioFinanceiroResponse.Mes;
+import br.pucminas.eduka.backend.domain.financeiro.SituacaoDespesa;
+import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
+import br.pucminas.eduka.backend.domain.financeiro.TipoCobranca;
+import br.pucminas.eduka.backend.dto.comum.ArquivoCsv;
+import br.pucminas.eduka.backend.dto.comum.ArquivoPlanilha;
+import br.pucminas.eduka.backend.dto.dashboard.DashboardFinanceiroResponse;
+import br.pucminas.eduka.backend.dto.financeiro.CobrancaRequest;
+import br.pucminas.eduka.backend.dto.financeiro.HistoricoFinanceiroResponse;
+import br.pucminas.eduka.backend.dto.financeiro.RelatorioFinanceiroResponse.Forma;
+import br.pucminas.eduka.backend.dto.financeiro.RelatorioFinanceiroResponse.Linha;
+import br.pucminas.eduka.backend.dto.financeiro.RelatorioFinanceiroResponse.Mes;
+import br.pucminas.eduka.backend.dto.financeiro.RelatorioFinanceiroResponse;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 import br.pucminas.eduka.backend.security.JwtService;
-import br.pucminas.eduka.backend.service.CobrancaService;
-import br.pucminas.eduka.backend.service.DashboardFinanceiroService;
-import br.pucminas.eduka.backend.service.RelatorioFinanceiroService;
+import br.pucminas.eduka.backend.service.financeiro.CobrancaService;
+import br.pucminas.eduka.backend.service.financeiro.DashboardFinanceiroService;
+import br.pucminas.eduka.backend.service.financeiro.RelatorioFinanceiroService;
 
 /**
  * As contas dos relatorios sobre dados gravados no Postgres: cada numero com a
@@ -430,6 +441,68 @@ class RelatorioFinanceiroBancoRealTest extends BancoRealTest {
     }
 
     @Test
+    void planilhaTemAEscolaOResumoDaTelaEAsMesmasLinhasDoCsv() throws Exception {
+        UUID escola = escolaComMovimento();
+        jdbc.update("UPDATE ESCOLA SET NOME = 'Colégio São José', CNPJ_CPF = '12345678000190', CIDADE = 'Belo "
+                + "Horizonte', ESTADO = 'MG' WHERE ID_ESCOLA = ?", escola);
+        autenticarComo("FINANCEIRO", escola);
+
+        ArquivoPlanilha arquivo = relatorioFinanceiroService.exportarPlanilha(DE, ATE);
+
+        assertThat(arquivo.nome()).isEqualTo("relatorio-financeiro-colegio-sao-jose-2025-03-05-a-2025-05-31.xlsx");
+        try (XSSFWorkbook planilha = new XSSFWorkbook(new ByteArrayInputStream(arquivo.conteudo()))) {
+            XSSFFormulaEvaluator.evaluateAllFormulaCells(planilha);
+            assertThat(planilha.sheetIterator()).toIterable().extracting(s -> s.getSheetName())
+                    .containsExactly("Resumo", "Cobranças", "Pagamentos", "Despesas");
+            XSSFSheet resumo = planilha.getSheet("Resumo");
+            assertThat(resumo.getRow(1).getCell(0).getStringCellValue()).isEqualTo("Colégio São José");
+            assertThat(resumo.getRow(2).getCell(0).getStringCellValue())
+                    .isEqualTo("CNPJ 12.345.678/0001-90  ·  Belo Horizonte/MG");
+            assertThat(resumo.getRow(3).getCell(0).getStringCellValue()).startsWith("Período: 05/03/2025 a 31/05/2025");
+            // Os numeros da tela: 335 recebidos menos 30 de despesas pagas.
+            assertThat(valorAoLadoDe(resumo, "Total recebido")).isEqualTo(335.00);
+            assertThat(valorAoLadoDe(resumo, "Saldo do período")).isEqualTo(305.00);
+            assertThat(valorAoLadoDe(resumo, "Inadimplência")).isEqualTo(0.486);
+            assertThat(valorAoLadoDe(resumo, "Mensalidade")).isEqualTo(500.00);
+
+            // As linhas do CSV, sem a cobranca cancelada nem nada da outra escola.
+            XSSFSheet cobrancas = planilha.getSheet("Cobranças");
+            assertThat(cobrancas.getTables().getFirst().getRowCount() - 1).isEqualTo(5);
+            assertThat(textos(cobrancas)).contains("Ana Souza", "Ensino Medio", "Em atraso")
+                    .doesNotContain("Zeca de Outra Escola", "Cancelada");
+            XSSFSheet pagamentos = planilha.getSheet("Pagamentos");
+            assertThat(totalDaAba(pagamentos)).isEqualTo(335.00);
+            assertThat(totalDaAba(planilha.getSheet("Despesas"))).isEqualTo(100.00);
+        }
+    }
+
+    private static double valorAoLadoDe(XSSFSheet aba, String rotulo) {
+        for (Row row : aba) {
+            Cell cell = row.getCell(0);
+            if (cell != null && cell.getCellType() == CellType.STRING && rotulo.equals(cell.getStringCellValue())) {
+                return row.getCell(1).getNumericCellValue();
+            }
+        }
+        throw new AssertionError("Sem a linha " + rotulo);
+    }
+
+    private static List<String> textos(XSSFSheet aba) {
+        List<String> textos = new ArrayList<>();
+        aba.forEach(row -> row.forEach(cell -> {
+            if (cell.getCellType() == CellType.STRING) {
+                textos.add(cell.getStringCellValue());
+            }
+        }));
+        return textos;
+    }
+
+    /** O SUBTOTAL do valor, acima da tabela. */
+    private static double totalDaAba(XSSFSheet aba) {
+        Row totais = aba.getRow(aba.getTables().getFirst().getStartCellReference().getRow() - 2);
+        return totais.getCell(totais.getLastCellNum() - 1).getNumericCellValue();
+    }
+
+    @Test
     void asRotasRespondemComOsDadosDaEscolaDoToken() throws Exception {
         UUID escola = escolaComMovimento();
         String token = "Bearer " + jwtService.generateAccessToken(UUID.randomUUID(), "FINANCEIRO", escola);
@@ -450,6 +523,11 @@ class RelatorioFinanceiroBancoRealTest extends BancoRealTest {
                 .andReturn().getResponse().getContentAsByteArray();
 
         assertThat(new String(arquivo, StandardCharsets.UTF_8)).contains("Pagamentos", "Ana Souza;Mensalidade;195,00;PIX");
+
+        mockMvc.perform(get("/relatorios/financeiro/planilha?de=2025-03-05&ate=2025-05-31")
+                .header(HttpHeaders.AUTHORIZATION, token))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, containsString(".xlsx")));
     }
 
     @Test

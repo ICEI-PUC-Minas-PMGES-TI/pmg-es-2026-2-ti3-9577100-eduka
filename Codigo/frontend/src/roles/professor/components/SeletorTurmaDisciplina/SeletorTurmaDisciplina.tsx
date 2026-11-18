@@ -1,4 +1,4 @@
-import { Select } from '../../../../components/Select/Select'
+import { Select } from '../../../../components/formulario/Select/Select'
 import type { TurmaDisciplina } from '../../hooks/useTurmaDisciplina'
 import styles from './SeletorTurmaDisciplina.module.css'
 

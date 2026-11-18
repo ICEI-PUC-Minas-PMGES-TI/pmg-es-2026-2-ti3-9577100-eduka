@@ -18,15 +18,15 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import br.pucminas.eduka.backend.domain.EntidadeAuditada;
-import br.pucminas.eduka.backend.domain.EstornoCobranca;
-import br.pucminas.eduka.backend.domain.FaturaPlataforma;
-import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
-import br.pucminas.eduka.backend.domain.OrigemPagamento;
-import br.pucminas.eduka.backend.domain.PagamentoCobranca;
-import br.pucminas.eduka.backend.domain.SituacaoProvedor;
-import br.pucminas.eduka.backend.domain.StatusCobranca;
-import br.pucminas.eduka.backend.domain.StatusEventoProvedor;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.escola.FaturaPlataforma;
+import br.pucminas.eduka.backend.domain.financeiro.EstornoCobranca;
+import br.pucminas.eduka.backend.domain.financeiro.OrigemPagamento;
+import br.pucminas.eduka.backend.domain.financeiro.PagamentoCobranca;
+import br.pucminas.eduka.backend.domain.financeiro.SituacaoProvedor;
+import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
+import br.pucminas.eduka.backend.domain.financeiro.StatusEventoProvedor;
 import br.pucminas.eduka.backend.logging.ContextoLog;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.EventoProvedor;
@@ -34,16 +34,16 @@ import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 import br.pucminas.eduka.backend.pagamento.tipos.SituacaoContaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.StatusCobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.TipoEventoProvedor;
-import br.pucminas.eduka.backend.repository.CobrancaRepository;
-import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
-import br.pucminas.eduka.backend.repository.EstornoCobrancaRepository;
-import br.pucminas.eduka.backend.repository.EventoProvedorRepository;
-import br.pucminas.eduka.backend.repository.FaturaPlataformaRepository;
-import br.pucminas.eduka.backend.repository.PagamentoCobrancaRepository;
-import br.pucminas.eduka.backend.service.AuditoriaService;
-import br.pucminas.eduka.backend.service.AvisoCobranca;
-import br.pucminas.eduka.backend.service.AvisoCobrancaService;
-import br.pucminas.eduka.backend.service.CobrancaParaAviso;
+import br.pucminas.eduka.backend.repository.escola.FaturaPlataformaRepository;
+import br.pucminas.eduka.backend.repository.financeiro.CobrancaRepository;
+import br.pucminas.eduka.backend.repository.financeiro.ContaRecebimentoEscolaRepository;
+import br.pucminas.eduka.backend.repository.financeiro.EstornoCobrancaRepository;
+import br.pucminas.eduka.backend.repository.financeiro.EventoProvedorRepository;
+import br.pucminas.eduka.backend.repository.financeiro.PagamentoCobrancaRepository;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
+import br.pucminas.eduka.backend.service.financeiro.AvisoCobranca;
+import br.pucminas.eduka.backend.service.financeiro.AvisoCobrancaService;
+import br.pucminas.eduka.backend.service.financeiro.CobrancaParaAviso;
 
 /**
  * Passos transacionais dos avisos do provedor, chamados so pelo
@@ -129,7 +129,7 @@ class RoteadorEventos {
             return Optional.empty();
         }
         CobrancaProvedor cobranca = evento.cobranca();
-        br.pucminas.eduka.backend.domain.EventoProvedor registro = br.pucminas.eduka.backend.domain.EventoProvedor
+        br.pucminas.eduka.backend.domain.financeiro.EventoProvedor registro = br.pucminas.eduka.backend.domain.financeiro.EventoProvedor
                 .builder()
                 .idEventoExterno(evento.idEvento())
                 .tipoOriginal(evento.tipoOriginal())
@@ -163,13 +163,13 @@ class RoteadorEventos {
     Optional<String> payloadPendente(UUID eventoId) {
         return eventoRepository.findById(eventoId)
                 .filter(e -> !terminado(e.getStatus()))
-                .map(br.pucminas.eduka.backend.domain.EventoProvedor::getPayload);
+                .map(br.pucminas.eduka.backend.domain.financeiro.EventoProvedor::getPayload);
     }
 
     /** Aplica o evento uma vez so: trava o registro e nao reaplica o que ja terminou. */
     @Transactional
     void aplicar(UUID eventoId, EventoProvedor evento) {
-        br.pucminas.eduka.backend.domain.EventoProvedor registro = eventoRepository.travar(eventoId)
+        br.pucminas.eduka.backend.domain.financeiro.EventoProvedor registro = eventoRepository.travar(eventoId)
                 .orElseThrow(() -> new IllegalStateException("Evento do provedor nao encontrado: " + eventoId));
         if (terminado(registro.getStatus())) {
             return;
@@ -208,7 +208,7 @@ class RoteadorEventos {
      * e a foto atual da conta (achado A11); sem ela, a rotina de sincronizacao
      * consulta depois. Conta que ainda nao terminou de ser criada nao muda.
      */
-    private void aplicarSituacaoConta(br.pucminas.eduka.backend.domain.EventoProvedor registro,
+    private void aplicarSituacaoConta(br.pucminas.eduka.backend.domain.financeiro.EventoProvedor registro,
             EventoProvedor evento) {
         if (evento.idContaExterna() == null
                 || contaRepository.buscarEscolaPorIdContaExterna(evento.idContaExterna()).isEmpty()) {
@@ -228,7 +228,7 @@ class RoteadorEventos {
         encerrar(registro, StatusEventoProvedor.PROCESSADO, null);
     }
 
-    private void aplicarPagamento(br.pucminas.eduka.backend.domain.EventoProvedor registro, EventoProvedor evento) {
+    private void aplicarPagamento(br.pucminas.eduka.backend.domain.financeiro.EventoProvedor registro, EventoProvedor evento) {
         CobrancaProvedor pago = evento.cobranca();
         if (pago == null || pago.valorPago() == null) {
             encerrar(registro, StatusEventoProvedor.IGNORADO, "Aviso de pagamento sem cobranca paga");
@@ -407,7 +407,7 @@ class RoteadorEventos {
     }
 
     /** CONFIRMED seguido de RECEIVED: um pagamento so; o aviso seguinte so completa o credito (R23). */
-    private void completarCredito(br.pucminas.eduka.backend.domain.EventoProvedor registro,
+    private void completarCredito(br.pucminas.eduka.backend.domain.financeiro.EventoProvedor registro,
             PagamentoCobranca pagamento, CobrancaProvedor pago) {
         boolean completou = false;
         if (pagamento.getDataCredito() == null && pago.dataCredito() != null) {
@@ -426,7 +426,7 @@ class RoteadorEventos {
     }
 
     /** O provedor confirmou a criacao: a cobranca que ficou EMITINDO (resposta perdida) passa a EMITIDA. */
-    private void aplicarCriada(br.pucminas.eduka.backend.domain.EventoProvedor registro, EventoProvedor evento) {
+    private void aplicarCriada(br.pucminas.eduka.backend.domain.financeiro.EventoProvedor registro, EventoProvedor evento) {
         Optional<CobrancaLocal> encontrada = cobrancaDaEscola(registro, evento);
         if (encontrada.isEmpty()) {
             return;
@@ -447,7 +447,7 @@ class RoteadorEventos {
      * FALHA_EMISSAO (pode ser emitida de novo); a emitida e em aberto vira
      * CANCELADA. Paga ou ja cancelada: sem efeito.
      */
-    private void aplicarRemovida(br.pucminas.eduka.backend.domain.EventoProvedor registro, EventoProvedor evento) {
+    private void aplicarRemovida(br.pucminas.eduka.backend.domain.financeiro.EventoProvedor registro, EventoProvedor evento) {
         Optional<CobrancaLocal> encontrada = cobrancaDaEscola(registro, evento);
         if (encontrada.isEmpty()) {
             return;
@@ -479,7 +479,7 @@ class RoteadorEventos {
      * fica encerrada, e para cobrar de novo a escola lanca outra. A contestacao
      * ainda nao devolveu o dinheiro: so fica no log.
      */
-    private void aplicarEstornoOuContestacao(br.pucminas.eduka.backend.domain.EventoProvedor registro,
+    private void aplicarEstornoOuContestacao(br.pucminas.eduka.backend.domain.financeiro.EventoProvedor registro,
             EventoProvedor evento) {
         Optional<CobrancaLocal> encontrada = cobrancaDaEscola(registro, evento);
         if (encontrada.isEmpty()) {
@@ -543,7 +543,7 @@ class RoteadorEventos {
      * ignorado, porque a escola poderia criar na propria conta uma cobranca
      * com a referencia da fatura e paga-la a si mesma.
      */
-    private void aplicarFatura(br.pucminas.eduka.backend.domain.EventoProvedor registro, EventoProvedor evento,
+    private void aplicarFatura(br.pucminas.eduka.backend.domain.financeiro.EventoProvedor registro, EventoProvedor evento,
             UUID faturaId) {
         if (evento.idContaExterna() != null
                 && contaRepository.buscarEscolaPorIdContaExterna(evento.idContaExterna()).isPresent()) {
@@ -664,7 +664,7 @@ class RoteadorEventos {
      * A cobranca do aviso, se a conta que avisou for a conta de recebimento da
      * escola dela (R21). Vazio quando o evento ja foi encerrado como IGNORADO.
      */
-    private Optional<CobrancaLocal> cobrancaDaEscola(br.pucminas.eduka.backend.domain.EventoProvedor registro,
+    private Optional<CobrancaLocal> cobrancaDaEscola(br.pucminas.eduka.backend.domain.financeiro.EventoProvedor registro,
             EventoProvedor evento) {
         if (evento.cobranca() == null) {
             encerrar(registro, StatusEventoProvedor.IGNORADO, "Aviso de cobranca sem a cobranca");
@@ -719,7 +719,7 @@ class RoteadorEventos {
      * cobranca ({@code clearAutomatically}) desanexam o registro, e a mudanca
      * so no objeto se perderia.
      */
-    private void encerrar(br.pucminas.eduka.backend.domain.EventoProvedor registro, StatusEventoProvedor status,
+    private void encerrar(br.pucminas.eduka.backend.domain.financeiro.EventoProvedor registro, StatusEventoProvedor status,
             String motivo) {
         registro.setStatus(status);
         registro.setMotivo(motivo);

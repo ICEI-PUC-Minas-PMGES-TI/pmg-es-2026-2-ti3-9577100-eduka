@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
-import { Button } from '../../../../components/Button/Button'
-import { Icon } from '../../../../components/Icon/Icon'
-import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
+import { Button } from '../../../../components/ui/Button/Button'
+import { Icon } from '../../../../components/ui/Icon/Icon'
+import { StatCard, StatCards } from '../../../../components/ui/StatCard/StatCard'
 import { useListaPaginada, type PaginaComResumo } from '../../../../hooks/usePaginacao'
 import { useTermoAdiado } from '../../../../hooks/useTermoAdiado'
 import type { EstadoAbrirCadastro } from '../../../../routes/paths'
@@ -14,12 +14,13 @@ import {
   excluirProfessor,
   inativarProfessor,
   listarPaginaDeProfessores,
-} from '../../../../services/professorService'
-import type { Professor, ResumoProfessores } from '../../../../types/professor'
-import { CadastroProfessorModal } from '../../components/CadastroProfessorModal/CadastroProfessorModal'
-import { DetalhesProfessorModal } from '../../components/DetalhesProfessorModal/DetalhesProfessorModal'
-import { ExcluirProfessorModal } from '../../components/ExcluirProfessorModal/ExcluirProfessorModal'
-import { ProfessoresTable } from '../../components/ProfessoresTable/ProfessoresTable'
+  reenviarAcessoProfessor,
+} from '../../../../services/pessoas/professorService'
+import type { Professor, ResumoProfessores } from '../../../../types/pessoas/professor'
+import { CadastroProfessorModal } from '../../components/professores/CadastroProfessorModal/CadastroProfessorModal'
+import { DetalhesProfessorModal } from '../../components/professores/DetalhesProfessorModal/DetalhesProfessorModal'
+import { ExcluirProfessorModal } from '../../components/professores/ExcluirProfessorModal/ExcluirProfessorModal'
+import { ProfessoresTable } from '../../components/professores/ProfessoresTable/ProfessoresTable'
 import { SecretariaLayout } from '../../layouts/SecretariaLayout'
 import styles from './Professores.module.css'
 
@@ -53,6 +54,7 @@ export function Professores() {
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
   const [alternandoId, setAlternandoId] = useState<string | null>(null)
+  const [reenviandoId, setReenviandoId] = useState<string | null>(null)
   const [excluindo, setExcluindo] = useState<Professor | null>(null)
   const [vendo, setVendo] = useState<Professor | null>(null)
 
@@ -110,6 +112,29 @@ export function Professores() {
       setErroAcao(`Não foi possível ${acao} "${professor.nome}".${detalhe}`)
     } finally {
       setAlternandoId(null)
+    }
+  }
+
+  /** Nova senha provisória e o e-mail de acesso de novo, para quem ainda não entrou. */
+  async function handleReenviarAcesso(professor: Professor) {
+    limparAvisos()
+    setReenviandoId(professor.id)
+    try {
+      await reenviarAcessoProfessor(professor.id)
+      setSucesso(
+        `O acesso de "${professor.nome}" foi reenviado para ${professor.email ?? 'o e-mail cadastrado'}, com uma nova senha provisória.`,
+      )
+      recarregar()
+    } catch (e) {
+      setErroAcao(
+        e instanceof ApiError && e.status === 409
+          ? `"${professor.nome}" já definiu a senha e entra normalmente. Se esqueceu, use "Esqueceu sua senha?" no login.`
+          : `Não foi possível reenviar o acesso de "${professor.nome}".${e instanceof ApiError ? ` ${e.message}` : ''}`,
+      )
+      // O sinal de "aguardando acesso" pode ter mudado: a lista lê de novo.
+      if (e instanceof ApiError && e.status === 409) recarregar()
+    } finally {
+      setReenviandoId(null)
     }
   }
 
@@ -197,10 +222,12 @@ export function Professores() {
         erro={lista.erro}
         mensagemVazia={mensagemVazia}
         alternandoId={alternandoId}
+        reenviandoId={reenviandoId}
         onTentarNovamente={recarregar}
         onVer={setVendo}
         onEditar={abrirEdicao}
         onAlternarSituacao={handleAlternarSituacao}
+        onReenviarAcesso={(professor) => void handleReenviarAcesso(professor)}
         onExcluir={abrirExclusao}
       />
 

@@ -6,14 +6,16 @@ left to right direction
 
 actor "SUPER_ADMIN" as SUPERADMIN
 actor "MASTER" as MASTER
+actor "Serviço de E-mail\n(Brevo)" as BREVO <<sistema externo>>
 actor "Gateway de Pagamento\n(Asaas)" as ASAAS <<sistema externo>>
 
 rectangle "Eduka — Administração da plataforma" {
-  usecase "UC01\nCadastrar Escola" as UC01 <<parcial>>
+  usecase "UC01\nCadastrar Escola" as UC01
+  usecase "Criar Login do MASTER\n(e-mail de primeiro acesso)" as UC01M
   usecase "UC02\nGerenciar Escolas\nCadastradas" as UC02 <<parcial>>
-  usecase "Editar Dados da Escola" as UC02A
+  usecase "Editar Dados\nda Escola" as UC02A
   usecase "Suspender ou\nReativar Escola" as UC02B
-  usecase "Consultar Uso\nda Escola" as UC02U <<planejado>>
+  usecase "Consultar Uso\nda Escola" as UC02U
   usecase "UC27\nGerenciar Faturas\nda Plataforma" as UC27
   usecase "Cancelar Fatura" as UC27A
   usecase "Ver Comprovante\nda Fatura" as UC27C
@@ -24,15 +26,19 @@ SUPERADMIN --> UC01
 SUPERADMIN --> UC02
 SUPERADMIN --> UC27
 MASTER --> UC28
-UC02A ..> UC02 : <<extend>>
-UC02B ..> UC02 : <<extend>>
-UC02U ..> UC02 : <<extend>>
-UC27A ..> UC27 : <<extend>>
-UC27C ..> UC27 : <<extend>>
-UC27C ..> UC28 : <<extend>>
-UC27 --> ASAAS
+
+UC01 ..> UC01M : <<include>>
+UC02 <.. UC02A : <<extend>>
+UC02 <.. UC02B : <<extend>>
+UC02 <.. UC02U : <<extend>>
+UC27 <.. UC27A : <<extend>>
+UC27 <.. UC27C : <<extend>>
+UC28 <.. UC27C : <<extend>>
+
+UC01M --> BREVO
+UC27A --> ASAAS
 UC28 --> ASAAS
 
-note "Sprint 4: o uso de cada escola (alunos, usuários ativos,\ncobranças no mês e última atividade) entra no Painel de\nEscolas (RF02.1). A suspensão já bloqueia o login (IU04)." as N1
+note "Sprint 5: o cadastro da escola já cria o primeiro login MASTER (S5-01).\nUC02 segue parcial: limite de usuários e módulos contratados\nainda não restringem o uso (S5-11, decisão de escopo pendente)." as N1
 
 @enduml

@@ -1,11 +1,11 @@
 package br.pucminas.eduka.backend.security;
 
-import static br.pucminas.eduka.backend.domain.PerfilUsuario.ALUNO;
-import static br.pucminas.eduka.backend.domain.PerfilUsuario.FINANCEIRO;
-import static br.pucminas.eduka.backend.domain.PerfilUsuario.MASTER;
-import static br.pucminas.eduka.backend.domain.PerfilUsuario.PROFESSOR;
-import static br.pucminas.eduka.backend.domain.PerfilUsuario.SECRETARIA;
-import static br.pucminas.eduka.backend.domain.PerfilUsuario.SUPER_ADMIN;
+import static br.pucminas.eduka.backend.domain.acesso.PerfilUsuario.ALUNO;
+import static br.pucminas.eduka.backend.domain.acesso.PerfilUsuario.FINANCEIRO;
+import static br.pucminas.eduka.backend.domain.acesso.PerfilUsuario.MASTER;
+import static br.pucminas.eduka.backend.domain.acesso.PerfilUsuario.PROFESSOR;
+import static br.pucminas.eduka.backend.domain.acesso.PerfilUsuario.SECRETARIA;
+import static br.pucminas.eduka.backend.domain.acesso.PerfilUsuario.SUPER_ADMIN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.lang.reflect.Method;
@@ -35,7 +35,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.pucminas.eduka.backend.domain.PerfilUsuario;
+import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
 
 /**
  * Contrato de acesso da API (RNF02): cada endpoint, com os perfis que entram
@@ -70,6 +70,7 @@ class MatrizDeAcessoTest {
             "POST /login",
             "POST /login/codigo",
             "POST /login/codigo/reenvio",
+            "POST /login/renovacao",
             "POST /primeiro-acesso",
             "POST /senha/recuperacao",
             "POST /senha/redefinicao",
@@ -156,6 +157,8 @@ class MatrizDeAcessoTest {
                 "POST /alunos",
                 "PUT /alunos/{id}",
                 "POST /alunos/{id}/primeiro-acesso",
+                "PATCH /alunos/{id}/inativar",
+                "PATCH /alunos/{id}/ativar",
                 "GET /alunos/{id}/dados-pessoais",
                 "GET /alunos/correcoes",
                 "PATCH /alunos/correcoes/{id}/atender",
@@ -198,6 +201,7 @@ class MatrizDeAcessoTest {
                 "GET /dashboard/financeiro/movimento",
                 "GET /relatorios/financeiro",
                 "GET /relatorios/financeiro/exportar",
+                "GET /relatorios/financeiro/planilha",
                 "GET /alunos/{alunoId}/financeiro",
                 "GET /alunos/{alunoId}/financeiro/risco",
                 "GET /cobrancas",
@@ -220,6 +224,7 @@ class MatrizDeAcessoTest {
                 "POST /categorias-despesa");
 
         libera(matriz, SO_PROFESSOR,
+                "GET /portal/professor/me",
                 "GET /portal/professor/dashboard",
                 "GET /portal/professor/turmas",
                 "GET /portal/professor/turmas/{turmaId}/alunos",

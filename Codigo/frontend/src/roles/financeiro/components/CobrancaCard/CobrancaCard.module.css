@@ -60,11 +60,22 @@
 }
 
 .descricao {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
   font-size: 13.5px;
   color: var(--color-text-subtle);
+  white-space: nowrap;
+}
+
+.descricaoTexto {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.vencimento {
+  flex-shrink: 0;
 }
 
 /* Risco de atraso do aluno: o nível e o motivo, abaixo da descrição. */

@@ -11,12 +11,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-import br.pucminas.eduka.backend.domain.StatusCobranca;
-import br.pucminas.eduka.backend.dto.SuspensaoPrevistaResponse;
+import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
+import br.pucminas.eduka.backend.dto.escola.SuspensaoPrevistaResponse;
 import br.pucminas.eduka.backend.security.PiiCryptoService;
-import br.pucminas.eduka.backend.service.EscolaService;
-import br.pucminas.eduka.backend.service.SuspensaoPorAtrasoProperties;
-import br.pucminas.eduka.backend.service.SuspensaoPorAtrasoService;
+import br.pucminas.eduka.backend.service.escola.EscolaService;
+import br.pucminas.eduka.backend.service.escola.SuspensaoPorAtrasoProperties;
+import br.pucminas.eduka.backend.service.escola.SuspensaoPorAtrasoService;
 
 /**
  * Aviso e suspensao por fatura em atraso no Postgres: quais faturas entram,

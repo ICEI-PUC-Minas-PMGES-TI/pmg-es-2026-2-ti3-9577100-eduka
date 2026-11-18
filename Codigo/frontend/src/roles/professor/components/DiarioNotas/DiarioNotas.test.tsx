@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { simularApi } from '../../../../test/api'
-import type { AvaliacaoDoProfessor, NotaDoAluno } from '../../../../types/avaliacaoProfessor'
+import type { AvaliacaoDoProfessor, NotaDoAluno } from '../../../../types/academico/avaliacaoProfessor'
 import { DiarioNotas } from './DiarioNotas'
 
 function avaliacao(notasPublicadas: boolean): AvaliacaoDoProfessor {
