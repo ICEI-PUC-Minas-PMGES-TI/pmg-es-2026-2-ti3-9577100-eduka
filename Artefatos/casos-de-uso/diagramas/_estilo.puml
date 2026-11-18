@@ -33,6 +33,12 @@ skinparam rectangle {
 }
 
 skinparam ArrowColor #4A5A70
+skinparam ArrowFontSize 11
+skinparam ArrowFontColor #4A5A70
+
+' Espaço entre elementos, para as linhas não ficarem coladas umas nas outras
+skinparam nodesep 65
+skinparam ranksep 80
 skinparam note {
   BackgroundColor #FFF8E1
   BorderColor #C8A94E

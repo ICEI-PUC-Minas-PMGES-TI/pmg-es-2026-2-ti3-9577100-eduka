@@ -1,6 +1,6 @@
 @startuml 07-rotinas-e-integracoes
 !include _estilo.puml
-title Eduka — Casos de Uso: Rotinas e Integrações (UC30 a UC32, UC41)
+title Eduka — Casos de Uso: Rotinas e Integrações (UC30 a UC32, UC39, UC41)
 
 left to right direction
 
@@ -10,30 +10,31 @@ actor "Serviço de E-mail\n(Brevo)" as BREVO <<sistema externo>>
 
 rectangle "Eduka — Rotinas e integrações" {
   usecase "UC30\nConfirmar Pagamento\npelo Gateway" as UC30
-  usecase "Reprocessar Avisos e\nReconciliar Cobranças" as UC30R
-  usecase "UC31\nMarcar Cobranças e\nFaturas em Atraso" as UC31
+  usecase "Confirmar Pagamento\nde Cobrança" as UC30C
   usecase "Confirmar Pagamento\nde Fatura da Plataforma" as UC30F
   usecase "Tratar Demais Avisos\ndo Gateway" as UC30O
-  usecase "Confirmar Pagamento\nde Cobrança" as UC30C
+  usecase "Reprocessar Avisos e\nReconciliar Cobranças" as UC30R
+  usecase "UC31\nMarcar Cobranças e\nFaturas em Atraso" as UC31
+  usecase "UC41\nSuspender Escola\npor Inadimplência" as UC41
   usecase "UC32\nEnviar Notificações\npor E-mail" as UC32
   usecase "Lembrar Vencimento\nPróximo" as UC32V
-  usecase "UC41\nSuspender Escola\npor Inadimplência" as UC41 <<planejado>>
+  usecase "Anonimizar Alunos Inativos\n(retenção LGPD, UC39)" as UC39R
 }
 
 ASAAS --> UC30
-TEMPO --> UC30R
 TEMPO --> UC31
 TEMPO --> UC32
-TEMPO --> UC41
-UC30R ..> UC30 : <<extend>>
-UC30 <|-- UC30F
+TEMPO --> UC39R
+
 UC30 <|-- UC30C
-UC30O ..> UC30 : <<extend>>
+UC30 <|-- UC30F
+UC30 <.. UC30O : <<extend>>
+UC30 <.. UC30R : <<extend>>
 UC30C ..> UC32 : <<include>>
-UC32V ..> UC32 : <<extend>>
-UC41 ..> UC31 : <<extend>>
+UC31 <.. UC41 : <<extend>>
+UC32 <.. UC32V : <<extend>>
 UC32 --> BREVO
 
-note "UC32 envia: acesso inicial, código de login, cobrança criada,\nvencimento próximo (3 dias antes) e pagamento confirmado.\nUC41 (Sprint 4): suspende a escola com fatura em atraso além\ndo prazo de tolerância e avisa o MASTER." as N1
+note "O Tempo também dispara o reprocessamento de avisos e a suspensão\n(extensões de UC30 e UC31). UC32 envia: acesso inicial (inclusive do\nMASTER de escola nova), código de login, recuperação de senha, cobrança\ncriada, vencimento próximo e pagamento confirmado. Sprint 5: anonimização\nautomática do aluno inativo há 5 anos (S5-18)." as N1
 
 @enduml
