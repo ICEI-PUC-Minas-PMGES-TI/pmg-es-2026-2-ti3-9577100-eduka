@@ -181,7 +181,7 @@ São requisitos não funcionais ou trabalho interno, sem ator nem objetivo de us
 
 ## Diferenças em relação aos artefatos anteriores
 
-As pastas [`../casos-de-uso-descritivo`](../casos-de-uso-descritivo/) e [`../casos-de-uso-diagramas`](../casos-de-uso-diagramas/) são da Sprint 3 e foram mantidas sem alteração. Esta pasta as substitui. Os identificadores foram preservados, mas o conteúdo foi corrigido onde divergia do código:
+Esta pasta substitui as antigas `casos-de-uso-descritivo` e `casos-de-uso-diagramas`, da Sprint 3, removidas do repositório (continuam no histórico do Git). Os identificadores foram preservados, mas o conteúdo foi corrigido onde divergia do código:
 
 | Item anterior | Situação encontrada |
 |---|---|
