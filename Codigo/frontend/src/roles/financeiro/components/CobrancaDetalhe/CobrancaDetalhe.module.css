@@ -156,5 +156,8 @@
   .acoes > * {
     flex: 1 1 100%;
     justify-content: center;
+    /* Rótulo longo ("Simular pagamento no Sandbox") quebra em vez de vazar do card. */
+    min-width: 0;
+    white-space: normal;
   }
 }

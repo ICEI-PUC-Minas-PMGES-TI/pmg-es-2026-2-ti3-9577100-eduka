@@ -56,6 +56,13 @@
   gap: 18px;
 }
 
+/* Sem o resumo (carregando ou com erro), os pedidos ocupam a largura toda. */
+.grade.soPedidos {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: none;
+  grid-template-areas: 'pedidos';
+}
+
 .areaPedidos,
 .areaTurmas,
 .areaSituacao {

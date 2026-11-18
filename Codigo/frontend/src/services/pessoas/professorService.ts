@@ -48,6 +48,14 @@ export function ativarProfessor(id: string): Promise<Professor> {
   return apiRequest<Professor>(`/professores/${id}/ativar`, { method: 'PATCH' })
 }
 
+/**
+ * Gera uma nova senha provisória e manda o e-mail de acesso de novo. 409 se o
+ * professor já definiu a senha; 400 se está inativo.
+ */
+export function reenviarAcessoProfessor(id: string): Promise<void> {
+  return apiRequest<void>(`/professores/${id}/primeiro-acesso`, { method: 'POST' })
+}
+
 /** Saída da escola. O backend recusa com 409 se o professor já tem histórico. */
 export function excluirProfessor(id: string): Promise<void> {
   return apiRequest<void>(`/professores/${id}`, { method: 'DELETE' })

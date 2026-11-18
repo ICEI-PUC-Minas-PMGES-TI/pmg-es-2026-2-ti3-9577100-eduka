@@ -11,8 +11,10 @@ import org.springframework.web.bind.annotation.RestController;
 import br.pucminas.eduka.backend.dto.academico.AlunoDaTurmaResponse;
 import br.pucminas.eduka.backend.dto.academico.TurmaDoProfessorResponse;
 import br.pucminas.eduka.backend.dto.dashboard.DashboardProfessorResponse;
+import br.pucminas.eduka.backend.dto.pessoas.ProfessorResponse;
 import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.dashboard.DashboardService;
+import br.pucminas.eduka.backend.service.pessoas.ProfessorService;
 import br.pucminas.eduka.backend.service.portal.PortalProfessorService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -30,11 +32,20 @@ public class PortalProfessorController {
 
     private final PortalProfessorService portalProfessorService;
     private final DashboardService dashboardService;
+    private final ProfessorService professorService;
 
     public PortalProfessorController(PortalProfessorService portalProfessorService,
-            DashboardService dashboardService) {
+            DashboardService dashboardService, ProfessorService professorService) {
         this.portalProfessorService = portalProfessorService;
         this.dashboardService = dashboardService;
+        this.professorService = professorService;
+    }
+
+    /** Dados cadastrais do proprio professor (Meu perfil). */
+    @GetMapping("/me")
+    @Operation(summary = "Dados do professor autenticado", description = "Nome, CPF, contato, formacao, admissao e vinculo. Responde 404 se o login nao e de um professor cadastrado na escola.")
+    public ProfessorResponse meusDados() {
+        return professorService.buscarMeusDados();
     }
 
     /** Turmas em que o professor leciona, cada uma com as disciplinas dele. */

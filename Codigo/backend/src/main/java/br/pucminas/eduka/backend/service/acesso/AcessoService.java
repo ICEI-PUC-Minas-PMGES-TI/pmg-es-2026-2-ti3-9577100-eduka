@@ -3,6 +3,10 @@ package br.pucminas.eduka.backend.service.acesso;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
@@ -94,6 +98,21 @@ public class AcessoService {
         eventos.publishEvent(new AcessoInicialCriado(usuario.getId(), pessoa.getNome(), email, login, expiraEm,
                 usuario.getPerfil()));
         return usuario;
+    }
+
+    /**
+     * Dos usuarios dados, os que ainda nao trocaram a senha provisoria: a tela
+     * oferece o reenvio do e-mail de acesso so para eles. Uma consulta so.
+     */
+    @Transactional(readOnly = true)
+    public Set<UUID> aguardandoPrimeiroAcesso(Collection<UUID> usuarioIds) {
+        if (usuarioIds.isEmpty()) {
+            return Set.of();
+        }
+        return usuarioRepository.findAllById(usuarioIds).stream()
+                .filter(Usuario::isSenhaProvisoria)
+                .map(Usuario::getId)
+                .collect(Collectors.toSet());
     }
 
     /** Login e o e-mail: quando o e-mail da pessoa muda, o login muda junto. */

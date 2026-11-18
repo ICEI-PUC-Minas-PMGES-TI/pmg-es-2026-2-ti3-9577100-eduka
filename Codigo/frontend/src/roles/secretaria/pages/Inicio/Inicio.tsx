@@ -58,20 +58,58 @@ export function Inicio() {
     'Não foi possível encontrar os dados da escola.',
   )
 
+  const navigate = useNavigate()
+
+  // Os pedidos de correção e os atalhos não dependem do resumo: uma falha nele não os esconde.
   return (
     <SecretariaLayout titulo="Início" subtitulo="O que precisa de você hoje, as matrículas e as vagas nas turmas.">
       <EstadoDashboard carregando={carregando} erro={erro} onTentarDeNovo={recarregar} />
-      {dados && <Resumo dados={dados} />}
+      {dados && <Numeros dados={dados} />}
+
+      <Atalhos
+        titulo="Atalhos do dia"
+        horizontal
+        itens={[
+          {
+            rotulo: 'Cadastrar aluno',
+            icon: 'plus',
+            onClick: () =>
+              navigate(paths.secretaria.alunos, { state: { abrirCadastro: true } satisfies EstadoAbrirCadastro }),
+          },
+          { rotulo: 'Matricular aluno', icon: 'check', onClick: () => navigate(paths.secretaria.matriculas) },
+          {
+            rotulo: 'Criar turma',
+            icon: 'book',
+            onClick: () => navigate(`${paths.secretaria.academico}?aba=turmas`),
+          },
+          { rotulo: 'Alocar professores', icon: 'graduationCap', onClick: () => navigate(paths.secretaria.alocacoes) },
+        ]}
+      />
+
+      <div className={`${styles.grade} ${dados ? '' : styles.soPedidos}`}>
+        <div className={styles.areaPedidos}>
+          <PedidosCorrecao onVerAlunos={() => navigate(paths.secretaria.alunos)} />
+        </div>
+        {dados && (
+          <>
+            <div className={styles.areaTurmas}>
+              <OcupacaoDasTurmas turmas={dados.turmas} />
+            </div>
+            <div className={styles.areaSituacao}>
+              <SituacaoDasMatriculas porSituacao={dados.matriculasPorSituacao} />
+            </div>
+          </>
+        )}
+      </div>
     </SecretariaLayout>
   )
 }
 
-function Resumo({ dados }: { dados: DashboardSecretaria }) {
-  const navigate = useNavigate()
+/** Pendências e os três números do topo. */
+function Numeros({ dados }: { dados: DashboardSecretaria }) {
   const { matriculasPorSituacao, vagas, turmas } = dados
   const ativas = matriculasPorSituacao.ATIVA ?? 0
   const ocupacao = vagas.ofertadas > 0 ? Math.round((vagas.ocupadas / vagas.ofertadas) * 100) : 0
-  const periodos = [...new Set(turmas.map((t) => t.periodoLetivoNome))]
 
   return (
     <>
@@ -99,38 +137,6 @@ function Resumo({ dados }: { dados: DashboardSecretaria }) {
         />
         <StatCard label="Novas matrículas" value={dados.matriculasUltimos30Dias} descricao="Nos últimos 30 dias" />
       </StatCards>
-
-      <Atalhos
-        titulo="Atalhos do dia"
-        horizontal
-        itens={[
-          {
-            rotulo: 'Cadastrar aluno',
-            icon: 'plus',
-            onClick: () =>
-              navigate(paths.secretaria.alunos, { state: { abrirCadastro: true } satisfies EstadoAbrirCadastro }),
-          },
-          { rotulo: 'Matricular aluno', icon: 'check', onClick: () => navigate(paths.secretaria.matriculas) },
-          {
-            rotulo: 'Criar turma',
-            icon: 'book',
-            onClick: () => navigate(`${paths.secretaria.academico}?aba=turmas`),
-          },
-          { rotulo: 'Alocar professores', icon: 'graduationCap', onClick: () => navigate(paths.secretaria.alocacoes) },
-        ]}
-      />
-
-      <div className={styles.grade}>
-        <div className={styles.areaPedidos}>
-          <PedidosCorrecao onVerAlunos={() => navigate(paths.secretaria.alunos)} />
-        </div>
-        <div className={styles.areaTurmas}>
-          <OcupacaoDasTurmas turmas={turmas} periodos={periodos} />
-        </div>
-        <div className={styles.areaSituacao}>
-          <SituacaoDasMatriculas porSituacao={matriculasPorSituacao} />
-        </div>
-      </div>
     </>
   )
 }
@@ -179,8 +185,9 @@ function Pendencias({ dados }: { dados: DashboardSecretaria }) {
   )
 }
 
-function OcupacaoDasTurmas({ turmas, periodos }: { turmas: OcupacaoTurma[]; periodos: string[] }) {
+function OcupacaoDasTurmas({ turmas }: { turmas: OcupacaoTurma[] }) {
   const cursos = agruparPorCurso(turmas)
+  const periodos = [...new Set(turmas.map((t) => t.periodoLetivoNome))]
   return (
     <Painel
       titulo="Ocupação das turmas"
