@@ -10,6 +10,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,7 @@ import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.financeiro.SituacaoDespesa;
 import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
 import br.pucminas.eduka.backend.dto.academico.MatriculaTurmaResponse;
+import br.pucminas.eduka.backend.dto.academico.ResumoMatriculasResponse;
 import br.pucminas.eduka.backend.dto.academico.TurmaResponse;
 import br.pucminas.eduka.backend.dto.auditoria.AtividadeResponse;
 import br.pucminas.eduka.backend.dto.comum.Ordenacao;
@@ -165,6 +167,28 @@ class PaginacaoBancoRealTest extends BancoRealTest {
     }
 
     @Test
+    void turmasOrdenamPeloNumeroNoNomeEntreAsPaginas() {
+        UUID escola = dados.escola();
+        for (String nome : List.of("Turma 10", "Turma 2", "turma 1", "Turma 11", "Éxtra", "Alfa")) {
+            dados.turma(escola, nome, 30);
+        }
+
+        PaginaResponse<TurmaResponse> primeira = academicoService.listarTurmas(escola, null, null, null, null,
+                new Paginacao(0, 3), Ordenacao.Turmas.NOME, null);
+        PaginaResponse<TurmaResponse> segunda = academicoService.listarTurmas(escola, null, null, null, null,
+                new Paginacao(1, 3), Ordenacao.Turmas.NOME, null);
+
+        // 2 antes de 10 mesmo em paginas diferentes; acento e maiuscula nao mudam o lugar.
+        assertThat(primeira.conteudo()).extracting(TurmaResponse::getNome)
+                .containsExactly("Alfa", "Éxtra", "turma 1");
+        assertThat(segunda.conteudo()).extracting(TurmaResponse::getNome)
+                .containsExactly("Turma 2", "Turma 10", "Turma 11");
+        assertThat(academicoService.listarTurmas(escola, null, null, null, "TURMA 1", new Paginacao(0, 10),
+                Ordenacao.Turmas.NOME, null).conteudo()).extracting(TurmaResponse::getNome)
+                .containsExactly("turma 1", "Turma 10", "Turma 11");
+    }
+
+    @Test
     void alunosOrdenamPeloNomeCifradoSemDiferenciarAcentoNemMaiuscula() {
         UUID escola = dados.escola();
         UUID alvaro = dados.aluno(escola, "Álvaro");
@@ -235,8 +259,41 @@ class PaginacaoBancoRealTest extends BancoRealTest {
                 .extracting(MatriculaTurmaResponse::alunoNome).containsExactly("Ívis", "Zeca");
         assertThat(matriculaService.listarPaginado(turma, null, null, new Paginacao(0, 1),
                 Ordenacao.Matriculas.DATA_MATRICULA, Direction.DESC))
-                .extracting(p -> p.conteudo().get(0).alunoNome(), PaginaResponse::totalPaginas)
+                .extracting(p -> p.conteudo().get(0).alunoNome(), PaginaComResumoResponse::totalPaginas)
                 .containsExactly("Ívis", 2);
+    }
+
+    @Test
+    void matriculasDaTurmaTrazemOResumoSemOFiltroDeSituacao() {
+        UUID escola = dados.escola();
+        long turma = dados.turma(escola, "1A", 30);
+        long outraTurma = dados.turma(escola, "2B", 30);
+        dados.matricula(escola, dados.aluno(escola, "Ana"), turma, StatusMatricula.ATIVA, LocalDate.of(2026, 2, 1));
+        dados.matricula(escola, dados.aluno(escola, "Bia"), turma, StatusMatricula.TRANCADA, LocalDate.of(2026, 2, 1));
+        dados.matricula(escola, dados.aluno(escola, "Caio"), turma, StatusMatricula.CANCELADA,
+                LocalDate.of(2026, 2, 1));
+        dados.matricula(escola, dados.aluno(escola, "Davi"), outraTurma, StatusMatricula.ATIVA,
+                LocalDate.of(2026, 2, 1));
+        dados.aluno(escola, "Eva");
+        // Inativado pela escola: nao recebe matricula, entao nao conta como "para matricular".
+        jdbc.update("UPDATE alunos SET ativo = false, inativado_em = now() WHERE id_aluno = ?",
+                dados.aluno(escola, "Gil"));
+        UUID outra = dados.escola();
+        dados.aluno(outra, "De fora");
+        autenticarComo("SECRETARIA", escola);
+
+        var trancadas = matriculaService.listarPaginado(turma, null, StatusMatricula.TRANCADA, new Paginacao(0, 10),
+                Ordenacao.Matriculas.ALUNO, null);
+
+        assertThat(trancadas.conteudo()).extracting(MatriculaTurmaResponse::alunoNome).containsExactly("Bia");
+        // Os contadores da turma inteira, e quem ainda pode entrar: o Davi (de outra turma) e a Eva (sem turma);
+        // o Gil, inativo, fica de fora.
+        assertThat(trancadas.resumo()).isEqualTo(new ResumoMatriculasResponse(3, Map.of(
+                StatusMatricula.ATIVA, 1L, StatusMatricula.TRANCADA, 1L, StatusMatricula.CANCELADA, 1L,
+                StatusMatricula.CONCLUIDA, 0L), 2L));
+        // Por aluno, o "para matricular" nao faz sentido.
+        assertThat(matriculaService.listarPaginado(null, dados.aluno(escola, "Fabi"), null, new Paginacao(0, 10),
+                Ordenacao.Matriculas.ALUNO, null).resumo().paraMatricular()).isNull();
     }
 
     @Test
@@ -255,10 +312,35 @@ class PaginacaoBancoRealTest extends BancoRealTest {
                 Ordenacao.Faturas.COMPETENCIA, null).conteudo())
                 .extracting(FaturaPlataformaResponse::competencia)
                 .containsExactly("2026-10", "2026-09", "2026-08");
-        assertThat(paymentRoutingService.listarFaturas(escola, StatusCobranca.PAGA, new Paginacao(0, 1),
+        assertThat(paymentRoutingService.listarFaturas(escola, Set.of(StatusCobranca.PAGA), new Paginacao(0, 1),
                 Ordenacao.Faturas.COMPETENCIA, Direction.ASC))
                 .extracting(p -> p.conteudo().get(0).competencia(), PaginaResponse::totalElementos)
                 .containsExactly("2026-08", 2L);
+    }
+
+    @Test
+    void faturasFiltramPorMaisDeUmaSituacao() {
+        UUID escola = dados.escola();
+        UUID master = dados.usuario(escola, "MASTER", "Admin");
+        dados.fatura(escola, master, "2026-07", new BigDecimal("199.90"), StatusCobranca.CANCELADA);
+        dados.fatura(escola, master, "2026-08", new BigDecimal("199.90"), StatusCobranca.PAGA);
+        // Vencida e ainda PENDENTE no banco: a rotina diaria nao rodou.
+        dados.fatura(escola, master, "2026-09", new BigDecimal("199.90"), StatusCobranca.PENDENTE);
+        dados.fatura(escola, master, "2026-10", new BigDecimal("199.90"), StatusCobranca.EM_ATRASO);
+        autenticarComo("MASTER", escola);
+
+        // As anteriores da tela Plano e faturas: pagas e canceladas, da mais recente.
+        assertThat(paymentRoutingService.listarMinhasFaturas(Set.of(StatusCobranca.PAGA, StatusCobranca.CANCELADA),
+                new Paginacao(0, 10), Ordenacao.Faturas.COMPETENCIA, null).conteudo())
+                .extracting(FaturaPlataformaResponse::competencia)
+                .containsExactly("2026-08", "2026-07");
+        // A proxima: a em aberto que vence primeiro, inclusive a que segue PENDENTE.
+        assertThat(paymentRoutingService.listarMinhasFaturas(Set.of(StatusCobranca.PENDENTE, StatusCobranca.EM_ATRASO),
+                new Paginacao(0, 1), Ordenacao.Faturas.VENCIMENTO, null))
+                .extracting(p -> p.conteudo().get(0).competencia(), PaginaResponse::totalElementos)
+                .containsExactly("2026-09", 2L);
+        assertThat(paymentRoutingService.listarMinhasFaturas(Set.of(), new Paginacao(0, 10),
+                Ordenacao.Faturas.COMPETENCIA, null).totalElementos()).isEqualTo(4);
     }
 
     @Test

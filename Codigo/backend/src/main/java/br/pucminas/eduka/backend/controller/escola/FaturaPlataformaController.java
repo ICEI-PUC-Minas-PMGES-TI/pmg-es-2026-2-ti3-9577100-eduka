@@ -1,6 +1,7 @@
 package br.pucminas.eduka.backend.controller.escola;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.data.domain.Sort.Direction;
@@ -45,7 +46,8 @@ import jakarta.validation.Valid;
 public class FaturaPlataformaController {
 
     private static final String DESCRICAO_PAGINA = "Filtro opcional por `status` (PENDENTE, EM_ATRASO, PAGA, "
-            + "CANCELADA). `pagina` comeca em 0; `tamanho` vai de 1 a 100. `ordenarPor`: COMPETENCIA (padrao, da "
+            + "CANCELADA), um ou mais separados por virgula: `PENDENTE,EM_ATRASO` traz as em aberto, inclusive a "
+            + "vencida que a rotina diaria ainda nao marcou. `pagina` comeca em 0; `tamanho` vai de 1 a 100. `ordenarPor`: COMPETENCIA (padrao, da "
             + "mais recente), VENCIMENTO ou VALOR; `direcao`: ASC ou DESC.";
 
     private final PaymentRoutingService paymentRoutingService;
@@ -95,7 +97,7 @@ public class FaturaPlataformaController {
     @ApiResponse(responseCode = "400", description = "Pagina, tamanho ou ordenacao invalidos.")
     @ApiResponse(responseCode = "404", description = "Escola inexistente.")
     public PaginaResponse<FaturaPlataformaResponse> listarPaginado(@PathVariable UUID escolaId,
-            @RequestParam(required = false) StatusCobranca status,
+            @RequestParam(required = false) Set<StatusCobranca> status,
             @RequestParam(defaultValue = "0") int pagina,
             @RequestParam(defaultValue = Paginacao.TAMANHO_PADRAO) int tamanho,
             @RequestParam(defaultValue = "COMPETENCIA") Ordenacao.Faturas ordenarPor,
@@ -144,7 +146,7 @@ public class FaturaPlataformaController {
     @ApiResponse(responseCode = "200", description = "A pagina de faturas da escola do token.")
     @ApiResponse(responseCode = "400", description = "Pagina, tamanho ou ordenacao invalidos.")
     public PaginaResponse<FaturaPlataformaResponse> minhasPaginado(
-            @RequestParam(required = false) StatusCobranca status,
+            @RequestParam(required = false) Set<StatusCobranca> status,
             @RequestParam(defaultValue = "0") int pagina,
             @RequestParam(defaultValue = Paginacao.TAMANHO_PADRAO) int tamanho,
             @RequestParam(defaultValue = "COMPETENCIA") Ordenacao.Faturas ordenarPor,

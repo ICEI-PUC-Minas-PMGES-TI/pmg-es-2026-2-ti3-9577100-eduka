@@ -1,15 +1,14 @@
 import { Badge } from '../../../../../components/ui/Badge/Badge'
 import { Button } from '../../../../../components/ui/Button/Button'
 import { ROTULOS_STATUS_MATRICULA, TOM_DO_STATUS, type Matricula } from '../../../../../types/academico/matricula'
-import { Tabela } from '../../academico/PainelSecretaria/comum'
+import { TabelaDoBackend, type ListaDoBackend } from '../../academico/PainelSecretaria/comum'
 import { formatarData } from '../../../../../utils/formatacao'
 import styles from './MatriculasTable.module.css'
 
 type MatriculasTableProps = {
-  matriculas: Matricula[]
+  /** A página de matrículas da turma, vinda do useListaPaginada. */
+  lista: ListaDoBackend<Matricula>
   mensagemVazia: string
-  /** Quando muda (turma ou filtro), a tabela volta para a primeira página. */
-  reiniciarCom?: string
   onVer: (matricula: Matricula) => void
   onAlterar: (matricula: Matricula) => void
 }
@@ -18,17 +17,18 @@ type MatriculasTableProps = {
  * Alunos de uma turma, com a situação da matrícula e as ações de ver e
  * alterar. Fica dentro do cartão "Matrículas da turma", sem cartão próprio. A
  * observação, quase sempre vazia, aparece embaixo do nome em vez de ocupar
- * uma coluna.
+ * uma coluna. A página vem do backend.
  */
-export function MatriculasTable({ matriculas, mensagemVazia, reiniciarCom, onVer, onAlterar }: MatriculasTableProps) {
+export function MatriculasTable({ lista, mensagemVazia, onVer, onAlterar }: MatriculasTableProps) {
   return (
-    <Tabela
+    <TabelaDoBackend
       colunas={['Aluno', 'Matriculado em', 'Situação', '']}
       vazio={mensagemVazia}
       rotuloPaginacao="Páginas das matrículas"
-      reiniciarCom={reiniciarCom}
+      carregandoTexto="Carregando as matrículas da turma…"
       className={styles.cartao}
-      linhas={matriculas.map((m) => (
+      lista={lista}
+      linha={(m) => (
         <tr key={m.id}>
           <td className={styles.aluno}>
             <span className={styles.nome}>{m.alunoNome ?? '—'}</span>
@@ -50,7 +50,7 @@ export function MatriculasTable({ matriculas, mensagemVazia, reiniciarCom, onVer
             </div>
           </td>
         </tr>
-      ))}
+      )}
     />
   )
 }

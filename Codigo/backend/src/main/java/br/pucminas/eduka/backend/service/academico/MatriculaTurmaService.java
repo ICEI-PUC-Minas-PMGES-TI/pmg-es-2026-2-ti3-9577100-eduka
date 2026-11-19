@@ -26,7 +26,9 @@ import br.pucminas.eduka.backend.domain.pessoas.Pessoa;
 import br.pucminas.eduka.backend.dto.academico.AtualizarMatriculaRequest;
 import br.pucminas.eduka.backend.dto.academico.MatriculaTurmaRequest;
 import br.pucminas.eduka.backend.dto.academico.MatriculaTurmaResponse;
+import br.pucminas.eduka.backend.dto.academico.ResumoMatriculasResponse;
 import br.pucminas.eduka.backend.dto.comum.Ordenacao;
+import br.pucminas.eduka.backend.dto.comum.PaginaComResumoResponse;
 import br.pucminas.eduka.backend.dto.comum.PaginaResponse;
 import br.pucminas.eduka.backend.dto.comum.Paginacao;
 import br.pucminas.eduka.backend.exception.academico.MatriculaJaExisteException;
@@ -88,33 +90,59 @@ public class MatriculaTurmaService {
     }
 
     /**
-     * Matriculas da escola, opcionalmente filtradas por turma, aluno e
-     * situacao. Filtro de turma ou aluno de outra escola devolve lista vazia.
-     * Ordenado pelo nome do aluno.
-     */
-    /**
-     * Pagina das matriculas, com os mesmos filtros de {@link #listar}. O nome
-     * do aluno e cifrado, entao a ordem por ele e feita em memoria, e so a
-     * pagina vai na resposta.
+     * Pagina das matriculas, com os mesmos filtros de {@link #listar}, e o
+     * resumo da turma (ou do aluno) sem o filtro de situacao: os contadores
+     * nao mudam ao trocar de filtro. O nome do aluno e cifrado, entao a ordem
+     * por ele e feita em memoria, e so a pagina vai na resposta.
      */
     @Transactional(readOnly = true)
-    public PaginaResponse<MatriculaTurmaResponse> listarPaginado(Long turmaId, UUID alunoId, StatusMatricula status,
-            Paginacao paginacao, Ordenacao.Matriculas ordenarPor, Direction direcao) {
+    public PaginaComResumoResponse<MatriculaTurmaResponse, ResumoMatriculasResponse> listarPaginado(Long turmaId,
+            UUID alunoId, StatusMatricula status, Paginacao paginacao, Ordenacao.Matriculas ordenarPor,
+            Direction direcao) {
         Comparator<MatriculaTurmaResponse> campo = switch (ordenarPor) {
             case ALUNO -> Comparator.comparing(MatriculaTurmaResponse::alunoNome, Paginacao.ORDEM_DE_NOME);
             case DATA_MATRICULA -> Comparator.comparing(MatriculaTurmaResponse::dataMatricula,
                     Comparator.nullsLast(Comparator.naturalOrder()));
         };
-        List<MatriculaTurmaResponse> ordenadas = listar(turmaId, alunoId, status).stream()
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        List<MatriculaTurma> registros = daConsulta(escolaId, turmaId, alunoId);
+
+        Long paraMatricular = null;
+        if (turmaId != null && alunoId == null) {
+            // Um registro por aluno e turma, em qualquer situacao; anonimizado e
+            // inativo nao recebem matricula, entao ficam fora das duas contas.
+            long naTurma = registros.stream().map(MatriculaTurma::getAluno)
+                    .filter(a -> !a.isAnonimizado() && a.isAtivo())
+                    .map(Aluno::getId).distinct().count();
+            paraMatricular = Math.max(0,
+                    alunoRepository.countByEscolaIdAndAnonimizadoEmIsNullAndAtivoTrue(escolaId) - naTurma);
+        }
+        ResumoMatriculasResponse resumo = ResumoMatriculasResponse
+                .de(registros.stream().map(MatriculaTurma::getStatus).toList(), paraMatricular);
+
+        List<MatriculaTurmaResponse> ordenadas = responder(escolaId,
+                registros.stream().filter(m -> status == null || m.getStatus() == status).toList()).stream()
                 .sorted(Ordenacao.emMemoria(campo, Ordenacao.ou(direcao, Direction.ASC),
                         Comparator.comparing(MatriculaTurmaResponse::id)))
                 .toList();
-        return PaginaResponse.recortar(ordenadas, paginacao);
+        return PaginaComResumoResponse.de(PaginaResponse.recortar(ordenadas, paginacao), resumo);
     }
 
+    /**
+     * Matriculas da escola, opcionalmente filtradas por turma, aluno e
+     * situacao. Filtro de turma ou aluno de outra escola devolve lista vazia.
+     * Ordenado pelo nome do aluno.
+     */
     @Transactional(readOnly = true)
     public List<MatriculaTurmaResponse> listar(Long turmaId, UUID alunoId, StatusMatricula status) {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
+        return responder(escolaId, daConsulta(escolaId, turmaId, alunoId).stream()
+                .filter(m -> status == null || m.getStatus() == status)
+                .toList());
+    }
+
+    /** Registros da escola, da turma e/ou do aluno pedidos, em qualquer situacao. */
+    private List<MatriculaTurma> daConsulta(UUID escolaId, Long turmaId, UUID alunoId) {
         List<MatriculaTurma> matriculas;
         if (turmaId != null) {
             matriculas = matriculaRepository.findAllByEscolaIdAndTurmaId(escolaId, turmaId);
@@ -123,11 +151,13 @@ public class MatriculaTurmaService {
         } else {
             matriculas = matriculaRepository.findAllByEscolaId(escolaId);
         }
-
-        List<MatriculaTurma> filtradas = matriculas.stream()
+        return matriculas.stream()
                 .filter(m -> alunoId == null || m.getAluno().getId().equals(alunoId))
-                .filter(m -> status == null || m.getStatus() == status)
                 .toList();
+    }
+
+    /** Monta a resposta com o nome de cada aluno, em ordem de nome. */
+    private List<MatriculaTurmaResponse> responder(UUID escolaId, List<MatriculaTurma> filtradas) {
         if (filtradas.isEmpty()) {
             return List.of();
         }

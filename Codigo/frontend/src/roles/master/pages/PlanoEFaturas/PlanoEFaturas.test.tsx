@@ -2,10 +2,10 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { simularApi } from '../../../../test/api'
+import { cortarPagina, parametros, problema, simularApi, type ChamadaApi } from '../../../../test/api'
 import type { Assinatura, FaturaPlataforma } from '../../../../types/escola/faturaPlataforma'
 import { PlanoEFaturas } from './PlanoEFaturas'
-import { faturasAnteriores, mesPorExtenso, proximaFatura, referenciaDaFatura } from './proximaFatura'
+import { mesPorExtenso, referenciaDaFatura } from './proximaFatura'
 
 function fatura(id: string, competencia: string, status: FaturaPlataforma['status'], vencimento: string): FaturaPlataforma {
   const paga = status === 'PAGA'
@@ -41,9 +41,27 @@ const ASSINATURA: Assinatura = {
   limiteUsuarios: 1500,
 }
 
-function abrir(faturas: FaturaPlataforma[]) {
-  simularApi(({ caminho }) => {
-    if (caminho === '/config-pagamento/faturas') return { corpo: faturas }
+/**
+ * O GET /config-pagamento/faturas/pagina como o backend: filtra pelos `status`
+ * pedidos e ordena pela competência (da mais recente) ou pelo vencimento (o
+ * mais antigo primeiro).
+ */
+function paginaDeFaturas(faturas: FaturaPlataforma[], caminho: string) {
+  const { status, ordenarPor } = parametros(caminho)
+  const situacoes = status ? status.split(',') : null
+  const filtradas = faturas
+    .filter((f) => !situacoes || situacoes.includes(f.status))
+    .sort((a, b) =>
+      ordenarPor === 'VENCIMENTO'
+        ? a.dataVencimento.localeCompare(b.dataVencimento)
+        : b.competencia.localeCompare(a.competencia),
+    )
+  return { corpo: cortarPagina(filtradas, caminho) }
+}
+
+function abrir(faturas: FaturaPlataforma[]): ChamadaApi[] {
+  const chamadas = simularApi(({ caminho }) => {
+    if (caminho.startsWith('/config-pagamento/faturas/pagina?')) return paginaDeFaturas(faturas, caminho)
     if (caminho === '/config-pagamento/assinatura') return { corpo: ASSINATURA }
     return undefined
   })
@@ -52,6 +70,12 @@ function abrir(faturas: FaturaPlataforma[]) {
       <PlanoEFaturas />
     </MemoryRouter>,
   )
+  return chamadas
+}
+
+/** Parâmetros das consultas de faturas, na ordem em que saíram. */
+function consultasDeFaturas(chamadas: ChamadaApi[]) {
+  return chamadas.filter((c) => c.caminho.startsWith('/config-pagamento/faturas/pagina?')).map((c) => parametros(c.caminho))
 }
 
 describe('PlanoEFaturas', () => {
@@ -60,19 +84,22 @@ describe('PlanoEFaturas', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  it('a próxima é a em aberto que vence primeiro', () => {
-    expect(
-      proximaFatura([
-        fatura('a', '2026-12', 'PENDENTE', '2026-12-05'),
-        fatura('b', '2026-11', 'EM_ATRASO', '2026-11-05'),
-        fatura('c', '2026-10', 'PAGA', '2026-10-05'),
-      ])?.id,
-    ).toBe('b')
-    expect(proximaFatura([fatura('c', '2026-10', 'PAGA', '2026-10-05')])).toBeNull()
-  })
+  it('pede ao backend só a próxima em aberto e uma página das pagas ou canceladas', async () => {
+    const chamadas = abrir([
+      fatura('a', '2026-12', 'PENDENTE', '2026-12-05'),
+      fatura('b', '2026-11', 'EM_ATRASO', '2026-11-05'),
+      ...FATURAS.filter((f) => f.status !== 'PENDENTE'),
+    ])
 
-  it('as anteriores são só as pagas ou canceladas, das mais recentes para as mais antigas', () => {
-    expect(faturasAnteriores(FATURAS).map((f) => f.id)).toEqual(['f-out', 'f-set', 'f-ago'])
+    const destaque = await screen.findByRole('region', { name: 'Próxima fatura' })
+    expect(within(destaque).getByText('05/11/2026')).toBeInTheDocument()
+    await screen.findByText('Plano Avançado · outubro/2026')
+
+    const consultas = consultasDeFaturas(chamadas)
+    // A vencida pode seguir PENDENTE no banco até a rotina diária: as duas situações vão juntas.
+    expect(consultas).toContainEqual({ pagina: '0', tamanho: '1', status: 'PENDENTE,EM_ATRASO', ordenarPor: 'VENCIMENTO' })
+    expect(consultas).toContainEqual({ pagina: '0', tamanho: '10', status: 'PAGA,CANCELADA' })
+    expect(chamadas.some((c) => c.caminho === '/config-pagamento/faturas')).toBe(false)
   })
 
   it('a referência traz o mês por extenso quando a descrição não tem', () => {
@@ -98,6 +125,7 @@ describe('PlanoEFaturas', () => {
     expect(within(assinatura).getByText('1.500')).toBeInTheDocument()
 
     const anteriores = screen.getByRole('region', { name: 'Faturas anteriores' })
+    await within(anteriores).findByText('Plano Avançado · outubro/2026')
     const linhas = within(anteriores).getAllByRole('row').slice(1)
     expect(linhas.map((l) => within(l).getAllByRole('cell')[0].textContent)).toEqual([
       'Plano Avançado · outubro/2026',
@@ -128,6 +156,49 @@ describe('PlanoEFaturas', () => {
     const destaque = await screen.findByRole('region', { name: 'Próxima fatura' })
     expect(within(destaque).getByText('Em atraso')).toBeInTheDocument()
     expect(within(destaque).getByRole('button', { name: /pagar fatura/i })).toBeInTheDocument()
+  })
+
+  it('as anteriores trocam de página no backend', async () => {
+    const usuario = userEvent.setup()
+    const pagas = Array.from({ length: 12 }, (_, i) => {
+      const mes = String(i + 1).padStart(2, '0')
+      return fatura(`f-${mes}`, `2025-${mes}`, 'PAGA', `2025-${mes}-05`)
+    })
+    const chamadas = abrir(pagas)
+
+    const anteriores = await screen.findByRole('region', { name: 'Faturas anteriores' })
+    await within(anteriores).findByText('Plano Avançado · dezembro/2025')
+    expect(within(anteriores).getAllByRole('row')).toHaveLength(11)
+
+    await usuario.click(screen.getByRole('button', { name: /próxima/i }))
+
+    expect(await within(anteriores).findByText('Plano Avançado · fevereiro/2025')).toBeInTheDocument()
+    expect(within(anteriores).getAllByRole('row')).toHaveLength(3)
+    expect(consultasDeFaturas(chamadas).at(-1)).toEqual({ pagina: '1', tamanho: '10', status: 'PAGA,CANCELADA' })
+  })
+
+  it('erro nas anteriores não esconde a próxima fatura e deixa tentar de novo', async () => {
+    const usuario = userEvent.setup()
+    let falhar = true
+    simularApi(({ caminho }) => {
+      if (caminho.includes('status=PAGA')) return falhar ? problema(500, 'ERRO', 'Falhou') : paginaDeFaturas(FATURAS, caminho)
+      if (caminho.startsWith('/config-pagamento/faturas/pagina?')) return paginaDeFaturas(FATURAS, caminho)
+      if (caminho === '/config-pagamento/assinatura') return { corpo: ASSINATURA }
+      return undefined
+    })
+    render(
+      <MemoryRouter>
+        <PlanoEFaturas />
+      </MemoryRouter>,
+    )
+
+    const anteriores = await screen.findByRole('region', { name: 'Faturas anteriores' })
+    expect(await within(anteriores).findByRole('alert')).toHaveTextContent('Falhou')
+    expect(screen.getByRole('button', { name: /pagar fatura/i })).toBeInTheDocument()
+
+    falhar = false
+    await usuario.click(within(anteriores).getByRole('button', { name: 'Tentar novamente' }))
+    expect(await within(anteriores).findByText('Plano Avançado · outubro/2026')).toBeInTheDocument()
   })
 
   it('sem fatura em aberto, avisa que está tudo em dia', async () => {

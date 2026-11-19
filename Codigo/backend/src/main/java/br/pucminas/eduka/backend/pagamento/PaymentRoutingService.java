@@ -2,6 +2,7 @@ package br.pucminas.eduka.backend.pagamento;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -161,7 +162,8 @@ public class PaymentRoutingService {
         return roteadorFatura.listarTodas();
     }
 
-    public PaginaResponse<FaturaPlataformaResponse> listarFaturas(UUID escolaId, StatusCobranca status,
+    /** @param status nulo ou vazio para todas as situacoes */
+    public PaginaResponse<FaturaPlataformaResponse> listarFaturas(UUID escolaId, Set<StatusCobranca> status,
             Paginacao paginacao, Ordenacao.Faturas ordenarPor, Direction direcao) {
         return roteadorFatura.listarDaEscola(escolaId, status, paginacao, ordenarPor, direcao);
     }
@@ -187,7 +189,8 @@ public class PaymentRoutingService {
         return roteadorFatura.buscarMinha(faturaId);
     }
 
-    public PaginaResponse<FaturaPlataformaResponse> listarMinhasFaturas(StatusCobranca status, Paginacao paginacao,
+    /** @param status nulo ou vazio para todas as situacoes */
+    public PaginaResponse<FaturaPlataformaResponse> listarMinhasFaturas(Set<StatusCobranca> status, Paginacao paginacao,
             Ordenacao.Faturas ordenarPor, Direction direcao) {
         return roteadorFatura.listarMinhas(status, paginacao, ordenarPor, direcao);
     }

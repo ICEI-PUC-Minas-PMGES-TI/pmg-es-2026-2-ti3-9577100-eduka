@@ -1,12 +1,12 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { describe, expect, it } from 'vitest'
-import { simularApi, type ChamadaApi } from '../../../../test/api'
+import { cortarPagina, parametros, simularApi, type ChamadaApi } from '../../../../test/api'
 import type { TurmaAcademica } from '../../../../types/academico/academico'
 import type { AlunoDaLista } from '../../../../types/pessoas/aluno'
 import type { DashboardSecretaria } from '../../../../types/dashboard/dashboard'
-import type { Matricula } from '../../../../types/academico/matricula'
+import type { Matricula, ResumoMatriculas, StatusMatricula } from '../../../../types/academico/matricula'
 import { Matriculas } from './Matriculas'
 
 function turma(id: number, nome: string, vagas: number, matriculasAtivas: number): TurmaAcademica {
@@ -60,25 +60,60 @@ const RESUMO: DashboardSecretaria = {
   turmas: [],
 }
 
-function abrir(): ChamadaApi[] {
-  const chamadas = simularApi(({ metodo, caminho, corpo }) => {
-    if (caminho === '/academico/secretaria/turmas') {
-      return { corpo: [turma(1, '1A', 2, 1), turma(2, '2B', 3, 0), turma(3, '3C', 3, 0), turma(4, '4D', 1, 1)] }
-    }
-    // A Ana já passou pela 3C: não pode voltar para lá.
-    if (caminho === '/matriculas?alunoId=ana') {
-      return { corpo: [matricula('m-ana', 'ana', 'Ana Souza', 1, '1A'), matricula('m-velha', 'ana', 'Ana Souza', 3, '3C')] }
-    }
-    if (caminho === '/alunos') return { corpo: ALUNOS }
+/**
+ * O GET /matriculas/pagina como o backend: só a turma pedida, na situação do
+ * filtro, com o resumo da turma inteira e quem ainda pode entrar nela.
+ */
+function paginaDaTurma(daTurma: Matricula[], alunos: AlunoDaLista[], caminho: string) {
+  const { status } = parametros(caminho)
+  const porSituacao: Record<StatusMatricula, number> = { ATIVA: 0, TRANCADA: 0, CANCELADA: 0, CONCLUIDA: 0 }
+  daTurma.forEach((m) => (porSituacao[m.status] += 1))
+  const naTurma = new Set(daTurma.map((m) => m.alunoId))
+  const resumo: ResumoMatriculas = {
+    total: daTurma.length,
+    porSituacao,
+    paraMatricular: alunos.filter(
+      (a) => a.situacao !== 'ANONIMIZADO' && a.situacao !== 'INATIVO' && !naTurma.has(a.id),
+    ).length,
+  }
+  return { corpo: { ...cortarPagina(daTurma.filter((m) => !status || m.status === status), caminho), resumo } }
+}
+
+/** Backend de mentira que guarda as matrículas de cada turma: o POST aparece na próxima leitura. */
+function simularMatriculas(turmas: TurmaAcademica[], alunos: AlunoDaLista[], matriculas: Matricula[]) {
+  const registros = [...matriculas]
+  return simularApi(({ metodo, caminho, corpo }) => {
+    if (caminho === '/academico/secretaria/turmas') return { corpo: turmas }
+    if (caminho === '/alunos') return { corpo: alunos }
     if (caminho === '/dashboard/secretaria') return { corpo: RESUMO }
-    if (caminho === '/matriculas?turmaId=1') return { corpo: [matricula('m-ana', 'ana', 'Ana Souza', 1, '1A')] }
-    if (caminho === '/matriculas?turmaId=2') return { corpo: [] }
+    const { turmaId, alunoId } = parametros(caminho)
+    if (caminho.startsWith('/matriculas/pagina?')) {
+      return paginaDaTurma(registros.filter((m) => m.turmaId === Number(turmaId)), alunos, caminho)
+    }
+    if (caminho.startsWith('/matriculas?turmaId=')) return { corpo: registros.filter((m) => m.turmaId === Number(turmaId)) }
+    if (caminho.startsWith('/matriculas?alunoId=')) return { corpo: registros.filter((m) => m.alunoId === alunoId) }
     if (metodo === 'POST' && caminho === '/matriculas') {
-      const { alunoId, turmaId } = corpo as { alunoId: string; turmaId: number }
-      return { status: 201, corpo: matricula('m-nova', alunoId, 'Bia Lima', turmaId, '2B') }
+      const dados = corpo as { alunoId: string; turmaId: number }
+      const aluno = alunos.find((a) => a.id === dados.alunoId)
+      const destino = turmas.find((t) => t.id === dados.turmaId)
+      const criada = matricula(`m-${registros.length}`, dados.alunoId, aluno?.nome ?? '', dados.turmaId, destino?.nome ?? '')
+      registros.push(criada)
+      return { status: 201, corpo: criada }
     }
     return undefined
   })
+}
+
+function abrir(): ChamadaApi[] {
+  const chamadas = simularMatriculas(
+    [turma(1, '1A', 2, 1), turma(2, '2B', 3, 0), turma(3, '3C', 3, 0), turma(4, '4D', 1, 1)],
+    ALUNOS,
+    [
+      matricula('m-ana', 'ana', 'Ana Souza', 1, '1A'),
+      // A Ana já passou pela 3C: não pode voltar para lá.
+      matricula('m-velha', 'ana', 'Ana Souza', 3, '3C'),
+    ],
+  )
   render(
     <MemoryRouter>
       <Matriculas />
@@ -92,13 +127,13 @@ describe('Matriculas', () => {
     const chamadas = abrir()
 
     const tabela = await screen.findByRole('table')
-    expect(within(tabela).getByText('Ana Souza')).toBeInTheDocument()
+    expect(await within(tabela).findByText('Ana Souza')).toBeInTheDocument()
     // O resumo vem do backend, não de somar as matrículas na tela.
     const resumo = screen.getByLabelText('Resumo das matrículas da escola')
     expect(within(resumo).getByText('Trancadas').closest('div')).toHaveTextContent('3')
     // Quem já está na 1A fica na aba da turma; a de matricular mostra só quem pode entrar.
     await userEvent.click(screen.getByRole('tab', { name: /matricular alunos/i }))
-    const paraMatricular = screen.getByRole('list', { name: /podem entrar na turma 1A/ })
+    const paraMatricular = await screen.findByRole('list', { name: /podem entrar na turma 1A/ })
     expect(within(paraMatricular).getByText('Bia Lima')).toBeInTheDocument()
     expect(within(paraMatricular).queryByText('Ana Souza')).not.toBeInTheDocument()
 
@@ -107,15 +142,49 @@ describe('Matriculas', () => {
     await userEvent.click(screen.getByRole('tab', { name: /alunos da turma/i }))
     expect(await screen.findByText('Nenhum aluno matriculado nesta turma ainda.')).toBeInTheDocument()
 
+    // A tabela pede uma página por turma; a lista inteira da turma só sai com a aba Matricular aberta.
     const listagens = chamadas.filter((c) => c.metodo === 'GET' && c.caminho.startsWith('/matriculas'))
-    expect(listagens.map((c) => c.caminho)).toEqual(['/matriculas?turmaId=1', '/matriculas?turmaId=2'])
+    expect(listagens.map((c) => c.caminho)).toEqual([
+      '/matriculas/pagina?turmaId=1&pagina=0&tamanho=10',
+      '/matriculas?turmaId=1',
+      '/matriculas/pagina?turmaId=2&pagina=0&tamanho=10',
+      '/matriculas?turmaId=2',
+    ])
+  })
+
+  it('o filtro de situação vai ao backend e os contadores vêm do resumo da turma', async () => {
+    const chamadas = simularMatriculas([turma(1, '1A', 30, 2)], ALUNOS, [
+      matricula('m-ana', 'ana', 'Ana Souza', 1, '1A'),
+      { ...matricula('m-bia', 'bia', 'Bia Lima', 1, '1A'), status: 'TRANCADA' },
+    ])
+    render(
+      <MemoryRouter>
+        <Matriculas />
+      </MemoryRouter>,
+    )
+
+    const tabela = await screen.findByRole('table')
+    await within(tabela).findByText('Bia Lima')
+    const filtros = screen.getByRole('group', { name: 'Filtrar por situação' })
+    expect(within(filtros).getByRole('button', { name: /todas/i })).toHaveTextContent('2')
+    expect(within(filtros).getByRole('button', { name: /trancadas/i })).toHaveTextContent('1')
+    // Ninguém fora da turma: as duas já têm registro nela.
+    expect(screen.getByRole('tab', { name: /matricular alunos/i })).toHaveTextContent('0')
+
+    await userEvent.click(within(filtros).getByRole('button', { name: /trancadas/i }))
+
+    await waitFor(() => expect(within(tabela).queryByText('Ana Souza')).not.toBeInTheDocument())
+    expect(within(tabela).getByText('Bia Lima')).toBeInTheDocument()
+    expect(chamadas.at(-1)?.caminho).toBe('/matriculas/pagina?turmaId=1&pagina=0&tamanho=10&status=TRANCADA')
+    // Os contadores são da turma inteira: não mudam com o filtro.
+    expect(within(filtros).getByRole('button', { name: /todas/i })).toHaveTextContent('2')
   })
 
   it('transferir busca as turmas do aluno só quando escolhido e oferece as que têm vaga', async () => {
     const chamadas = abrir()
 
     const tabela = await screen.findByRole('table')
-    await userEvent.click(within(tabela).getByRole('button', { name: 'Alterar' }))
+    await userEvent.click(await within(tabela).findByRole('button', { name: 'Alterar' }))
     expect(chamadas.some((c) => c.caminho.includes('alunoId'))).toBe(false)
 
     await userEvent.click(screen.getByRole('combobox', { name: /o que fazer/i }))
@@ -138,13 +207,7 @@ describe('Matriculas', () => {
       turmaId: null,
       turmaNome: null,
     }))
-    simularApi(({ caminho }) => {
-      if (caminho === '/academico/secretaria/turmas') return { corpo: [turma(2, '2B', 30, 0)] }
-      if (caminho === '/alunos') return { corpo: muitos }
-      if (caminho === '/dashboard/secretaria') return { corpo: RESUMO }
-      if (caminho === '/matriculas?turmaId=2') return { corpo: [] }
-      return undefined
-    })
+    simularMatriculas([turma(2, '2B', 30, 0)], muitos, [])
     render(
       <MemoryRouter>
         <Matriculas />
@@ -152,7 +215,7 @@ describe('Matriculas', () => {
     )
 
     await userEvent.click(await screen.findByRole('tab', { name: /matricular alunos/i }))
-    const lista = screen.getByRole('list', { name: /podem entrar/ })
+    const lista = await screen.findByRole('list', { name: /podem entrar/ })
     expect(within(lista).getAllByRole('listitem')).toHaveLength(10)
     await userEvent.click(within(lista).getAllByRole('button', { name: 'Matricular' })[0])
 
@@ -169,7 +232,8 @@ describe('Matriculas', () => {
     await userEvent.click(await screen.findByRole('button', { name: /2B/ }))
     await screen.findByText('Nenhum aluno matriculado nesta turma ainda.')
     await userEvent.click(screen.getByRole('tab', { name: /matricular alunos/i }))
-    const linhaDaBia = screen.getAllByText('Bia Lima')[0].closest('li') as HTMLElement
+    const paraMatricular = await screen.findByRole('list', { name: /podem entrar/ })
+    const linhaDaBia = within(paraMatricular).getByText('Bia Lima').closest('li') as HTMLElement
     await userEvent.click(within(linhaDaBia).getByRole('button', { name: 'Matricular' }))
     await userEvent.click(screen.getByRole('button', { name: /confirmar matrículas/i }))
 
