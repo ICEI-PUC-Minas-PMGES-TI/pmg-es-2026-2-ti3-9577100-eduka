@@ -36,7 +36,7 @@ emite esse evento para PIX/boleto, ver A3). Os achados da §4 mudam contratos da
   continua apontando para a URL antiga. URL fixa exige túnel nomeado (conta Cloudflare + domínio) e está fora da
   sprint. O que as rotinas cobrem nesse intervalo:
   - **Situação da conta filha:** a rotina de contas (a cada 15 min) lê a situação no Asaas.
-  - **Cobrança e fatura presas em `EMITINDO`:** a reconciliação (a cada 10 min, `ReconciliacaoRotina`) acha pela
+  - **Cobrança e fatura presas em `EMITINDO`:** a reconciliação (a cada 1 min, `ReconciliacaoRotina`) acha pela
     referência e grava emitida, paga ou com falha de emissão.
   - **Pagamento de cobrança já emitida:** nenhuma rotina cobre, o aviso precisa chegar. Atualize a URL do
     webhook no Asaas e, se a fila tiver sido interrompida pelas falhas, reative-a no painel: o Asaas guarda os
