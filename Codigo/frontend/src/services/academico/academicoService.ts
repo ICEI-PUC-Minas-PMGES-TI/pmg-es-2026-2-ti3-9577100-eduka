@@ -8,6 +8,7 @@ import type {
   TurmaAcademica,
   TurmaRequest,
 } from '../../types/academico/academico'
+import type { PaginaDoBackend } from '../../hooks/usePaginacao'
 import { apiRequest } from '../api'
 
 // Estrutura acadêmica da escola de quem está logado: o backend filtra e grava
@@ -45,6 +46,16 @@ export function cadastrarDisciplina(dados: DisciplinaRequest): Promise<Disciplin
 
 export function listarTurmasAcademicas(signal?: AbortSignal): Promise<TurmaAcademica[]> {
   return apiRequest<TurmaAcademica[]>(`${BASE}/turmas`, { signal })
+}
+
+/** Uma página das turmas da escola, em ordem de nome. */
+export function listarPaginaDeTurmas(
+  pagina: number,
+  tamanho: number,
+  signal?: AbortSignal,
+): Promise<PaginaDoBackend<TurmaAcademica>> {
+  const params = new URLSearchParams({ pagina: String(pagina), tamanho: String(tamanho) })
+  return apiRequest(`${BASE}/turmas/pagina?${params}`, { signal })
 }
 
 /** 404 se o período, o curso ou alguma disciplina não for da escola. */

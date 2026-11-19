@@ -1,5 +1,12 @@
 import type { AlunoDaLista } from '../../types/pessoas/aluno'
-import type { AtualizarMatriculaRequest, Matricula, MatriculaRequest } from '../../types/academico/matricula'
+import type { PaginaComResumo } from '../../hooks/usePaginacao'
+import type {
+  AtualizarMatriculaRequest,
+  Matricula,
+  MatriculaRequest,
+  ResumoMatriculas,
+  StatusMatricula,
+} from '../../types/academico/matricula'
 import { ApiError, apiRequest } from '../api'
 
 // O backend já limita alunos e matrículas à escola de quem está logado.
@@ -20,6 +27,23 @@ export function listarMatriculas(
   const params: Record<string, string> =
     'turmaId' in filtro ? { turmaId: String(filtro.turmaId) } : { alunoId: filtro.alunoId }
   return apiRequest<Matricula[]>(`/matriculas?${new URLSearchParams(params)}`, { signal })
+}
+
+/**
+ * Uma página das matrículas da turma, em ordem de nome do aluno, com o resumo
+ * da turma inteira (os contadores não mudam com o filtro de situação).
+ */
+export function listarPaginaDeMatriculas(
+  consulta: { turmaId: number; status?: StatusMatricula; pagina: number; tamanho: number },
+  signal?: AbortSignal,
+): Promise<PaginaComResumo<Matricula, ResumoMatriculas>> {
+  const params = new URLSearchParams({
+    turmaId: String(consulta.turmaId),
+    pagina: String(consulta.pagina),
+    tamanho: String(consulta.tamanho),
+  })
+  if (consulta.status) params.set('status', consulta.status)
+  return apiRequest(`/matriculas/pagina?${params}`, { signal })
 }
 
 /** 409 se o aluno já tem matrícula na turma ou se a turma está cheia. */

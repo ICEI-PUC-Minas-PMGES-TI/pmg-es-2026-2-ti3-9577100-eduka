@@ -4,6 +4,7 @@ import type {
   Comprovante,
   FaturaPlataforma,
   LancarFaturaRequest,
+  StatusFatura,
   SuspensaoPrevista,
 } from '../../types/escola/faturaPlataforma'
 import type { DadosPagamento, FormaPagamento } from '../../types/financeiro/pagamentoAluno'
@@ -68,8 +69,37 @@ export function buscarMinhaFatura(faturaId: string, signal?: AbortSignal): Promi
   return apiRequest<FaturaPlataforma>(`/config-pagamento/faturas/${faturaId}`, { signal })
 }
 
-export function listarMinhasFaturas(signal?: AbortSignal): Promise<FaturaPlataforma[]> {
-  return apiRequest<FaturaPlataforma[]>('/config-pagamento/faturas', { signal })
+export type ConsultaMinhasFaturas = {
+  pagina: number
+  tamanho: number
+  /** Só as faturas numa destas situações; sem ela, todas. */
+  status?: StatusFatura[]
+  /** COMPETENCIA (padrão) vem da mais recente; VENCIMENTO, da que vence primeiro. */
+  ordenarPor?: 'COMPETENCIA' | 'VENCIMENTO'
+}
+
+/** Uma página das faturas da escola do token. */
+export function listarPaginaDeMinhasFaturas(
+  consulta: ConsultaMinhasFaturas,
+  signal?: AbortSignal,
+): Promise<PaginaDoBackend<FaturaPlataforma>> {
+  const params = new URLSearchParams({ pagina: String(consulta.pagina), tamanho: String(consulta.tamanho) })
+  if (consulta.status?.length) params.set('status', consulta.status.join(','))
+  if (consulta.ordenarPor) params.set('ordenarPor', consulta.ordenarPor)
+  return apiRequest(`/config-pagamento/faturas/pagina?${params}`, { signal })
+}
+
+/**
+ * A fatura em aberto que vence (ou venceu) primeiro; null se está tudo pago.
+ * Pede PENDENTE junto de EM_ATRASO: a vencida pode seguir gravada como
+ * PENDENTE até a rotina diária do backend marcá-la.
+ */
+export async function buscarProximaMinhaFatura(signal?: AbortSignal): Promise<FaturaPlataforma | null> {
+  const pagina = await listarPaginaDeMinhasFaturas(
+    { pagina: 0, tamanho: 1, status: ['PENDENTE', 'EM_ATRASO'], ordenarPor: 'VENCIMENTO' },
+    signal,
+  )
+  return pagina.conteudo[0] ?? null
 }
 
 /**

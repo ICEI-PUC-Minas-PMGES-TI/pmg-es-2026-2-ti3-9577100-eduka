@@ -45,6 +45,17 @@ export type Matricula = {
   atualizadoEm: string | null
 }
 
+/**
+ * Resumo da página de GET /matriculas/pagina: a turma (ou o aluno) inteira,
+ * sem o filtro de situação.
+ */
+export type ResumoMatriculas = {
+  total: number
+  porSituacao: Record<StatusMatricula, number>
+  /** Só na consulta por turma: alunos ainda sem registro nela, sem os anonimizados. */
+  paraMatricular: number | null
+}
+
 // Espelha o MatriculaTurmaRequest. Sem escola: o backend usa a do token.
 export type MatriculaRequest = {
   alunoId: string

@@ -110,7 +110,6 @@ export function SecretariaDashboard() {
             )}
             {aba === 'turmas' && (
               <Turmas
-                turmas={estrutura.turmas}
                 periodos={estrutura.periodos}
                 cursos={estrutura.cursos}
                 disciplinas={estrutura.disciplinas}
