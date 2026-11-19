@@ -2,6 +2,7 @@ package br.pucminas.eduka.backend.repository.escola;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,7 +31,8 @@ public interface FaturaPlataformaRepository extends JpaRepository<FaturaPlatafor
 
     Page<FaturaPlataforma> findAllByEscolaId(UUID escolaId, Pageable pagina);
 
-    Page<FaturaPlataforma> findAllByEscolaIdAndStatus(UUID escolaId, StatusCobranca status, Pageable pagina);
+    Page<FaturaPlataforma> findAllByEscolaIdAndStatusIn(UUID escolaId, Collection<StatusCobranca> status,
+            Pageable pagina);
 
     Optional<FaturaPlataforma> findByIdAndEscolaId(UUID id, UUID escolaId);
 

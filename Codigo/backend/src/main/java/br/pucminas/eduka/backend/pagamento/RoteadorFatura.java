@@ -9,6 +9,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -176,12 +177,12 @@ class RoteadorFatura {
         });
     }
 
-    PaginaResponse<FaturaPlataformaResponse> listarDaEscola(UUID escolaId, StatusCobranca situacao,
+    PaginaResponse<FaturaPlataformaResponse> listarDaEscola(UUID escolaId, Set<StatusCobranca> situacoes,
             Paginacao paginacao, Ordenacao.Faturas ordenarPor, Direction direcao) {
         return transacao.execute(status -> {
             Escola escola = escola(escolaId);
             LocalDate hoje = hoje();
-            return PaginaResponse.de(pagina(escolaId, situacao, paginacao, ordenarPor, direcao),
+            return PaginaResponse.de(pagina(escolaId, situacoes, paginacao, ordenarPor, direcao),
                     f -> FaturaPlataformaResponse.paraSuperAdmin(f, escola.getNome(), hoje));
         });
     }
@@ -470,24 +471,30 @@ class RoteadorFatura {
                 escola(escolaId).getNome(), hoje()));
     }
 
-    PaginaResponse<FaturaPlataformaResponse> listarMinhas(StatusCobranca situacao, Paginacao paginacao,
+    PaginaResponse<FaturaPlataformaResponse> listarMinhas(Set<StatusCobranca> situacoes, Paginacao paginacao,
             Ordenacao.Faturas ordenarPor, Direction direcao) {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         return transacao.execute(status -> {
             Escola escola = escola(escolaId);
             LocalDate hoje = hoje();
-            return PaginaResponse.de(pagina(escolaId, situacao, paginacao, ordenarPor, direcao),
+            return PaginaResponse.de(pagina(escolaId, situacoes, paginacao, ordenarPor, direcao),
                     f -> FaturaPlataformaResponse.paraEscola(f, escola.getNome(), hoje));
         });
     }
 
-    /** Faturas da escola, opcionalmente so as de uma situacao. */
-    private Page<FaturaPlataforma> pagina(UUID escolaId, StatusCobranca situacao, Paginacao paginacao,
+    /**
+     * Faturas da escola; com {@code situacoes}, so as que estao gravadas numa
+     * delas. A vencida pode seguir gravada como PENDENTE ate a rotina diaria
+     * marca-la: quem quer as em aberto pede PENDENTE e EM_ATRASO juntas.
+     *
+     * @param situacoes nula ou vazia para todas
+     */
+    private Page<FaturaPlataforma> pagina(UUID escolaId, Set<StatusCobranca> situacoes, Paginacao paginacao,
             Ordenacao.Faturas ordenarPor, Direction direcao) {
         Pageable pageable = paginacao.comOrdem(
                 Ordenacao.noBanco(Ordenacao.ou(direcao, ordenarPor.padrao), ordenarPor.propriedade));
-        return situacao == null ? faturaRepository.findAllByEscolaId(escolaId, pageable)
-                : faturaRepository.findAllByEscolaIdAndStatus(escolaId, situacao, pageable);
+        return situacoes == null || situacoes.isEmpty() ? faturaRepository.findAllByEscolaId(escolaId, pageable)
+                : faturaRepository.findAllByEscolaIdAndStatusIn(escolaId, situacoes, pageable);
     }
 
     // ---- Apoio ----

@@ -20,8 +20,9 @@ import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
 import br.pucminas.eduka.backend.dto.academico.AtualizarMatriculaRequest;
 import br.pucminas.eduka.backend.dto.academico.MatriculaTurmaRequest;
 import br.pucminas.eduka.backend.dto.academico.MatriculaTurmaResponse;
+import br.pucminas.eduka.backend.dto.academico.ResumoMatriculasResponse;
 import br.pucminas.eduka.backend.dto.comum.Ordenacao;
-import br.pucminas.eduka.backend.dto.comum.PaginaResponse;
+import br.pucminas.eduka.backend.dto.comum.PaginaComResumoResponse;
 import br.pucminas.eduka.backend.dto.comum.Paginacao;
 import br.pucminas.eduka.backend.security.Perfis;
 import br.pucminas.eduka.backend.service.academico.MatriculaTurmaService;
@@ -61,10 +62,13 @@ public class MatriculaTurmaController {
     @PreAuthorize(Perfis.LEITURA_ALUNOS)
     @Operation(summary = "Lista as matriculas em paginas",
             description = "Mesmos filtros da listagem. `pagina` comeca em 0; `tamanho` vai de 1 a 100. "
-                    + "`ordenarPor`: ALUNO (padrao, pelo nome) ou DATA_MATRICULA; `direcao`: ASC (padrao) ou DESC.")
-    @ApiResponse(responseCode = "200", description = "A pagina de matriculas.")
+                    + "`ordenarPor`: ALUNO (padrao, pelo nome) ou DATA_MATRICULA; `direcao`: ASC (padrao) ou DESC. "
+                    + "O `resumo` conta a turma (ou o aluno) sem o filtro de `status`; `paraMatricular` vem so "
+                    + "na consulta por turma sem aluno.")
+    @ApiResponse(responseCode = "200", description = "A pagina de matriculas, com o resumo da turma ou do aluno.")
     @ApiResponse(responseCode = "400", description = "Pagina, tamanho ou ordenacao invalidos.")
-    public PaginaResponse<MatriculaTurmaResponse> listarPaginado(@RequestParam(required = false) Long turmaId,
+    public PaginaComResumoResponse<MatriculaTurmaResponse, ResumoMatriculasResponse> listarPaginado(
+            @RequestParam(required = false) Long turmaId,
             @RequestParam(required = false) UUID alunoId,
             @RequestParam(required = false) StatusMatricula status,
             @RequestParam(defaultValue = "0") int pagina,

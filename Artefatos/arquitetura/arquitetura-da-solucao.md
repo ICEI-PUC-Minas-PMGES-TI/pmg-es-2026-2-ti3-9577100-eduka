@@ -235,7 +235,7 @@ todas.
 | `PUT` | `/escolas/{id}` | `SUPER_ADMIN` |
 | `PATCH` | `/escolas/{id}/ativar` · `/suspender` | `SUPER_ADMIN` |
 | `GET` · `POST` | `/escolas/{id}/faturas` (faturas da plataforma da escola; competência única por escola) | `SUPER_ADMIN` |
-| `GET` | `/escolas/{id}/faturas/pagina?status&pagina&tamanho&ordenarPor&direcao` (`ordenarPor`: `COMPETENCIA`, padrão decrescente, `VENCIMENTO` ou `VALOR`) | `SUPER_ADMIN` |
+| `GET` | `/escolas/{id}/faturas/pagina?status&pagina&tamanho&ordenarPor&direcao` (`status`: uma ou mais situações separadas por vírgula, ex.: `PENDENTE,EM_ATRASO` para as em aberto, inclusive a vencida que a rotina diária ainda não marcou; `ordenarPor`: `COMPETENCIA`, padrão decrescente, `VENCIMENTO` ou `VALOR`) | `SUPER_ADMIN` |
 | `PATCH` | `/escolas/{id}/faturas/{faturaId}/cancelar` | `SUPER_ADMIN` |
 | `GET` | `/escolas/{id}/faturas/{faturaId}/comprovante` | `SUPER_ADMIN` |
 | `GET` | `/config-pagamento/faturas` (só as da escola do token) · `/config-pagamento/faturas/pagina` (mesmos parâmetros da do `SUPER_ADMIN`) · `/config-pagamento/faturas/{id}` (uma fatura, com a situação do pagamento: a tela de pagamento consulta só ela enquanto espera o PIX ou o boleto; 404 se é de outra escola) | `MASTER` |
@@ -290,7 +290,7 @@ todas.
 | `PUT` | `/turmas/{turmaId}/horario/{horarioId}` (muda dia e horas; mesmas regras e 409) | `MASTER`, `SECRETARIA` |
 | `DELETE` | `/turmas/{turmaId}/horario/{horarioId}` | `MASTER`, `SECRETARIA` |
 | `GET` | `/matriculas?turmaId` · `/matriculas/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
-| `GET` | `/matriculas/pagina?turmaId&alunoId&status&pagina&tamanho&ordenarPor&direcao` (`ordenarPor`: `ALUNO`, pelo nome, ou `DATA_MATRICULA`) | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
+| `GET` | `/matriculas/pagina?turmaId&alunoId&status&pagina&tamanho&ordenarPor&direcao` (`ordenarPor`: `ALUNO`, pelo nome, ou `DATA_MATRICULA`; o `resumo` conta a turma ou o aluno sem o filtro de `status`: `total`, `porSituacao` e, só na consulta por turma, `paraMatricular`, os alunos não anonimizados ainda sem registro nela) | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
 | `POST` | `/matriculas` (409 se a turma está sem vagas ou o aluno já está nela) | `MASTER`, `SECRETARIA` |
 | `PATCH` | `/matriculas/{id}` (trancar, reativar, transferir, concluir, cancelar ou editar a observação) | `MASTER`, `SECRETARIA` |
 
