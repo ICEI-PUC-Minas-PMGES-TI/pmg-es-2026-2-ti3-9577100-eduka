@@ -328,12 +328,14 @@ Estorno e contestação feitos no Asaas ficam registrados na auditoria, sem muda
 estorno também desconta o valor devolvido do recebido (ver Auditoria, abaixo).
 
 Duas rotinas cobrem o que o webhook não resolveu. Rodam sem usuário e chamam o Asaas fora de
-transação, pelo `PaymentRoutingService`. Uma falha num item não para os outros.
+transação, pelo `PaymentRoutingService`. Uma falha num item não para os outros. Uma falha geral (o banco
+fora do ar, por exemplo) sobe para o agendador do Spring, que a registra no log, e a execução seguinte
+tenta de novo. A primeira execução espera um intervalo depois da subida.
 
 | Rotina | Intervalo | O que faz |
 |---|---|---|
 | `EventoProvedorRotina` (`app.pagamento.eventos.*`) | 5 min | Reaplica os avisos de `EVENTO_PROVEDOR` em `RECEBIDO`, `PROCESSANDO` ou `ERRO` recebidos há mais de 1 min (para não disputar com o webhook), os mais antigos primeiro, até 50 por vez. O aviso é aplicado pelo mesmo caminho do webhook, com a trava do registro, então nunca vale duas vezes. Cada tentativa soma em `TENTATIVAS`; com 10, o aviso fica em `ERRO` para análise manual. |
-| `ReconciliacaoRotina` (`app.pagamento.reconciliacao.*`) | 10 min | Procura no Asaas, pela referência, as cobranças (`EDK-B-<id>`, na conta da escola) e faturas (`EDK-A-<id>`, na conta-pai) que estão em `EMITINDO` há mais de 5 min, porque a resposta da criação e o aviso `PAYMENT_CREATED` se perderam. Até 50 de cada por vez. |
+| `ReconciliacaoRotina` (`app.pagamento.reconciliacao.*`) | 1 min | Procura no Asaas, pela referência, as cobranças (`EDK-B-<id>`, na conta da escola) e faturas (`EDK-A-<id>`, na conta-pai) que estão em `EMITINDO` há mais de 5 min, porque a resposta da criação e o aviso `PAYMENT_CREATED` se perderam. Até 50 de cada por vez. |
 
 A reconciliação grava o mesmo resultado que o aviso gravaria:
 
