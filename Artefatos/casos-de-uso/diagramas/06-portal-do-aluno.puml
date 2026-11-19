@@ -10,33 +10,37 @@ actor "Gateway de Pagamento\n(Asaas)" as ASAAS <<sistema externo>>
 rectangle "Eduka — Portal do aluno" {
   usecase "UC22\nVisualizar Meu Perfil" as UC22
   usecase "UC36\nSolicitar Correção\nde Dados" as UC36
+  usecase "UC24\nConsultar Disciplinas\ne Turmas" as UC24 <<parcial>>
   usecase "UC23\nConsultar Boletim\nAcadêmico" as UC23
   usecase "Consultar Faltas\ne Frequência" as UC23F
-  usecase "UC24\nConsultar Disciplinas\ne Turmas" as UC24 <<parcial>>
+  usecase "Filtrar por Ano\nLetivo e Bimestre" as UC23B
   usecase "UC25\nConsultar Agenda de\nProvas e Tarefas" as UC25
-  usecase "UC13\nConsultar Histórico\nFinanceiro do Aluno" as UC13 <<parcial>>
-  usecase "UC26\nPagar Cobrança Online" as UC26
+  usecase "Filtrar por\nBimestre" as UC25B
+  usecase "UC13\nConsultar Histórico\nFinanceiro do Aluno" as UC13
   usecase "Ver Comprovante\nde Pagamento" as UC13A
+  usecase "UC26\nPagar Cobrança Online" as UC26
   usecase "Pagar com PIX" as UC26P
   usecase "Pagar com Boleto" as UC26B
-  usecase "Baixar PDF do Boleto" as UC26D
+  usecase "Baixar PDF\ndo Boleto" as UC26D
 }
 
 ALUNO --> UC22
-ALUNO --> UC23
 ALUNO --> UC24
+ALUNO --> UC23
 ALUNO --> UC25
 ALUNO --> UC13
-ALUNO --> UC26
-UC36 ..> UC22 : <<extend>>
+
+UC22 <.. UC36 : <<extend>>
 UC23 ..> UC23F : <<include>>
-UC26 ..> UC13 : <<extend>>
-UC13A ..> UC13 : <<extend>>
+UC23 <.. UC23B : <<extend>>
+UC25 <.. UC25B : <<extend>>
+UC13 <.. UC13A : <<extend>>
+UC13 <.. UC26 : <<extend>>
 UC26 <|-- UC26P
 UC26 <|-- UC26B
-UC26D ..> UC26B : <<extend>>
+UC26B <.. UC26D : <<extend>>
 UC26 --> ASAAS
 
-note "O boletim alerta quando as faltas passam de 25%.\nO Início do aluno (IU27) é da Sprint 4: ver UC16\nno diagrama 02." as N1
+note "O boletim mostra pontos por ano letivo e por bimestre e alerta\nquando as faltas passam de 25%. O Início do aluno está no UC16\n(diagrama 02). UC24 segue parcial: mostrar todas as turmas\ne disciplinas é da Sprint 5 (S5-12)." as N1
 
 @enduml

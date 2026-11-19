@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -31,6 +33,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.acesso.Usuario;
+import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
 import br.pucminas.eduka.backend.domain.pessoas.Aluno;
 import br.pucminas.eduka.backend.domain.pessoas.Pessoa;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
@@ -46,6 +49,7 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.security.PasswordEncoderConfig;
+import br.pucminas.eduka.backend.service.privacidade.PoliticaRetencao;
 import br.pucminas.eduka.backend.service.acesso.AcessoService;
 import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 import br.pucminas.eduka.backend.service.pessoas.AlunoService;
@@ -59,7 +63,8 @@ import br.pucminas.eduka.backend.service.pessoas.ResponsavelService;
  */
 @WebMvcTest(AlunoController.class)
 @Import({ JwtConfig.class, JwtService.class, IsolamentoEscola.class, ApiExceptionHandler.class,
-        AlunoService.class, ResponsavelService.class, AcessoService.class, PasswordEncoderConfig.class })
+        AlunoService.class, PoliticaRetencao.class, ResponsavelService.class, AcessoService.class,
+        PasswordEncoderConfig.class })
 class AlunoControllerSecurityTest {
 
     private static final UUID ESCOLA_A = UUID.randomUUID();
@@ -370,6 +375,67 @@ class AlunoControllerSecurityTest {
             ArgumentCaptor<Aluno> captor = ArgumentCaptor.forClass(Aluno.class);
             verify(alunoRepository).save(captor.capture());
             assertThat(captor.getValue().getEscolaId()).isEqualTo(ESCOLA_A);
+        }
+    }
+
+    @Nested
+    class InativarEReativar {
+
+        private Aluno ana;
+        private Pessoa pessoaAna;
+
+        @BeforeEach
+        void alunoDaEscolaA() {
+            pessoaAna = pessoa("Ana");
+            ana = aluno(ESCOLA_A, pessoaAna.getId());
+            when(alunoRepository.findByIdAndEscolaId(ana.getId(), ESCOLA_A)).thenReturn(Optional.of(ana));
+            when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+            when(alunoRepository.save(any(Aluno.class))).thenAnswer(inv -> inv.getArgument(0));
+        }
+
+        private MockHttpServletRequestBuilder patchCom(String url, String token) {
+            return patch(url).header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+        }
+
+        @Test
+        void secretariaInativaEReativa() throws Exception {
+            String token = accessToken("SECRETARIA", ESCOLA_A);
+
+            mockMvc.perform(patchCom("/alunos/" + ana.getId() + "/inativar", token))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.situacao").value("INATIVO"));
+            assertThat(ana.isAtivo()).isFalse();
+
+            mockMvc.perform(patchCom("/alunos/" + ana.getId() + "/ativar", token))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.situacao").doesNotExist());
+            assertThat(ana.isAtivo()).isTrue();
+        }
+
+        @Test
+        void comMatriculaAtivaResponde409() throws Exception {
+            when(matriculaRepository.existsByEscolaIdAndAlunoIdAndStatus(ESCOLA_A, ana.getId(), StatusMatricula.ATIVA))
+                    .thenReturn(true);
+
+            mockMvc.perform(patchCom("/alunos/" + ana.getId() + "/inativar", accessToken("MASTER", ESCOLA_A)))
+                    .andExpect(status().isConflict());
+            assertThat(ana.isAtivo()).isTrue();
+        }
+
+        @Test
+        void financeiroEProfessorNaoInativam() throws Exception {
+            for (String perfil : List.of("FINANCEIRO", "PROFESSOR", "ALUNO")) {
+                mockMvc.perform(patchCom("/alunos/" + ana.getId() + "/inativar", accessToken(perfil, ESCOLA_A)))
+                        .andExpect(status().isForbidden());
+            }
+            assertThat(ana.isAtivo()).isTrue();
+        }
+
+        @Test
+        void alunoDeOutraEscolaResponde404() throws Exception {
+            mockMvc.perform(patchCom("/alunos/" + ana.getId() + "/inativar", accessToken("SECRETARIA", ESCOLA_B)))
+                    .andExpect(status().isNotFound());
+            assertThat(ana.isAtivo()).isTrue();
         }
     }
 }

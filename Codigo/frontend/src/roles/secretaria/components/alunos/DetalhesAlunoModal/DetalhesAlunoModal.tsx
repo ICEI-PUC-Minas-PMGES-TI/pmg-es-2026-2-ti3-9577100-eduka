@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Button } from '../../../../../components/ui/Button/Button'
 import { ConfirmarExclusao } from '../../../../../components/modal/ConfirmarExclusao/ConfirmarExclusao'
-import { ModalAlerta } from '../../../../../components/modal/Modal/Modal'
+import { ModalAlerta, ModalAviso } from '../../../../../components/modal/Modal/Modal'
 import { ModalDetalhes } from '../../../../../components/modal/ModalDetalhes/ModalDetalhes'
 import { useCarregamento } from '../../../../../hooks/useCarregamento'
 import { useDetalhe } from '../../../../../hooks/useDetalhe'
@@ -192,6 +192,12 @@ export function DetalhesAlunoModal({ aluno, anonimizado = false, onFechar, onAno
           <ModalAlerta>
             Os dados pessoais deste aluno foram apagados a pedido (LGPD). O histórico financeiro continua guardado.
           </ModalAlerta>
+        )}
+        {!semDados && dados?.anonimizacaoPrevistaEm && (
+          <ModalAviso>
+            Aluno inativo. Pela política de retenção (LGPD), os dados pessoais serão anonimizados automaticamente em{' '}
+            {formatarData(dados.anonimizacaoPrevistaEm)}, se ele não for reativado até lá.
+          </ModalAviso>
         )}
         {erroAcao && <ModalAlerta>{erroAcao}</ModalAlerta>}
       </ModalDetalhes>

@@ -157,6 +157,8 @@ class MatrizDeAcessoTest {
                 "POST /alunos",
                 "PUT /alunos/{id}",
                 "POST /alunos/{id}/primeiro-acesso",
+                "PATCH /alunos/{id}/inativar",
+                "PATCH /alunos/{id}/ativar",
                 "GET /alunos/{id}/dados-pessoais",
                 "GET /alunos/correcoes",
                 "PATCH /alunos/correcoes/{id}/atender",
@@ -222,6 +224,7 @@ class MatrizDeAcessoTest {
                 "POST /categorias-despesa");
 
         libera(matriz, SO_PROFESSOR,
+                "GET /portal/professor/me",
                 "GET /portal/professor/dashboard",
                 "GET /portal/professor/turmas",
                 "GET /portal/professor/turmas/{turmaId}/alunos",

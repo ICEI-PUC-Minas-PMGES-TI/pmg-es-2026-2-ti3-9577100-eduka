@@ -106,6 +106,8 @@ export function Matriculas() {
   const ativasPorTurma = new Map(turmas.map((t) => [t.id, t.id === turma?.id ? ativas : t.matriculasAtivas]))
   const vagasLivres = turma ? Math.max(turma.vagas - ativas, 0) : 0
   const totalNaTurma = resumoTurma?.total ?? 0
+  // Quem pode entrar na turma, contado no backend com o mesmo corte da aba
+  // Matricular: sem registro nela, nem anonimizado, nem inativo.
   const paraMatricular = resumoTurma?.paraMatricular ?? 0
 
   // Resumo da escola inteira, acima da turma escolhida, contado no backend.

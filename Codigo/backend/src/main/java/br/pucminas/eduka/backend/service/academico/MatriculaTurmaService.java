@@ -109,10 +109,13 @@ public class MatriculaTurmaService {
 
         Long paraMatricular = null;
         if (turmaId != null && alunoId == null) {
-            // O backend aceita um registro por aluno e turma, em qualquer situacao.
-            long naTurma = registros.stream().map(MatriculaTurma::getAluno).filter(a -> !a.isAnonimizado())
+            // Um registro por aluno e turma, em qualquer situacao; anonimizado e
+            // inativo nao recebem matricula, entao ficam fora das duas contas.
+            long naTurma = registros.stream().map(MatriculaTurma::getAluno)
+                    .filter(a -> !a.isAnonimizado() && a.isAtivo())
                     .map(Aluno::getId).distinct().count();
-            paraMatricular = Math.max(0, alunoRepository.countByEscolaIdAndAnonimizadoEmIsNull(escolaId) - naTurma);
+            paraMatricular = Math.max(0,
+                    alunoRepository.countByEscolaIdAndAnonimizadoEmIsNullAndAtivoTrue(escolaId) - naTurma);
         }
         ResumoMatriculasResponse resumo = ResumoMatriculasResponse
                 .de(registros.stream().map(MatriculaTurma::getStatus).toList(), paraMatricular);
@@ -187,6 +190,7 @@ public class MatriculaTurmaService {
         Aluno aluno = alunoRepository.findByIdAndEscolaId(request.alunoId(), escolaId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Aluno nao encontrado"));
         AlunoService.exigirNaoAnonimizado(aluno);
+        AlunoService.exigirAtivo(aluno);
         Turma turma = buscarTurmaParaOcupar(request.turmaId(), escolaId);
         if (matriculaRepository.existsByEscolaIdAndAlunoIdAndTurmaId(escolaId, aluno.getId(), turma.getId())) {
             throw new MatriculaJaExisteException();
@@ -225,6 +229,10 @@ public class MatriculaTurmaService {
 
         if (novo != atual && !atual.podeMudarPara(novo)) {
             throw new IllegalArgumentException("Matricula %s nao pode passar para %s".formatted(atual, novo));
+        }
+        if (atual != StatusMatricula.ATIVA && novo == StatusMatricula.ATIVA) {
+            // Aluno inativo nao volta a ter matricula ativa sem ser reativado antes.
+            AlunoService.exigirAtivo(matricula.getAluno());
         }
 
         boolean transferindo = request.turmaId() != null && !request.turmaId().equals(matricula.getTurma().getId());

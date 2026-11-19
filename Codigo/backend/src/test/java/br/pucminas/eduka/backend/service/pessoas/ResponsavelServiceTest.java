@@ -48,6 +48,7 @@ import br.pucminas.eduka.backend.repository.pessoas.PessoaRepository;
 import br.pucminas.eduka.backend.repository.pessoas.ResponsavelRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
 @ExtendWith(MockitoExtension.class)
 class ResponsavelServiceTest {
@@ -55,6 +56,8 @@ class ResponsavelServiceTest {
     private static final UUID ESCOLA_A = UUID.randomUUID();
     private static final String CPF = "52998224725";
 
+    @Mock
+    private AuditoriaService auditoriaService;
     @Mock
     private ResponsavelRepository responsavelRepository;
     @Mock
@@ -73,7 +76,8 @@ class ResponsavelServiceTest {
     @BeforeEach
     void setUp() {
         service = new ResponsavelService(responsavelRepository, alunoResponsavelRepository, alunoRepository,
-                pessoaRepository, pessoaPapelRepository, cobrancaRepository, new IsolamentoEscola());
+                pessoaRepository, pessoaPapelRepository, cobrancaRepository, new IsolamentoEscola(),
+                auditoriaService);
         UsuarioAutenticado usuario = new UsuarioAutenticado(UUID.randomUUID(), "FINANCEIRO", ESCOLA_A);
         SecurityContextHolder.getContext()
                 .setAuthentication(new TestingAuthenticationToken(usuario, null, "ROLE_FINANCEIRO"));

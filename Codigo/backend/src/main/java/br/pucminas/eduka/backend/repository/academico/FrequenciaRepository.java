@@ -1,5 +1,6 @@
 package br.pucminas.eduka.backend.repository.academico;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -51,6 +52,32 @@ public interface FrequenciaRepository extends JpaRepository<Frequencia, UUID> {
             """)
     List<FrequenciaDaDisciplina> resumirPorDisciplina(@Param("escolaId") UUID escolaId,
             @Param("alunoId") UUID alunoId, @Param("turmaId") Long turmaId);
+
+    /**
+     * O mesmo resumo de {@link #resumirPorDisciplina}, separado pelo dia da
+     * aula: o boletim junta os dias em bimestres.
+     */
+    @Query("""
+            select a.disciplina.id as disciplinaId,
+                   a.data as data,
+                   count(f) as aulas,
+                   sum(case when f.presente = false then 1 else 0 end) as faltas
+            from Frequencia f join f.aula a
+            where f.escolaId = :escolaId and f.aluno.id = :alunoId and a.turma.id = :turmaId
+            group by a.disciplina.id, a.data
+            """)
+    List<FrequenciaDoDia> resumirPorDisciplinaEDia(@Param("escolaId") UUID escolaId,
+            @Param("alunoId") UUID alunoId, @Param("turmaId") Long turmaId);
+
+    interface FrequenciaDoDia {
+        Long getDisciplinaId();
+
+        LocalDate getData();
+
+        long getAulas();
+
+        long getFaltas();
+    }
 
     interface TotaisDaAula {
         UUID getAulaId();

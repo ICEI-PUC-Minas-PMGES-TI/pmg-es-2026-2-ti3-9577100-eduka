@@ -148,7 +148,7 @@ class DespesaBancoRealTest extends BancoRealTest {
 
     @Test
     void cadaEscolaGanhaAsCategoriasPadraoUmaVezSo() {
-        autenticarComo("FINANCEIRO", dados.escola());
+        entrarComo("FINANCEIRO", dados.escola());
 
         assertThat(categoriaService.listar()).extracting(CategoriaDespesaResponse::nome)
                 .containsExactlyInAnyOrder("Salários", "Contas", "Materiais", "Consertos", "Limpeza", "Outros");
@@ -162,7 +162,7 @@ class DespesaBancoRealTest extends BancoRealTest {
         assertThatThrownBy(() -> categoriaService.criar(new CategoriaDespesaRequest(" transporte ")))
                 .isInstanceOf(CategoriaDespesaJaExisteException.class);
 
-        autenticarComo("FINANCEIRO", dados.escola());
+        entrarComo("FINANCEIRO", dados.escola());
         assertThat(categoriaService.criar(new CategoriaDespesaRequest("Transporte")).nome()).isEqualTo("Transporte");
     }
 
@@ -195,7 +195,7 @@ class DespesaBancoRealTest extends BancoRealTest {
         assertThatThrownBy(() -> lancar(false)).isInstanceOf(RecursoNaoEncontradoException.class);
         assertThat(despesaService.listar(null, null, null, null)).isEmpty();
 
-        autenticarComo("FINANCEIRO", escola);
+        entrarComo("FINANCEIRO", escola);
         DespesaResponse intacta = despesaService.buscar(despesa);
         assertThat(intacta.situacao()).isEqualTo(SituacaoDespesa.A_PAGAR);
         assertThat(intacta.valor()).isEqualByComparingTo("90.00");

@@ -52,7 +52,7 @@ export type Matricula = {
 export type ResumoMatriculas = {
   total: number
   porSituacao: Record<StatusMatricula, number>
-  /** Só na consulta por turma: alunos ainda sem registro nela, sem os anonimizados. */
+  /** Só na consulta por turma: alunos ainda sem registro nela, sem os anonimizados e os inativos. */
   paraMatricular: number | null
 }
 

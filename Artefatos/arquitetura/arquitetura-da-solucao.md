@@ -290,7 +290,7 @@ todas.
 | `PUT` | `/turmas/{turmaId}/horario/{horarioId}` (muda dia e horas; mesmas regras e 409) | `MASTER`, `SECRETARIA` |
 | `DELETE` | `/turmas/{turmaId}/horario/{horarioId}` | `MASTER`, `SECRETARIA` |
 | `GET` | `/matriculas?turmaId` · `/matriculas/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
-| `GET` | `/matriculas/pagina?turmaId&alunoId&status&pagina&tamanho&ordenarPor&direcao` (`ordenarPor`: `ALUNO`, pelo nome, ou `DATA_MATRICULA`; o `resumo` conta a turma ou o aluno sem o filtro de `status`: `total`, `porSituacao` e, só na consulta por turma, `paraMatricular`, os alunos não anonimizados ainda sem registro nela) | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
+| `GET` | `/matriculas/pagina?turmaId&alunoId&status&pagina&tamanho&ordenarPor&direcao` (`ordenarPor`: `ALUNO`, pelo nome, ou `DATA_MATRICULA`; o `resumo` conta a turma ou o aluno sem o filtro de `status`: `total`, `porSituacao` e, só na consulta por turma, `paraMatricular`, os alunos nem anonimizados nem inativos ainda sem registro nela) | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
 | `POST` | `/matriculas` (409 se a turma está sem vagas ou o aluno já está nela) | `MASTER`, `SECRETARIA` |
 | `PATCH` | `/matriculas/{id}` (trancar, reativar, transferir, concluir, cancelar ou editar a observação) | `MASTER`, `SECRETARIA` |
 
@@ -421,7 +421,7 @@ sem isso, esses avisos não chegam.
 | `DELETE` | `/portal/professor/aulas/{id}` (exclui a aula e a chamada dela, para desfazer data errada ou registro em duplicidade; 204, ou 404 se for de outro professor ou outra escola) | `PROFESSOR` |
 | `GET` | `/portal/aluno/me` (dados do próprio aluno, pelo token) | `ALUNO` |
 | `GET` | `/portal/aluno/turmas` (turmas do aluno, com a grade e os professores) | `ALUNO` |
-| `GET` | `/portal/aluno/boletim` (notas por turma e disciplina, com os totais de pontos e a frequência: aulas, faltas, presença e alerta acima de 25% de faltas; nula em disciplina sem aula) | `ALUNO` |
+| `GET` | `/portal/aluno/boletim` (notas por turma e disciplina, com os totais de pontos e a frequência: aulas, faltas, presença e alerta acima de 25% de faltas; nula em disciplina sem aula. Tudo vem também por bimestre, calculado pelas datas do período letivo: o período anual tem quatro; o semestral, dois, e o que começa a partir de julho fica com o 3º e o 4º. A tela junta as turmas do mesmo ano num boletim só) | `ALUNO` |
 | `GET` | `/portal/aluno/avaliacoes` (agenda de provas, trabalhos e tarefas das turmas ativas) | `ALUNO` |
 | `GET` | `/portal/aluno/cobrancas/{id}` (uma cobrança do próprio aluno com `situacaoPagamento`, forma, `pagamento` (valor, data e forma, quando já pago online) e `acoes`: `PAGAR` em aberto, `VER_COMPROVANTE` quando paga com pagamento registrado; 404 se for de outro aluno) | `ALUNO` |
 | `GET` | `/portal/aluno/cobrancas/{id}/comprovante` (o mesmo comprovante da gestão, sem nenhuma URL do Asaas; 404 `COMPROVANTE_INDISPONIVEL` antes da confirmação; 404 se for de outro aluno) | `ALUNO` |
@@ -663,7 +663,8 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | Isolamento entre escolas | `IsolamentoEscola` nos services e `@TenantId` no Hibernate; escola vem do token |
 | Confidencialidade de senha | BCrypt custo 12; a coluna `senha_hash` nunca recebe texto puro |
 | Confidencialidade de dados pessoais | `PESSOA` cifrada com AES-256-GCM pela aplicação; o banco nunca vê a chave |
-| Auditoria (RNF05) | Operações financeiras gravam autor, operação, entidade, registro e data/hora em `LOG_AUDITORIA`, na mesma transação; o que vem do Asaas entra sem autor, com origem `PROVEDOR` |
+| Auditoria (RNF05, RF22, RNF17) | Toda escrita da escola grava autor, operação, entidade, registro e data/hora em `LOG_AUDITORIA`, na mesma transação: financeiro, cadastros (alunos, professores, equipe, responsáveis), matrículas, avaliações e notas, estrutura acadêmica (período, curso, disciplina, turma), alocações e horário, aulas e correções da chamada (uma linha por aluno corrigido), categorias de despesa e pedidos de correção. O id numérico de período, curso, disciplina e turma vai no `REGISTRO_ID` como UUID (`AuditoriaService.idNumerico`). O que vem do Asaas entra sem autor, com origem `PROVEDOR` |
+| Retenção de dados pessoais (RNF05, LGPD) | Aluno inativo há 5 anos (`app.lgpd.retencao.anos`) é anonimizado pela rotina diária, com as mesmas travas da anonimização manual e com origem `SISTEMA` no `LOG_AUDITORIA`; ver [política de retenção](politica-de-retencao-lgpd.md) |
 | Não vazamento de informação | Login inexistente, senha errada e usuário inativo devolvem a mesma mensagem |
 | Portabilidade de ambiente | Todo o stack sobe por Docker Compose, em dev e em prod |
 

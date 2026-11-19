@@ -45,6 +45,9 @@ import br.pucminas.eduka.backend.repository.academico.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.academico.PeriodoLetivoRepository;
 import br.pucminas.eduka.backend.repository.academico.TurmaRepository;
 import br.pucminas.eduka.backend.repository.escola.EscolaRepository;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 import jakarta.persistence.criteria.Predicate;
 
 /**
@@ -74,6 +77,7 @@ public class AcademicoSecretariaService {
     private final AvaliacaoRepository avaliacaoRepository;
     private final AulaRepository aulaRepository;
     private final Clock clock;
+    private final AuditoriaService auditoriaService;
 
     public AcademicoSecretariaService(PeriodoLetivoRepository periodoLetivoRepository,
                                       CursoRepository cursoRepository,
@@ -84,7 +88,8 @@ public class AcademicoSecretariaService {
                                       AlocacaoProfessorRepository alocacaoRepository,
                                       AvaliacaoRepository avaliacaoRepository,
                                       AulaRepository aulaRepository,
-                                      Clock clock) {
+                                      Clock clock,
+                                      AuditoriaService auditoriaService) {
         this.periodoLetivoRepository = periodoLetivoRepository;
         this.cursoRepository = cursoRepository;
         this.disciplinaRepository = disciplinaRepository;
@@ -95,6 +100,7 @@ public class AcademicoSecretariaService {
         this.avaliacaoRepository = avaliacaoRepository;
         this.aulaRepository = aulaRepository;
         this.clock = clock;
+        this.auditoriaService = auditoriaService;
     }
 
     @Transactional
@@ -108,7 +114,9 @@ public class AcademicoSecretariaService {
                 // Periodo que ainda nao comecou (planejado) so recebe matricula depois de Abrir matriculas.
                 .matriculasAbertas(!request.getDataInicio().isAfter(hoje()))
                 .build();
-        return toResponse(periodoLetivoRepository.save(periodo), escolaId);
+        PeriodoLetivo salvo = periodoLetivoRepository.save(periodo);
+        auditar(OperacaoAuditoria.CRIAR, EntidadeAuditada.PERIODO_LETIVO, salvo.getId());
+        return toResponse(salvo, escolaId);
     }
 
     @Transactional
@@ -119,7 +127,9 @@ public class AcademicoSecretariaService {
                 .codigo(opcional(request.getCodigo()))
                 .descricao(opcional(request.getDescricao()))
                 .build();
-        return toResponse(cursoRepository.save(curso), escolaId);
+        Curso salvo = cursoRepository.save(curso);
+        auditar(OperacaoAuditoria.CRIAR, EntidadeAuditada.CURSO, salvo.getId());
+        return toResponse(salvo, escolaId);
     }
 
     @Transactional
@@ -133,7 +143,9 @@ public class AcademicoSecretariaService {
                 .cargaHoraria(request.getCargaHoraria())
                 .descricao(opcional(request.getDescricao()))
                 .build();
-        return toResponse(disciplinaRepository.save(disciplina), escolaId);
+        Disciplina salva = disciplinaRepository.save(disciplina);
+        auditar(OperacaoAuditoria.CRIAR, EntidadeAuditada.DISCIPLINA, salva.getId());
+        return toResponse(salva, escolaId);
     }
 
     @Transactional
@@ -150,7 +162,9 @@ public class AcademicoSecretariaService {
                 .turno(request.getTurno())
                 .disciplinas(disciplinasDaEscola(request.getDisciplinaIds(), escolaId))
                 .build();
-        return toResponse(turmaRepository.save(turma), escolaId, 0);
+        Turma salva = turmaRepository.save(turma);
+        auditar(OperacaoAuditoria.CRIAR, EntidadeAuditada.TURMA, salva.getId());
+        return toResponse(salva, escolaId, 0);
     }
 
     // ----- Encerrar e abrir matriculas (IU09) -----
@@ -171,7 +185,9 @@ public class AcademicoSecretariaService {
             throw new IllegalArgumentException("So o periodo em andamento pode ser encerrado");
         }
         periodo.setEncerradoEm(hoje);
-        return toResponse(periodoLetivoRepository.save(periodo), escolaId);
+        PeriodoLetivo salvo = periodoLetivoRepository.save(periodo);
+        auditar(OperacaoAuditoria.ENCERRAR, EntidadeAuditada.PERIODO_LETIVO, salvo.getId());
+        return toResponse(salvo, escolaId);
     }
 
     /**
@@ -187,7 +203,9 @@ public class AcademicoSecretariaService {
             throw new IllegalArgumentException("So o periodo planejado tem as matriculas abertas pela secretaria");
         }
         periodo.setMatriculasAbertas(true);
-        return toResponse(periodoLetivoRepository.save(periodo), escolaId);
+        PeriodoLetivo salvo = periodoLetivoRepository.save(periodo);
+        auditar(OperacaoAuditoria.ABRIR_MATRICULAS, EntidadeAuditada.PERIODO_LETIVO, salvo.getId());
+        return toResponse(salvo, escolaId);
     }
 
     // ----- Edicao -----
@@ -199,7 +217,9 @@ public class AcademicoSecretariaService {
         periodo.setNome(request.getNome().trim());
         periodo.setDataInicio(request.getDataInicio());
         periodo.setDataFim(request.getDataFim());
-        return toResponse(periodoLetivoRepository.save(periodo), escolaId);
+        PeriodoLetivo salvo = periodoLetivoRepository.save(periodo);
+        auditar(OperacaoAuditoria.EDITAR, EntidadeAuditada.PERIODO_LETIVO, salvo.getId());
+        return toResponse(salvo, escolaId);
     }
 
     @Transactional
@@ -208,7 +228,9 @@ public class AcademicoSecretariaService {
         curso.setNome(request.getNome().trim());
         curso.setCodigo(opcional(request.getCodigo()));
         curso.setDescricao(opcional(request.getDescricao()));
-        return toResponse(cursoRepository.save(curso), escolaId);
+        Curso salvo = cursoRepository.save(curso);
+        auditar(OperacaoAuditoria.EDITAR, EntidadeAuditada.CURSO, salvo.getId());
+        return toResponse(salvo, escolaId);
     }
 
     @Transactional
@@ -219,7 +241,9 @@ public class AcademicoSecretariaService {
         disciplina.setCodigo(opcional(request.getCodigo()));
         disciplina.setCargaHoraria(request.getCargaHoraria());
         disciplina.setDescricao(opcional(request.getDescricao()));
-        return toResponse(disciplinaRepository.save(disciplina), escolaId);
+        Disciplina salva = disciplinaRepository.save(disciplina);
+        auditar(OperacaoAuditoria.EDITAR, EntidadeAuditada.DISCIPLINA, salva.getId());
+        return toResponse(salva, escolaId);
     }
 
     /**
@@ -262,7 +286,9 @@ public class AcademicoSecretariaService {
         turma.setTurno(request.getTurno());
         turma.getDisciplinas().clear();
         turma.getDisciplinas().addAll(grade);
-        return toResponse(turmaRepository.save(turma), escolaId, ativas);
+        Turma salva = turmaRepository.save(turma);
+        auditar(OperacaoAuditoria.EDITAR, EntidadeAuditada.TURMA, salva.getId());
+        return toResponse(salva, escolaId, ativas);
     }
 
     // ----- Exclusao -----
@@ -274,6 +300,7 @@ public class AcademicoSecretariaService {
             throw new RegistroEmUsoException("O periodo letivo tem turmas; exclua ou mude o periodo delas antes");
         }
         periodoLetivoRepository.delete(periodo);
+        auditar(OperacaoAuditoria.EXCLUIR, EntidadeAuditada.PERIODO_LETIVO, id);
     }
 
     @Transactional
@@ -286,6 +313,7 @@ public class AcademicoSecretariaService {
             throw new RegistroEmUsoException("O curso tem disciplinas vinculadas; exclua ou desvincule-as antes");
         }
         cursoRepository.delete(curso);
+        auditar(OperacaoAuditoria.EXCLUIR, EntidadeAuditada.CURSO, id);
     }
 
     @Transactional
@@ -295,6 +323,7 @@ public class AcademicoSecretariaService {
             throw new RegistroEmUsoException("A disciplina esta na grade de alguma turma; tire-a da grade antes");
         }
         disciplinaRepository.delete(disciplina);
+        auditar(OperacaoAuditoria.EXCLUIR, EntidadeAuditada.DISCIPLINA, id);
     }
 
     @Transactional
@@ -313,6 +342,12 @@ public class AcademicoSecretariaService {
             throw new RegistroEmUsoException("A turma tem professores alocados; desaloque-os antes");
         }
         turmaRepository.delete(turma);
+        auditar(OperacaoAuditoria.EXCLUIR, EntidadeAuditada.TURMA, id);
+    }
+
+    /** O log nao aponta por FK: o id do registro excluido continua identificando a linha. */
+    private void auditar(OperacaoAuditoria operacao, EntidadeAuditada entidade, Long id) {
+        auditoriaService.registrar(operacao, entidade, AuditoriaService.idNumerico(id));
     }
 
     /** Referencia sem SELECT: a escola do token sempre existe. */

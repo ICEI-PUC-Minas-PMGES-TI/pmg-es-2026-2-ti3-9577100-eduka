@@ -46,6 +46,7 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.academico.HorarioTurmaService;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
 /**
  * Contrato de seguranca da grade de horarios, ponta a ponta: filter chain,
@@ -70,6 +71,8 @@ class HorarioTurmaControllerSecurityTest {
     @Autowired
     private JwtService jwtService;
 
+    @MockitoBean
+    private AuditoriaService auditoriaService;
     @MockitoBean
     private HorarioTurmaRepository horarioRepository;
     @MockitoBean

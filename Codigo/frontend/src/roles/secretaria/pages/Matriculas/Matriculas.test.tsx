@@ -72,7 +72,9 @@ function paginaDaTurma(daTurma: Matricula[], alunos: AlunoDaLista[], caminho: st
   const resumo: ResumoMatriculas = {
     total: daTurma.length,
     porSituacao,
-    paraMatricular: alunos.filter((a) => a.situacao !== 'ANONIMIZADO' && !naTurma.has(a.id)).length,
+    paraMatricular: alunos.filter(
+      (a) => a.situacao !== 'ANONIMIZADO' && a.situacao !== 'INATIVO' && !naTurma.has(a.id),
+    ).length,
   }
   return { corpo: { ...cortarPagina(daTurma.filter((m) => !status || m.status === status), caminho), resumo } }
 }

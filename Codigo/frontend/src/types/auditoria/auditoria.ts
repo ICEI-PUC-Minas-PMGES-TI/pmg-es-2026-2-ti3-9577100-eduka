@@ -21,6 +21,11 @@ export type OperacaoAuditoria =
   | 'SUSPENDER'
   | 'EXPORTAR_DADOS'
   | 'ANONIMIZAR'
+  | 'ENCERRAR'
+  | 'ABRIR_MATRICULAS'
+  | 'VINCULAR'
+  | 'DESVINCULAR'
+  | 'ATENDER'
 
 /** Espelha o enum EntidadeAuditada. */
 export type EntidadeAuditada =
@@ -36,6 +41,17 @@ export type EntidadeAuditada =
   | 'AVALIACAO'
   | 'NOTA'
   | 'ESCOLA'
+  | 'PERIODO_LETIVO'
+  | 'CURSO'
+  | 'DISCIPLINA'
+  | 'TURMA'
+  | 'ALOCACAO'
+  | 'HORARIO'
+  | 'AULA'
+  | 'FREQUENCIA'
+  | 'RESPONSAVEL'
+  | 'CATEGORIA_DESPESA'
+  | 'PEDIDO_CORRECAO'
 
 /** Espelha o enum OrigemAuditoria: quem fez, quando não foi uma pessoa da escola. */
 export type OrigemAuditoria = 'USUARIO' | 'PROVEDOR' | 'SISTEMA'
@@ -101,6 +117,11 @@ export const ROTULOS_OPERACAO: Record<OperacaoAuditoria, string> = {
   SUSPENDER: 'Suspender',
   EXPORTAR_DADOS: 'Exportar dados',
   ANONIMIZAR: 'Anonimizar',
+  ENCERRAR: 'Encerrar',
+  ABRIR_MATRICULAS: 'Abrir matrículas',
+  VINCULAR: 'Vincular',
+  DESVINCULAR: 'Desvincular',
+  ATENDER: 'Atender',
 }
 
 /** Nome da entidade no filtro. */
@@ -117,6 +138,17 @@ export const ROTULOS_ENTIDADE: Record<EntidadeAuditada, string> = {
   AVALIACAO: 'Avaliação',
   NOTA: 'Nota',
   ESCOLA: 'Escola',
+  PERIODO_LETIVO: 'Período letivo',
+  CURSO: 'Curso',
+  DISCIPLINA: 'Disciplina',
+  TURMA: 'Turma',
+  ALOCACAO: 'Alocação de professor',
+  HORARIO: 'Horário da turma',
+  AULA: 'Aula',
+  FREQUENCIA: 'Chamada de um aluno',
+  RESPONSAVEL: 'Responsável',
+  CATEGORIA_DESPESA: 'Categoria de despesa',
+  PEDIDO_CORRECAO: 'Pedido de correção',
 }
 
 const VERBOS: Record<OperacaoAuditoria, string> = {
@@ -137,6 +169,11 @@ const VERBOS: Record<OperacaoAuditoria, string> = {
   SUSPENDER: 'Suspendeu',
   EXPORTAR_DADOS: 'Exportou os dados de',
   ANONIMIZAR: 'Anonimizou',
+  ENCERRAR: 'Encerrou',
+  ABRIR_MATRICULAS: 'Abriu as matrículas de',
+  VINCULAR: 'Vinculou',
+  DESVINCULAR: 'Desvinculou',
+  ATENDER: 'Atendeu',
 }
 
 const OBJETOS: Record<EntidadeAuditada, string> = {
@@ -152,6 +189,17 @@ const OBJETOS: Record<EntidadeAuditada, string> = {
   AVALIACAO: 'uma avaliação',
   NOTA: 'uma nota',
   ESCOLA: 'a escola',
+  PERIODO_LETIVO: 'um período letivo',
+  CURSO: 'um curso',
+  DISCIPLINA: 'uma disciplina',
+  TURMA: 'uma turma',
+  ALOCACAO: 'a alocação de um professor',
+  HORARIO: 'uma aula da grade',
+  AULA: 'uma aula',
+  FREQUENCIA: 'a chamada de um aluno',
+  RESPONSAVEL: 'um responsável',
+  CATEGORIA_DESPESA: 'uma categoria de despesa',
+  PEDIDO_CORRECAO: 'um pedido de correção',
 }
 
 /** "Registrou o pagamento de" + "uma cobrança"; "de a conta" vira "da conta", "de o" vira "do". */

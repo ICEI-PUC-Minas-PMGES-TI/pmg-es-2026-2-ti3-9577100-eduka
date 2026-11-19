@@ -5,6 +5,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -36,6 +38,7 @@ import br.pucminas.eduka.backend.repository.pessoas.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.pessoas.PessoaRepository;
 import br.pucminas.eduka.backend.repository.pessoas.ProfessorRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
+import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 import br.pucminas.eduka.backend.service.acesso.AcessoService;
 import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
@@ -119,9 +122,12 @@ public class ProfessorService {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         List<Professor> professores = professorRepository.findAllByEscolaId(escolaId);
         Map<UUID, Pessoa> pessoasPorId = pessoasDe(professores, escolaId);
+        Set<UUID> aguardando = acessoService.aguardandoPrimeiroAcesso(professores.stream()
+                .map(Professor::getUsuarioId).filter(Objects::nonNull).toList());
 
         return professores.stream()
-                .map(professor -> ProfessorResponse.deResumo(professor, pessoasPorId.get(professor.getPessoaId())))
+                .map(professor -> ProfessorResponse.deResumo(professor, pessoasPorId.get(professor.getPessoaId()),
+                        aguardandoPrimeiroAcesso(professor, aguardando)))
                 .filter(filtro(nome, ativo))
                 .toList();
     }
@@ -133,10 +139,22 @@ public class ProfessorService {
                 && (termo == null || professor.nome().toLowerCase(Locale.ROOT).contains(termo));
     }
 
+    /**
+     * Dados do proprio professor (Meu perfil), com o CPF. Professor e escola
+     * saem do token: um professor nao consegue ler o cadastro de outro. 404 se
+     * o login nao e de um professor cadastrado na escola.
+     */
+    public ProfessorResponse buscarMeusDados() {
+        UsuarioAutenticado usuario = isolamentoEscola.usuarioAtual();
+        Professor professor = professorRepository.findByUsuarioIdAndEscolaId(usuario.id(), usuario.escolaId())
+                .orElseThrow(ProfessorService::naoEncontrado);
+        return resposta(professor, buscarPessoa(professor, usuario.escolaId()));
+    }
+
     public ProfessorResponse buscarPorId(UUID id) {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         Professor professor = buscarProfessor(id, escolaId);
-        return ProfessorResponse.de(professor, buscarPessoa(professor, escolaId));
+        return resposta(professor, buscarPessoa(professor, escolaId));
     }
 
     /**
@@ -170,7 +188,7 @@ public class ProfessorService {
                 .ativo(true)
                 .build());
         auditar(OperacaoAuditoria.CRIAR, professor.getId());
-        return ProfessorResponse.de(professor, pessoa);
+        return resposta(professor, pessoa);
     }
 
     /**
@@ -212,7 +230,7 @@ public class ProfessorService {
 
         acessoService.sincronizarLogin(pessoa);
         auditar(OperacaoAuditoria.EDITAR, professor.getId());
-        return ProfessorResponse.de(professorRepository.save(professor), pessoaRepository.save(pessoa));
+        return resposta(professorRepository.save(professor), pessoaRepository.save(pessoa));
     }
 
     @Transactional
@@ -258,6 +276,17 @@ public class ProfessorService {
         auditar(OperacaoAuditoria.EXCLUIR, professor.getId());
     }
 
+    /** Professor sem login (cadastro antigo) tambem recebe o acesso no reenvio. */
+    private static boolean aguardandoPrimeiroAcesso(Professor professor, Set<UUID> aguardando) {
+        return professor.getUsuarioId() == null || aguardando.contains(professor.getUsuarioId());
+    }
+
+    private ProfessorResponse resposta(Professor professor, Pessoa pessoa) {
+        Set<UUID> aguardando = professor.getUsuarioId() == null ? Set.of()
+                : acessoService.aguardandoPrimeiroAcesso(List.of(professor.getUsuarioId()));
+        return ProfessorResponse.de(professor, pessoa, aguardandoPrimeiroAcesso(professor, aguardando));
+    }
+
     private void auditar(OperacaoAuditoria operacao, UUID professorId) {
         auditoriaService.registrar(operacao, EntidadeAuditada.PROFESSOR, professorId);
     }
@@ -273,7 +302,7 @@ public class ProfessorService {
             acessoService.definirAtivo(pessoa, ativo);
             auditar(ativo ? OperacaoAuditoria.ATIVAR : OperacaoAuditoria.INATIVAR, professor.getId());
         }
-        return ProfessorResponse.de(professor, pessoa);
+        return resposta(professor, pessoa);
     }
 
     /**

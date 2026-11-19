@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.auditoria.LogAuditoria;
 
@@ -24,7 +25,11 @@ public interface LogAuditoriaRepository extends JpaRepository<LogAuditoria, UUID
     List<LogAuditoria> findTop10ByEscolaIdAndEntidadeInOrderByDataHoraDesc(UUID escolaId,
             Collection<EntidadeAuditada> entidades);
 
-    /** Quem ja fez alguma atividade na escola (as linhas sem autor ficam de fora). */
-    @Query("select distinct l.usuarioId from LogAuditoria l where l.escolaId = :escolaId and l.usuarioId is not null")
-    List<UUID> listarAutores(@Param("escolaId") UUID escolaId);
+    /**
+     * Quem ja fez alguma atividade na escola (as linhas sem autor ficam de
+     * fora), menos quem tem o perfil {@code oculto}.
+     */
+    @Query("select distinct l.usuarioId from LogAuditoria l where l.escolaId = :escolaId and l.usuarioId is not null "
+            + "and l.usuarioId not in (select u.id from Usuario u where u.perfil = :oculto)")
+    List<UUID> listarAutores(@Param("escolaId") UUID escolaId, @Param("oculto") PerfilUsuario oculto);
 }

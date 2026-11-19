@@ -52,7 +52,7 @@ class SolicitacaoCorrecaoBancoRealTest extends BancoRealTest {
     void secretariaVeOPedidoComONomeEAtendeLiberandoUmNovo() {
         UUID pedido = service.abrir("Telefone mudou").id();
 
-        autenticarComo("SECRETARIA", escola);
+        entrarComo("SECRETARIA", escola);
         assertThat(service.listarAbertas()).singleElement().satisfies(s -> {
             assertThat(s.alunoNome()).isEqualTo("Lucas Andrade");
             assertThat(s.alunoMatricula()).isNotBlank();
@@ -69,7 +69,7 @@ class SolicitacaoCorrecaoBancoRealTest extends BancoRealTest {
     void outraEscolaNaoVeNemAtendeOPedido() {
         UUID pedido = service.abrir("Nome com acento errado").id();
 
-        autenticarComo("SECRETARIA", dados.escola());
+        entrarComo("SECRETARIA", dados.escola());
         assertThat(service.listarAbertas()).isEmpty();
         assertThatThrownBy(() -> service.atender(pedido)).isInstanceOf(RecursoNaoEncontradoException.class);
     }

@@ -43,6 +43,9 @@ import br.pucminas.eduka.backend.repository.pessoas.PessoaRepository;
 import br.pucminas.eduka.backend.repository.pessoas.ResponsavelRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.validation.CpfValidator;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
 /**
  * Cadastro de responsaveis e vinculo deles com os alunos, com isolamento por
@@ -86,11 +89,13 @@ public class ResponsavelService {
     private final PessoaPapelRepository pessoaPapelRepository;
     private final CobrancaRepository cobrancaRepository;
     private final IsolamentoEscola isolamentoEscola;
+    private final AuditoriaService auditoriaService;
 
     public ResponsavelService(ResponsavelRepository responsavelRepository,
             AlunoResponsavelRepository alunoResponsavelRepository, AlunoRepository alunoRepository,
             PessoaRepository pessoaRepository, PessoaPapelRepository pessoaPapelRepository,
-            CobrancaRepository cobrancaRepository, IsolamentoEscola isolamentoEscola) {
+            CobrancaRepository cobrancaRepository, IsolamentoEscola isolamentoEscola,
+            AuditoriaService auditoriaService) {
         this.responsavelRepository = responsavelRepository;
         this.alunoResponsavelRepository = alunoResponsavelRepository;
         this.alunoRepository = alunoRepository;
@@ -98,6 +103,7 @@ public class ResponsavelService {
         this.pessoaPapelRepository = pessoaPapelRepository;
         this.cobrancaRepository = cobrancaRepository;
         this.isolamentoEscola = isolamentoEscola;
+        this.auditoriaService = auditoriaService;
     }
 
     // ------------------------------------------------------------------
@@ -164,6 +170,7 @@ public class ResponsavelService {
         pessoa.setEstado(endereco == null ? null : endereco.estado());
         pessoa.setCep(endereco == null ? null : endereco.cep());
         responsavel.setAtualizadoEm(Instant.now());
+        auditar(OperacaoAuditoria.EDITAR, responsavel);
 
         return CadastroResponsavelResponse.de(responsavelRepository.save(responsavel), pessoaRepository.save(pessoa),
                 alunosDe(responsavel, escolaId));
@@ -197,6 +204,7 @@ public class ResponsavelService {
         if (papeisResponsavel.size() == papeis.size()) {
             pessoaRepository.delete(pessoa);
         }
+        auditar(OperacaoAuditoria.EXCLUIR, responsavel);
     }
 
     // ------------------------------------------------------------------
@@ -231,6 +239,7 @@ public class ResponsavelService {
         vinculo.setParentesco(request.parentesco());
         vinculo.setFinanceiro(financeiro);
         alunoResponsavelRepository.save(vinculo);
+        auditar(OperacaoAuditoria.VINCULAR, responsavel);
         return paraResposta(responsavel, pessoa, vinculo);
     }
 
@@ -264,6 +273,7 @@ public class ResponsavelService {
                 .financeiro(financeiro)
                 .build();
         alunoResponsavelRepository.save(vinculo);
+        auditar(OperacaoAuditoria.VINCULAR, responsavel.responsavel());
         return paraResposta(responsavel.responsavel(), responsavel.pessoa(), vinculo);
     }
 
@@ -287,6 +297,7 @@ public class ResponsavelService {
                     "Responsavel tem cobrancas em aberto deste aluno; troque o responsavel delas antes");
         }
         alunoResponsavelRepository.delete(vinculo);
+        auditar(OperacaoAuditoria.DESVINCULAR, responsavel);
     }
 
     // ------------------------------------------------------------------
@@ -327,6 +338,7 @@ public class ResponsavelService {
                     .financeiro(Boolean.TRUE.equals(request.financeiro()))
                     .build();
             alunoResponsavelRepository.save(vinculo);
+            auditar(OperacaoAuditoria.VINCULAR, responsavel.responsavel());
             respostas.add(paraResposta(responsavel.responsavel(), responsavel.pessoa(), vinculo));
         }
         return respostas;
@@ -406,7 +418,13 @@ public class ResponsavelService {
                 .escolaId(escolaId)
                 .pessoaId(pessoa.getId())
                 .build());
+        auditar(OperacaoAuditoria.CRIAR, responsavel);
         return new ResponsavelComPessoa(responsavel, pessoa);
+    }
+
+    /** O registro do log e o cadastro do responsavel; o vinculo com o aluno entra como VINCULAR. */
+    private void auditar(OperacaoAuditoria operacao, Responsavel responsavel) {
+        auditoriaService.registrar(operacao, EntidadeAuditada.RESPONSAVEL, responsavel.getId());
     }
 
     private void tirarFinanceiroAnterior(UUID alunoId, UUID novoPessoaId) {

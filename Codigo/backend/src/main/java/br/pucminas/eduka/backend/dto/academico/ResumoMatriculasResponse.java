@@ -12,8 +12,9 @@ import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
  *
  * @param porSituacao   todas as situacoes, com zero quando nao ha matricula nela
  * @param paraMatricular so na consulta por turma (sem aluno): alunos da escola,
- *                      sem os anonimizados, que ainda nao tem registro na turma
- *                      e podem entrar nela; nulo nas outras consultas
+ *                      sem os anonimizados e os inativos, que ainda nao tem
+ *                      registro na turma e podem entrar nela; nulo nas outras
+ *                      consultas
  */
 public record ResumoMatriculasResponse(long total, Map<StatusMatricula, Long> porSituacao, Long paraMatricular) {
 

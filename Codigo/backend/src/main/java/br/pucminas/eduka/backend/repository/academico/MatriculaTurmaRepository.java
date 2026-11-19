@@ -40,6 +40,8 @@ public interface MatriculaTurmaRepository extends JpaRepository<MatriculaTurma, 
 
     boolean existsByEscolaIdAndAlunoIdAndTurmaId(UUID escolaId, UUID alunoId, Long turmaId);
 
+    boolean existsByEscolaIdAndAlunoIdAndStatus(UUID escolaId, UUID alunoId, StatusMatricula status);
+
     /** Vagas ocupadas: so matricula ATIVA conta. */
     long countByEscolaIdAndTurmaIdAndStatus(UUID escolaId, Long turmaId, StatusMatricula status);
 

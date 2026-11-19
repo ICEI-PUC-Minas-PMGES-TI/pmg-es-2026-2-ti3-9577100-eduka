@@ -39,6 +39,8 @@ export type Professor = {
   /** Nulo nos professores cadastrados antes do campo existir. */
   vinculo: VinculoProfessor | null
   ativo: boolean
+  /** Ainda não trocou a senha provisória (ou não tem login): a secretaria pode reenviar o acesso. */
+  aguardandoPrimeiroAcesso: boolean
 }
 
 /** Resumo da escola inteira na página de GET /professores/pagina, sem a busca. */

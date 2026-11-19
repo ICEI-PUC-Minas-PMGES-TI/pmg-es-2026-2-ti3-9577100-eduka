@@ -45,8 +45,10 @@ export function CobrancaCard({ cobranca, aberta, onAlternar, risco, children }: 
       >
         <div className={styles.infoEsquerda}>
           <span className={styles.nomeAluno}>{cobranca.alunoNome ?? 'Aluno sem nome'}</span>
+          {/* Descrição longa encolhe com reticências; o vencimento fica sempre à vista. */}
           <span className={styles.descricao}>
-            {cobranca.descricao} · vence {formatarDiaMes(cobranca.dataVencimento)}
+            <span className={styles.descricaoTexto}>{cobranca.descricao}</span>
+            <span className={styles.vencimento}>{' · vence '}{formatarDiaMes(cobranca.dataVencimento)}</span>
           </span>
           {risco && (
             <span className={styles.risco}>

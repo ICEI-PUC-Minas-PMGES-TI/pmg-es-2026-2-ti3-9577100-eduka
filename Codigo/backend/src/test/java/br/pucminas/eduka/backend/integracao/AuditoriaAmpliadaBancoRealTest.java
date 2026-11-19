@@ -16,7 +16,9 @@ import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.pessoas.VinculoProfessor;
 import br.pucminas.eduka.backend.dto.academico.AtualizarMatriculaRequest;
 import br.pucminas.eduka.backend.dto.academico.MatriculaTurmaRequest;
+import br.pucminas.eduka.backend.dto.auditoria.AtividadeResponse;
 import br.pucminas.eduka.backend.dto.auditoria.AutorAtividadeResponse;
+import br.pucminas.eduka.backend.dto.comum.Paginacao;
 import br.pucminas.eduka.backend.dto.escola.MembroEquipeRequest;
 import br.pucminas.eduka.backend.dto.escola.MembroEquipeResponse;
 import br.pucminas.eduka.backend.dto.pessoas.AlunoRequest;
@@ -116,6 +118,29 @@ class AuditoriaAmpliadaBancoRealTest extends BancoRealTest {
                 .extracting(AutorAtividadeResponse::nome, AutorAtividadeResponse::perfil)
                 .containsExactly(org.assertj.core.groups.Tuple.tuple("Fernanda Rocha", PerfilUsuario.FINANCEIRO),
                         org.assertj.core.groups.Tuple.tuple("Marta Gestora", PerfilUsuario.MASTER));
+    }
+
+    @Test
+    void oQueOSuperAdminFazNaEscolaNaoApareceParaEla() {
+        UUID escola = dados.escola();
+        UUID master = dados.usuario(escola, "MASTER", "Marta Gestora");
+        UUID suporte = dados.usuario(null, "SUPER_ADMIN", "Suporte Eduka");
+        UUID aluno = UUID.randomUUID();
+        Instant agora = Instant.now();
+        dados.acaoNoLog(escola, master, OperacaoAuditoria.CRIAR, EntidadeAuditada.ALUNO, aluno, agora);
+        dados.acaoNoLog(escola, suporte, OperacaoAuditoria.SUSPENDER, EntidadeAuditada.ESCOLA, escola, agora);
+        dados.acaoNoLog(escola, suporte, OperacaoAuditoria.ATIVAR, EntidadeAuditada.ESCOLA, escola, agora);
+        autenticarComo(master, "MASTER", escola);
+
+        assertThat(registroAtividadesService.listar(null, null, null, null, null, new Paginacao(0, 20), null)
+                .conteudo()).extracting(AtividadeResponse::registroId).containsExactly(aluno);
+        // Nem filtrando pelo id dele.
+        assertThat(registroAtividadesService.listar(suporte, null, null, null, null, new Paginacao(0, 20), null)
+                .conteudo()).isEmpty();
+        assertThat(registroAtividadesService.listarAutores()).extracting(AutorAtividadeResponse::usuarioId)
+                .containsExactly(master);
+        // A trilha continua gravada.
+        assertThat(autores(escola)).containsExactlyInAnyOrder(master, suporte);
     }
 
     @Test

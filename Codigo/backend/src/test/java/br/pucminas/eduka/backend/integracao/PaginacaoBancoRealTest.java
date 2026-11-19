@@ -214,6 +214,7 @@ class PaginacaoBancoRealTest extends BancoRealTest {
                 AlunoResponse.Situacao.MATRICULADO, 1L,
                 AlunoResponse.Situacao.TRANCADO, 0L,
                 AlunoResponse.Situacao.SEM_TURMA, 2L,
+                AlunoResponse.Situacao.INATIVO, 0L,
                 AlunoResponse.Situacao.ANONIMIZADO, 0L)));
     }
 
@@ -274,6 +275,9 @@ class PaginacaoBancoRealTest extends BancoRealTest {
         dados.matricula(escola, dados.aluno(escola, "Davi"), outraTurma, StatusMatricula.ATIVA,
                 LocalDate.of(2026, 2, 1));
         dados.aluno(escola, "Eva");
+        // Inativado pela escola: nao recebe matricula, entao nao conta como "para matricular".
+        jdbc.update("UPDATE alunos SET ativo = false, inativado_em = now() WHERE id_aluno = ?",
+                dados.aluno(escola, "Gil"));
         UUID outra = dados.escola();
         dados.aluno(outra, "De fora");
         autenticarComo("SECRETARIA", escola);
@@ -282,7 +286,8 @@ class PaginacaoBancoRealTest extends BancoRealTest {
                 Ordenacao.Matriculas.ALUNO, null);
 
         assertThat(trancadas.conteudo()).extracting(MatriculaTurmaResponse::alunoNome).containsExactly("Bia");
-        // Os contadores da turma inteira, e quem ainda pode entrar: o Davi (de outra turma) e a Eva (sem turma).
+        // Os contadores da turma inteira, e quem ainda pode entrar: o Davi (de outra turma) e a Eva (sem turma);
+        // o Gil, inativo, fica de fora.
         assertThat(trancadas.resumo()).isEqualTo(new ResumoMatriculasResponse(3, Map.of(
                 StatusMatricula.ATIVA, 1L, StatusMatricula.TRANCADA, 1L, StatusMatricula.CANCELADA, 1L,
                 StatusMatricula.CONCLUIDA, 0L), 2L));

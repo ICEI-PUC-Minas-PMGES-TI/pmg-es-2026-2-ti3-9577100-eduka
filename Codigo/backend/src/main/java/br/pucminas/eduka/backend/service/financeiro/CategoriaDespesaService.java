@@ -13,6 +13,9 @@ import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.exception.financeiro.CategoriaDespesaJaExisteException;
 import br.pucminas.eduka.backend.repository.financeiro.CategoriaDespesaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
 /**
  * Categorias de despesa da escola do token (RF18). Categoria de outra escola
@@ -32,11 +35,13 @@ public class CategoriaDespesaService {
 
     private final CategoriaDespesaRepository categoriaRepository;
     private final IsolamentoEscola isolamentoEscola;
+    private final AuditoriaService auditoriaService;
 
     public CategoriaDespesaService(CategoriaDespesaRepository categoriaRepository,
-            IsolamentoEscola isolamentoEscola) {
+            IsolamentoEscola isolamentoEscola, AuditoriaService auditoriaService) {
         this.categoriaRepository = categoriaRepository;
         this.isolamentoEscola = isolamentoEscola;
+        this.auditoriaService = auditoriaService;
     }
 
     /** Categorias da escola pelo nome, criando as padrao se a escola ainda nao tem nenhuma. */
@@ -66,6 +71,8 @@ public class CategoriaDespesaService {
         }
         CategoriaDespesa salva = categoriaRepository
                 .saveAndFlush(CategoriaDespesa.builder().escolaId(escolaId).nome(nome).build());
+        // As categorias padrao, criadas sozinhas no primeiro acesso (listar), nao entram no log.
+        auditoriaService.registrar(OperacaoAuditoria.CRIAR, EntidadeAuditada.CATEGORIA_DESPESA, salva.getId());
         return CategoriaDespesaResponse.de(salva);
     }
 

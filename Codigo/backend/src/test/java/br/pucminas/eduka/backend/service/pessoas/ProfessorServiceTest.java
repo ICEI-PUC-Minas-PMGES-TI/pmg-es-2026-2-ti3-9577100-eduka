@@ -98,6 +98,36 @@ class ProfessorServiceTest {
         return Pessoa.builder().id(UUID.randomUUID()).escolaId(ESCOLA_A).nome(nome).cpf(cpf).ativo(true).build();
     }
 
+    @Test
+    void buscarMeusDadosUsaOLoginEAEscolaDoToken() {
+        UUID usuarioId = UUID.randomUUID();
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
+                new UsuarioAutenticado(usuarioId, "PROFESSOR", ESCOLA_A), null, "ROLE_PROFESSOR"));
+        Pessoa pessoaAna = pessoa("Ana", "12345678900");
+        Professor ana = professor(ESCOLA_A, pessoaAna.getId());
+        ana.setUsuarioId(usuarioId);
+        when(professorRepository.findByUsuarioIdAndEscolaId(usuarioId, ESCOLA_A)).thenReturn(Optional.of(ana));
+        when(pessoaRepository.findByIdAndEscolaId(pessoaAna.getId(), ESCOLA_A)).thenReturn(Optional.of(pessoaAna));
+
+        ProfessorResponse resposta = professorService.buscarMeusDados();
+
+        assertThat(resposta.id()).isEqualTo(ana.getId());
+        assertThat(resposta.nome()).isEqualTo("Ana");
+        // O proprio professor ve o CPF dele (a listagem da secretaria nao traz).
+        assertThat(resposta.cpf()).isEqualTo("12345678900");
+        assertThat(resposta.formacao()).isEqualTo("Licenciatura em Matematica");
+    }
+
+    @Test
+    void buscarMeusDadosDeLoginSemCadastroDeProfessorResponde404() {
+        autenticarComo("PROFESSOR", ESCOLA_A);
+        when(professorRepository.findByUsuarioIdAndEscolaId(any(), eq(ESCOLA_A))).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> professorService.buscarMeusDados())
+                .isInstanceOf(RecursoNaoEncontradoException.class);
+        verify(pessoaRepository, never()).findByIdAndEscolaId(any(), any());
+    }
+
     private static ProfessorRequest request(String nome, String cpf) {
         return new ProfessorRequest(nome, cpf, "prof@example.com", "31999998888", "Licenciatura em Fisica",
                 LocalDate.of(2026, 2, 1), VinculoProfessor.CLT_40H);
@@ -135,6 +165,32 @@ class ProfessorServiceTest {
         assertThat(resultado.get(0).cpf()).isNull();
         verify(professorRepository, never()).findAll();
         verify(pessoaRepository, never()).findAllById(any());
+    }
+
+    @Test
+    void listarDizQuemAindaNaoFezOPrimeiroAcesso() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        Pessoa pessoaAna = pessoa("Ana", "11111111111");
+        Pessoa pessoaBia = pessoa("Bia", "22222222222");
+        Pessoa pessoaCaio = pessoa("Caio", "33333333333");
+        Professor ana = professor(ESCOLA_A, pessoaAna.getId());
+        ana.setUsuarioId(UUID.randomUUID());
+        Professor bia = professor(ESCOLA_A, pessoaBia.getId());
+        bia.setUsuarioId(UUID.randomUUID());
+        // Cadastro antigo, sem login: o reenvio cria o acesso.
+        Professor caio = professor(ESCOLA_A, pessoaCaio.getId());
+        caio.setUsuarioId(null);
+        when(professorRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of(ana, bia, caio));
+        when(pessoaRepository.findAllByIdInAndEscolaId(any(), eq(ESCOLA_A)))
+                .thenReturn(List.of(pessoaAna, pessoaBia, pessoaCaio));
+        when(acessoService.aguardandoPrimeiroAcesso(any())).thenReturn(java.util.Set.of(ana.getUsuarioId()));
+
+        assertThat(professorService.listar(null, null))
+                .extracting(ProfessorResponse::nome, ProfessorResponse::aguardandoPrimeiroAcesso)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple("Ana", true),
+                        org.assertj.core.groups.Tuple.tuple("Bia", false),
+                        org.assertj.core.groups.Tuple.tuple("Caio", true));
     }
 
     @Test

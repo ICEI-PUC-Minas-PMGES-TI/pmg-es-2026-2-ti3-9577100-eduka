@@ -44,6 +44,7 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.academico.AcademicoSecretariaService;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
 /**
  * Contrato de seguranca da estrutura academica, ponta a ponta: filter chain,
@@ -65,6 +66,8 @@ class AcademicoSecretariaControllerSecurityTest {
     @Autowired
     private JwtService jwtService;
 
+    @MockitoBean
+    private AuditoriaService auditoriaService;
     @MockitoBean
     private PeriodoLetivoRepository periodoLetivoRepository;
     @MockitoBean

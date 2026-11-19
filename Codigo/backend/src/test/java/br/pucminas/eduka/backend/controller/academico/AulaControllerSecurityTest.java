@@ -51,6 +51,7 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.academico.AulaService;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
 /**
  * Contrato de seguranca e de erros de {@code /portal/professor/aulas}, ponta
@@ -71,6 +72,8 @@ class AulaControllerSecurityTest {
     @Autowired
     private JwtService jwtService;
 
+    @MockitoBean
+    private AuditoriaService auditoriaService;
     @MockitoBean
     private AulaRepository aulaRepository;
     @MockitoBean

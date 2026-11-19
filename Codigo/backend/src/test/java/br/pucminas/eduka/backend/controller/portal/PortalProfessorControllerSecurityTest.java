@@ -37,8 +37,10 @@ import br.pucminas.eduka.backend.repository.pessoas.PessoaRepository;
 import br.pucminas.eduka.backend.repository.pessoas.ProfessorRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
+import br.pucminas.eduka.backend.dto.pessoas.ProfessorResponse;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.dashboard.DashboardService;
+import br.pucminas.eduka.backend.service.pessoas.ProfessorService;
 import br.pucminas.eduka.backend.service.portal.PortalProfessorService;
 
 /**
@@ -66,6 +68,8 @@ class PortalProfessorControllerSecurityTest {
     private AlocacaoProfessorRepository alocacaoRepository;
     @MockitoBean
     private DashboardService dashboardService;
+    @MockitoBean
+    private ProfessorService professorService;
     @MockitoBean
     private HorarioTurmaRepository horarioRepository;
     @MockitoBean
@@ -163,6 +167,22 @@ class PortalProfessorControllerSecurityTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.detail").value("Professor nao encontrado"));
         verify(alocacaoRepository, never()).findAllComTurmaEDisciplinaByEscolaIdAndProfessorId(any(), any());
+    }
+
+    @Test
+    void meusDadosSoParaProfessor() throws Exception {
+        when(professorService.buscarMeusDados()).thenReturn(new ProfessorResponse(UUID.randomUUID(), ESCOLA_A,
+                "Ana", "12345678900", "ana@escola.com", null, "Licenciatura", null, null, true, false));
+
+        mockMvc.perform(com(get("/portal/professor/me"), accessToken(UUID.randomUUID(), "PROFESSOR", ESCOLA_A)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Ana"))
+                .andExpect(jsonPath("$.cpf").value("12345678900"));
+        for (String perfil : List.of("MASTER", "SECRETARIA", "FINANCEIRO", "ALUNO")) {
+            mockMvc.perform(com(get("/portal/professor/me"), accessToken(UUID.randomUUID(), perfil, ESCOLA_A)))
+                    .andExpect(status().isForbidden());
+        }
+        mockMvc.perform(get("/portal/professor/me")).andExpect(status().isUnauthorized());
     }
 
     @Test

@@ -25,6 +25,9 @@ import br.pucminas.eduka.backend.repository.academico.TurmaRepository;
 import br.pucminas.eduka.backend.repository.pessoas.PessoaRepository;
 import br.pucminas.eduka.backend.repository.pessoas.ProfessorRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
 /**
  * Alocacao de professores nas disciplinas das turmas, com isolamento por
@@ -46,17 +49,19 @@ public class AlocacaoProfessorService {
     private final TurmaRepository turmaRepository;
     private final DisciplinaRepository disciplinaRepository;
     private final IsolamentoEscola isolamentoEscola;
+    private final AuditoriaService auditoriaService;
 
     public AlocacaoProfessorService(AlocacaoProfessorRepository alocacaoRepository,
             ProfessorRepository professorRepository, PessoaRepository pessoaRepository,
             TurmaRepository turmaRepository, DisciplinaRepository disciplinaRepository,
-            IsolamentoEscola isolamentoEscola) {
+            IsolamentoEscola isolamentoEscola, AuditoriaService auditoriaService) {
         this.alocacaoRepository = alocacaoRepository;
         this.professorRepository = professorRepository;
         this.pessoaRepository = pessoaRepository;
         this.turmaRepository = turmaRepository;
         this.disciplinaRepository = disciplinaRepository;
         this.isolamentoEscola = isolamentoEscola;
+        this.auditoriaService = auditoriaService;
     }
 
     @Transactional(readOnly = true)
@@ -127,6 +132,7 @@ public class AlocacaoProfessorService {
         } catch (DataIntegrityViolationException e) {
             throw new AlocacaoJaExisteException();
         }
+        auditoriaService.registrar(OperacaoAuditoria.CRIAR, EntidadeAuditada.ALOCACAO, alocacao.getId());
         return AlocacaoProfessorResponse.de(alocacao, buscarPessoa(professor, escolaId));
     }
 
@@ -137,6 +143,7 @@ public class AlocacaoProfessorService {
                 .findByIdAndEscolaIdAndProfessorId(alocacaoId, escolaId, professorId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Alocacao nao encontrada"));
         alocacaoRepository.delete(alocacao);
+        auditoriaService.registrar(OperacaoAuditoria.EXCLUIR, EntidadeAuditada.ALOCACAO, alocacao.getId());
     }
 
     private Professor buscarProfessor(UUID id, UUID escolaId) {

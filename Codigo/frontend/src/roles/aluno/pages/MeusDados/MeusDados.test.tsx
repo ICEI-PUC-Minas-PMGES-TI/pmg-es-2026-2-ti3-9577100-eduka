@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { problema, simularApi, type RespostaApi } from '../../../../test/api'
 import type { Aluno } from '../../../../types/pessoas/aluno'
 import type { SolicitacaoCorrecao } from '../../../../types/pessoas/solicitacaoCorrecao'
+import type { TurmaDoAluno } from '../../../../types/portal/portalAluno'
 import { MeusDados } from './MeusDados'
 
 const ALUNO: Aluno = {
@@ -31,10 +32,40 @@ const PEDIDO: SolicitacaoCorrecao = {
   atendidaEm: null,
 }
 
-function abrir(aberta: RespostaApi, envio?: RespostaApi) {
+const TURMAS: TurmaDoAluno[] = [
+  {
+    matriculaId: 'mat-2026',
+    situacaoMatricula: 'ATIVA',
+    dataMatricula: '2026-02-01',
+    turmaId: 2,
+    turmaNome: '2º ano A',
+    turmaCodigo: '2A-26',
+    turno: 'MATUTINO',
+    periodoLetivoNome: '2026',
+    cursoNome: 'Ensino Médio',
+    disciplinas: [
+      { id: 10, nome: 'Matemática', codigo: 'MAT', cargaHoraria: 120, professorNome: 'Paula Reis' },
+      { id: 11, nome: 'Química', codigo: null, cargaHoraria: 80, professorNome: null },
+    ],
+  },
+  {
+    matriculaId: 'mat-2025',
+    situacaoMatricula: 'CONCLUIDA',
+    dataMatricula: '2025-02-03',
+    turmaId: 1,
+    turmaNome: '1º ano A',
+    turmaCodigo: null,
+    turno: 'MATUTINO',
+    periodoLetivoNome: '2025',
+    cursoNome: 'Ensino Médio',
+    disciplinas: [{ id: 20, nome: 'Biologia', codigo: 'BIO', cargaHoraria: 80, professorNome: 'Rui Lima' }],
+  },
+]
+
+function abrir(aberta: RespostaApi, envio?: RespostaApi, turmas: RespostaApi = { corpo: [] }) {
   const chamadas = simularApi(({ metodo, caminho }) => {
     if (caminho === '/portal/aluno/me') return { corpo: ALUNO }
-    if (caminho === '/portal/aluno/turmas') return { corpo: [] }
+    if (caminho === '/portal/aluno/turmas') return turmas
     if (caminho === '/portal/aluno/correcoes/aberta') return aberta
     if (metodo === 'POST' && caminho === '/portal/aluno/correcoes') return envio
     return undefined
@@ -61,6 +92,37 @@ describe('MeusDados', () => {
     expect(await screen.findByText(/pedido de correção enviado em 30\/10\/2026/i)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /pedir correção de dados/i })).not.toBeInTheDocument()
     expect(chamadas.find((c) => c.metodo === 'POST')?.corpo).toEqual({ mensagem: 'Meu telefone mudou' })
+  })
+
+  it('mostra todas as turmas, não só a atual, cada uma com as disciplinas e os professores', async () => {
+    abrir({ status: 204 }, undefined, { corpo: TURMAS })
+
+    // O resumo lateral continua com a turma atual e leva à lista completa.
+    await userEvent.click(await screen.findByRole('button', { name: /ver as 2 turmas e disciplinas/i }))
+    expect(screen.getByRole('tab', { name: 'Turmas' })).toHaveAttribute('aria-selected', 'true')
+
+    const atual = screen.getByRole('article', { name: 'Turma 2º ano A' })
+    expect(within(atual).getByText('Ativa')).toBeInTheDocument()
+    expect(within(atual).getByText(/ensino médio · 2026 · matutino/i)).toBeInTheDocument()
+    expect(within(atual).getByText(/matrícula em 01\/02\/2026/i)).toBeInTheDocument()
+    const disciplinas = within(within(atual).getByRole('list', { name: /disciplinas de 2º ano a/i })).getAllByRole(
+      'listitem',
+    )
+    expect(disciplinas).toHaveLength(2)
+    expect(disciplinas[0]).toHaveTextContent(/matemática · mat.*paula reis · 120 h/i)
+    expect(disciplinas[1]).toHaveTextContent(/química.*professor a definir · 80 h/i)
+
+    const anterior = screen.getByRole('article', { name: 'Turma 1º ano A' })
+    expect(within(anterior).getByText('Concluída')).toBeInTheDocument()
+    expect(within(anterior).getByText(/biologia/i)).toBeInTheDocument()
+    expect(anterior).toHaveTextContent(/rui lima · 80 h/i)
+  })
+
+  it('sem matrícula, a aba Turmas diz que ainda não há turma', async () => {
+    abrir({ status: 204 })
+
+    await userEvent.click(await screen.findByRole('tab', { name: 'Turmas' }))
+    expect(screen.getByText(/ainda não está matriculado em nenhuma turma/i)).toBeInTheDocument()
   })
 
   it('com um pedido aberto, não deixa pedir outro', async () => {
