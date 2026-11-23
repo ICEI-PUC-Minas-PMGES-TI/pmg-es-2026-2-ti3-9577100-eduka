@@ -359,11 +359,12 @@ public class RelatorioFinanceiroService {
 
     private static SecaoExportada despesas(List<Despesa> despesas) {
         List<Object[]> linhas = despesas.stream()
+                // Despesa lancada antes do responsavel existir sai com a celula vazia.
                 .map(d -> new Object[] { d.getDataVencimento(), d.getCategoria().getNome(), d.getDescricao(),
-                        d.getValor(), rotulo(d.getSituacao()), dia(d.getPagaEm()) })
+                        d.getResponsavel(), d.getValor(), rotulo(d.getSituacao()), dia(d.getPagaEm()) })
                 .toList();
         return new SecaoExportada("Despesas", "Despesas", List.of(Coluna.texto("Vencimento"),
-                Coluna.texto("Categoria"), Coluna.texto("Descrição"), Coluna.valor("Valor"),
+                Coluna.texto("Categoria"), Coluna.texto("Descrição"), Coluna.texto("Responsável"), Coluna.valor("Valor"),
                 Coluna.lista("Situação", rotulos(SituacaoDespesa.values(), RelatorioFinanceiroService::rotulo)),
                 Coluna.texto("Paga em")), linhas, "Nenhuma despesa vence neste período.");
     }
