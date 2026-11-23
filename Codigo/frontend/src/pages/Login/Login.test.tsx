@@ -6,13 +6,13 @@ import { AcessoSuspenso } from '../AcessoSuspenso/AcessoSuspenso'
 import { problema, simularApi } from '../../test/api'
 import { Login } from './Login'
 
-function abrir() {
+function abrir(entrada = '/login') {
   const router = createMemoryRouter(
     [
       { path: '/login', element: <Login /> },
       { path: '/acesso-suspenso', element: <AcessoSuspenso /> },
     ],
-    { initialEntries: ['/login'] },
+    { initialEntries: [entrada] },
   )
   render(<RouterProvider router={router} />)
 }
@@ -33,6 +33,31 @@ describe('Login', () => {
     await userEvent.click(screen.getByRole('button', { name: /acessar/i }))
 
     expect(await screen.findByText(/porque uma fatura do Edúka está em atraso/)).toBeInTheDocument()
+  })
+
+  it('perfil que depende de um módulo não contratado não entra e sabe por quê', async () => {
+    simularApi(({ caminho }) =>
+      caminho === '/login'
+        ? { status: 403, corpo: { status: 403, codigo: 'MODULO_NAO_CONTRATADO', modulo: 'GESTAO_FINANCEIRA' } }
+        : undefined,
+    )
+    abrir()
+
+    await userEvent.type(screen.getByLabelText(/e-mail ou matrícula/i), 'fernanda@escola.com')
+    await userEvent.type(screen.getByLabelText(/^senha/i), 'senha-certa')
+    await userEvent.click(screen.getByRole('button', { name: /acessar/i }))
+
+    expect(
+      await screen.findByText(/seu acesso depende do módulo Gestão Financeira, que a sua escola não contratou/i),
+    ).toBeInTheDocument()
+  })
+
+  it('sessão encerrada por módulo retirado explica no login', async () => {
+    abrir('/login?modulo=PORTAL_ALUNO')
+
+    expect(
+      await screen.findByText(/seu acesso depende do módulo Portal do Aluno, que a sua escola não contratou/i),
+    ).toBeInTheDocument()
   })
 
   it('leva ao aviso de suspensão quando a escola está suspensa', async () => {

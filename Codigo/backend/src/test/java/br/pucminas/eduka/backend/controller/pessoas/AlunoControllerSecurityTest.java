@@ -31,9 +31,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
 import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.acesso.Usuario;
-import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
 import br.pucminas.eduka.backend.domain.pessoas.Aluno;
 import br.pucminas.eduka.backend.domain.pessoas.Pessoa;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
@@ -49,11 +49,12 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.security.PasswordEncoderConfig;
-import br.pucminas.eduka.backend.service.privacidade.PoliticaRetencao;
 import br.pucminas.eduka.backend.service.acesso.AcessoService;
 import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
+import br.pucminas.eduka.backend.service.escola.LimiteUsuariosService;
 import br.pucminas.eduka.backend.service.pessoas.AlunoService;
 import br.pucminas.eduka.backend.service.pessoas.ResponsavelService;
+import br.pucminas.eduka.backend.service.privacidade.PoliticaRetencao;
 
 /**
  * Contrato de seguranca do primeiro recurso de negocio, ponta a ponta: filter
@@ -96,6 +97,8 @@ class AlunoControllerSecurityTest {
     private MatriculaTurmaRepository matriculaRepository;
     @MockitoBean
     private UsuarioRepository usuarioRepository;
+    @MockitoBean
+    private LimiteUsuariosService limiteUsuarios;
 
     private String accessToken(String perfil, UUID escolaId) {
         return jwtService.generateAccessToken(UUID.randomUUID(), perfil, escolaId);

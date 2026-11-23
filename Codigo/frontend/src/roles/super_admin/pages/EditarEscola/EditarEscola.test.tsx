@@ -74,6 +74,19 @@ describe('EditarEscola', () => {
     expect(screen.getByRole('checkbox', { name: 'Portal do Professor' })).not.toBeChecked()
   })
 
+  it('módulos sem funcionalidade aparecem como "Em breve", sem marcar', async () => {
+    abrir({ corpo: { ...ESCOLA, modulos: ['PORTAL_ALUNO', 'SECRETARIA_VIRTUAL'] } })
+    await screen.findByDisplayValue('Colégio Ipê Amarelo')
+
+    for (const nome of [/Secretaria Virtual/, /Biblioteca Digital/]) {
+      const caixa = screen.getByRole('checkbox', { name: nome })
+      expect(caixa).toBeDisabled()
+      expect(caixa).not.toBeChecked()
+      expect(caixa.closest('label')).toHaveTextContent('Em breve')
+    }
+    expect(screen.getByRole('checkbox', { name: 'Portal do Aluno' })).toBeEnabled()
+  })
+
   it('salva as alterações e volta ao painel com o aviso de sucesso', async () => {
     const chamadas = abrir(undefined, ({ corpo }) => ({ corpo: { ...ESCOLA, ...(corpo as object) } }))
     await screen.findByDisplayValue('Colégio Ipê Amarelo')

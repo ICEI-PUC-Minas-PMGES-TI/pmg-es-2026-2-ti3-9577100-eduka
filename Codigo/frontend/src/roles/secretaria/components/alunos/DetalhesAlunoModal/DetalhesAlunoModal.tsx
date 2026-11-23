@@ -8,6 +8,7 @@ import { useDetalhe } from '../../../../../hooks/useDetalhe'
 import { anonimizarAluno, buscarAluno, exportarDadosPessoais } from '../../../../../services/pessoas/alunoService'
 import { ApiError } from '../../../../../services/api'
 import { obterUsuarioLogado } from '../../../../../services/acesso/authService'
+import { temModulo } from '../../../../../services/acesso/modulosSessao'
 import { listarMatriculas } from '../../../../../services/academico/matriculaService'
 import type { AlunoResumo } from '../../../../../types/pessoas/aluno'
 import type { Matricula } from '../../../../../types/academico/matricula'
@@ -23,7 +24,7 @@ import { formatarData } from '../../../../../utils/formatacao'
  */
 function podeVerFinanceiro(): boolean {
   const perfil = obterUsuarioLogado()?.perfil
-  return perfil === 'MASTER' || perfil === 'FINANCEIRO'
+  return (perfil === 'MASTER' || perfil === 'FINANCEIRO') && temModulo('GESTAO_FINANCEIRA')
 }
 
 /** Exportar os dados (LGPD): quem atende o titular na escola. */

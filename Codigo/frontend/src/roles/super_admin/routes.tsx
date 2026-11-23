@@ -5,6 +5,7 @@ import { EditarEscola } from './pages/EditarEscola/EditarEscola'
 import { Faturas } from './pages/Faturas/Faturas'
 import { FaturasPlataforma } from './pages/FaturasPlataforma/FaturasPlataforma'
 import { PainelEscolas } from './pages/PainelEscolas/PainelEscolas'
+import { Usuarios } from './pages/Usuarios/Usuarios'
 
 export const superAdminRoutes: RouteObject = {
   path: paths.superAdmin.raiz,
@@ -19,6 +20,7 @@ export const superAdminRoutes: RouteObject = {
         { path: paths.superAdmin.editarEscola, element: <EditarEscola /> },
         { path: paths.superAdmin.faturasEscola, element: <Faturas /> },
         { path: paths.superAdmin.assinaturas, element: <FaturasPlataforma /> },
+        { path: paths.superAdmin.usuarios, element: <Usuarios /> },
       ],
     },
   ],

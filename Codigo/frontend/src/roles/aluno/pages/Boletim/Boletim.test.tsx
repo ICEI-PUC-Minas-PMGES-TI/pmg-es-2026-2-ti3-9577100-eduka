@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { gravarSessao } from '../../../../services/acesso/modulosSessao'
 import { simularApi } from '../../../../test/api'
 import type {
   AvaliacaoDoAluno,
@@ -118,6 +119,18 @@ describe('Frequência no boletim do aluno', () => {
     expect(linha('Física').getByText('80%')).toBeInTheDocument()
     expect(screen.getByText(/limite de 25% de faltas/)).toBeInTheDocument()
     expect(screen.queryByText('Faltas acima do limite')).not.toBeInTheDocument()
+  })
+
+  it('sem o controle de frequência contratado, não mostra frequência nem limite de faltas', async () => {
+    gravarSessao('aluna@escola.com', ['PORTAL_ALUNO'])
+    await abrirBoletim([turma([disciplina(1, 'Matemática', frequencia(20, 8))], frequencia(20, 8))])
+
+    expect(resumo().queryByText('Frequência')).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Frequência' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Faltas acima do limite')).not.toBeInTheDocument()
+    expect(screen.queryByText(/limite de 25% de faltas/)).not.toBeInTheDocument()
+    expect(screen.getByText(/média mínima de/)).toBeInTheDocument()
+    localStorage.clear()
   })
 
   it('exatamente 25% de faltas não alerta; acima disso, alerta só na disciplina que passou', async () => {

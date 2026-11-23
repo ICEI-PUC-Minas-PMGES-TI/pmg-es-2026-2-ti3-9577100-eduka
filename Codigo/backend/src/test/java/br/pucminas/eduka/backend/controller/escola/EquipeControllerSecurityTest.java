@@ -41,6 +41,7 @@ import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.acesso.AcessoService;
 import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 import br.pucminas.eduka.backend.service.escola.EquipeService;
+import br.pucminas.eduka.backend.service.escola.LimiteUsuariosService;
 
 /**
  * Contrato de seguranca de {@code /usuarios/equipe}, ponta a ponta: filter
@@ -72,6 +73,8 @@ class EquipeControllerSecurityTest {
     private PessoaPapelRepository pessoaPapelRepository;
     @MockitoBean
     private AcessoService acessoService;
+    @MockitoBean
+    private LimiteUsuariosService limiteUsuarios;
 
     private String token(String perfil) {
         return jwtService.generateAccessToken(UUID.randomUUID(), perfil, "SUPER_ADMIN".equals(perfil) ? null

@@ -101,7 +101,9 @@ public class DemoAcessoService {
                 jwtService.generateAccessToken(usuario.getId(), usuario.getPerfil().name(), usuario.getEscolaId()),
                 jwtService.generateRefreshToken(usuario.getId()),
                 usuario.getId(),
-                usuario.getPerfil());
+                usuario.getPerfil(),
+                // A escola de demonstracao tem todos os modulos; a renovacao da sessao traz a lista.
+                null);
     }
 
     private List<Grupo> grupos() {

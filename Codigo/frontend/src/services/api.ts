@@ -1,4 +1,6 @@
 import { paths } from '../routes/paths'
+import { gravarModulos, tirarModulo } from './acesso/modulosSessao'
+import { MODULOS_ESCOLA, ROTULOS_MODULO, type ModuloEscola } from '../types/escola/escola'
 
 // Em dev o Vite (5173) chama o backend direto na 8080, já liberada no CORS.
 // Em prod o Nginx serve front e API na mesma origem, com a API em /api.
@@ -41,6 +43,8 @@ export class ApiError extends Error {
   readonly codigo: string | null
   /** Propriedade `motivo` do ProblemDetail: por que a escola está suspensa (ESCOLA_SUSPENSA). */
   readonly motivo: string | null
+  /** Propriedade `modulo` do ProblemDetail: qual módulo a escola não contratou (MODULO_NAO_CONTRATADO). */
+  readonly modulo: ModuloEscola | null
 
   constructor(
     status: number,
@@ -48,6 +52,7 @@ export class ApiError extends Error {
     detalhe: string | null = null,
     codigo: string | null = null,
     motivo: string | null = null,
+    modulo: ModuloEscola | null = null,
   ) {
     super(message)
     this.name = 'ApiError'
@@ -55,6 +60,7 @@ export class ApiError extends Error {
     this.detalhe = detalhe
     this.codigo = codigo
     this.motivo = motivo
+    this.modulo = modulo
   }
 }
 
@@ -64,6 +70,14 @@ export class ApiError extends Error {
  * para o aviso (IU04). `detail` é o motivo da suspensão, ou null.
  */
 export const EVENTO_ESCOLA_SUSPENSA = 'eduka:escola-suspensa'
+
+/**
+ * Disparado quando uma requisição logada volta MODULO_NAO_CONTRATADO: o
+ * SUPER_ADMIN tirou um módulo da escola depois do login. O módulo já saiu da
+ * sessão (os menus somem); se era o do perfil, o PainelLayout encerra a
+ * sessão. `detail` é o módulo.
+ */
+export const EVENTO_MODULO_NAO_CONTRATADO = 'eduka:modulo-nao-contratado'
 
 
 function lerStorage(chave: string): string | null {
@@ -127,9 +141,12 @@ async function executarRenovacao(): Promise<boolean> {
   }
 
   if (!resposta.ok) {
-    const { codigo, motivo } = await lerProblema(resposta)
+    const problema = await lerProblema(resposta)
+    const { codigo, motivo } = problema
     if (codigo === 'ESCOLA_SUSPENSA') {
       window.dispatchEvent(new CustomEvent(EVENTO_ESCOLA_SUSPENSA, { detail: motivo }))
+    } else if (codigo === 'MODULO_NAO_CONTRATADO') {
+      perdeuModulo(problema.modulo)
     } else if (resposta.status === 401 && lerStorage(REFRESH_TOKEN_KEY) === refreshToken) {
       // Só descarta se ninguém (outra aba, um login novo) gravou outra sessão nesse meio-tempo.
       try {
@@ -143,10 +160,12 @@ async function executarRenovacao(): Promise<boolean> {
   }
 
   try {
-    const dados = (await resposta.json()) as { accessToken?: unknown; refreshToken?: unknown }
+    const dados = (await resposta.json()) as { accessToken?: unknown; refreshToken?: unknown; modulos?: unknown }
     if (typeof dados.accessToken !== 'string' || typeof dados.refreshToken !== 'string') return false
     localStorage.setItem(ACCESS_TOKEN_KEY, dados.accessToken)
     localStorage.setItem(REFRESH_TOKEN_KEY, dados.refreshToken)
+    // A renovação traz os módulos atuais: o que o SUPER_ADMIN mudou aparece sem novo login.
+    if (Array.isArray(dados.modulos)) gravarModulos(paraModulos(dados.modulos))
     return true
   } catch {
     return false
@@ -163,6 +182,36 @@ async function renovarSeVencendo(): Promise<void> {
   }
 }
 
+function paraModulos(valores: unknown[]): ModuloEscola[] {
+  return MODULOS_ESCOLA.filter((m) => valores.includes(m))
+}
+
+function paraModulo(valor: unknown): ModuloEscola | null {
+  return MODULOS_ESCOLA.find((m) => m === valor) ?? null
+}
+
+/** Tira o módulo da sessão e avisa a tela (ver EVENTO_MODULO_NAO_CONTRATADO). */
+function perdeuModulo(modulo: ModuloEscola | null): void {
+  if (!modulo) return
+  tirarModulo(modulo)
+  window.dispatchEvent(new CustomEvent(EVENTO_MODULO_NAO_CONTRATADO, { detail: modulo }))
+}
+
+/** Mensagem dos erros que a tela explica do mesmo jeito em qualquer lugar. */
+function mensagemDoCodigo(problema: Problema): string | null {
+  if (problema.codigo === 'MODULO_NAO_CONTRATADO' && problema.modulo) {
+    return `Sua escola não contratou o módulo ${ROTULOS_MODULO[problema.modulo]}. Fale com a administração da escola.`
+  }
+  if (problema.codigo === 'LIMITE_USUARIOS_ATINGIDO') {
+    const limite = problema.limite === null ? 'usuários' : `${problema.limite.toLocaleString('pt-BR')} usuários`
+    return (
+      `A escola chegou ao limite de ${limite} ativos do plano. ` +
+      'Inative um acesso que não é mais usado ou fale com o suporte do Edúka para ampliar o limite.'
+    )
+  }
+  return null
+}
+
 function mensagemPadrao(status: number): string {
   if (status === 401) return 'Sua sessão expirou ou você não está autenticado.'
   if (status === 403) return 'Você não tem permissão para acessar este recurso.'
@@ -170,18 +219,32 @@ function mensagemPadrao(status: number): string {
   return 'Não foi possível completar a requisição.'
 }
 
-type Problema = { detalhe: string | null; codigo: string | null; motivo: string | null }
+type Problema = {
+  detalhe: string | null
+  codigo: string | null
+  motivo: string | null
+  modulo: ModuloEscola | null
+  limite: number | null
+}
 
 async function lerProblema(resposta: Response): Promise<Problema> {
   try {
-    const corpo = (await resposta.json()) as { detail?: unknown; codigo?: unknown; motivo?: unknown } | null
+    const corpo = (await resposta.json()) as {
+      detail?: unknown
+      codigo?: unknown
+      motivo?: unknown
+      modulo?: unknown
+      limite?: unknown
+    } | null
     return {
       detalhe: typeof corpo?.detail === 'string' ? corpo.detail : null,
       codigo: typeof corpo?.codigo === 'string' ? corpo.codigo : null,
       motivo: typeof corpo?.motivo === 'string' ? corpo.motivo : null,
+      modulo: paraModulo(corpo?.modulo),
+      limite: typeof corpo?.limite === 'number' ? corpo.limite : null,
     }
   } catch {
-    return { detalhe: null, codigo: null, motivo: null }
+    return { detalhe: null, codigo: null, motivo: null, modulo: null, limite: null }
   }
 }
 
@@ -221,12 +284,19 @@ async function enviar(caminho: string, init: RequestInit, accept: string): Promi
   }
 
   if (!resposta.ok) {
-    const { detalhe, codigo, motivo } = await lerProblema(resposta)
+    const problema = await lerProblema(resposta)
+    const { detalhe, codigo, motivo, modulo } = problema
     // Com token, ESCOLA_SUSPENSA é a escola suspensa depois do login: a tela inteira sai do ar.
     if (token && codigo === 'ESCOLA_SUSPENSA') {
       window.dispatchEvent(new CustomEvent(EVENTO_ESCOLA_SUSPENSA, { detail: motivo }))
     }
-    throw new ApiError(resposta.status, mensagemPadrao(resposta.status), detalhe, codigo, motivo)
+    // Com token, MODULO_NAO_CONTRATADO é o módulo tirado depois do login.
+    if (token && codigo === 'MODULO_NAO_CONTRATADO') perdeuModulo(modulo)
+    // Erro que a tela explica sempre igual: a mensagem pronta vale também como
+    // detalhe, porque muitas telas mostram `detalhe ?? message`.
+    const pronta = mensagemDoCodigo(problema)
+    const mensagem = pronta ?? mensagemPadrao(resposta.status)
+    throw new ApiError(resposta.status, mensagem, pronta ?? detalhe, codigo, motivo, modulo)
   }
   return resposta
 }
@@ -285,4 +355,14 @@ export function rotaAcessoSuspenso(motivo: string | null | undefined): string {
 /** Motivo da suspensão no erro, quando é ESCOLA_SUSPENSA. */
 export function motivoDaSuspensao(erro: unknown): string | null {
   return erro instanceof ApiError ? erro.motivo : null
+}
+
+/** Login certo de quem depende de um módulo que a escola não contratou (ex.: FINANCEIRO sem a gestão financeira). */
+export function ehModuloNaoContratado(erro: unknown): erro is ApiError & { modulo: ModuloEscola } {
+  return erro instanceof ApiError && erro.codigo === 'MODULO_NAO_CONTRATADO' && erro.modulo !== null
+}
+
+/** A escola está no limite de usuários ativos do plano. */
+export function ehLimiteDeUsuarios(erro: unknown): boolean {
+  return erro instanceof ApiError && erro.codigo === 'LIMITE_USUARIOS_ATINGIDO'
 }

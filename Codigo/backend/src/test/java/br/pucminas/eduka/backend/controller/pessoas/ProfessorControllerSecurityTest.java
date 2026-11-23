@@ -44,6 +44,7 @@ import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.security.PasswordEncoderConfig;
 import br.pucminas.eduka.backend.service.acesso.AcessoService;
 import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
+import br.pucminas.eduka.backend.service.escola.LimiteUsuariosService;
 import br.pucminas.eduka.backend.service.pessoas.ProfessorService;
 
 /**
@@ -77,6 +78,8 @@ class ProfessorControllerSecurityTest {
     private PessoaPapelRepository pessoaPapelRepository;
     @MockitoBean
     private UsuarioRepository usuarioRepository;
+    @MockitoBean
+    private LimiteUsuariosService limiteUsuarios;
 
     private String accessToken(String perfil, UUID escolaId) {
         return jwtService.generateAccessToken(UUID.randomUUID(), perfil, escolaId);

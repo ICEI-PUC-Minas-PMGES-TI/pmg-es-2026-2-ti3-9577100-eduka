@@ -26,6 +26,7 @@ import br.pucminas.eduka.backend.domain.escola.Escola;
 import br.pucminas.eduka.backend.dto.acesso.MasterInicialRequest;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
 import br.pucminas.eduka.backend.exception.acesso.LoginJaCadastradoException;
+import br.pucminas.eduka.backend.repository.acesso.UsuarioRepository;
 import br.pucminas.eduka.backend.repository.escola.EscolaRepository;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
@@ -51,6 +52,8 @@ class EscolaControllerSecurityTest {
     private AuditoriaService auditoriaService;
     @MockitoBean
     private MasterInicialService masterInicialService;
+    @MockitoBean
+    private UsuarioRepository usuarioRepository;
 
     private String accessToken(String perfil) {
         return jwtService.generateAccessToken(UUID.randomUUID(), perfil, ESCOLA_A);

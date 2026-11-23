@@ -10,6 +10,7 @@ import { paths } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
 import { atualizarEscola, buscarEscola } from '../../../../services/escola/escolaService'
 import {
+  MODULOS_EM_BREVE,
   MODULOS_ESCOLA,
   OPCOES_PLANO,
   ROTULOS_MODULO,
@@ -384,21 +385,27 @@ function FormularioEdicao({ escola, onCancelar, onSalva }: FormularioEdicaoProps
             <fieldset className={styles.modulos}>
               <legend className={styles.label}>Módulos habilitados</legend>
               <div className={styles.modulosGrid}>
-                {MODULOS_ESCOLA.map((modulo) => (
-                  <label key={modulo} className={styles.modulo}>
-                    <input
-                      type="checkbox"
-                      name="modulos"
-                      value={modulo}
-                      checked={campos.modulos.includes(modulo)}
-                      onChange={(e) => alternarModulo(modulo, e.target.checked)}
-                    />
-                    <span className={styles.caixa} aria-hidden="true">
-                      <Icon name="check" size={12} strokeWidth={3} />
-                    </span>
-                    {ROTULOS_MODULO[modulo]}
-                  </label>
-                ))}
+                {MODULOS_ESCOLA.map((modulo) => {
+                  // Sem funcionalidade ainda: não se marca nem aparece marcado.
+                  const emBreve = MODULOS_EM_BREVE.includes(modulo)
+                  return (
+                    <label key={modulo} className={`${styles.modulo} ${emBreve ? styles.moduloEmBreve : ''}`}>
+                      <input
+                        type="checkbox"
+                        name="modulos"
+                        value={modulo}
+                        checked={!emBreve && campos.modulos.includes(modulo)}
+                        disabled={emBreve}
+                        onChange={(e) => alternarModulo(modulo, e.target.checked)}
+                      />
+                      <span className={styles.caixa} aria-hidden="true">
+                        <Icon name="check" size={12} strokeWidth={3} />
+                      </span>
+                      {ROTULOS_MODULO[modulo]}
+                      {emBreve && <span className={styles.emBreve}>Em breve</span>}
+                    </label>
+                  )
+                })}
               </div>
             </fieldset>
           </div>

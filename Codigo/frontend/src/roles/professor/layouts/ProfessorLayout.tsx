@@ -5,7 +5,7 @@ import { paths } from '../../../routes/paths'
 const MENU: ItemMenu[] = [
   { label: 'Início', icon: 'home', to: paths.professor.inicio },
   { label: 'Minhas turmas', icon: 'users', to: paths.professor.turmas },
-  { label: 'Chamada', icon: 'calendar', to: paths.professor.chamada },
+  { label: 'Chamada', icon: 'calendar', to: paths.professor.chamada, modulo: 'CONTROLE_FREQUENCIA' },
   { label: 'Avaliações', icon: 'list', to: paths.professor.avaliacoes },
   { label: 'Meu perfil', icon: 'user', to: paths.professor.meuPerfil },
 ]

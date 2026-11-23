@@ -8,7 +8,8 @@ type AulasDaSemanaProps = {
   aulas: AulaDaSemana[]
   /** "AAAA-MM-DD" no fuso da escola. */
   hoje: string
-  onFazerChamada: (aula: AulaDaSemana) => void
+  /** Sem ele (escola sem o controle de frequência), a semana mostra só o horário, sem a chamada. */
+  onFazerChamada?: (aula: AulaDaSemana) => void
 }
 
 /** "2026-11-09" -> "09/11", sem Date para o fuso não mudar o dia. */
@@ -57,12 +58,12 @@ export function AulasDaSemana({ aulas, hoje, onFazerChamada }: AulasDaSemanaProp
                     </span>
                     <strong className={styles.turma}>{aula.turmaNome}</strong>
                     <span className={styles.disciplina}>{aula.disciplinaNome}</span>
-                    {aula.chamadaFeita && (
+                    {onFazerChamada && aula.chamadaFeita && (
                       <span className={styles.feita}>
                         <Icon name="check" size={13} /> Chamada feita
                       </span>
                     )}
-                    {chamadaPendente(aula, hoje) && (
+                    {onFazerChamada && chamadaPendente(aula, hoje) && (
                       <Button
                         size="sm"
                         variant={ehHoje ? 'primary' : 'outline'}

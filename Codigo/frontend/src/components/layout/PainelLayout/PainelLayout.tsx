@@ -2,8 +2,10 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router'
 import iconeEduka from '../../../assets/eduka-icone.svg'
 import { paths } from '../../../routes/paths'
-import { EVENTO_ESCOLA_SUSPENSA, rotaAcessoSuspenso } from '../../../services/api'
+import { EVENTO_ESCOLA_SUSPENSA, EVENTO_MODULO_NAO_CONTRATADO, rotaAcessoSuspenso } from '../../../services/api'
 import { limparSessao, obterUsuarioLogado } from '../../../services/acesso/authService'
+import { MODULO_DO_PERFIL, useModulos } from '../../../services/acesso/modulosSessao'
+import type { ModuloEscola } from '../../../types/escola/escola'
 import { AvisoSuspensao } from '../AvisoSuspensao/AvisoSuspensao'
 import { iniciais } from '../../../utils/formatters'
 import { Button } from '../../ui/Button/Button'
@@ -21,6 +23,8 @@ export type ItemMenu = {
    * marcando o que ainda falta implementar (no celular, some por inteiro).
    */
   to?: string
+  /** Módulo que a escola precisa ter contratado; sem ele, o item some. */
+  modulo?: ModuloEscola
 }
 
 type PainelLayoutProps = {
@@ -64,7 +68,9 @@ export function PainelLayout({
 }: PainelLayoutProps) {
   const navigate = useNavigate()
   const [ajudaAberta, setAjudaAberta] = useState(false)
-  const temMenu = menu.length > 0
+  const temModulo = useModulos()
+  const itens = menu.filter((item) => !item.modulo || temModulo(item.modulo))
+  const temMenu = itens.length > 0
   const ehMaster = obterUsuarioLogado()?.perfil === 'MASTER'
 
   // A escola foi suspensa com a tela aberta: qualquer requisição volta
@@ -76,6 +82,21 @@ export function PainelLayout({
     }
     window.addEventListener(EVENTO_ESCOLA_SUSPENSA, aoSuspender)
     return () => window.removeEventListener(EVENTO_ESCOLA_SUSPENSA, aoSuspender)
+  }, [navigate])
+
+  // O SUPER_ADMIN tirou o módulo do perfil (ex.: a gestão financeira, com o
+  // FINANCEIRO logado): nada mais funciona. Encerra a sessão e explica no
+  // login. Outro módulo só some do menu (useModulos).
+  useEffect(() => {
+    function aoPerderModulo(evento: Event) {
+      const perfil = obterUsuarioLogado()?.perfil
+      const modulo = (evento as CustomEvent<ModuloEscola>).detail
+      if (!perfil || MODULO_DO_PERFIL[perfil] !== modulo) return
+      limparSessao()
+      navigate(`${paths.login}?${new URLSearchParams({ modulo })}`, { replace: true })
+    }
+    window.addEventListener(EVENTO_MODULO_NAO_CONTRATADO, aoPerderModulo)
+    return () => window.removeEventListener(EVENTO_MODULO_NAO_CONTRATADO, aoPerderModulo)
   }, [navigate])
 
   // JWT e stateless: basta descartar o token local. replace impede que o
@@ -133,7 +154,7 @@ export function PainelLayout({
 
       {temMenu && (
         <nav className={styles.nav} aria-label={menuRotulo}>
-          {menu.map((item) =>
+          {itens.map((item) =>
             item.to ? (
               <NavLink
                 key={item.label}

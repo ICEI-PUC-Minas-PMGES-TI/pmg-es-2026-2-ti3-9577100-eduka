@@ -23,6 +23,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
 
+import br.pucminas.eduka.backend.repository.acesso.UsuarioRepository;
 import br.pucminas.eduka.backend.domain.comum.Endereco;
 import br.pucminas.eduka.backend.domain.escola.Escola;
 import br.pucminas.eduka.backend.domain.escola.ModuloEscola;
@@ -43,6 +44,9 @@ class EscolaServiceTest {
 
     @Mock
     private EscolaRepository escolaRepository;
+
+    @Mock
+    private UsuarioRepository usuarioRepository;
     @Mock
     private AuditoriaService auditoriaService;
     @Mock
@@ -55,7 +59,8 @@ class EscolaServiceTest {
 
     @BeforeEach
     void setUp() {
-        escolaService = new EscolaService(escolaRepository, auditoriaService, masterInicialService);
+        escolaService = new EscolaService(escolaRepository, auditoriaService, masterInicialService,
+                usuarioRepository);
     }
 
     private static final Endereco ENDERECO = new Endereco("Rua das Escolas", "100", "Centro", "Belo Horizonte",
@@ -299,7 +304,8 @@ class EscolaServiceTest {
         assertThat(salva.getTelefone()).isEqualTo("3133334444");
         assertThat(salva.getPlano()).isEqualTo(PlanoEscola.AVANCADO);
         assertThat(salva.isAtivo()).isTrue();
-        assertThat(salva.getModulos()).isEmpty();
+        // Escola nova nasce com todos os modulos; o SUPER_ADMIN tira os nao contratados.
+        assertThat(salva.getModulos()).containsExactlyInAnyOrder(ModuloEscola.values());
         assertThat(salva.getInicioVigencia()).isEqualTo(LocalDate.now());
     }
 

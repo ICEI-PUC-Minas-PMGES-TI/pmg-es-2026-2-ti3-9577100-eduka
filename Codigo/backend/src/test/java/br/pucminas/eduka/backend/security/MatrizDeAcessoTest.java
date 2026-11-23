@@ -98,7 +98,12 @@ class MatrizDeAcessoTest {
                 "POST /escolas/{escolaId}/faturas",
                 "GET /escolas/{escolaId}/faturas/pagina",
                 "PATCH /escolas/{escolaId}/faturas/{id}/cancelar",
-                "GET /escolas/{escolaId}/faturas/{id}/comprovante");
+                "GET /escolas/{escolaId}/faturas/{id}/comprovante",
+                // Tela Usuarios (S5-14): os logins de todas as escolas.
+                "GET /usuarios/plataforma",
+                "PATCH /usuarios/plataforma/{id}/inativar",
+                "PATCH /usuarios/plataforma/{id}/ativar",
+                "POST /usuarios/plataforma/{id}/primeiro-acesso");
 
         libera(matriz, GESTAO,
                 "GET /auditoria/pagina",

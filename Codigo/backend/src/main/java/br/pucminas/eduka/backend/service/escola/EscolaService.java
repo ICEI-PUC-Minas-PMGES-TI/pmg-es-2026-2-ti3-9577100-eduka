@@ -18,6 +18,7 @@ import br.pucminas.eduka.backend.dto.escola.EscolaRequest;
 import br.pucminas.eduka.backend.dto.escola.EscolaResponse;
 import br.pucminas.eduka.backend.dto.escola.EscolaUpdateRequest;
 import br.pucminas.eduka.backend.exception.escola.CnpjJaCadastradoException;
+import br.pucminas.eduka.backend.repository.acesso.UsuarioRepository;
 import br.pucminas.eduka.backend.repository.escola.EscolaRepository;
 import br.pucminas.eduka.backend.service.acesso.MasterInicialService;
 import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
@@ -28,12 +29,14 @@ public class EscolaService {
     private final EscolaRepository escolaRepository;
     private final AuditoriaService auditoriaService;
     private final MasterInicialService masterInicialService;
+    private final UsuarioRepository usuarioRepository;
 
     public EscolaService(EscolaRepository escolaRepository, AuditoriaService auditoriaService,
-            MasterInicialService masterInicialService) {
+            MasterInicialService masterInicialService, UsuarioRepository usuarioRepository) {
         this.escolaRepository = escolaRepository;
         this.auditoriaService = auditoriaService;
         this.masterInicialService = masterInicialService;
+        this.usuarioRepository = usuarioRepository;
     }
 
     public List<EscolaResponse> listar() {
@@ -49,7 +52,7 @@ public class EscolaService {
     /** Assinatura da escola (IU24-A): o MASTER consulta a da escola do token. */
     @Transactional(readOnly = true)
     public AssinaturaResponse assinatura(UUID escolaId) {
-        return AssinaturaResponse.de(buscarOuFalhar(escolaId));
+        return AssinaturaResponse.de(buscarOuFalhar(escolaId), usuarioRepository.countByEscolaIdAndAtivoTrue(escolaId));
     }
 
     /**
