@@ -39,7 +39,7 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 
 import br.pucminas.eduka.backend.logging.EscolaLogFilter;
-import br.pucminas.eduka.backend.repository.EscolaRepository;
+import br.pucminas.eduka.backend.repository.escola.EscolaRepository;
 
 @Configuration
 @EnableWebSecurity
@@ -168,6 +168,10 @@ public class JwtConfig {
 							.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 							.requestMatchers("/health", "/login", "/login/codigo", "/login/codigo/reenvio",
 									"/primeiro-acesso").permitAll()
+							// Renovacao da sessao: a credencial e o refresh token no corpo (AuthController).
+							.requestMatchers(HttpMethod.POST, "/login/renovacao").permitAll()
+							// Recuperacao de senha (RecuperacaoSenhaController): quem esqueceu a senha nao tem token.
+							.requestMatchers(HttpMethod.POST, "/senha/recuperacao", "/senha/redefinicao").permitAll()
 							// Avisos do provedor: autenticados pelo token do webhook (WebhookController).
 							.requestMatchers(HttpMethod.POST, "/webhooks/asaas").permitAll()
 							// Acesso de demonstracao (DemoController): conferido pelo login e senha do proprio
@@ -191,6 +195,8 @@ public class JwtConfig {
 				.addFilterAfter(new EscolaLogFilter(), BearerTokenAuthenticationFilter.class)
 				// Escola suspensa depois do login: o token ainda vale, a escola nao (RF24).
 				.addFilterAfter(new EscolaSuspensaFilter(escolaRepository, resolver), EscolaLogFilter.class)
+				// Modulo nao contratado (RotasPorModulo): depois da suspensao, que tem precedencia.
+				.addFilterAfter(new ModuloContratadoFilter(escolaRepository, resolver), EscolaSuspensaFilter.class)
 				.build();
 	}
 }

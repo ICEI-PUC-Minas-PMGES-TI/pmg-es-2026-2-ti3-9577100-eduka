@@ -4,7 +4,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { paths } from '../../../../routes/paths'
 import { problema, simularApi, type RespostaApi } from '../../../../test/api'
-import type { RelatorioFinanceiro } from '../../../../types/relatorioFinanceiro'
+import type { RelatorioFinanceiro } from '../../../../types/financeiro/relatorioFinanceiro'
 import { formatarMoeda, hojeIso } from '../../../../utils/formatters'
 import { datasDoPeriodoRapido } from './periodos'
 import { Relatorios } from './Relatorios'
@@ -78,9 +78,21 @@ function abrir(rota: string = paths.financeiro.relatorios) {
   render(<RouterProvider router={router} />)
 }
 
-function simular(relatorio: RespostaApi = { corpo: RELATORIO }, csv: RespostaApi = { corpo: 'csv' }) {
+const PLANILHA: RespostaApi = {
+  corpo: 'xlsx',
+  cabecalhos: {
+    'Content-Disposition': 'attachment; filename="relatorio-financeiro-colegio-sao-jose-2026-08-01-a-2026-09-30.xlsx"',
+  },
+}
+
+function simular(
+  relatorio: RespostaApi = { corpo: RELATORIO },
+  csv: RespostaApi = { corpo: 'csv' },
+  planilha: RespostaApi = PLANILHA,
+) {
   return simularApi(({ caminho }) => {
     if (caminho.startsWith('/relatorios/financeiro/exportar')) return csv
+    if (caminho.startsWith('/relatorios/financeiro/planilha')) return planilha
     if (caminho.startsWith('/relatorios/financeiro?')) return relatorio
     return undefined
   })
@@ -218,12 +230,12 @@ describe('Relatórios financeiros', () => {
     abrir()
 
     expect(await screen.findByRole('alert')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Exportar CSV' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Exportar' })).toBeDisabled()
 
     simular()
     await usuario.click(screen.getByRole('button', { name: 'Tentar novamente' }))
     await screen.findByRole('region', { name: 'Números do período' })
-    expect(screen.getByRole('button', { name: 'Exportar CSV' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Exportar' })).toBeEnabled()
   })
 })
 
@@ -232,7 +244,8 @@ describe('Exportar em CSV', () => {
     const usuario = userEvent.setup()
     abrir()
     await screen.findByRole('region', { name: 'Números do período' })
-    await usuario.click(screen.getByRole('button', { name: 'Exportar CSV' }))
+    await usuario.click(screen.getByRole('button', { name: 'Exportar' }))
+    await usuario.click(screen.getByRole('menuitem', { name: /^CSV/ }))
     return usuario
   }
 
@@ -291,5 +304,76 @@ describe('Exportar em CSV', () => {
 
     await usuario.click(screen.getByRole('button', { name: 'Vírgula (,)', hidden: true }))
     expect(screen.queryByText('Período inválido')).not.toBeInTheDocument()
+  })
+})
+
+describe('Exportar em planilha', () => {
+  it('o botão Exportar abre o menu com CSV e planilha', async () => {
+    simular()
+    const usuario = userEvent.setup()
+    abrir()
+    await screen.findByRole('region', { name: 'Números do período' })
+
+    const botao = screen.getByRole('button', { name: 'Exportar' })
+    expect(botao).toHaveAttribute('aria-haspopup', 'menu')
+    await usuario.click(botao)
+
+    const menu = screen.getByRole('menu', { name: 'Exportar' })
+    expect(within(menu).getAllByRole('menuitem').map((item) => item.querySelector('strong')?.textContent)).toEqual([
+      'CSV',
+      'Planilha',
+    ])
+    expect(botao).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('baixa direto com o período da tela e o nome que o backend deu, com a escola', async () => {
+    const chamadas = simular()
+    let baixado = ''
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      baixado = this.download
+    })
+    const usuario = userEvent.setup()
+    abrir()
+    await screen.findByRole('region', { name: 'Números do período' })
+
+    await usuario.click(screen.getByRole('button', { name: 'Exportar' }))
+    await usuario.click(screen.getByRole('menuitem', { name: /^Planilha/ }))
+
+    await vi.waitFor(() => expect(baixado).toBe('relatorio-financeiro-colegio-sao-jose-2026-08-01-a-2026-09-30.xlsx'))
+    const bimestre = datasDoPeriodoRapido('BIMESTRE', hojeIso())
+    const enviados = parametros(chamadas, '/relatorios/financeiro/planilha?')
+    expect(enviados.get('de')).toBe(bimestre.de)
+    expect(enviados.get('ate')).toBe(bimestre.ate)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Exportar' })).toBeEnabled()
+  })
+
+  it('pelo teclado: seta para baixo abre, Enter escolhe', async () => {
+    const chamadas = simular()
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const usuario = userEvent.setup()
+    abrir()
+    await screen.findByRole('region', { name: 'Números do período' })
+
+    screen.getByRole('button', { name: 'Exportar' }).focus()
+    await usuario.keyboard('{ArrowDown}{ArrowDown}{Enter}')
+
+    await vi.waitFor(() =>
+      expect(chamadas.some((c) => c.caminho.startsWith('/relatorios/financeiro/planilha?'))).toBe(true),
+    )
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Exportar' })).toHaveFocus()
+  })
+
+  it('mostra o motivo se a planilha não sair', async () => {
+    simular({ corpo: RELATORIO }, { corpo: 'csv' }, problema(400, 'INVALIDO', 'Período inválido'))
+    const usuario = userEvent.setup()
+    abrir()
+    await screen.findByRole('region', { name: 'Números do período' })
+
+    await usuario.click(screen.getByRole('button', { name: 'Exportar' }))
+    await usuario.click(screen.getByRole('menuitem', { name: /^Planilha/ }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Período inválido')
   })
 })

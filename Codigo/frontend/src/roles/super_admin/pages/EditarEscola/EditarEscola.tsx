@@ -1,15 +1,16 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { Button } from '../../../../components/Button/Button'
-import { Campo } from '../../../../components/Campo/Campo'
-import { CampoData } from '../../../../components/CampoData/CampoData'
-import { Icon } from '../../../../components/Icon/Icon'
-import { Select } from '../../../../components/Select/Select'
-import { Switch } from '../../../../components/Switch/Switch'
+import { Button } from '../../../../components/ui/Button/Button'
+import { Campo } from '../../../../components/formulario/Campo/Campo'
+import { CampoData } from '../../../../components/formulario/CampoData/CampoData'
+import { Icon } from '../../../../components/ui/Icon/Icon'
+import { Select } from '../../../../components/formulario/Select/Select'
+import { Switch } from '../../../../components/ui/Switch/Switch'
 import { paths } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
-import { atualizarEscola, buscarEscola } from '../../../../services/escolaService'
+import { atualizarEscola, buscarEscola } from '../../../../services/escola/escolaService'
 import {
+  MODULOS_EM_BREVE,
   MODULOS_ESCOLA,
   OPCOES_PLANO,
   ROTULOS_MODULO,
@@ -17,7 +18,7 @@ import {
   type EscolaUpdateRequest,
   type ModuloEscola,
   type PlanoEscola,
-} from '../../../../types/escola'
+} from '../../../../types/escola/escola'
 import {
   cnpjValido,
   mascararCnpj,
@@ -25,13 +26,13 @@ import {
   mascararTelefone,
   somenteDigitos,
 } from '../../../../utils/formatters'
-import { CamposEndereco } from '../../components/CamposEndereco/CamposEndereco'
+import { CamposEndereco } from '../../components/escolas/CamposEndereco/CamposEndereco'
 import {
   enderecoDosValores,
   validarEndereco,
   valoresDoEndereco,
   type ValoresEndereco,
-} from '../../components/CamposEndereco/endereco'
+} from '../../components/escolas/CamposEndereco/endereco'
 import { SuperAdminLayout } from '../../layouts/SuperAdminLayout'
 import styles from './EditarEscola.module.css'
 
@@ -384,21 +385,27 @@ function FormularioEdicao({ escola, onCancelar, onSalva }: FormularioEdicaoProps
             <fieldset className={styles.modulos}>
               <legend className={styles.label}>Módulos habilitados</legend>
               <div className={styles.modulosGrid}>
-                {MODULOS_ESCOLA.map((modulo) => (
-                  <label key={modulo} className={styles.modulo}>
-                    <input
-                      type="checkbox"
-                      name="modulos"
-                      value={modulo}
-                      checked={campos.modulos.includes(modulo)}
-                      onChange={(e) => alternarModulo(modulo, e.target.checked)}
-                    />
-                    <span className={styles.caixa} aria-hidden="true">
-                      <Icon name="check" size={12} strokeWidth={3} />
-                    </span>
-                    {ROTULOS_MODULO[modulo]}
-                  </label>
-                ))}
+                {MODULOS_ESCOLA.map((modulo) => {
+                  // Sem funcionalidade ainda: não se marca nem aparece marcado.
+                  const emBreve = MODULOS_EM_BREVE.includes(modulo)
+                  return (
+                    <label key={modulo} className={`${styles.modulo} ${emBreve ? styles.moduloEmBreve : ''}`}>
+                      <input
+                        type="checkbox"
+                        name="modulos"
+                        value={modulo}
+                        checked={!emBreve && campos.modulos.includes(modulo)}
+                        disabled={emBreve}
+                        onChange={(e) => alternarModulo(modulo, e.target.checked)}
+                      />
+                      <span className={styles.caixa} aria-hidden="true">
+                        <Icon name="check" size={12} strokeWidth={3} />
+                      </span>
+                      {ROTULOS_MODULO[modulo]}
+                      {emBreve && <span className={styles.emBreve}>Em breve</span>}
+                    </label>
+                  )
+                })}
               </div>
             </fieldset>
           </div>

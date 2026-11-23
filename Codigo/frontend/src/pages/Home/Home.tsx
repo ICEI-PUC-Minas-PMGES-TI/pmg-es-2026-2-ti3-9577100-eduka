@@ -12,7 +12,7 @@ import telaDirecao from '../../assets/homepage/telas/direcao.jpg'
 import telaFinanceiro from '../../assets/homepage/telas/financeiro.jpg'
 import telaProfessor from '../../assets/homepage/telas/professor.jpg'
 import telaSecretaria from '../../assets/homepage/telas/secretaria.jpg'
-import { Icon, type IconName } from '../../components/Icon/Icon'
+import { Icon, type IconName } from '../../components/ui/Icon/Icon'
 import { paths } from '../../routes/paths'
 import styles from './Home.module.css'
 

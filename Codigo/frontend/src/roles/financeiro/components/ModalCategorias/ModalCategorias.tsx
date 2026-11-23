@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import { Button } from '../../../../components/Button/Button'
-import { Modal } from '../../../../components/Modal/Modal'
+import { Button } from '../../../../components/ui/Button/Button'
+import { Modal } from '../../../../components/modal/Modal/Modal'
 import { ApiError } from '../../../../services/api'
-import { criarCategoriaDespesa } from '../../../../services/despesaService'
-import type { CategoriaDespesa } from '../../../../types/despesa'
+import { criarCategoriaDespesa } from '../../../../services/financeiro/despesaService'
+import type { CategoriaDespesa } from '../../../../types/financeiro/despesa'
 import styles from './ModalCategorias.module.css'
 
 // Limite da coluna NOME (V31).

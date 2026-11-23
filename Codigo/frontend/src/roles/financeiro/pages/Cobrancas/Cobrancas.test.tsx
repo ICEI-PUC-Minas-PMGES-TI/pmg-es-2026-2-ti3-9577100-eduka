@@ -3,9 +3,11 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { problema, simularApi, type ChamadaApi, type RespostaApi } from '../../../../test/api'
-import type { PeriodoLetivo } from '../../../../types/academico'
-import type { Cobranca, PaginaCobrancas, StatusCobranca } from '../../../../types/cobranca'
-import type { RiscoAtraso } from '../../../../types/riscoAtraso'
+import { rotuloDoDia } from '../../../../test/calendario'
+import type { PeriodoLetivo } from '../../../../types/academico/academico'
+import type { Cobranca, PaginaCobrancas, StatusCobranca } from '../../../../types/financeiro/cobranca'
+import type { RiscoAtraso } from '../../../../types/financeiro/riscoAtraso'
+import { hojeIso } from '../../../../utils/formatters'
 import { Cobrancas } from './Cobrancas'
 
 function cobranca(n: number, status: StatusCobranca = 'PENDENTE'): Cobranca {
@@ -100,12 +102,6 @@ const PERIODOS_LETIVOS = [periodoLetivo(1, '2026/1'), periodoLetivo(2, '2026/2')
 /** Cobrança com o vencimento e a matrícula (do período letivo de número `periodo`) escolhidos. */
 function cobrancaEm(n: number, dataVencimento: string, periodo: number | null): Cobranca {
   return { ...cobranca(n), dataVencimento, matriculaId: periodo === null ? null : `mat-${periodo}` }
-}
-
-/** Rótulo do dia no calendário, como o DayPicker escreve em pt-BR. */
-function rotuloDoDia(data: Date) {
-  const mes = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(data)
-  return new RegExp(`(?<!\\d)${data.getDate()} de ${mes} de ${data.getFullYear()}`, 'i')
 }
 
 function iso(data: Date) {
@@ -445,6 +441,92 @@ describe('Cobrancas', () => {
     await userEvent.click(within(dialogo).getByRole('button', { name: /cancelar cobrança/i }))
 
     expect(await within(dialogo).findByText(/já foi paga/i)).toBeInTheDocument()
+  })
+
+  it('registra o pagamento manual com valor, dia e forma e lê a lista de novo', async () => {
+    const cobrancas = [cobranca(1, 'EM_ATRASO')]
+    const chamadas = simularApi(({ metodo, caminho }) => {
+      if (caminho.startsWith('/cobrancas/pagina?')) return { corpo: paginaDe(cobrancas, caminho) }
+      if (metodo === 'PATCH' && caminho === '/cobrancas/cob-1/pagar') {
+        cobrancas[0] = { ...cobrancas[0], status: 'PAGA', editavel: false }
+        return { corpo: cobrancas[0] }
+      }
+      return undefined
+    })
+    render(
+      <MemoryRouter>
+        <Cobrancas />
+      </MemoryRouter>,
+    )
+
+    await userEvent.click(await screen.findByRole('button', { name: /Aluno 01/ }))
+    await userEvent.click(screen.getByRole('button', { name: /registrar pagamento/i }))
+    const dialogo = screen.getByRole('dialog')
+    // Já vem com o valor da cobrança e o dia de hoje; a forma a escola escolhe.
+    const valor = within(dialogo).getByRole('textbox', { name: /valor recebido/i })
+    expect(valor).toHaveValue('500,00')
+    await userEvent.clear(valor)
+    await userEvent.type(valor, '480,00')
+    await userEvent.click(within(dialogo).getByRole('combobox', { name: /forma de pagamento/i }))
+    await userEvent.click(screen.getByRole('option', { name: 'Dinheiro' }))
+    await userEvent.click(within(dialogo).getByRole('button', { name: /registrar pagamento/i }))
+
+    expect(await screen.findByText(/pagamento de "mensalidade de outubro" registrado/i)).toBeInTheDocument()
+    expect(chamadas.find((c) => c.metodo === 'PATCH')?.corpo).toEqual({
+      valorPago: 480,
+      dataPagamento: hojeIso(),
+      forma: 'DINHEIRO',
+    })
+    expect(await screen.findByRole('button', { name: /^pagas/i })).toHaveTextContent('1')
+  })
+
+  it('não envia a baixa sem a forma nem com valor zerado', async () => {
+    const chamadas = simularApi(({ caminho }) =>
+      caminho.startsWith('/cobrancas/pagina?') ? { corpo: paginaDe([cobranca(1)], caminho) } : undefined,
+    )
+    render(
+      <MemoryRouter>
+        <Cobrancas />
+      </MemoryRouter>,
+    )
+
+    await userEvent.click(await screen.findByRole('button', { name: /Aluno 01/ }))
+    await userEvent.click(screen.getByRole('button', { name: /registrar pagamento/i }))
+    const dialogo = screen.getByRole('dialog')
+    const valor = within(dialogo).getByRole('textbox', { name: /valor recebido/i })
+    await userEvent.clear(valor)
+    await userEvent.type(valor, '0')
+    await userEvent.click(within(dialogo).getByRole('button', { name: /registrar pagamento/i }))
+
+    expect(within(dialogo).getByText(/informe o valor recebido/i)).toBeInTheDocument()
+    expect(within(dialogo).getByText(/escolha como a escola recebeu/i)).toBeInTheDocument()
+    expect(chamadas.some((c) => c.metodo === 'PATCH')).toBe(false)
+  })
+
+  it('quando o Asaas já recebeu, explica a recusa e lê a lista de novo', async () => {
+    const chamadas = simularApi(({ metodo, caminho }) => {
+      if (caminho.startsWith('/cobrancas/pagina?')) return { corpo: paginaDe([cobranca(1)], caminho) }
+      if (metodo === 'PATCH') return problema(409, 'COBRANCA_JA_PAGA')
+      return undefined
+    })
+    render(
+      <MemoryRouter>
+        <Cobrancas />
+      </MemoryRouter>,
+    )
+
+    await userEvent.click(await screen.findByRole('button', { name: /Aluno 01/ }))
+    await userEvent.click(screen.getByRole('button', { name: /registrar pagamento/i }))
+    const dialogo = screen.getByRole('dialog')
+    await userEvent.click(within(dialogo).getByRole('combobox', { name: /forma de pagamento/i }))
+    await userEvent.click(screen.getByRole('option', { name: 'PIX' }))
+    const leiturasAntes = chamadas.filter((c) => c.caminho.startsWith('/cobrancas/pagina?')).length
+    await userEvent.click(within(dialogo).getByRole('button', { name: /registrar pagamento/i }))
+
+    expect(await within(dialogo).findByText(/asaas já recebeu o pagamento online/i)).toBeInTheDocument()
+    await vi.waitFor(() =>
+      expect(chamadas.filter((c) => c.caminho.startsWith('/cobrancas/pagina?')).length).toBeGreaterThan(leiturasAntes),
+    )
   })
 })
 

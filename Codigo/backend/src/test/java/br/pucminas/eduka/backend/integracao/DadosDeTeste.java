@@ -9,14 +9,15 @@ import java.util.UUID;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 
-import br.pucminas.eduka.backend.domain.EntidadeAuditada;
-import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
-import br.pucminas.eduka.backend.domain.SituacaoDespesa;
-import br.pucminas.eduka.backend.domain.SituacaoProvedor;
-import br.pucminas.eduka.backend.domain.StatusCobranca;
-import br.pucminas.eduka.backend.domain.StatusEventoProvedor;
-import br.pucminas.eduka.backend.domain.StatusMatricula;
-import br.pucminas.eduka.backend.domain.TipoCobranca;
+import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.escola.ModuloEscola;
+import br.pucminas.eduka.backend.domain.financeiro.SituacaoDespesa;
+import br.pucminas.eduka.backend.domain.financeiro.SituacaoProvedor;
+import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
+import br.pucminas.eduka.backend.domain.financeiro.StatusEventoProvedor;
+import br.pucminas.eduka.backend.domain.financeiro.TipoCobranca;
 import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 import br.pucminas.eduka.backend.security.PiiCryptoService;
 
@@ -41,9 +42,14 @@ public class DadosDeTeste {
         this.pii = pii;
     }
 
+    /** Escola ativa com todos os modulos, como nasce a escola cadastrada pela tela. */
     public UUID escola() {
-        return jdbc.queryForObject("INSERT INTO ESCOLA (NOME) VALUES (?) RETURNING ID_ESCOLA", UUID.class,
+        UUID escola = jdbc.queryForObject("INSERT INTO ESCOLA (NOME) VALUES (?) RETURNING ID_ESCOLA", UUID.class,
                 "Escola " + unico());
+        for (ModuloEscola modulo : ModuloEscola.values()) {
+            jdbc.update("INSERT INTO ESCOLA_MODULO (ESCOLA_ID, MODULO) VALUES (?, ?)", escola, modulo.name());
+        }
+        return escola;
     }
 
     public UUID aluno(UUID escolaId) {

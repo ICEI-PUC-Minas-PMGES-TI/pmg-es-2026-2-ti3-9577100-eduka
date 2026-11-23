@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { problema, simularApi } from '../../test/api'
-import type { GrupoDemo } from '../../services/demoService'
+import type { GrupoDemo } from '../../services/acesso/demoService'
 import { AcessoSuspenso } from '../AcessoSuspenso/AcessoSuspenso'
 import { LoginDemo } from './LoginDemo'
 

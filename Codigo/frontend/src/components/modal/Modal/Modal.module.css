@@ -1,0 +1,150 @@
+.dialog {
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  /* Quem rola é só o corpo; o diálogo em si nunca. */
+  overflow: hidden;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg-opaque);
+  color: var(--color-text);
+  box-shadow: var(--glass-shadow-opaque);
+}
+
+.pequeno {
+  width: min(480px, calc(100% - 32px));
+}
+
+.medio {
+  width: min(620px, calc(100% - 32px));
+}
+
+.grande {
+  width: min(720px, calc(100% - 32px));
+}
+
+.dialog[open] {
+  animation: var(--animacao-surgir);
+}
+
+.dialog::backdrop {
+  background: rgba(34, 26, 51, 0.28);
+  backdrop-filter: blur(6px);
+  /* Keyframes locais: o ::backdrop não herda as variáveis do :root em todos os navegadores. */
+  animation: escurecer 0.2s ease backwards;
+}
+
+@keyframes escurecer {
+  from {
+    opacity: 0;
+  }
+}
+
+/* 2px a menos que o diálogo: sobra a borda de 1px em cima e embaixo. */
+.conteudo {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 34px);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 26px 28px 14px;
+}
+
+.cabecalho {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.titulo {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  overflow-wrap: anywhere;
+}
+
+.subtitulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.fechar {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  color: var(--color-text);
+}
+
+.fechar:hover:not(:disabled) {
+  border-color: var(--color-mauve);
+  color: var(--color-primary-text);
+}
+
+.fechar:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 4px 28px 22px;
+  overflow-y: auto;
+}
+
+.aviso {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.alerta {
+  padding: 14px 20px;
+  border-radius: var(--radius-lg);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-size: 14px;
+  animation: var(--animacao-surgir);
+}
+
+.rodape {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 18px 28px 24px;
+  border-top: 1px solid rgba(212, 187, 252, 0.45);
+}
+
+@media (max-width: 520px) {
+  /* Nome longo (de aluno, de escola) no título não toma o modal inteiro. */
+  .titulo {
+    font-size: 21px;
+    letter-spacing: -0.3px;
+  }
+
+  .rodape {
+    flex-direction: column-reverse;
+  }
+
+  .rodape > button {
+    width: 100%;
+  }
+}

@@ -6,9 +6,9 @@ import { esquecerAceitePrivacidade } from '../../routes/aceitePrivacidade'
 import { paths } from '../../routes/paths'
 import { RotaProtegida } from '../../routes/RotaProtegida'
 import { ACCESS_TOKEN_KEY } from '../../services/api'
-import { USUARIO_KEY } from '../../services/authService'
+import { USUARIO_KEY } from '../../services/acesso/authService'
 import { problema, simularApi, type ChamadaApi, type RespostaApi } from '../../test/api'
-import type { AvisoPrivacidade as Aviso } from '../../types/privacidade'
+import type { AvisoPrivacidade as Aviso } from '../../types/privacidade/privacidade'
 import { AvisoPrivacidade } from './AvisoPrivacidade'
 
 function aviso(versao: string, aceitoEm: string | null = null): Aviso {

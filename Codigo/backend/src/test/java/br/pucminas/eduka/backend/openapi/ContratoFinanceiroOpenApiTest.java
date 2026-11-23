@@ -134,6 +134,15 @@ class ContratoFinanceiroOpenApiTest extends BancoRealTest {
     }
 
     @Test
+    void planilhaDoRelatorioEUmXlsx() {
+        Map<String, Map<String, Object>> respostas = respostas("get", "/relatorios/financeiro/planilha");
+
+        assertThat(String.valueOf(respostas.get("200").get("content")))
+                .contains("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        assertThat(respostas).containsKeys("400", "401", "403");
+    }
+
+    @Test
     void cancelarCobrancaListaOsConflitos() {
         String cancelar = "/cobrancas/{id}/cancelar";
 

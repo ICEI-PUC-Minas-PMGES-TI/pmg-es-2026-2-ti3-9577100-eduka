@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { Button } from '../../../../components/Button/Button'
-import { Icon } from '../../../../components/Icon/Icon'
-import { Select } from '../../../../components/Select/Select'
+import { Button } from '../../../../components/ui/Button/Button'
+import { Icon } from '../../../../components/ui/Icon/Icon'
+import { CampoData } from '../../../../components/formulario/CampoData/CampoData'
+import { Select } from '../../../../components/formulario/Select/Select'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { useRotasFinanceiras } from '../../../../routes/areas'
 import { type EstadoCobrancaCriada } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
-import { criarCobranca } from '../../../../services/cobrancaService'
-import { listarAlunos, listarMatriculas } from '../../../../services/matriculaService'
-import type { AlunoResumo } from '../../../../types/aluno'
-import { ROTULOS_TIPO_COBRANCA, type TipoCobranca } from '../../../../types/cobranca'
-import type { Matricula } from '../../../../types/matricula'
+import { criarCobranca } from '../../../../services/financeiro/cobrancaService'
+import { listarAlunos, listarMatriculas } from '../../../../services/academico/matriculaService'
+import type { AlunoResumo } from '../../../../types/pessoas/aluno'
+import { ROTULOS_TIPO_COBRANCA, type TipoCobranca } from '../../../../types/financeiro/cobranca'
+import type { Matricula } from '../../../../types/academico/matricula'
 import { hojeIso } from '../../../../utils/formatters'
 import { FinanceiroLayout } from '../../layouts/FinanceiroLayout'
 import styles from './NovaCobranca.module.css'
@@ -395,13 +396,12 @@ export function NovaCobranca() {
             <label htmlFor={IDS.vencimento} className={styles.secaoTitulo}>
               Vencimento
             </label>
-            <input
+            <CampoData
               id={IDS.vencimento}
-              type="date"
               className={styles.inputPadrao}
-              value={dataVencimento}
-              onChange={(e) => {
-                setDataVencimento(e.target.value)
+              valor={dataVencimento}
+              onChange={(data) => {
+                setDataVencimento(data)
                 corrigiu('vencimento')
               }}
               required

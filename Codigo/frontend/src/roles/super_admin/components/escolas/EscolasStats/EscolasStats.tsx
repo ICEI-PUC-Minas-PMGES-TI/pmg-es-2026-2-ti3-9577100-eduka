@@ -1,0 +1,25 @@
+import { StatCard, StatCards } from '../../../../../components/ui/StatCard/StatCard'
+import type { Escola } from '../../../../../types/escola/escola'
+
+type EscolasStatsProps = {
+  escolas: Escola[]
+}
+
+export function EscolasStats({ escolas }: EscolasStatsProps) {
+  const total = escolas.length
+  const ativas = escolas.filter((e) => e.ativo).length
+  const suspensas = total - ativas
+
+  return (
+    <StatCards rotulo="Resumo das escolas">
+      <StatCard label="Total de escolas" value={total} descricao="Cadastradas na plataforma" destaque />
+      <StatCard label="Escolas ativas" value={ativas} descricao="Funcionando normalmente" />
+      <StatCard
+        label="Assinaturas suspensas"
+        value={suspensas}
+        descricao={suspensas > 0 ? 'Pedem atenção' : 'Nenhuma no momento'}
+        alerta={suspensas > 0}
+      />
+    </StatCards>
+  )
+}

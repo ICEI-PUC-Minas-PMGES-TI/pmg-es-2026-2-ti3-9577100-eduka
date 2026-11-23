@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
-import br.pucminas.eduka.backend.domain.Turno;
+import br.pucminas.eduka.backend.domain.academico.Turno;
 
 /** A grade da escola de demonstracao: tudo encaixado, sem choque de turma nem de professor. */
 class GradeMockTest {

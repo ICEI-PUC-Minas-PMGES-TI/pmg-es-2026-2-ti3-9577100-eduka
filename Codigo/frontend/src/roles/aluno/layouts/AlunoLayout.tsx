@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react'
-import { PainelLayout, type ItemMenu } from '../../../components/PainelLayout/PainelLayout'
+import { PainelLayout, type ItemMenu } from '../../../components/layout/PainelLayout/PainelLayout'
 import { paths } from '../../../routes/paths'
 
 const MENU: ItemMenu[] = [
   { label: 'Início', icon: 'home', to: paths.aluno.inicio },
   { label: 'Boletim', icon: 'book', to: paths.aluno.boletim },
-  { label: 'Pagamentos', icon: 'card', to: paths.aluno.pagamentos },
+  { label: 'Pagamentos', icon: 'card', to: paths.aluno.pagamentos, modulo: 'GESTAO_FINANCEIRA' },
   { label: 'Meus dados', icon: 'user', to: paths.aluno.meusDados },
 ]
 

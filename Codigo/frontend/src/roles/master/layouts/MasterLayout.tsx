@@ -1,18 +1,19 @@
 import type { ReactNode } from 'react'
-import { PainelLayout, type ItemMenu } from '../../../components/PainelLayout/PainelLayout'
+import { PainelLayout, type ItemMenu } from '../../../components/layout/PainelLayout/PainelLayout'
 import { paths } from '../../../routes/paths'
 
 // Menu da gestão (IU05 e IU23). Alunos, matrículas, cobranças e despesas são
 // as telas da secretaria e do financeiro, abertas dentro da área do MASTER.
+// Sem a gestão financeira contratada, o que é dela some do menu.
 const MENU: ItemMenu[] = [
   { label: 'Início', icon: 'home', to: paths.master.inicio },
   { label: 'Alunos e turmas', icon: 'graduationCap', to: paths.master.alunos },
-  { label: 'Cobranças', icon: 'card', to: paths.master.cobrancas },
-  { label: 'Despesas', icon: 'dollarSign', to: paths.master.despesas },
-  { label: 'Relatórios', icon: 'barChart', to: paths.master.relatorios },
+  { label: 'Cobranças', icon: 'card', to: paths.master.cobrancas, modulo: 'GESTAO_FINANCEIRA' },
+  { label: 'Despesas', icon: 'dollarSign', to: paths.master.despesas, modulo: 'GESTAO_FINANCEIRA' },
+  { label: 'Relatórios', icon: 'barChart', to: paths.master.relatorios, modulo: 'GESTAO_FINANCEIRA' },
   { label: 'Equipe', icon: 'users', to: paths.master.equipe },
   { label: 'Atividades', icon: 'list', to: paths.master.atividades },
-  { label: 'Recebimentos', icon: 'settings', to: paths.master.recebimentos },
+  { label: 'Recebimentos', icon: 'settings', to: paths.master.recebimentos, modulo: 'GESTAO_FINANCEIRA' },
 ]
 
 type MasterLayoutProps = {

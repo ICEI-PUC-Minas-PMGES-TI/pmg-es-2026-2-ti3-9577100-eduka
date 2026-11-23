@@ -235,7 +235,7 @@ todas.
 | `PUT` | `/escolas/{id}` | `SUPER_ADMIN` |
 | `PATCH` | `/escolas/{id}/ativar` · `/suspender` | `SUPER_ADMIN` |
 | `GET` · `POST` | `/escolas/{id}/faturas` (faturas da plataforma da escola; competência única por escola) | `SUPER_ADMIN` |
-| `GET` | `/escolas/{id}/faturas/pagina?status&pagina&tamanho&ordenarPor&direcao` (`ordenarPor`: `COMPETENCIA`, padrão decrescente, `VENCIMENTO` ou `VALOR`) | `SUPER_ADMIN` |
+| `GET` | `/escolas/{id}/faturas/pagina?status&pagina&tamanho&ordenarPor&direcao` (`status`: uma ou mais situações separadas por vírgula, ex.: `PENDENTE,EM_ATRASO` para as em aberto, inclusive a vencida que a rotina diária ainda não marcou; `ordenarPor`: `COMPETENCIA`, padrão decrescente, `VENCIMENTO` ou `VALOR`) | `SUPER_ADMIN` |
 | `PATCH` | `/escolas/{id}/faturas/{faturaId}/cancelar` | `SUPER_ADMIN` |
 | `GET` | `/escolas/{id}/faturas/{faturaId}/comprovante` | `SUPER_ADMIN` |
 | `GET` | `/config-pagamento/faturas` (só as da escola do token) · `/config-pagamento/faturas/pagina` (mesmos parâmetros da do `SUPER_ADMIN`) · `/config-pagamento/faturas/{id}` (uma fatura, com a situação do pagamento: a tela de pagamento consulta só ela enquanto espera o PIX ou o boleto; 404 se é de outra escola) | `MASTER` |
@@ -290,7 +290,7 @@ todas.
 | `PUT` | `/turmas/{turmaId}/horario/{horarioId}` (muda dia e horas; mesmas regras e 409) | `MASTER`, `SECRETARIA` |
 | `DELETE` | `/turmas/{turmaId}/horario/{horarioId}` | `MASTER`, `SECRETARIA` |
 | `GET` | `/matriculas?turmaId` · `/matriculas/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
-| `GET` | `/matriculas/pagina?turmaId&alunoId&status&pagina&tamanho&ordenarPor&direcao` (`ordenarPor`: `ALUNO`, pelo nome, ou `DATA_MATRICULA`) | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
+| `GET` | `/matriculas/pagina?turmaId&alunoId&status&pagina&tamanho&ordenarPor&direcao` (`ordenarPor`: `ALUNO`, pelo nome, ou `DATA_MATRICULA`; o `resumo` conta a turma ou o aluno sem o filtro de `status`: `total`, `porSituacao` e, só na consulta por turma, `paraMatricular`, os alunos nem anonimizados nem inativos ainda sem registro nela) | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
 | `POST` | `/matriculas` (409 se a turma está sem vagas ou o aluno já está nela) | `MASTER`, `SECRETARIA` |
 | `PATCH` | `/matriculas/{id}` (trancar, reativar, transferir, concluir, cancelar ou editar a observação) | `MASTER`, `SECRETARIA` |
 
@@ -303,6 +303,7 @@ todas.
 | `POST` | `/cobrancas` (aluno, descrição, valor e vencimento; `tipo` opcional, `OUTRO` por padrão; matrícula e responsável opcionais, mas têm de ser do aluno; sem matrícula, vale a única `ATIVA` do aluno, se houver só uma) | `MASTER`, `FINANCEIRO` |
 | `PUT` | `/cobrancas/{id}` (400 se a cobrança já foi paga ou cancelada; 409 `COBRANCA_NAO_EDITAVEL` depois que alguém clicou em Pagar, porque a cobrança já está no Asaas: aí só cancelando e lançando outra; a situação acompanha o novo vencimento) | `MASTER`, `FINANCEIRO` |
 | `PATCH` | `/cobrancas/{id}/cancelar` (a cobrança fica no histórico como `CANCELADA`; se já foi emitida, é removida antes no Asaas, fora de transação; 409 `COBRANCA_JA_PAGA` se já foi paga, aqui ou no Asaas, e nesse caso o pagamento achado fica registrado; 409 `PAGAMENTO_EM_PROCESSAMENTO` enquanto o pagamento está sendo gerado) | `MASTER`, `FINANCEIRO` |
+| `PATCH` | `/cobrancas/{id}/pagar` (baixa manual, UC12: o pagamento recebido fora do Edúka, com `valorPago`, que pode diferir do valor da cobrança, `dataPagamento`, até hoje no fuso da escola, e `forma`: `DINHEIRO`, `PIX`, `TRANSFERENCIA`, `CARTAO` ou `BOLETO`. Os três ficam na própria `COBRANCA` (V49), e não em `PAGAMENTO_COBRANCA`, que é só do provedor. O dia vira o `PAGA_EM`, por onde o painel e os relatórios contam o recebido: hoje, o momento da baixa; dia passado, a meia-noite dele. Se o aluno já gerou PIX ou boleto, a cobrança é removida antes no Asaas; 400 se já foi paga ou cancelada ou se o dia é futuro; 409 `COBRANCA_JA_PAGA` se o Asaas já recebeu; 409 `PAGAMENTO_EM_PROCESSAMENTO`) | `MASTER`, `FINANCEIRO` |
 | `GET` | `/cobrancas/{id}/comprovante` (comprovante do pagamento online montado pelo Edúka: a escola como beneficiária, o pagador com CPF mascarado, valor, data, forma e código da transação; 404 `COMPROVANTE_INDISPONIVEL` enquanto não há pagamento online registrado, inclusive na baixa manual) | `MASTER`, `FINANCEIRO` |
 | `GET` | `/despesas?situacao&categoriaId&vencimentoDe&vencimentoAte` · `/despesas/{id}` (ordenado pelo vencimento) | `MASTER`, `FINANCEIRO` |
 | `GET` | `/despesas/pagina?situacao&categoriaId&vencimentoDe&vencimentoAte&pagina&tamanho&ordenarPor&direcao` (`situacao` aceita mais de uma: `situacao=A_PAGAR&situacao=PAGA` deixa as canceladas de fora; `ordenarPor`: `VENCIMENTO`, `VALOR` ou `DESCRICAO`; `resumo`: quantidade e soma de cada situação com o período e a categoria, sem o filtro de situação) | `MASTER`, `FINANCEIRO` |
@@ -327,12 +328,14 @@ Estorno e contestação feitos no Asaas ficam registrados na auditoria, sem muda
 estorno também desconta o valor devolvido do recebido (ver Auditoria, abaixo).
 
 Duas rotinas cobrem o que o webhook não resolveu. Rodam sem usuário e chamam o Asaas fora de
-transação, pelo `PaymentRoutingService`. Uma falha num item não para os outros.
+transação, pelo `PaymentRoutingService`. Uma falha num item não para os outros. Uma falha geral (o banco
+fora do ar, por exemplo) sobe para o agendador do Spring, que a registra no log, e a execução seguinte
+tenta de novo. A primeira execução espera um intervalo depois da subida.
 
 | Rotina | Intervalo | O que faz |
 |---|---|---|
 | `EventoProvedorRotina` (`app.pagamento.eventos.*`) | 5 min | Reaplica os avisos de `EVENTO_PROVEDOR` em `RECEBIDO`, `PROCESSANDO` ou `ERRO` recebidos há mais de 1 min (para não disputar com o webhook), os mais antigos primeiro, até 50 por vez. O aviso é aplicado pelo mesmo caminho do webhook, com a trava do registro, então nunca vale duas vezes. Cada tentativa soma em `TENTATIVAS`; com 10, o aviso fica em `ERRO` para análise manual. |
-| `ReconciliacaoRotina` (`app.pagamento.reconciliacao.*`) | 10 min | Procura no Asaas, pela referência, as cobranças (`EDK-B-<id>`, na conta da escola) e faturas (`EDK-A-<id>`, na conta-pai) que estão em `EMITINDO` há mais de 5 min, porque a resposta da criação e o aviso `PAYMENT_CREATED` se perderam. Até 50 de cada por vez. |
+| `ReconciliacaoRotina` (`app.pagamento.reconciliacao.*`) | 1 min | Procura no Asaas, pela referência, as cobranças (`EDK-B-<id>`, na conta da escola) e faturas (`EDK-A-<id>`, na conta-pai) que estão em `EMITINDO` há mais de 5 min, porque a resposta da criação e o aviso `PAYMENT_CREATED` se perderam. Até 50 de cada por vez. |
 
 A reconciliação grava o mesmo resultado que o aviso gravaria:
 
@@ -420,7 +423,7 @@ sem isso, esses avisos não chegam.
 | `DELETE` | `/portal/professor/aulas/{id}` (exclui a aula e a chamada dela, para desfazer data errada ou registro em duplicidade; 204, ou 404 se for de outro professor ou outra escola) | `PROFESSOR` |
 | `GET` | `/portal/aluno/me` (dados do próprio aluno, pelo token) | `ALUNO` |
 | `GET` | `/portal/aluno/turmas` (turmas do aluno, com a grade e os professores) | `ALUNO` |
-| `GET` | `/portal/aluno/boletim` (notas por turma e disciplina, com os totais de pontos e a frequência: aulas, faltas, presença e alerta acima de 25% de faltas; nula em disciplina sem aula) | `ALUNO` |
+| `GET` | `/portal/aluno/boletim` (notas por turma e disciplina, com os totais de pontos e a frequência: aulas, faltas, presença e alerta acima de 25% de faltas; nula em disciplina sem aula. Tudo vem também por bimestre, calculado pelas datas do período letivo: o período anual tem quatro; o semestral, dois, e o que começa a partir de julho fica com o 3º e o 4º. A tela junta as turmas do mesmo ano num boletim só) | `ALUNO` |
 | `GET` | `/portal/aluno/avaliacoes` (agenda de provas, trabalhos e tarefas das turmas ativas) | `ALUNO` |
 | `GET` | `/portal/aluno/cobrancas/{id}` (uma cobrança do próprio aluno com `situacaoPagamento`, forma, `pagamento` (valor, data e forma, quando já pago online) e `acoes`: `PAGAR` em aberto, `VER_COMPROVANTE` quando paga com pagamento registrado; 404 se for de outro aluno) | `ALUNO` |
 | `GET` | `/portal/aluno/cobrancas/{id}/comprovante` (o mesmo comprovante da gestão, sem nenhuma URL do Asaas; 404 `COMPROVANTE_INDISPONIVEL` antes da confirmação; 404 se for de outro aluno) | `ALUNO` |
@@ -430,6 +433,7 @@ sem isso, esses avisos não chegam.
 | `GET` | `/dashboard/financeiro` (recebido no mês, falta receber, alunos em atraso e inadimplência, despesas a pagar, entradas e saídas dos 6 últimos meses, cobranças que vencem na semana, últimos pagamentos e últimas ações do `LOG_AUDITORIA`; serve o Início do financeiro e o do `MASTER`) | `MASTER`, `FINANCEIRO` |
 | `GET` | `/relatorios/financeiro?de&ate` (relatório do período, no máximo 24 meses. Pelo dia em que o dinheiro se moveu: recebido sem os estornos do período, estornado, despesas pagas, saldo, formas de pagamento e receitas e despesas por mês. Pelo vencimento, sem as canceladas: despesas lançadas, inadimplência e resumo por curso, tipo e mês) | `MASTER`, `FINANCEIRO` |
 | `GET` | `/relatorios/financeiro/exportar?de&ate&conjuntos&separador` (CSV com uma seção para cada conjunto em `conjuntos`: `COBRANCAS`, `PAGAMENTOS`, com os estornos em valor negativo, e `DESPESAS`; `separador` `PONTO_E_VIRGULA`, o padrão, ou `VIRGULA`; o nome do arquivo traz o período) | `MASTER`, `FINANCEIRO` |
+| `GET` | `/relatorios/financeiro/planilha?de&ate` (planilha `.xlsx` editável com a identidade da escola: nome, documento e contato no topo de cada aba e o nome dela no arquivo; aba `Resumo` com os números da tela e abas `Cobranças`, `Pagamentos` e `Despesas` com as mesmas linhas do CSV, como tabelas do Excel com filtro, listas suspensas e totais por fórmula) | `MASTER`, `FINANCEIRO` |
 
 Qualquer rota não listada como pública exige `Authorization: Bearer <access token>` e responde
 `401` sem ele. Perfil sem permissão recebe `403`.
@@ -661,7 +665,8 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | Isolamento entre escolas | `IsolamentoEscola` nos services e `@TenantId` no Hibernate; escola vem do token |
 | Confidencialidade de senha | BCrypt custo 12; a coluna `senha_hash` nunca recebe texto puro |
 | Confidencialidade de dados pessoais | `PESSOA` cifrada com AES-256-GCM pela aplicação; o banco nunca vê a chave |
-| Auditoria (RNF05) | Operações financeiras gravam autor, operação, entidade, registro e data/hora em `LOG_AUDITORIA`, na mesma transação; o que vem do Asaas entra sem autor, com origem `PROVEDOR` |
+| Auditoria (RNF05, RF22, RNF17) | Toda escrita da escola grava autor, operação, entidade, registro e data/hora em `LOG_AUDITORIA`, na mesma transação: financeiro, cadastros (alunos, professores, equipe, responsáveis), matrículas, avaliações e notas, estrutura acadêmica (período, curso, disciplina, turma), alocações e horário, aulas e correções da chamada (uma linha por aluno corrigido), categorias de despesa e pedidos de correção. O id numérico de período, curso, disciplina e turma vai no `REGISTRO_ID` como UUID (`AuditoriaService.idNumerico`). O que vem do Asaas entra sem autor, com origem `PROVEDOR` |
+| Retenção de dados pessoais (RNF05, LGPD) | Aluno inativo há 5 anos (`app.lgpd.retencao.anos`) é anonimizado pela rotina diária, com as mesmas travas da anonimização manual e com origem `SISTEMA` no `LOG_AUDITORIA`; ver [política de retenção](politica-de-retencao-lgpd.md) |
 | Não vazamento de informação | Login inexistente, senha errada e usuário inativo devolvem a mesma mensagem |
 | Portabilidade de ambiente | Todo o stack sobe por Docker Compose, em dev e em prod |
 

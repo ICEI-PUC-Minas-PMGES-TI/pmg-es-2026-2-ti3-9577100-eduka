@@ -13,15 +13,15 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
-import br.pucminas.eduka.backend.domain.StatusCobranca;
-import br.pucminas.eduka.backend.domain.StatusMatricula;
-import br.pucminas.eduka.backend.dto.AlunoRequest;
-import br.pucminas.eduka.backend.dto.AlunoResponse;
-import br.pucminas.eduka.backend.dto.ResponsavelRequest;
-import br.pucminas.eduka.backend.exception.RegistroEmUsoException;
-import br.pucminas.eduka.backend.service.AlunoService;
-import br.pucminas.eduka.backend.service.DadosPessoaisAlunoService;
+import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
+import br.pucminas.eduka.backend.dto.pessoas.AlunoRequest;
+import br.pucminas.eduka.backend.dto.pessoas.AlunoResponse;
+import br.pucminas.eduka.backend.dto.pessoas.ResponsavelRequest;
+import br.pucminas.eduka.backend.exception.comum.RegistroEmUsoException;
+import br.pucminas.eduka.backend.service.pessoas.AlunoService;
+import br.pucminas.eduka.backend.service.privacidade.DadosPessoaisAlunoService;
 
 /**
  * LGPD no Postgres: o PDF sai e entra no log; a anonimizacao apaga o dado

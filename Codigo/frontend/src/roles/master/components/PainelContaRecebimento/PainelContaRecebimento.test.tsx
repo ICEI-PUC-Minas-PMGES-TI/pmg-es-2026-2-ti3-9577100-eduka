@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import type { ContaRecebimento, StatusContaRecebimento } from '../../../../types/contaRecebimento'
+import type { ContaRecebimento, StatusContaRecebimento } from '../../../../types/financeiro/contaRecebimento'
 import { PainelContaRecebimento } from './PainelContaRecebimento'
 
 function conta(status: StatusContaRecebimento): ContaRecebimento {

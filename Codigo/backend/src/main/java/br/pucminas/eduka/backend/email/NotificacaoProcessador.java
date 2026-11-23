@@ -11,9 +11,9 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClientResponseException;
 
-import br.pucminas.eduka.backend.domain.Notificacao;
-import br.pucminas.eduka.backend.domain.StatusNotificacao;
-import br.pucminas.eduka.backend.repository.NotificacaoRepository;
+import br.pucminas.eduka.backend.domain.notificacao.Notificacao;
+import br.pucminas.eduka.backend.domain.notificacao.StatusNotificacao;
+import br.pucminas.eduka.backend.repository.notificacao.NotificacaoRepository;
 
 /**
  * Faz uma tentativa de envio de uma notificacao: trava a linha, envia pelo

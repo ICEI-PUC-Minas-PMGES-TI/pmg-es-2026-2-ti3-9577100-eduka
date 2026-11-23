@@ -20,10 +20,10 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import br.pucminas.eduka.backend.domain.PerfilUsuario;
-import br.pucminas.eduka.backend.dto.LoginResponse;
+import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
+import br.pucminas.eduka.backend.dto.acesso.LoginResponse;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
-import br.pucminas.eduka.backend.exception.CredenciaisInvalidasException;
+import br.pucminas.eduka.backend.exception.acesso.CredenciaisInvalidasException;
 import br.pucminas.eduka.backend.security.JwtConfig;
 
 /** Rotas publicas no perfil demo, conferidas pelo proprio acesso; fora dele nao existem. */
@@ -62,7 +62,7 @@ class DemoControllerSecurityTest {
         @Test
         void entraSemToken() throws Exception {
             when(demoAcessoService.entrar(any(), any(), any())).thenReturn(
-                    LoginResponse.autenticado("access", "refresh", UUID.randomUUID(), PerfilUsuario.MASTER));
+                    LoginResponse.autenticado("access", "refresh", UUID.randomUUID(), PerfilUsuario.MASTER, null));
 
             mockMvc.perform(post("/demo/entrar").contentType(MediaType.APPLICATION_JSON).content(ENTRAR))
                     .andExpect(status().isOk())

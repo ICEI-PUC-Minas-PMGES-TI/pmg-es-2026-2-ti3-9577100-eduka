@@ -24,7 +24,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import br.pucminas.eduka.backend.controller.HealthController;
-import br.pucminas.eduka.backend.domain.PerfilUsuario;
+import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
 
 /**

@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { generatePath, useLocation, useNavigate } from 'react-router'
-import { Button } from '../../../../components/Button/Button'
-import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/ConfirmarExclusao'
+import { Button } from '../../../../components/ui/Button/Button'
+import { ConfirmarExclusao } from '../../../../components/modal/ConfirmarExclusao/ConfirmarExclusao'
 import { paths } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
-import type { Escola } from '../../../../types/escola'
-import { CadastroEscolaModal } from '../../components/CadastroEscolaModal/CadastroEscolaModal'
-import { DetalhesEscolaModal } from '../../components/DetalhesEscolaModal/DetalhesEscolaModal'
-import { EscolasStats } from '../../components/EscolasStats/EscolasStats'
-import { EscolasTable } from '../../components/EscolasTable/EscolasTable'
+import type { Escola } from '../../../../types/escola/escola'
+import { CadastroEscolaModal } from '../../components/escolas/CadastroEscolaModal/CadastroEscolaModal'
+import { DetalhesEscolaModal } from '../../components/escolas/DetalhesEscolaModal/DetalhesEscolaModal'
+import { EscolasStats } from '../../components/escolas/EscolasStats/EscolasStats'
+import { EscolasTable } from '../../components/escolas/EscolasTable/EscolasTable'
 import { useEscolas } from '../../hooks/useEscolas'
 import { SuperAdminLayout } from '../../layouts/SuperAdminLayout'
 import type { EstadoPainelEscolas } from '../EditarEscola/EditarEscola'
@@ -69,7 +69,7 @@ export function PainelEscolas() {
 
   function handleCadastrada(escola: Escola) {
     setCadastroAberto(false)
-    setSucesso(`"${escola.nome}" foi cadastrada com sucesso.`)
+    setSucesso(`"${escola.nome}" foi cadastrada. O gestor recebeu o e-mail de primeiro acesso.`)
   }
 
   return (

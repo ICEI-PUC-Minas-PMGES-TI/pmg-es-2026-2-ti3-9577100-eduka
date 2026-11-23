@@ -13,18 +13,18 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 
-import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
-import br.pucminas.eduka.backend.domain.SituacaoDespesa;
-import br.pucminas.eduka.backend.dto.AtualizarDespesaRequest;
-import br.pucminas.eduka.backend.dto.CategoriaDespesaRequest;
-import br.pucminas.eduka.backend.dto.CategoriaDespesaResponse;
-import br.pucminas.eduka.backend.dto.DespesaRequest;
-import br.pucminas.eduka.backend.dto.DespesaResponse;
-import br.pucminas.eduka.backend.dto.MudarSituacaoDespesaRequest;
-import br.pucminas.eduka.backend.exception.CategoriaDespesaJaExisteException;
-import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
-import br.pucminas.eduka.backend.service.CategoriaDespesaService;
-import br.pucminas.eduka.backend.service.DespesaService;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.financeiro.SituacaoDespesa;
+import br.pucminas.eduka.backend.dto.financeiro.AtualizarDespesaRequest;
+import br.pucminas.eduka.backend.dto.financeiro.CategoriaDespesaRequest;
+import br.pucminas.eduka.backend.dto.financeiro.CategoriaDespesaResponse;
+import br.pucminas.eduka.backend.dto.financeiro.DespesaRequest;
+import br.pucminas.eduka.backend.dto.financeiro.DespesaResponse;
+import br.pucminas.eduka.backend.dto.financeiro.MudarSituacaoDespesaRequest;
+import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.exception.financeiro.CategoriaDespesaJaExisteException;
+import br.pucminas.eduka.backend.service.financeiro.CategoriaDespesaService;
+import br.pucminas.eduka.backend.service.financeiro.DespesaService;
 
 /**
  * Despesas e categorias no banco: o ciclo A_PAGAR, PAGA e CANCELADA com a
@@ -76,7 +76,7 @@ class DespesaBancoRealTest extends BancoRealTest {
 
     @Test
     void despesaAntigaSemResponsavelContinuaListadaEGanhaUmNaEdicao() {
-        // Lancada antes da V47: a coluna fica nula.
+        // Lancada antes da V56: a coluna fica nula.
         UUID antiga = dados.despesa(escola, categoria, new BigDecimal("50.00"), LocalDate.now().plusDays(3),
                 SituacaoDespesa.A_PAGAR, null);
 
@@ -172,7 +172,7 @@ class DespesaBancoRealTest extends BancoRealTest {
 
     @Test
     void cadaEscolaGanhaAsCategoriasPadraoUmaVezSo() {
-        autenticarComo("FINANCEIRO", dados.escola());
+        entrarComo("FINANCEIRO", dados.escola());
 
         assertThat(categoriaService.listar()).extracting(CategoriaDespesaResponse::nome)
                 .containsExactlyInAnyOrder("Salários", "Contas", "Materiais", "Consertos", "Limpeza", "Outros");
@@ -186,7 +186,7 @@ class DespesaBancoRealTest extends BancoRealTest {
         assertThatThrownBy(() -> categoriaService.criar(new CategoriaDespesaRequest(" transporte ")))
                 .isInstanceOf(CategoriaDespesaJaExisteException.class);
 
-        autenticarComo("FINANCEIRO", dados.escola());
+        entrarComo("FINANCEIRO", dados.escola());
         assertThat(categoriaService.criar(new CategoriaDespesaRequest("Transporte")).nome()).isEqualTo("Transporte");
     }
 
@@ -219,7 +219,7 @@ class DespesaBancoRealTest extends BancoRealTest {
         assertThatThrownBy(() -> lancar(false)).isInstanceOf(RecursoNaoEncontradoException.class);
         assertThat(despesaService.listar(null, null, null, null)).isEmpty();
 
-        autenticarComo("FINANCEIRO", escola);
+        entrarComo("FINANCEIRO", escola);
         DespesaResponse intacta = despesaService.buscar(despesa);
         assertThat(intacta.situacao()).isEqualTo(SituacaoDespesa.A_PAGAR);
         assertThat(intacta.valor()).isEqualByComparingTo("90.00");

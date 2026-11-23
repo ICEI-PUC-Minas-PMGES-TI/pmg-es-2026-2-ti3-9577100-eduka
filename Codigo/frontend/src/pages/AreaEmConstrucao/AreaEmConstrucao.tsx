@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router'
 import iconeEduka from '../../assets/eduka-icone.svg'
-import { Icon } from '../../components/Icon/Icon'
+import { Icon } from '../../components/ui/Icon/Icon'
 import { paths } from '../../routes/paths'
-import { limparSessao, obterUsuarioLogado } from '../../services/authService'
+import { limparSessao, obterUsuarioLogado } from '../../services/acesso/authService'
 import styles from './AreaEmConstrucao.module.css'
 
 type AreaEmConstrucaoProps = {

@@ -1,21 +1,22 @@
 import { useCallback, useState } from 'react'
-import { Badge } from '../../../../components/Badge/Badge'
-import { Button } from '../../../../components/Button/Button'
-import { CampoPeriodo, type Periodo } from '../../../../components/CampoPeriodo/CampoPeriodo'
-import { ModalComprovante } from '../../../../components/Comprovante/ModalComprovante'
-import { Paginacao } from '../../../../components/Paginacao/Paginacao'
-import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
+import { Badge } from '../../../../components/ui/Badge/Badge'
+import { Button } from '../../../../components/ui/Button/Button'
+import { CampoPeriodo, type Periodo } from '../../../../components/formulario/CampoPeriodo/CampoPeriodo'
+import { ModalComprovante } from '../../../../components/financeiro/Comprovante/ModalComprovante'
+import { Paginacao } from '../../../../components/ui/Paginacao/Paginacao'
+import { StatCard, StatCards } from '../../../../components/ui/StatCard/StatCard'
 import { usePaginacao } from '../../../../hooks/usePaginacao'
-import { buscarComprovante, buscarHistoricoFinanceiro } from '../../../../services/pagamentoAlunoService'
+import { buscarComprovante, buscarHistoricoFinanceiro } from '../../../../services/financeiro/pagamentoAlunoService'
 import {
   podePagar,
   ROTULOS_FORMA_PAGAMENTO,
+  rotuloBaixaManual,
   ROTULOS_STATUS_COBRANCA_ALUNO,
   type CobrancaDoHistorico,
   type HistoricoFinanceiro,
-} from '../../../../types/pagamentoAluno'
+} from '../../../../types/financeiro/pagamentoAluno'
 import { formatarMoeda, hojeIso, plural } from '../../../../utils/formatters'
-import { formatarData } from '../../../secretaria/components/PainelSecretaria/formatacao'
+import { formatarData } from '../../../../utils/formatacao'
 import { ModalPagamento } from '../../components/ModalPagamento/ModalPagamento'
 import { ProximaMensalidade } from '../../components/ProximaMensalidade/ProximaMensalidade'
 import { TOM_STATUS_COBRANCA as TOM_STATUS } from '../../formatacao'
@@ -26,7 +27,9 @@ import styles from './Pagamentos.module.css'
 /** Como a cobrança foi paga: pagamento online registrado, ou só a data da baixa feita pela escola. */
 function descreverPagamento(c: CobrancaDoHistorico): string | null {
   if (c.pagamento) {
-    const como = c.pagamento.forma ? ROTULOS_FORMA_PAGAMENTO[c.pagamento.forma] : 'Baixa pela escola'
+    const como = c.pagamento.forma
+      ? ROTULOS_FORMA_PAGAMENTO[c.pagamento.forma]
+      : rotuloBaixaManual('Baixa pela escola', c.pagamento.formaManual)
     const devolvido =
       c.pagamento.valorEstornado > 0 ? ` · ${formatarMoeda(c.pagamento.valorEstornado)} devolvidos` : ''
     return `${como} em ${formatarData(c.pagamento.dataPagamento)}${devolvido}`

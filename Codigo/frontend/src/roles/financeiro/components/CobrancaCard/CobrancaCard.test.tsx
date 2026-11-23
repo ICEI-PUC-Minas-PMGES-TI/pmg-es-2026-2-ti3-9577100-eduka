@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import type { Cobranca } from '../../../../types/cobranca'
+import type { Cobranca } from '../../../../types/financeiro/cobranca'
 import { CobrancaCard } from './CobrancaCard'
 
 const PAGA: Cobranca = {

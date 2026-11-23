@@ -1,4 +1,4 @@
-import type { PerfilUsuario } from '../services/authService'
+import type { PerfilUsuario } from '../services/acesso/authService'
 
 // Caminhos da aplicação, agrupados por papel. Use sempre estas constantes em
 // vez de strings soltas, para que renomear uma rota seja uma mudança só.
@@ -27,6 +27,8 @@ export const paths = {
     faturasEscola: '/super-admin/escolas/:id/faturas',
     /** Faturas de todas as escolas (IU24, item Assinaturas do menu). */
     assinaturas: '/super-admin/assinaturas',
+    /** Logins de todas as escolas; o Super Admin gere o do MASTER (S5-14). */
+    usuarios: '/super-admin/usuarios',
   },
   master: {
     raiz: '/master',
@@ -93,6 +95,8 @@ export const paths = {
     notas: '/professor/notas',
     /** Aula do dia e histórico de uma turma/disciplina (?turma=&disciplina=&data=&aula=). */
     chamada: '/professor/chamada',
+    /** Dados do próprio professor, só para leitura. */
+    meuPerfil: '/professor/meu-perfil',
   },
   aluno: {
     raiz: '/aluno',

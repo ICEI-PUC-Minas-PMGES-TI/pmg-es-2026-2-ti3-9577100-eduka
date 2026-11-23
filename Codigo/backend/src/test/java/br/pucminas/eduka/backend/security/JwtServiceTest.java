@@ -81,9 +81,11 @@ class JwtServiceTest {
         UUID userId = UUID.randomUUID();
 
         String token = jwtService.generateRefreshToken(userId);
-        UUID verifiedUserId = jwtService.verifyRefreshToken(token);
+        RefreshTokenClaims claims = jwtService.verifyRefreshToken(token);
 
-        assertThat(verifiedUserId).isEqualTo(userId);
+        assertThat(claims.userId()).isEqualTo(userId);
+        // A renovacao compara a emissao com a ultima troca de senha.
+        assertThat(claims.issuedAt()).isEqualTo(clock.instant().truncatedTo(ChronoUnit.SECONDS));
     }
 
     @Test

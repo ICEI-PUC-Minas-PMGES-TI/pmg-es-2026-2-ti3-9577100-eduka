@@ -1,13 +1,13 @@
 import { useState } from 'react'
-import { Campo } from '../../../../components/Campo/Campo'
-import { CampoData } from '../../../../components/CampoData/CampoData'
-import { ModalCadastro } from '../../../../components/ModalCadastro/ModalCadastro'
-import { Select } from '../../../../components/Select/Select'
+import { Campo } from '../../../../components/formulario/Campo/Campo'
+import { CampoData } from '../../../../components/formulario/CampoData/CampoData'
+import { ModalCadastro } from '../../../../components/modal/ModalCadastro/ModalCadastro'
+import { Select } from '../../../../components/formulario/Select/Select'
 import { ApiError } from '../../../../services/api'
-import { atualizarDespesa } from '../../../../services/despesaService'
-import type { CategoriaDespesa, Despesa } from '../../../../types/despesa'
+import { atualizarDespesa } from '../../../../services/financeiro/despesaService'
+import type { CategoriaDespesa, Despesa } from '../../../../types/financeiro/despesa'
 
-// Limites das colunas DESCRICAO (V31) e RESPONSAVEL (V47).
+// Limites das colunas DESCRICAO (V31) e RESPONSAVEL (V56).
 const MAX_DESCRICAO = 255
 const MAX_RESPONSAVEL = 120
 

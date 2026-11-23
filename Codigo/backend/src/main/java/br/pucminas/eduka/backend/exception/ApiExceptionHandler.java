@@ -16,6 +16,45 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import br.pucminas.eduka.backend.exception.academico.AlocacaoJaExisteException;
+import br.pucminas.eduka.backend.exception.academico.AvaliacaoComNotasException;
+import br.pucminas.eduka.backend.exception.academico.HorarioConflitanteException;
+import br.pucminas.eduka.backend.exception.academico.MatriculaJaExisteException;
+import br.pucminas.eduka.backend.exception.academico.TurmaSemVagasException;
+import br.pucminas.eduka.backend.exception.acesso.AcessoJaAtivadoException;
+import br.pucminas.eduka.backend.exception.acesso.CodigoRecuperacaoInvalidoException;
+import br.pucminas.eduka.backend.exception.acesso.CodigoVerificacaoExpiradoException;
+import br.pucminas.eduka.backend.exception.acesso.CodigoVerificacaoIncorretoException;
+import br.pucminas.eduka.backend.exception.acesso.CredenciaisInvalidasException;
+import br.pucminas.eduka.backend.exception.acesso.LoginJaCadastradoException;
+import br.pucminas.eduka.backend.exception.acesso.ReenvioCodigoIndisponivelException;
+import br.pucminas.eduka.backend.exception.acesso.SenhaInvalidaException;
+import br.pucminas.eduka.backend.exception.acesso.SenhaProvisoriaExpiradaException;
+import br.pucminas.eduka.backend.exception.acesso.SessaoExpiradaException;
+import br.pucminas.eduka.backend.exception.acesso.VerificacaoLoginEncerradaException;
+import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.exception.comum.RegistroEmUsoException;
+import br.pucminas.eduka.backend.exception.escola.CnpjJaCadastradoException;
+import br.pucminas.eduka.backend.exception.escola.EscolaSuspensaException;
+import br.pucminas.eduka.backend.exception.escola.LimiteUsuariosAtingidoException;
+import br.pucminas.eduka.backend.exception.escola.ModuloNaoContratadoException;
+import br.pucminas.eduka.backend.exception.escola.FaturaDuplicadaException;
+import br.pucminas.eduka.backend.exception.financeiro.BoletoNaoGeradoException;
+import br.pucminas.eduka.backend.exception.financeiro.CategoriaDespesaJaExisteException;
+import br.pucminas.eduka.backend.exception.financeiro.CobrancaJaPagaException;
+import br.pucminas.eduka.backend.exception.financeiro.CobrancaNaoEditavelException;
+import br.pucminas.eduka.backend.exception.financeiro.CobrancaNaoPagavelException;
+import br.pucminas.eduka.backend.exception.financeiro.ComprovanteIndisponivelException;
+import br.pucminas.eduka.backend.exception.financeiro.ContaRecebimentoNaoAtivavelException;
+import br.pucminas.eduka.backend.exception.financeiro.FormaPagamentoInvalidaException;
+import br.pucminas.eduka.backend.exception.financeiro.PagadorSemCpfException;
+import br.pucminas.eduka.backend.exception.financeiro.PagamentoEmProcessamentoException;
+import br.pucminas.eduka.backend.exception.financeiro.RecebimentosIndisponiveisException;
+import br.pucminas.eduka.backend.exception.financeiro.SandboxIndisponivelException;
+import br.pucminas.eduka.backend.exception.pessoas.CpfJaCadastradoException;
+import br.pucminas.eduka.backend.exception.pessoas.NumeroMatriculaJaCadastradoException;
+import br.pucminas.eduka.backend.exception.pessoas.ProfessorComHistoricoException;
+import br.pucminas.eduka.backend.exception.pessoas.SolicitacaoCorrecaoAbertaException;
 import br.pucminas.eduka.backend.pagamento.ProvedorIndisponivelException;
 import br.pucminas.eduka.backend.pagamento.ProvedorNaoConfiguradoException;
 import br.pucminas.eduka.backend.pagamento.ProvedorRecusouException;
@@ -55,11 +94,37 @@ public class ApiExceptionHandler {
                 .body(problema(HttpStatus.UNAUTHORIZED, ex.getMessage()));
     }
 
+    /** O front reconhece pelo {@code codigo}, descarta a sessao e volta ao login. */
+    @ExceptionHandler(SessaoExpiradaException.class)
+    public ResponseEntity<ProblemDetail> sessaoExpirada(SessaoExpiradaException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(problema(HttpStatus.UNAUTHORIZED, ex.getMessage(), "SESSAO_EXPIRADA"));
+    }
+
     /** O front reconhece pelo {@code codigo} e mostra o aviso de suspensao (IU04). */
     @ExceptionHandler(EscolaSuspensaException.class)
     public ResponseEntity<ProblemDetail> escolaSuspensa(EscolaSuspensaException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(comMotivo(problema(HttpStatus.FORBIDDEN, ex.getMessage(), "ESCOLA_SUSPENSA"), ex));
+    }
+
+    /**
+     * Modulo nao contratado (ver {@code RotasPorModulo}). {@code modulo} diz
+     * qual: o front mostra o nome dele e, se veio do login, nao abre a sessao.
+     */
+    @ExceptionHandler(ModuloNaoContratadoException.class)
+    public ResponseEntity<ProblemDetail> moduloNaoContratado(ModuloNaoContratadoException ex) {
+        ProblemDetail problem = problema(HttpStatus.FORBIDDEN, ex.getMessage(), "MODULO_NAO_CONTRATADO");
+        problem.setProperty("modulo", ex.getModulo().name());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);
+    }
+
+    /** Limite de usuarios ativos do plano; {@code limite} vai junto para a tela citar o numero. */
+    @ExceptionHandler(LimiteUsuariosAtingidoException.class)
+    public ResponseEntity<ProblemDetail> limiteUsuariosAtingido(LimiteUsuariosAtingidoException ex) {
+        ProblemDetail problem = problema(HttpStatus.CONFLICT, ex.getMessage(), "LIMITE_USUARIOS_ATINGIDO");
+        problem.setProperty("limite", ex.getLimite());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
     }
 
     @ExceptionHandler(SenhaProvisoriaExpiradaException.class)
@@ -95,6 +160,13 @@ public class ApiExceptionHandler {
     public ResponseEntity<ProblemDetail> reenvioIndisponivel(ReenvioCodigoIndisponivelException ex) {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .body(problema(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage()));
+    }
+
+    /** Mesma mensagem para codigo errado, vencido ou login desconhecido. */
+    @ExceptionHandler(CodigoRecuperacaoInvalidoException.class)
+    public ResponseEntity<ProblemDetail> codigoRecuperacaoInvalido(CodigoRecuperacaoInvalidoException ex) {
+        return ResponseEntity.badRequest()
+                .body(problema(HttpStatus.BAD_REQUEST, ex.getMessage(), "CODIGO_RECUPERACAO_INVALIDO"));
     }
 
     @ExceptionHandler(AccessDeniedException.class)

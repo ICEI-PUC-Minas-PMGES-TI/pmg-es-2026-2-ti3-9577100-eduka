@@ -1,29 +1,29 @@
 import { useCallback, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { Button } from '../../../../components/Button/Button'
-import { ModalComprovante } from '../../../../components/Comprovante/ModalComprovante'
-import { ConfirmarExclusao } from '../../../../components/ConfirmarExclusao/ConfirmarExclusao'
-import { EstadoDashboard } from '../../../../components/Dashboard/Dashboard'
-import { Icon } from '../../../../components/Icon/Icon'
-import { TabelaFaturas } from '../../../../components/TabelaFaturas/TabelaFaturas'
+import { Button } from '../../../../components/ui/Button/Button'
+import { ModalComprovante } from '../../../../components/financeiro/Comprovante/ModalComprovante'
+import { ConfirmarExclusao } from '../../../../components/modal/ConfirmarExclusao/ConfirmarExclusao'
+import { EstadoDashboard } from '../../../../components/layout/Dashboard/Dashboard'
+import { Icon } from '../../../../components/ui/Icon/Icon'
+import { TabelaFaturas } from '../../../../components/financeiro/TabelaFaturas/TabelaFaturas'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { useListaPaginada, type PaginaDoBackend } from '../../../../hooks/usePaginacao'
 import { paths } from '../../../../routes/paths'
 import { ApiError } from '../../../../services/api'
-import { buscarEscola } from '../../../../services/escolaService'
+import { buscarEscola } from '../../../../services/escola/escolaService'
 import {
   buscarComprovanteDaFatura,
   cancelarFatura,
   lancarFatura,
   listarPaginaDeFaturasDaEscola,
-} from '../../../../services/faturaPlataformaService'
-import type { Escola } from '../../../../types/escola'
-import type { FaturaPlataforma } from '../../../../types/faturaPlataforma'
-import { ModalLancarFatura } from '../../components/ModalLancarFatura/ModalLancarFatura'
+} from '../../../../services/escola/faturaPlataformaService'
+import type { Escola } from '../../../../types/escola/escola'
+import type { FaturaPlataforma } from '../../../../types/escola/faturaPlataforma'
+import { ModalLancarFatura } from '../../components/faturas/ModalLancarFatura/ModalLancarFatura'
 import { SuperAdminLayout } from '../../layouts/SuperAdminLayout'
 import estilosEdicao from '../EditarEscola/EditarEscola.module.css'
 import estilosPainel from '../PainelEscolas/PainelEscolas.module.css'
-import { Dica } from '../../../../components/Dica/Dica'
+import { Dica } from '../../../../components/ui/Dica/Dica'
 
 function traduzirErroCancelar(erro: unknown): string {
   if (erro instanceof ApiError) {

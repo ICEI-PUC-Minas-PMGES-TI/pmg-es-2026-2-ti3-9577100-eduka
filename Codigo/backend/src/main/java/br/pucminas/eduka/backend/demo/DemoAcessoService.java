@@ -13,13 +13,13 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
-import br.pucminas.eduka.backend.domain.PerfilUsuario;
-import br.pucminas.eduka.backend.domain.Usuario;
-import br.pucminas.eduka.backend.dto.LoginResponse;
-import br.pucminas.eduka.backend.exception.CredenciaisInvalidasException;
-import br.pucminas.eduka.backend.repository.UsuarioRepository;
+import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
+import br.pucminas.eduka.backend.domain.acesso.Usuario;
+import br.pucminas.eduka.backend.dto.acesso.LoginResponse;
+import br.pucminas.eduka.backend.exception.acesso.CredenciaisInvalidasException;
+import br.pucminas.eduka.backend.repository.acesso.UsuarioRepository;
 import br.pucminas.eduka.backend.security.JwtService;
-import br.pucminas.eduka.backend.service.UsuarioService;
+import br.pucminas.eduka.backend.service.acesso.UsuarioService;
 
 /**
  * Acesso de demonstracao: quem sabe o login e a senha de
@@ -101,7 +101,9 @@ public class DemoAcessoService {
                 jwtService.generateAccessToken(usuario.getId(), usuario.getPerfil().name(), usuario.getEscolaId()),
                 jwtService.generateRefreshToken(usuario.getId()),
                 usuario.getId(),
-                usuario.getPerfil());
+                usuario.getPerfil(),
+                // A escola de demonstracao tem todos os modulos; a renovacao da sessao traz a lista.
+                null);
     }
 
     private List<Grupo> grupos() {

@@ -1,18 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Button } from '../../../../components/Button/Button'
-import { StatCard, StatCards } from '../../../../components/StatCard/StatCard'
+import { Button } from '../../../../components/ui/Button/Button'
 import { paths } from '../../../../routes/paths'
-import { buscarHistoricoFinanceiro } from '../../../../services/pagamentoAlunoService'
-import { buscarBoletim, listarMinhasAvaliacoes } from '../../../../services/portalAlunoService'
-import { podePagar, type CobrancaDoHistorico, type HistoricoFinanceiro } from '../../../../types/pagamentoAluno'
-import type { AvaliacaoDoAluno, BoletimTurma } from '../../../../types/portalAluno'
-import { formatarPontos, hojeIso, plural } from '../../../../utils/formatters'
+import { temModulo } from '../../../../services/acesso/modulosSessao'
+import { buscarHistoricoFinanceiro } from '../../../../services/financeiro/pagamentoAlunoService'
+import { buscarBoletim, listarMinhasAvaliacoes } from '../../../../services/portal/portalAlunoService'
+import { podePagar, type CobrancaDoHistorico, type HistoricoFinanceiro } from '../../../../types/financeiro/pagamentoAluno'
+import type { AvaliacaoDoAluno, BoletimTurma } from '../../../../types/portal/portalAluno'
+import { formatarDiaMes, formatarPontos, hojeIso, plural } from '../../../../utils/formatters'
 import { PERCENTUAL_APROVACAO } from '../../../professor/notas'
 import { SecaoAvaliacoes } from '../../components/AgendaAvaliacoes/AgendaAvaliacoes'
 import { ModalPagamento } from '../../components/ModalPagamento/ModalPagamento'
 import { ProximaMensalidade } from '../../components/ProximaMensalidade/ProximaMensalidade'
-import { emRecuperacao, somarFrequencias } from '../../formatacao'
+import { aproveitamento, emRecuperacao, somarFrequencias } from '../../formatacao'
 import { useDadosDoAluno } from '../../hooks/useDadosDoAluno'
 import { AlunoLayout } from '../../layouts/AlunoLayout'
 import styles from './Inicio.module.css'
@@ -30,16 +30,29 @@ function somarDias(iso: string, dias: number): string {
 }
 
 /**
- * Início do ALUNO (IU27): a próxima mensalidade com o Pagar agora, a média e a
- * frequência das turmas que ele cursa e as provas e tarefas dos próximos 15 dias.
+ * Início do ALUNO (IU27): a próxima mensalidade com o Pagar agora, as provas e
+ * tarefas dos próximos 15 dias agrupadas por dia e, ao lado, a média, a
+ * frequência e o aproveitamento de cada disciplina das turmas que ele cursa.
  * Cada bloco carrega sozinho: uma falha não esconde os outros.
  */
 export function Inicio() {
+  const comFinanceiro = temModulo('GESTAO_FINANCEIRA')
   return (
-    <AlunoLayout titulo="Início" subtitulo="Sua mensalidade, suas notas e o que vem pela frente.">
-      <Mensalidade />
-      <Desempenho />
-      <ProximasAvaliacoes />
+    <AlunoLayout
+      titulo="Início"
+      subtitulo={
+        comFinanceiro ? 'Sua mensalidade, suas notas e o que vem pela frente.' : 'Suas notas e o que vem pela frente.'
+      }
+    >
+      {comFinanceiro && <Mensalidade />}
+      <div className={styles.grade}>
+        <div className={styles.principal}>
+          <ProximasAvaliacoes />
+        </div>
+        <aside className={styles.lateral}>
+          <Desempenho />
+        </aside>
+      </div>
     </AlunoLayout>
   )
 }
@@ -92,9 +105,44 @@ function Mensalidade() {
   )
 }
 
-/** Média geral (0 a 10) e frequência das turmas que o aluno cursa agora. */
+type MetricaProps = {
+  rotulo: string
+  valor: string
+  sufixo?: string
+  /** Largura da barra, de 0 a 100; nula sem dado. */
+  percentual: number | null
+  descricao: string
+  alerta?: boolean
+}
+
+/** Uma métrica do painel: número grande, barra de 0 a 100% e uma linha de explicação. */
+function Metrica({ rotulo, valor, sufixo, percentual, descricao, alerta = false }: MetricaProps) {
+  return (
+    <div className={styles.metrica}>
+      <span className={styles.metricaRotulo}>{rotulo}</span>
+      <span className={`${styles.metricaValor} ${alerta ? styles.alerta : ''}`}>
+        <strong>{valor}</strong>
+        {sufixo && <small>{sufixo}</small>}
+      </span>
+      <span className={styles.barra} aria-hidden="true">
+        <span
+          className={`${styles.barraValor} ${alerta ? styles.barraAlerta : ''}`}
+          style={{ width: `${Math.max(0, Math.min(100, percentual ?? 0))}%` }}
+        />
+      </span>
+      <span className={styles.metricaDescricao}>{descricao}</span>
+    </div>
+  )
+}
+
+/**
+ * Painel "Seu desempenho": média geral (0 a 10) e frequência das turmas que o
+ * aluno cursa agora, o bimestre em andamento e o aproveitamento de cada disciplina.
+ */
 function Desempenho() {
   const navigate = useNavigate()
+  // Sem o controle de frequência contratado, a escola não registra chamada.
+  const comFrequencia = temModulo('CONTROLE_FREQUENCIA')
   const { dados: turmas, carregando, erro, recarregar } = useDadosDoAluno(buscarBoletim, SEM_TURMAS)
 
   if (carregando) {
@@ -112,7 +160,7 @@ function Desempenho() {
     return (
       <div className={styles.mensagem}>
         <strong>Você ainda não está cursando nenhuma turma.</strong>
-        <span>Assim que a secretaria fizer sua matrícula, suas notas e sua frequência aparecem aqui.</span>
+        <span>Assim que a secretaria fizer sua matrícula, suas notas aparecem aqui.</span>
       </div>
     )
   }
@@ -121,7 +169,7 @@ function Desempenho() {
   const obtidos = disciplinas.reduce((soma, d) => soma + d.pontosObtidos, 0)
   // As avaliações valem pontos: a média é a proporção do que já foi avaliado, numa escala de 0 a 10.
   const media = avaliados > 0 ? Math.round((obtidos / avaliados) * 100) / 10 : null
-  const recuperacao = disciplinas.filter(emRecuperacao)
+  const abaixo = disciplinas.filter(emRecuperacao)
 
   const frequencia = somarFrequencias(
     ativas.map((t) => t.frequencia),
@@ -130,42 +178,90 @@ function Desempenho() {
   const maisFaltas = disciplinas
     .filter((d) => (d.frequencia?.faltas ?? 0) > 0)
     .sort((a, b) => (b.frequencia?.faltas ?? 0) - (a.frequencia?.faltas ?? 0))[0]
+  const faltasDela = maisFaltas?.frequencia?.faltas ?? 0
+
+  const hoje = hojeIso()
+  const bimestreAtual = ativas.flatMap((t) => t.bimestres).find((b) => b.inicio <= hoje && hoje <= b.fim)
+
+  // Pior aproveitamento primeiro: o que pede atenção fica em cima; sem nota, no fim.
+  const porDisciplina = disciplinas
+    .map((d) => ({
+      id: d.disciplinaId,
+      nome: d.disciplinaNome,
+      percentual: aproveitamento(d.pontosObtidos, d.pontosAvaliados),
+    }))
+    .sort((a, b) => (a.percentual ?? 101) - (b.percentual ?? 101) || a.nome.localeCompare(b.nome, 'pt-BR'))
 
   return (
-    <>
-      <StatCards rotulo="Seu desempenho">
-        <StatCard
-          label="Média geral"
-          value={media === null ? '—' : formatarPontos(media)}
+    <section className={styles.painel} aria-label="Seu desempenho">
+      <header className={styles.painelTopo}>
+        <h2 className={styles.painelTitulo}>Seu desempenho</h2>
+        {bimestreAtual && (
+          <span className={styles.agora}>
+            {bimestreAtual.numero}º bimestre · até {formatarDiaMes(bimestreAtual.fim)}
+          </span>
+        )}
+      </header>
+
+      <div className={`${styles.metricas} ${comFrequencia ? '' : styles.metricaUnica}`}>
+        <Metrica
+          rotulo="Média geral"
+          valor={media === null ? '—' : formatarPontos(media)}
+          sufixo="de 10"
+          percentual={media === null ? null : media * 10}
           descricao={
             media === null
               ? 'Sem notas lançadas ainda'
-              : recuperacao.length === 0
-                ? 'De 10 · todas as disciplinas na média'
-                : `De 10 · em recuperação: ${recuperacao.map((d) => d.disciplinaNome).join(', ')}`
+              : abaixo.length === 0
+                ? 'Todas as disciplinas na média'
+                : `Abaixo da média: ${abaixo.map((d) => d.disciplinaNome).join(', ')}`
           }
           alerta={media !== null && media < PERCENTUAL_APROVACAO * 10}
-          destaque
         />
-        <StatCard
-          label="Frequência"
-          value={frequencia === null ? '—' : `${formatarPontos(frequencia.percentualFrequencia)}%`}
-          descricao={
-            frequencia === null
-              ? 'Sem aulas registradas ainda'
-              : maisFaltas
-                ? `Mais faltas em ${maisFaltas.disciplinaNome}: ${maisFaltas.frequencia?.faltas} ${plural(maisFaltas.frequencia?.faltas ?? 0, 'falta', 'faltas')}`
-                : 'Nenhuma falta até agora'
-          }
-          alerta={frequencia?.alertaFaltas}
-        />
-      </StatCards>
-      <div className={styles.acoes}>
-        <Button icon="book" onClick={() => navigate(paths.aluno.boletim)}>
-          Ver boletim
-        </Button>
+        {comFrequencia && (
+          <Metrica
+            rotulo="Frequência"
+            valor={frequencia === null ? '—' : `${formatarPontos(frequencia.percentualFrequencia)}%`}
+            percentual={frequencia?.percentualFrequencia ?? null}
+            descricao={
+              frequencia === null
+                ? 'Sem aulas registradas ainda'
+                : maisFaltas
+                  ? `Mais faltas em ${maisFaltas.disciplinaNome}: ${faltasDela} ${plural(faltasDela, 'falta', 'faltas')}`
+                  : 'Nenhuma falta até agora'
+            }
+            alerta={frequencia?.alertaFaltas}
+          />
+        )}
       </div>
-    </>
+
+      <div className={styles.disciplinas}>
+        <h3 className={styles.subtitulo}>Por disciplina</h3>
+        <ul className={styles.listaDisciplinas}>
+          {porDisciplina.map((d) => {
+            const abaixoDaMedia = d.percentual !== null && d.percentual < PERCENTUAL_APROVACAO * 100
+            return (
+              <li key={d.id} className={styles.disciplina}>
+                <span className={styles.disciplinaNome}>{d.nome}</span>
+                <span className={styles.barraPequena} aria-hidden="true">
+                  <span
+                    className={`${styles.barraValor} ${abaixoDaMedia ? styles.barraAlerta : ''}`}
+                    style={{ width: `${d.percentual ?? 0}%` }}
+                  />
+                </span>
+                <span className={`${styles.disciplinaPercentual} ${abaixoDaMedia ? styles.alerta : ''}`}>
+                  {d.percentual === null ? '—' : `${d.percentual}%`}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+
+      <Button icon="book" onClick={() => navigate(paths.aluno.boletim)}>
+        Ver boletim
+      </Button>
+    </section>
   )
 }
 
@@ -173,7 +269,13 @@ function ProximasAvaliacoes() {
   const navigate = useNavigate()
   const { dados: avaliacoes, carregando, erro, recarregar } = useDadosDoAluno(listarMinhasAvaliacoes, NENHUMA)
 
-  if (carregando) return null
+  if (carregando) {
+    return (
+      <div className={styles.mensagem} role="status">
+        Carregando suas provas e tarefas…
+      </div>
+    )
+  }
   if (erro) return <Erro mensagem={erro} onTentarDeNovo={recarregar} />
 
   const hoje = hojeIso()
@@ -182,17 +284,16 @@ function ProximasAvaliacoes() {
   const proximas = avaliacoes.filter((a) => a.data >= hoje && a.data <= limite)
 
   return (
-    <div className={styles.proximas}>
-      <SecaoAvaliacoes
-        titulo="Próximas provas e tarefas"
-        vazio={`Nada marcado para os próximos ${DIAS_PROXIMAS} dias.`}
-        avaliacoes={proximas}
-      />
-      <div className={styles.acoes}>
+    <SecaoAvaliacoes
+      titulo="Próximas provas e tarefas"
+      vazio={`Nada marcado para os próximos ${DIAS_PROXIMAS} dias.`}
+      avaliacoes={proximas}
+      resumo
+      acao={
         <Button size="sm" icon="calendar" onClick={() => navigate(`${paths.aluno.boletim}?aba=provas`)}>
           Ver todas as provas e tarefas
         </Button>
-      </div>
-    </div>
+      }
+    />
   )
 }

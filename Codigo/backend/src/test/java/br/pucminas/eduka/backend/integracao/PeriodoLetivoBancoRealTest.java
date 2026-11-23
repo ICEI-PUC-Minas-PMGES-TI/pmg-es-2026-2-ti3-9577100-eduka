@@ -10,11 +10,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import br.pucminas.eduka.backend.dto.MatriculaTurmaRequest;
-import br.pucminas.eduka.backend.dto.PeriodoLetivoRequest;
-import br.pucminas.eduka.backend.dto.PeriodoLetivoResponse;
-import br.pucminas.eduka.backend.service.AcademicoSecretariaService;
-import br.pucminas.eduka.backend.service.MatriculaTurmaService;
+import br.pucminas.eduka.backend.dto.academico.MatriculaTurmaRequest;
+import br.pucminas.eduka.backend.dto.academico.PeriodoLetivoRequest;
+import br.pucminas.eduka.backend.dto.academico.PeriodoLetivoResponse;
+import br.pucminas.eduka.backend.service.academico.AcademicoSecretariaService;
+import br.pucminas.eduka.backend.service.academico.MatriculaTurmaService;
 
 /**
  * Encerrar periodo e abrir matriculas (IU09): periodo encerrado nao recebe

@@ -1,28 +1,32 @@
 import { useCallback, useState } from 'react'
-import { Badge } from '../../../../components/Badge/Badge'
-import { Button } from '../../../../components/Button/Button'
-import { ModalComprovante } from '../../../../components/Comprovante/ModalComprovante'
-import { EstadoDashboard, Linhas, Painel } from '../../../../components/Dashboard/Dashboard'
-import { Icon } from '../../../../components/Icon/Icon'
-import { Paginacao } from '../../../../components/Paginacao/Paginacao'
-import tabela from '../../../../components/TabelaFaturas/TabelaFaturas.module.css'
+import { Badge } from '../../../../components/ui/Badge/Badge'
+import { Button } from '../../../../components/ui/Button/Button'
+import { ModalComprovante } from '../../../../components/financeiro/Comprovante/ModalComprovante'
+import { EstadoDashboard, Linhas, Painel } from '../../../../components/layout/Dashboard/Dashboard'
+import { Icon } from '../../../../components/ui/Icon/Icon'
+import { Paginacao } from '../../../../components/ui/Paginacao/Paginacao'
+import tabela from '../../../../components/financeiro/TabelaFaturas/TabelaFaturas.module.css'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
-import { usePaginacao } from '../../../../hooks/usePaginacao'
+import { useListaPaginada, type PaginaDoBackend } from '../../../../hooks/usePaginacao'
 import {
   buscarComprovanteDaMinhaFatura,
   buscarMinhaAssinatura,
-  listarMinhasFaturas,
-} from '../../../../services/faturaPlataformaService'
-import { ROTULOS_PLANO } from '../../../../types/escola'
-import type { Assinatura, FaturaPlataforma } from '../../../../types/faturaPlataforma'
+  buscarProximaMinhaFatura,
+  listarPaginaDeMinhasFaturas,
+} from '../../../../services/escola/faturaPlataformaService'
+import { ROTULOS_MODULO, ROTULOS_PLANO, modulosDisponiveis } from '../../../../types/escola/escola'
+import type { Assinatura, FaturaPlataforma } from '../../../../types/escola/faturaPlataforma'
 import { formatarMoeda } from '../../../../utils/formatters'
-import { formatarData } from '../../../secretaria/components/PainelSecretaria/formatacao'
+import { formatarData } from '../../../../utils/formatacao'
 import { ModalPagamentoFatura } from '../../components/ModalPagamentoFatura/ModalPagamentoFatura'
 import { MasterLayout } from '../../layouts/MasterLayout'
 import styles from './PlanoEFaturas.module.css'
-import { faturasAnteriores, proximaFatura, referenciaDaFatura } from './proximaFatura'
+import { referenciaDaFatura } from './proximaFatura'
 
-const SEM_FATURAS: FaturaPlataforma[] = []
+/** Faturas anteriores (IU24-A, campo 5): só pagas ou canceladas, da competência mais recente. */
+function buscarAnteriores(pagina: number, tamanho: number, signal: AbortSignal) {
+  return listarPaginaDeMinhasFaturas({ pagina, tamanho, status: ['PAGA', 'CANCELADA'] }, signal)
+}
 
 function vigencia(assinatura: Assinatura): string {
   if (!assinatura.inicioVigencia && !assinatura.fimVigencia) return '—'
@@ -35,13 +39,21 @@ function vigencia(assinatura: Assinatura): string {
  * Plano e faturas do MASTER (IU24-A): o que a escola paga ao Edúka. A próxima
  * fatura em destaque com o Pagar fatura (as mesmas modais do aluno, IU17-A a
  * IU17-D), a assinatura da escola e as faturas anteriores com o comprovante.
+ * O backend acha a próxima e pagina as anteriores: a tela não baixa o
+ * histórico inteiro, que cresce uma fatura por mês.
  */
 export function PlanoEFaturas() {
-  const { dados: faturas, carregando, erro, recarregar } = useCarregamento(
-    listarMinhasFaturas,
-    SEM_FATURAS,
+  const proxima = useCarregamento<FaturaPlataforma | null>(
+    buscarProximaMinhaFatura,
+    null,
     'Não foi possível encontrar as faturas da escola.',
   )
+  const anteriores = useListaPaginada<PaginaDoBackend<FaturaPlataforma>, HTMLElement>(
+    buscarAnteriores,
+    'Não foi possível encontrar as faturas anteriores.',
+  )
+  const { paginacao, topo } = anteriores
+  const proximaFatura = proxima.dados
   const assinatura = useCarregamento<Assinatura | null>(
     buscarMinhaAssinatura,
     null,
@@ -55,10 +67,13 @@ export function PlanoEFaturas() {
     [comprovanteDe],
   )
 
-  // Uma fatura por mês: a lista vem inteira e pagina no front.
-  const proxima = proximaFatura(faturas)
-  const anteriores = faturasAnteriores(faturas)
-  const { paginacao, topo } = usePaginacao<FaturaPlataforma, HTMLElement>(anteriores)
+  /** Relê a próxima e a página atual das anteriores: a paga sai do destaque e entra no histórico. */
+  const { recarregar: recarregarProxima } = proxima
+  const { recarregar: recarregarAnteriores } = anteriores
+  const recarregar = useCallback(() => {
+    recarregarProxima()
+    recarregarAnteriores()
+  }, [recarregarProxima, recarregarAnteriores])
 
   /** Ao fechar, a tela mostra o pagamento gerado ou confirmado. */
   function fecharPagamento() {
@@ -66,32 +81,34 @@ export function PlanoEFaturas() {
     recarregar()
   }
 
+  const daPagina = paginacao && !anteriores.erro ? paginacao.itensDaPagina : []
+
   return (
     <MasterLayout titulo="Plano e faturas" subtitulo="O que a escola paga ao Edúka pelo uso da plataforma.">
-      <EstadoDashboard carregando={carregando} erro={erro} onTentarDeNovo={recarregar} />
-      {!carregando && !erro && (
+      <EstadoDashboard carregando={proxima.carregando} erro={proxima.erro} onTentarDeNovo={recarregarProxima} />
+      {!proxima.carregando && !proxima.erro && (
         <>
           <div className={styles.topo}>
             <section className={styles.destaque} aria-labelledby="titulo-proxima-fatura">
               <h2 id="titulo-proxima-fatura" className={styles.destaqueRotulo}>
                 Próxima fatura
               </h2>
-              {proxima ? (
+              {proximaFatura ? (
                 <>
-                  <strong className={styles.valor}>{formatarMoeda(proxima.valor)}</strong>
+                  <strong className={styles.valor}>{formatarMoeda(proximaFatura.valor)}</strong>
                   <span className={styles.referencia}>
-                    {referenciaDaFatura(proxima)} · vence em <strong>{formatarData(proxima.dataVencimento)}</strong>
+                    {referenciaDaFatura(proximaFatura)} · vence em <strong>{formatarData(proximaFatura.dataVencimento)}</strong>
                   </span>
-                  <span className={`${styles.situacao} ${proxima.status === 'EM_ATRASO' ? styles.atrasada : ''}`}>
-                    {proxima.status === 'EM_ATRASO' ? 'Em atraso' : 'A pagar'}
+                  <span className={`${styles.situacao} ${proximaFatura.status === 'EM_ATRASO' ? styles.atrasada : ''}`}>
+                    {proximaFatura.status === 'EM_ATRASO' ? 'Em atraso' : 'A pagar'}
                   </span>
-                  {proxima.acoes.includes('PAGAR') && (
+                  {proximaFatura.acoes.includes('PAGAR') && (
                     <div className={styles.pagarLinha}>
                       <Button
                         className={styles.pagar}
                         icon="card"
-                        onClick={() => setPagando(proxima)}
-                        aria-label={`Pagar fatura ${referenciaDaFatura(proxima)} com PIX ou boleto`}
+                        onClick={() => setPagando(proximaFatura)}
+                        aria-label={`Pagar fatura ${referenciaDaFatura(proximaFatura)} com PIX ou boleto`}
                       >
                         Pagar fatura
                       </Button>
@@ -127,9 +144,15 @@ export function PlanoEFaturas() {
                         ),
                       },
                       { rotulo: 'Vigência', valor: vigencia(assinatura.dados) },
+                      { rotulo: 'Usuários ativos', valor: usoDoLimite(assinatura.dados) },
                       {
-                        rotulo: 'Limite de usuários',
-                        valor: assinatura.dados.limiteUsuarios?.toLocaleString('pt-BR') ?? '—',
+                        rotulo: 'Módulos',
+                        valor:
+                          modulosDisponiveis(assinatura.dados.modulos).length === 0
+                            ? 'Nenhum'
+                            : modulosDisponiveis(assinatura.dados.modulos)
+                                .map((m) => ROTULOS_MODULO[m])
+                                .join(', '),
                       },
                     ]}
                   />
@@ -142,11 +165,27 @@ export function PlanoEFaturas() {
             </Painel>
           </div>
 
-          <section ref={topo} className={tabela.cartao} aria-labelledby="titulo-faturas-anteriores">
+          <section
+            ref={topo}
+            className={tabela.cartao}
+            aria-labelledby="titulo-faturas-anteriores"
+            aria-busy={anteriores.atualizando}
+          >
             <h2 id="titulo-faturas-anteriores" className={styles.titulo}>
               Faturas anteriores
             </h2>
-            {paginacao.total === 0 ? (
+            {anteriores.carregando ? (
+              <p className={tabela.vazio} role="status">
+                Carregando as faturas anteriores…
+              </p>
+            ) : anteriores.erro ? (
+              <div className={tabela.vazio}>
+                <p role="alert">{anteriores.erro}</p>
+                <Button size="sm" onClick={recarregarAnteriores}>
+                  Tentar novamente
+                </Button>
+              </div>
+            ) : daPagina.length === 0 ? (
               <p className={tabela.vazio}>Nenhuma fatura anterior.</p>
             ) : (
               <div className={tabela.rolagem}>
@@ -163,7 +202,7 @@ export function PlanoEFaturas() {
                     </tr>
                   </thead>
                   <tbody>
-                    {paginacao.itensDaPagina.map((f) => (
+                    {daPagina.map((f) => (
                       <tr key={f.id}>
                         <td className={tabela.colPrincipal}>
                           <span className={tabela.descricao}>{referenciaDaFatura(f)}</span>
@@ -204,12 +243,35 @@ export function PlanoEFaturas() {
               </div>
             )}
           </section>
-          <Paginacao paginacao={paginacao} rotulo="Páginas das faturas anteriores" />
+          {paginacao && !anteriores.erro && (
+            <Paginacao
+              paginacao={paginacao}
+              rotulo="Páginas das faturas anteriores"
+              carregando={anteriores.atualizando}
+            />
+          )}
         </>
       )}
 
       {pagando && <ModalPagamentoFatura fatura={pagando} onPago={recarregar} onFechar={fecharPagamento} />}
       {comprovanteDe && <ModalComprovante buscar={buscarComprovante} onFechar={() => setComprovanteDe(null)} />}
     </MasterLayout>
+  )
+}
+
+/**
+ * Logins ativos contra o limite do plano (S5-11): no limite, a escola não
+ * cria nem reativa acesso até inativar alguém ou ampliar o plano.
+ */
+function usoDoLimite({ usuariosAtivos, limiteUsuarios }: Assinatura) {
+  const ativos = usuariosAtivos.toLocaleString('pt-BR')
+  if (limiteUsuarios === null) return `${ativos} · sem limite`
+  const texto = `${ativos} de ${limiteUsuarios.toLocaleString('pt-BR')}`
+  return usuariosAtivos >= limiteUsuarios ? (
+    <Badge tone="danger" icon="alert">
+      {texto} · limite atingido
+    </Badge>
+  ) : (
+    texto
   )
 }

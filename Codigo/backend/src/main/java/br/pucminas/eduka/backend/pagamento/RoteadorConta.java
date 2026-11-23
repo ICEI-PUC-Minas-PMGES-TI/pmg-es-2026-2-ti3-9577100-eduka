@@ -17,31 +17,31 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import br.pucminas.eduka.backend.domain.ContaRecebimentoEscola;
-import br.pucminas.eduka.backend.domain.EntidadeAuditada;
-import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
-import br.pucminas.eduka.backend.domain.Escola;
-import br.pucminas.eduka.backend.domain.StatusContaRecebimento;
-import br.pucminas.eduka.backend.dto.AtivarRecebimentosRequest;
-import br.pucminas.eduka.backend.dto.ContaRecebimentoResponse;
-import br.pucminas.eduka.backend.dto.DadosBancariosRequest;
-import br.pucminas.eduka.backend.dto.HabilitacaoRecebimentos;
-import br.pucminas.eduka.backend.dto.SituacaoContaResponse;
-import br.pucminas.eduka.backend.exception.ContaRecebimentoNaoAtivavelException;
-import br.pucminas.eduka.backend.exception.RecebimentosIndisponiveisException;
-import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.escola.Escola;
+import br.pucminas.eduka.backend.domain.financeiro.ContaRecebimentoEscola;
+import br.pucminas.eduka.backend.domain.financeiro.StatusContaRecebimento;
+import br.pucminas.eduka.backend.dto.financeiro.AtivarRecebimentosRequest;
+import br.pucminas.eduka.backend.dto.financeiro.ContaRecebimentoResponse;
+import br.pucminas.eduka.backend.dto.financeiro.DadosBancariosRequest;
+import br.pucminas.eduka.backend.dto.financeiro.HabilitacaoRecebimentos;
+import br.pucminas.eduka.backend.dto.financeiro.SituacaoContaResponse;
+import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.exception.financeiro.ContaRecebimentoNaoAtivavelException;
+import br.pucminas.eduka.backend.exception.financeiro.RecebimentosIndisponiveisException;
 import br.pucminas.eduka.backend.pagamento.tipos.ContaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.CredencialProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.DadosBancarios;
 import br.pucminas.eduka.backend.pagamento.tipos.DadosNovaConta;
 import br.pucminas.eduka.backend.pagamento.tipos.SituacaoCadastral;
 import br.pucminas.eduka.backend.pagamento.tipos.SituacaoContaProvedor;
-import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
-import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository.ContaParaSincronizar;
-import br.pucminas.eduka.backend.repository.EscolaRepository;
+import br.pucminas.eduka.backend.repository.escola.EscolaRepository;
+import br.pucminas.eduka.backend.repository.financeiro.ContaRecebimentoEscolaRepository.ContaParaSincronizar;
+import br.pucminas.eduka.backend.repository.financeiro.ContaRecebimentoEscolaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.PiiCryptoService;
-import br.pucminas.eduka.backend.service.AuditoriaService;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
 /**
  * Conta de recebimento da escola (conta filha no provedor), por tras do

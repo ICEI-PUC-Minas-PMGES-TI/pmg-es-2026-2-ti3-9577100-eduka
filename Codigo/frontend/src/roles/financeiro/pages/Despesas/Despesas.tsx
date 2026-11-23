@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { Button } from '../../../../components/Button/Button'
-import { Paginacao } from '../../../../components/Paginacao/Paginacao'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { Campo } from '../../../../components/formulario/Campo/Campo'
+import { CampoData } from '../../../../components/formulario/CampoData/CampoData'
+import { Badge } from '../../../../components/ui/Badge/Badge'
+import { Button } from '../../../../components/ui/Button/Button'
+import { Paginacao } from '../../../../components/ui/Paginacao/Paginacao'
+import { StatCard, StatCards } from '../../../../components/ui/StatCard/StatCard'
 import { useListaPaginada, type PaginaComResumo } from '../../../../hooks/usePaginacao'
 import { ApiError } from '../../../../services/api'
 import {
@@ -9,18 +13,20 @@ import {
   listarPaginaDeDespesas,
   mudarSituacaoDespesa,
   type PeriodoDespesas,
-} from '../../../../services/despesaService'
+} from '../../../../services/financeiro/despesaService'
 import type {
   CategoriaDespesa,
   Despesa,
   FiltroSituacaoDespesa,
   ResumoDespesas,
   SituacaoDespesa,
-} from '../../../../types/despesa'
+} from '../../../../types/financeiro/despesa'
+import { formatarData } from '../../../../utils/formatacao'
 import { formatarMoeda, hojeIso } from '../../../../utils/formatters'
 import { ModalCategorias } from '../../components/ModalCategorias/ModalCategorias'
 import { ModalEditarDespesa } from '../../components/ModalEditarDespesa/ModalEditarDespesa'
 import { FinanceiroLayout } from '../../layouts/FinanceiroLayout'
+import { textoParaValor } from '../../valorEmReais'
 import styles from './Despesas.module.css'
 
 /** "2026-10" -> "Outubro de 2026". */
@@ -42,13 +48,12 @@ function mensagemDeErro(e: unknown, padrao: string): string {
   return e instanceof ApiError ? (e.detalhe ?? e.message) : padrao
 }
 
-/** Campo do formulário que a validação recusou; o valor é o id do controle. */
+/** Campo do formulário que a validação recusou; o valor é o `name` do controle. */
 type CampoDespesa = 'descricao' | 'responsavel' | 'valor' | 'data'
+type ErrosDespesa = Partial<Record<CampoDespesa, string>>
 
 /** Mesmo limite da coluna RESPONSAVEL no backend. */
 const MAX_RESPONSAVEL = 120
-
-const ERRO_FORM_ID = 'erroDespesa'
 
 const FILTROS: { valor: FiltroSituacaoDespesa; rotulo: string }[] = [
   { valor: 'TODAS', rotulo: 'Todas' },
@@ -63,6 +68,11 @@ const SITUACOES_DO_FILTRO: Record<FiltroSituacaoDespesa, SituacaoDespesa[]> = {
   PAGAS: ['PAGA'],
 }
 
+const SITUACOES_DO_LANCAMENTO: { valor: SituacaoDespesa; rotulo: string }[] = [
+  { valor: 'A_PAGAR', rotulo: 'A pagar' },
+  { valor: 'PAGA', rotulo: 'Paga' },
+]
+
 /** A despesa entra na lista com o filtro escolhido? */
 function passaNoFiltro(despesa: Despesa, filtro: FiltroSituacaoDespesa): boolean {
   return SITUACOES_DO_FILTRO[filtro].includes(despesa.situacao)
@@ -74,9 +84,14 @@ function totalDa(resumo: ResumoDespesas | null, situacao: SituacaoDespesa) {
   return { valor: total?.valor ?? 0, quantidade: total?.quantidade ?? 0 }
 }
 
+function plural(quantidade: number, singular: string, varias: string): string {
+  return `${quantidade} ${quantidade === 1 ? singular : varias}`
+}
+
 /**
  * Despesas do financeiro (IU21): as do mês atual, uma página por vez
- * (GET /despesas/pagina), com os totais do mês somados no backend.
+ * (GET /despesas/pagina), com os totais do mês somados no backend, e o
+ * lançamento ao lado.
  */
 export function Despesas() {
   const [categorias, setCategorias] = useState<CategoriaDespesa[]>([])
@@ -88,6 +103,7 @@ export function Despesas() {
   const [avisoLista, setAvisoLista] = useState<string | null>(null)
 
   // Estado do formulário "Lançar uma despesa"
+  const formRef = useRef<HTMLFormElement>(null)
   const [descricao, setDescricao] = useState('')
   const [responsavel, setResponsavel] = useState('')
   const [categoriaId, setCategoriaId] = useState<string | null>(null)
@@ -95,8 +111,8 @@ export function Despesas() {
   const [dataVencimento, setDataVencimento] = useState(hojeIso)
   const [situacao, setSituacao] = useState<SituacaoDespesa>('A_PAGAR')
   const [salvando, setSalvando] = useState(false)
+  const [erros, setErros] = useState<ErrosDespesa>({})
   const [erroForm, setErroForm] = useState<string | null>(null)
-  const [campoInvalido, setCampoInvalido] = useState<CampoDespesa | null>(null)
   const [sucessoForm, setSucessoForm] = useState<string | null>(null)
   const [gerenciandoCategorias, setGerenciandoCategorias] = useState(false)
 
@@ -135,13 +151,6 @@ export function Despesas() {
   // Os cards somam o mês inteiro no backend, sem a pílula escolhida; cancelada não entra.
   const pagas = totalDa(lista.dados?.resumo ?? null, 'PAGA')
   const aPagar = totalDa(lista.dados?.resumo ?? null, 'A_PAGAR')
-  const totais = {
-    pago: pagas.valor,
-    qtdPagas: pagas.quantidade,
-    faltaPagar: aPagar.valor,
-    qtdAPagar: aPagar.quantidade,
-    total: pagas.valor + aPagar.valor,
-  }
 
   /** Marca como paga a despesa a pagar, ou desfaz o pagamento da paga. */
   async function handleAlternarSituacao(despesa: Despesa) {
@@ -172,60 +181,34 @@ export function Despesas() {
     recarregar()
   }
 
-  /** Mostra o erro, marca o campo e leva o foco até ele. */
-  function recusar(campo: CampoDespesa, mensagem: string) {
-    setErroForm(mensagem)
-    setCampoInvalido(campo)
-    document.getElementById(campo)?.focus()
-  }
-
-  /** Ao editar o formulário, a confirmação anterior sai; ao corrigir o campo recusado, o erro também. */
+  /** Ao editar o formulário, a confirmação anterior sai; ao corrigir o campo recusado, o erro dele também. */
   function editou(campo: CampoDespesa) {
     setSucessoForm(null)
-    if (campoInvalido !== campo) return
-    setErroForm(null)
-    setCampoInvalido(null)
+    if (erros[campo]) setErros((atuais) => ({ ...atuais, [campo]: undefined }))
   }
 
-  /** Atributos de acessibilidade do controle, conforme a validação. */
-  function invalidez(campo: CampoDespesa) {
-    const invalido = campoInvalido === campo
-    return { 'aria-invalid': invalido, 'aria-describedby': invalido ? ERRO_FORM_ID : undefined }
+  /** Erro em cada campo recusado; vazio quando o formulário pode ir ao backend. */
+  function validar(): ErrosDespesa {
+    const novos: ErrosDespesa = {}
+    if (!descricao.trim()) novos.descricao = 'Informe a descrição do que foi pago.'
+    if (!responsavel.trim()) novos.responsavel = 'Informe o responsável pela despesa.'
+    if (!(textoParaValor(valor) > 0)) novos.valor = 'Informe um valor maior que zero (ex.: 150,00).'
+    if (!dataVencimento) novos.data = 'Informe a data da despesa.'
+    return novos
   }
 
   async function handleSalvarDespesa(e: FormEvent) {
     e.preventDefault()
     setErroForm(null)
-    setCampoInvalido(null)
     setSucessoForm(null)
 
-    if (!descricao.trim()) {
-      recusar('descricao', 'Informe a descrição do que foi pago.')
+    const novos = validar()
+    setErros(novos)
+    const primeiro = (Object.keys(novos) as CampoDespesa[])[0]
+    if (primeiro) {
+      formRef.current?.querySelector<HTMLElement>(`[name="${primeiro}"]`)?.focus()
       return
     }
-
-    if (!responsavel.trim()) {
-      recusar('responsavel', 'Informe o responsável pela despesa.')
-      return
-    }
-
-    const valorLimpo = valor
-      .replace(/^R\$\s*/i, '')
-      .replace(/\./g, '')
-      .replace(',', '.')
-      .trim()
-    const valorNumerico = parseFloat(valorLimpo)
-
-    if (isNaN(valorNumerico) || valorNumerico <= 0) {
-      recusar('valor', 'Informe um valor maior que zero (ex.: 150,00).')
-      return
-    }
-
-    if (!dataVencimento) {
-      recusar('data', 'Informe a data da despesa.')
-      return
-    }
-
     if (!categoriaId) {
       setErroForm('Escolha a categoria da despesa.')
       return
@@ -237,7 +220,7 @@ export function Despesas() {
         descricao: descricao.trim(),
         responsavel: responsavel.trim(),
         categoriaId,
-        valor: valorNumerico,
+        valor: textoParaValor(valor),
         dataVencimento,
         paga: situacao === 'PAGA',
       })
@@ -263,59 +246,45 @@ export function Despesas() {
     }
   }
 
-  function formatarDataBr(isoDate: string): string {
-    if (!isoDate) return ''
-    const partes = isoDate.split('-')
-    if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`
-    return isoDate
-  }
-
   return (
     <FinanceiroLayout
       titulo="Despesas"
       subtitulo="Tudo o que a escola gasta: contas, salários, materiais e consertos."
     >
       <div className={styles.conteudoGrid}>
-        {/* Coluna Esquerda: Estatísticas e Tabela de Despesas */}
+        {/* Coluna esquerda: resumo e despesas do mês */}
         <div className={styles.colunaEsquerda}>
-          {/* Cards de Resumo Estatístico */}
-          <section className={styles.statsGrid} aria-label="Resumo das despesas">
-            <div className={styles.statCard}>
-              <span className={styles.statLabel}>Já pago no mês</span>
-              <strong className={styles.statValor}>{formatarMoeda(totais.pago)}</strong>
-              <span className={styles.statSubtitulo}>
-                {totais.qtdPagas} {totais.qtdPagas === 1 ? 'despesa quitada' : 'despesas quitadas'}
-              </span>
-            </div>
+          <StatCards rotulo="Resumo das despesas">
+            <StatCard
+              label="Já pago no mês"
+              value={formatarMoeda(pagas.valor)}
+              descricao={plural(pagas.quantidade, 'despesa quitada', 'despesas quitadas')}
+            />
+            <StatCard
+              label="Ainda falta pagar"
+              value={formatarMoeda(aPagar.valor)}
+              descricao={plural(aPagar.quantidade, 'despesa em aberto', 'despesas em aberto')}
+              destaque
+            />
+            <StatCard
+              label="Total do mês"
+              value={formatarMoeda(pagas.valor + aPagar.valor)}
+              descricao={rotuloDoMes(mesAtual)}
+            />
+          </StatCards>
 
-            <div className={styles.statCard}>
-              <span className={styles.statLabel}>Ainda falta pagar</span>
-              <strong className={`${styles.statValor} ${styles.statValorDestaque}`}>
-                {formatarMoeda(totais.faltaPagar)}
-              </strong>
-              <span className={styles.statSubtitulo}>
-                {totais.qtdAPagar} {totais.qtdAPagar === 1 ? 'despesa em aberto' : 'despesas em aberto'}
-              </span>
-            </div>
-
-            <div className={styles.statCard}>
-              <span className={styles.statLabel}>Total do mês</span>
-              <strong className={styles.statValor}>{formatarMoeda(totais.total)}</strong>
-              <span className={styles.statSubtitulo}>{rotuloDoMes(mesAtual)}</span>
-            </div>
-          </section>
-
-          {/* Tabela de Despesas do Mês */}
-          <section className={styles.tabelaCard}>
-            <header className={styles.tabelaHeader}>
-              <h2 className={styles.tabelaTitulo}>Despesas do mês</h2>
-              <div className={styles.filtros} role="group" aria-label="Filtrar despesas por situação">
+          <section className={styles.cartao} aria-labelledby="tituloDespesas">
+            <header className={styles.cabecalho}>
+              <h2 id="tituloDespesas" className={styles.tituloSecao}>
+                Despesas do mês
+              </h2>
+              <div className={styles.pilulas} role="group" aria-label="Filtrar despesas por situação">
                 {FILTROS.map((f) => (
                   <button
                     key={f.valor}
                     type="button"
                     aria-pressed={filtro === f.valor}
-                    className={`${styles.filtroBtn} ${filtro === f.valor ? styles.filtroAtivo : ''}`}
+                    className={`${styles.pilula} ${filtro === f.valor ? styles.pilulaAtiva : ''}`}
                     onClick={() => setFiltro(f.valor)}
                   >
                     {f.rotulo}
@@ -325,21 +294,21 @@ export function Despesas() {
             </header>
 
             {erroAcao && (
-              <p className={styles.erroForm} role="alert">
+              <p className={styles.erro} role="alert">
                 {erroAcao}
               </p>
             )}
             {avisoLista && (
-              <p className={styles.sucessoForm} role="status">
+              <p className={styles.sucesso} role="status">
                 {avisoLista}
               </p>
             )}
 
-            <div ref={topo} className={styles.tabelaWrapper} aria-busy={atualizando}>
+            <div ref={topo} className={styles.rolagem} aria-busy={atualizando}>
               {carregando ? (
-                <div className={styles.vazio} role="status">
+                <p className={styles.vazio} role="status">
                   Carregando despesas…
-                </div>
+                </p>
               ) : erroLista || !paginacao ? (
                 <div className={styles.vazio} role="alert">
                   <span>{erroLista}</span>
@@ -348,60 +317,48 @@ export function Despesas() {
                   </Button>
                 </div>
               ) : paginacao.total === 0 ? (
-                <div className={styles.vazio}>Nenhuma despesa de {rotuloDoMes(mesAtual).toLowerCase()} nesta situação.</div>
+                <p className={styles.vazio}>Nenhuma despesa de {rotuloDoMes(mesAtual).toLowerCase()} nesta situação.</p>
               ) : (
                 <table className={styles.tabela}>
                   <thead>
                     <tr>
-                      <th scope="col" className={styles.thDescricao}>
-                        Descrição
-                      </th>
-                      <th scope="col" className={styles.thCategoria}>
-                        Categoria
-                      </th>
-                      <th scope="col" className={styles.thResponsavel}>
-                        Responsável
-                      </th>
-                      <th scope="col" className={styles.thData}>
-                        Data
-                      </th>
-                      <th scope="col" className={styles.thValor}>
+                      <th scope="col">Descrição</th>
+                      <th scope="col">Categoria</th>
+                      <th scope="col">Responsável</th>
+                      <th scope="col">Data</th>
+                      <th scope="col" className={styles.numero}>
                         Valor
                       </th>
-                      <th scope="col" className={styles.thAcao}>
+                      <th scope="col" className={styles.acao}>
                         <span className={styles.somenteLeitor}>Ação</span>
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {paginacao.itensDaPagina.map((d) => (
-                      <tr key={d.id} className={styles.tr}>
-                        <td className={styles.tdDescricao}>
+                      <tr key={d.id}>
+                        <td className={styles.colPrincipal}>
                           <div className={styles.descricaoEBadge}>
-                            <span className={styles.descricaoTexto}>{d.descricao}</span>
-                            <span
-                              className={`${styles.badge} ${
-                                d.situacao === 'PAGA' ? styles.badgePaga : styles.badgeAPagar
-                              }`}
-                            >
+                            <span className={styles.descricao}>{d.descricao}</span>
+                            <Badge tone={d.situacao === 'PAGA' ? 'success' : 'warning'}>
                               {d.situacao === 'PAGA' ? 'Paga' : 'A pagar'}
-                            </span>
+                            </Badge>
                           </div>
                         </td>
-                        <td className={styles.tdCategoria} data-rotulo="Categoria">
+                        <td data-rotulo="Categoria" className={styles.secundario}>
                           {d.categoriaNome}
                         </td>
-                        <td className={styles.tdResponsavel} data-rotulo="Responsável">
+                        <td data-rotulo="Responsável" className={styles.secundario}>
                           {/* Despesa antiga, lançada antes de o campo existir. */}
                           {d.responsavel ?? '—'}
                         </td>
-                        <td className={styles.tdData} data-rotulo="Data">
-                          {formatarDataBr(d.dataVencimento)}
+                        <td data-rotulo="Data" className={styles.data}>
+                          {formatarData(d.dataVencimento)}
                         </td>
-                        <td className={styles.tdValor} data-rotulo="Valor">
+                        <td data-rotulo="Valor" className={styles.numero}>
                           {formatarMoeda(d.valor)}
                         </td>
-                        <td className={styles.tdAcao}>
+                        <td className={styles.acao}>
                           <div className={styles.acoes}>
                           <Button
                             size="sm"
@@ -442,64 +399,57 @@ export function Despesas() {
           </section>
         </div>
 
-        {/* Coluna Direita: Formulário Lançar uma despesa */}
+        {/* Coluna direita: lançar uma despesa */}
         <aside className={styles.colunaDireita}>
-          <div className={styles.formCard}>
-            <h2 className={styles.formTitulo}>Lançar uma despesa</h2>
-            <form onSubmit={handleSalvarDespesa} className={styles.formulario} noValidate>
-              {/* O que foi pago */}
-              <div className={styles.campo}>
-                <label htmlFor="descricao" className={styles.label}>
-                  O que foi pago
-                </label>
-                <input
-                  id="descricao"
-                  type="text"
-                  className={styles.input}
-                  placeholder="Ex.: conta de água"
-                  value={descricao}
-                  onChange={(e) => {
-                    setDescricao(e.target.value)
-                    editou('descricao')
-                  }}
-                  required
-                  {...invalidez('descricao')}
-                />
-              </div>
+          <section className={styles.cartao} aria-labelledby="tituloLancar">
+            <h2 id="tituloLancar" className={styles.tituloSecao}>
+              Lançar uma despesa
+            </h2>
+            <form ref={formRef} onSubmit={handleSalvarDespesa} className={styles.formulario} noValidate>
+              <Campo label="O que foi pago" erro={erros.descricao}>
+                {(props) => (
+                  <input
+                    {...props}
+                    name="descricao"
+                    type="text"
+                    placeholder="Ex.: conta de água"
+                    value={descricao}
+                    onChange={(e) => {
+                      setDescricao(e.target.value)
+                      editou('descricao')
+                    }}
+                  />
+                )}
+              </Campo>
 
-              {/* Responsável */}
-              <div className={styles.campo}>
-                <label htmlFor="responsavel" className={styles.label}>
-                  Responsável
-                </label>
-                <input
-                  id="responsavel"
-                  type="text"
-                  className={styles.input}
-                  placeholder="Ex.: Administração"
-                  maxLength={MAX_RESPONSAVEL}
-                  value={responsavel}
-                  onChange={(e) => {
-                    setResponsavel(e.target.value)
-                    editou('responsavel')
-                  }}
-                  required
-                  {...invalidez('responsavel')}
-                />
-              </div>
+              <Campo label="Responsável" erro={erros.responsavel}>
+                {(props) => (
+                  <input
+                    {...props}
+                    name="responsavel"
+                    type="text"
+                    placeholder="Ex.: Administração"
+                    maxLength={MAX_RESPONSAVEL}
+                    value={responsavel}
+                    onChange={(e) => {
+                      setResponsavel(e.target.value)
+                      editou('responsavel')
+                    }}
+                  />
+                )}
+              </Campo>
 
-              {/* Categoria */}
-              <div className={styles.campo}>
-                <span id="rotuloCategoria" className={styles.label}>
+              <div className={styles.grupo}>
+                <span id="rotuloCategoria" className={styles.rotulo}>
                   Categoria
                 </span>
-                <div className={styles.categoriasGrid} role="group" aria-labelledby="rotuloCategoria">
+                <div className={styles.escolhas} role="group" aria-labelledby="rotuloCategoria">
                   {categorias.map((cat) => (
                     <button
                       key={cat.id}
                       type="button"
                       aria-pressed={categoriaId === cat.id}
-                      className={`${styles.catBtn} ${categoriaId === cat.id ? styles.catBtnAtivo : ''}`}
+                      className={`${styles.escolha} ${categoriaId === cat.id ? styles.escolhaAtiva : ''}`}
                       onClick={() => setCategoriaId(cat.id)}
                     >
                       {cat.nome}
@@ -507,105 +457,82 @@ export function Despesas() {
                   ))}
                 </div>
                 {erroCategorias && (
-                  <p className={styles.erroForm} role="alert">
+                  <p className={styles.erro} role="alert">
                     {erroCategorias}
                   </p>
                 )}
               </div>
 
-              {/* Valor e Data */}
               <div className={styles.gridDuplo}>
-                <div className={styles.campo}>
-                  <label htmlFor="valor" className={styles.label}>
-                    Valor
-                  </label>
-                  <input
-                    id="valor"
-                    type="text"
-                    inputMode="decimal"
-                    className={styles.input}
-                    placeholder="R$ 0,00"
-                    value={valor}
-                    onChange={(e) => {
-                      setValor(e.target.value)
-                      editou('valor')
-                    }}
-                    required
-                    {...invalidez('valor')}
-                  />
-                </div>
-
-                <div className={styles.campo}>
-                  <label htmlFor="data" className={styles.label}>
-                    Data
-                  </label>
-                  <input
-                    id="data"
-                    type="date"
-                    className={styles.input}
-                    value={dataVencimento}
-                    onChange={(e) => {
-                      setDataVencimento(e.target.value)
-                      editou('data')
-                    }}
-                    required
-                    {...invalidez('data')}
-                  />
-                </div>
+                <Campo label="Valor" erro={erros.valor}>
+                  {(props) => (
+                    <input
+                      {...props}
+                      name="valor"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="R$ 0,00"
+                      value={valor}
+                      onChange={(e) => {
+                        setValor(e.target.value)
+                        editou('valor')
+                      }}
+                    />
+                  )}
+                </Campo>
+                <Campo label="Data" erro={erros.data}>
+                  {(props) => (
+                    <CampoData
+                      {...props}
+                      name="data"
+                      valor={dataVencimento}
+                      onChange={(data) => {
+                        setDataVencimento(data)
+                        editou('data')
+                      }}
+                    />
+                  )}
+                </Campo>
               </div>
 
-              {/* Situação */}
-              <div className={styles.campo}>
-                <span id="rotuloSituacao" className={styles.label}>
+              <div className={styles.grupo}>
+                <span id="rotuloSituacao" className={styles.rotulo}>
                   Situação
                 </span>
-                <div className={styles.situacaoGrid} role="group" aria-labelledby="rotuloSituacao">
-                  <button
-                    type="button"
-                    aria-pressed={situacao === 'A_PAGAR'}
-                    className={`${styles.situacaoBtn} ${
-                      situacao === 'A_PAGAR' ? styles.situacaoBtnAtivo : ''
-                    }`}
-                    onClick={() => setSituacao('A_PAGAR')}
-                  >
-                    A pagar
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={situacao === 'PAGA'}
-                    className={`${styles.situacaoBtn} ${
-                      situacao === 'PAGA' ? styles.situacaoBtnAtivo : ''
-                    }`}
-                    onClick={() => setSituacao('PAGA')}
-                  >
-                    Paga
-                  </button>
+                <div className={`${styles.escolhas} ${styles.duasEscolhas}`} role="group" aria-labelledby="rotuloSituacao">
+                  {SITUACOES_DO_LANCAMENTO.map((opcao) => (
+                    <button
+                      key={opcao.valor}
+                      type="button"
+                      aria-pressed={situacao === opcao.valor}
+                      className={`${styles.escolha} ${situacao === opcao.valor ? styles.escolhaAtiva : ''}`}
+                      onClick={() => setSituacao(opcao.valor)}
+                    >
+                      {opcao.rotulo}
+                    </button>
+                  ))}
                 </div>
               </div>
 
               {erroForm && (
-                <p id={ERRO_FORM_ID} className={styles.erroForm} role="alert">
+                <p className={styles.erro} role="alert">
                   {erroForm}
                 </p>
               )}
               {sucessoForm && (
-                <p className={styles.sucessoForm} role="status">
+                <p className={styles.sucesso} role="status">
                   {sucessoForm}
                 </p>
               )}
 
-              <button
-                type="submit"
-                className={styles.botaoSalvar}
-                disabled={salvando}
-              >
+              <Button type="submit" variant="accent" className={styles.salvar} disabled={salvando}>
                 {salvando ? 'Salvando…' : 'Salvar despesa'}
-              </button>
+              </Button>
               <button type="button" className={styles.linkCategorias} onClick={() => setGerenciandoCategorias(true)}>
                 Gerenciar categorias
               </button>
             </form>
-          </div>
+          </section>
         </aside>
       </div>
 
@@ -627,4 +554,3 @@ export function Despesas() {
     </FinanceiroLayout>
   )
 }
-

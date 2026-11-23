@@ -19,16 +19,16 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import br.pucminas.eduka.backend.domain.Disciplina;
-import br.pucminas.eduka.backend.domain.Escola;
-import br.pucminas.eduka.backend.domain.Turma;
-import br.pucminas.eduka.backend.domain.Usuario;
-import br.pucminas.eduka.backend.repository.CursoRepository;
-import br.pucminas.eduka.backend.repository.DisciplinaRepository;
-import br.pucminas.eduka.backend.repository.EscolaRepository;
-import br.pucminas.eduka.backend.repository.PeriodoLetivoRepository;
-import br.pucminas.eduka.backend.repository.TurmaRepository;
-import br.pucminas.eduka.backend.repository.UsuarioRepository;
+import br.pucminas.eduka.backend.domain.academico.Disciplina;
+import br.pucminas.eduka.backend.domain.academico.Turma;
+import br.pucminas.eduka.backend.domain.acesso.Usuario;
+import br.pucminas.eduka.backend.domain.escola.Escola;
+import br.pucminas.eduka.backend.repository.academico.CursoRepository;
+import br.pucminas.eduka.backend.repository.academico.DisciplinaRepository;
+import br.pucminas.eduka.backend.repository.academico.PeriodoLetivoRepository;
+import br.pucminas.eduka.backend.repository.academico.TurmaRepository;
+import br.pucminas.eduka.backend.repository.acesso.UsuarioRepository;
+import br.pucminas.eduka.backend.repository.escola.EscolaRepository;
 
 @ExtendWith(MockitoExtension.class)
 class DevAcademicoSeederTest {

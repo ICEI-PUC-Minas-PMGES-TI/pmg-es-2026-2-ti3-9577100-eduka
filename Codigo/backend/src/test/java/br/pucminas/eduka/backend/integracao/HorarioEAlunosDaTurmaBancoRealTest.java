@@ -11,12 +11,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import br.pucminas.eduka.backend.domain.DiaSemana;
-import br.pucminas.eduka.backend.domain.StatusMatricula;
-import br.pucminas.eduka.backend.dto.TurmaDoProfessorResponse;
-import br.pucminas.eduka.backend.dto.TurmaDoProfessorResponse.HorarioDaDisciplina;
-import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
-import br.pucminas.eduka.backend.service.PortalProfessorService;
+import br.pucminas.eduka.backend.domain.academico.DiaSemana;
+import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
+import br.pucminas.eduka.backend.dto.academico.TurmaDoProfessorResponse.HorarioDaDisciplina;
+import br.pucminas.eduka.backend.dto.academico.TurmaDoProfessorResponse;
+import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.service.portal.PortalProfessorService;
 
 /**
  * Portal do professor (IU13): o horario de cada disciplina vem da grade da

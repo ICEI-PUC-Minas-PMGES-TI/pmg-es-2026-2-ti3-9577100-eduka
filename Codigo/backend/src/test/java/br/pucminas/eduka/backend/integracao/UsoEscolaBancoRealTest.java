@@ -18,12 +18,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-import br.pucminas.eduka.backend.domain.EntidadeAuditada;
-import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
-import br.pucminas.eduka.backend.domain.StatusCobranca;
-import br.pucminas.eduka.backend.dto.UsoEscolaResponse;
-import br.pucminas.eduka.backend.repository.UsuarioRepository;
-import br.pucminas.eduka.backend.service.UsoEscolaService;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
+import br.pucminas.eduka.backend.dto.escola.UsoEscolaResponse;
+import br.pucminas.eduka.backend.repository.acesso.UsuarioRepository;
+import br.pucminas.eduka.backend.service.escola.UsoEscolaService;
 
 /**
  * O uso de cada escola no Postgres: contagens por escola, o mes no fuso da

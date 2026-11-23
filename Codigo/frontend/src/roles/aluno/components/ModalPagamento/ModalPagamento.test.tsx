@@ -8,7 +8,7 @@ import type {
   DadosPagamento,
   FormaPagamento,
   SituacaoPagamento,
-} from '../../../../types/pagamentoAluno'
+} from '../../../../types/financeiro/pagamentoAluno'
 import { ModalPagamento } from './ModalPagamento'
 
 const COBRANCA: CobrancaDoHistorico = {

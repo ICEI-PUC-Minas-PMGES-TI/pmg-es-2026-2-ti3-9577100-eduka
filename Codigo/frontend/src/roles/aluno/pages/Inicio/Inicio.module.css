@@ -19,19 +19,230 @@
   font-weight: 800;
 }
 
-.acoes {
-  display: flex;
-  justify-content: flex-end;
+/* Provas e tarefas à esquerda; o desempenho numa coluna ao lado. */
+.grade {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  align-items: start;
+  gap: 20px;
 }
 
-.proximas {
+.principal,
+.lateral {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 20px;
+  min-width: 0;
+}
+
+.lateral {
+  position: sticky;
+  top: 20px;
+}
+
+/* ---- Painel "Seu desempenho" ---- */
+
+.painel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 22px 24px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(130% 90% at 100% 0%, var(--color-primary-soft) 0%, transparent 60%),
+    var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+}
+
+.painelTopo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+
+.painelTitulo {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: -0.3px;
+}
+
+/* Bimestre em andamento. */
+.agora {
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.metricas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+/* Só a média (escola sem o controle de frequência): ela ocupa a linha. */
+.metricaUnica {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.metrica {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.metricaRotulo {
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.metricaValor {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  line-height: 1.05;
+}
+
+.metricaValor strong {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: -0.8px;
+}
+
+.metricaValor small {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.metricaDescricao {
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+
+.alerta,
+.alerta strong {
+  color: var(--color-danger);
+}
+
+.barra,
+.barraPequena {
+  display: block;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-neutral-bg);
+}
+
+.barra {
+  height: 6px;
+}
+
+.barraPequena {
+  height: 5px;
+}
+
+.barraValor {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-primary);
+  transition: width 0.5s var(--curva, ease);
+}
+
+.barraAlerta {
+  background: var(--color-danger);
+}
+
+.disciplinas {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.subtitulo {
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.listaDisciplinas {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.disciplina {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px 42px;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.disciplinaNome {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.disciplinaPercentual {
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-align: right;
+}
+
+@media (max-width: 1080px) {
+  .grade {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* No celular e no tablet, uma coluna: primeiro o que vem pela frente, depois o desempenho. */
+  .lateral {
+    position: static;
+  }
 }
 
 @media (max-width: 560px) {
-  .acoes > button {
+  .painel {
+    padding: 18px 16px;
+  }
+
+  .metricas {
+    gap: 10px;
+  }
+
+  .metrica {
+    padding: 12px;
+  }
+
+  .metricaValor strong {
+    font-size: 26px;
+  }
+
+  .painel > button {
     width: 100%;
   }
 }

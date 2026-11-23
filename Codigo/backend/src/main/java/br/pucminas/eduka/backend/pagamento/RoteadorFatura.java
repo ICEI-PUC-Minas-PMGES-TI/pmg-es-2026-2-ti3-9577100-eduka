@@ -9,6 +9,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -23,31 +24,31 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import br.pucminas.eduka.backend.domain.ClienteProvedor;
-import br.pucminas.eduka.backend.domain.ContaProvedorCliente;
-import br.pucminas.eduka.backend.domain.ContaRecebimentoEscola;
-import br.pucminas.eduka.backend.domain.EntidadeAuditada;
-import br.pucminas.eduka.backend.domain.Escola;
-import br.pucminas.eduka.backend.domain.FaturaPlataforma;
-import br.pucminas.eduka.backend.domain.OperacaoAuditoria;
-import br.pucminas.eduka.backend.domain.SituacaoProvedor;
-import br.pucminas.eduka.backend.domain.StatusCobranca;
-import br.pucminas.eduka.backend.dto.BoletoResponse;
-import br.pucminas.eduka.backend.dto.ComprovanteResponse;
-import br.pucminas.eduka.backend.dto.DadosPagamentoResponse;
-import br.pucminas.eduka.backend.dto.FaturaPlataformaResponse;
-import br.pucminas.eduka.backend.dto.LancarFaturaRequest;
-import br.pucminas.eduka.backend.dto.Ordenacao;
-import br.pucminas.eduka.backend.dto.PaginaResponse;
-import br.pucminas.eduka.backend.dto.Paginacao;
-import br.pucminas.eduka.backend.dto.PixResponse;
-import br.pucminas.eduka.backend.exception.CobrancaJaPagaException;
-import br.pucminas.eduka.backend.exception.CobrancaNaoPagavelException;
-import br.pucminas.eduka.backend.exception.ComprovanteIndisponivelException;
-import br.pucminas.eduka.backend.exception.FaturaDuplicadaException;
-import br.pucminas.eduka.backend.exception.FormaPagamentoInvalidaException;
-import br.pucminas.eduka.backend.exception.PagamentoEmProcessamentoException;
-import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
+import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
+import br.pucminas.eduka.backend.domain.escola.Escola;
+import br.pucminas.eduka.backend.domain.escola.FaturaPlataforma;
+import br.pucminas.eduka.backend.domain.financeiro.ClienteProvedor;
+import br.pucminas.eduka.backend.domain.financeiro.ContaProvedorCliente;
+import br.pucminas.eduka.backend.domain.financeiro.ContaRecebimentoEscola;
+import br.pucminas.eduka.backend.domain.financeiro.SituacaoProvedor;
+import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
+import br.pucminas.eduka.backend.dto.comum.Ordenacao;
+import br.pucminas.eduka.backend.dto.comum.PaginaResponse;
+import br.pucminas.eduka.backend.dto.comum.Paginacao;
+import br.pucminas.eduka.backend.dto.escola.FaturaPlataformaResponse;
+import br.pucminas.eduka.backend.dto.escola.LancarFaturaRequest;
+import br.pucminas.eduka.backend.dto.financeiro.BoletoResponse;
+import br.pucminas.eduka.backend.dto.financeiro.ComprovanteResponse;
+import br.pucminas.eduka.backend.dto.financeiro.DadosPagamentoResponse;
+import br.pucminas.eduka.backend.dto.financeiro.PixResponse;
+import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.exception.escola.FaturaDuplicadaException;
+import br.pucminas.eduka.backend.exception.financeiro.CobrancaJaPagaException;
+import br.pucminas.eduka.backend.exception.financeiro.CobrancaNaoPagavelException;
+import br.pucminas.eduka.backend.exception.financeiro.ComprovanteIndisponivelException;
+import br.pucminas.eduka.backend.exception.financeiro.FormaPagamentoInvalidaException;
+import br.pucminas.eduka.backend.exception.financeiro.PagamentoEmProcessamentoException;
 import br.pucminas.eduka.backend.pagamento.tipos.BoletoProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.CobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.CredencialProvedor;
@@ -56,12 +57,12 @@ import br.pucminas.eduka.backend.pagamento.tipos.FormaPagamento;
 import br.pucminas.eduka.backend.pagamento.tipos.NovaCobrancaProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.PixProvedor;
 import br.pucminas.eduka.backend.pagamento.tipos.StatusCobrancaProvedor;
-import br.pucminas.eduka.backend.repository.ClienteProvedorRepository;
-import br.pucminas.eduka.backend.repository.ContaRecebimentoEscolaRepository;
-import br.pucminas.eduka.backend.repository.EscolaRepository;
-import br.pucminas.eduka.backend.repository.FaturaPlataformaRepository;
+import br.pucminas.eduka.backend.repository.escola.EscolaRepository;
+import br.pucminas.eduka.backend.repository.escola.FaturaPlataformaRepository;
+import br.pucminas.eduka.backend.repository.financeiro.ClienteProvedorRepository;
+import br.pucminas.eduka.backend.repository.financeiro.ContaRecebimentoEscolaRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
-import br.pucminas.eduka.backend.service.AuditoriaService;
+import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
 
 /**
  * Fatura da plataforma (Fluxo A, R26), por tras do {@link PaymentRoutingService}:
@@ -176,12 +177,12 @@ class RoteadorFatura {
         });
     }
 
-    PaginaResponse<FaturaPlataformaResponse> listarDaEscola(UUID escolaId, StatusCobranca situacao,
+    PaginaResponse<FaturaPlataformaResponse> listarDaEscola(UUID escolaId, Set<StatusCobranca> situacoes,
             Paginacao paginacao, Ordenacao.Faturas ordenarPor, Direction direcao) {
         return transacao.execute(status -> {
             Escola escola = escola(escolaId);
             LocalDate hoje = hoje();
-            return PaginaResponse.de(pagina(escolaId, situacao, paginacao, ordenarPor, direcao),
+            return PaginaResponse.de(pagina(escolaId, situacoes, paginacao, ordenarPor, direcao),
                     f -> FaturaPlataformaResponse.paraSuperAdmin(f, escola.getNome(), hoje));
         });
     }
@@ -470,24 +471,30 @@ class RoteadorFatura {
                 escola(escolaId).getNome(), hoje()));
     }
 
-    PaginaResponse<FaturaPlataformaResponse> listarMinhas(StatusCobranca situacao, Paginacao paginacao,
+    PaginaResponse<FaturaPlataformaResponse> listarMinhas(Set<StatusCobranca> situacoes, Paginacao paginacao,
             Ordenacao.Faturas ordenarPor, Direction direcao) {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         return transacao.execute(status -> {
             Escola escola = escola(escolaId);
             LocalDate hoje = hoje();
-            return PaginaResponse.de(pagina(escolaId, situacao, paginacao, ordenarPor, direcao),
+            return PaginaResponse.de(pagina(escolaId, situacoes, paginacao, ordenarPor, direcao),
                     f -> FaturaPlataformaResponse.paraEscola(f, escola.getNome(), hoje));
         });
     }
 
-    /** Faturas da escola, opcionalmente so as de uma situacao. */
-    private Page<FaturaPlataforma> pagina(UUID escolaId, StatusCobranca situacao, Paginacao paginacao,
+    /**
+     * Faturas da escola; com {@code situacoes}, so as que estao gravadas numa
+     * delas. A vencida pode seguir gravada como PENDENTE ate a rotina diaria
+     * marca-la: quem quer as em aberto pede PENDENTE e EM_ATRASO juntas.
+     *
+     * @param situacoes nula ou vazia para todas
+     */
+    private Page<FaturaPlataforma> pagina(UUID escolaId, Set<StatusCobranca> situacoes, Paginacao paginacao,
             Ordenacao.Faturas ordenarPor, Direction direcao) {
         Pageable pageable = paginacao.comOrdem(
                 Ordenacao.noBanco(Ordenacao.ou(direcao, ordenarPor.padrao), ordenarPor.propriedade));
-        return situacao == null ? faturaRepository.findAllByEscolaId(escolaId, pageable)
-                : faturaRepository.findAllByEscolaIdAndStatus(escolaId, situacao, pageable);
+        return situacoes == null || situacoes.isEmpty() ? faturaRepository.findAllByEscolaId(escolaId, pageable)
+                : faturaRepository.findAllByEscolaIdAndStatusIn(escolaId, situacoes, pageable);
     }
 
     // ---- Apoio ----

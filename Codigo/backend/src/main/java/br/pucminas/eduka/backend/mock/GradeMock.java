@@ -10,8 +10,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import br.pucminas.eduka.backend.domain.DiaSemana;
-import br.pucminas.eduka.backend.domain.Turno;
+import br.pucminas.eduka.backend.domain.academico.DiaSemana;
+import br.pucminas.eduka.backend.domain.academico.Turno;
 
 /**
  * Grade semanal da escola de demonstracao: espalha as aulas de cada

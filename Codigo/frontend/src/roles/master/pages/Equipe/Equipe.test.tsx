@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import { problema, simularApi, type ChamadaApi, type RespostaApi } from '../../../../test/api'
-import type { MembroEquipe } from '../../../../types/equipe'
+import type { MembroEquipe } from '../../../../types/escola/equipe'
 import { Equipe } from './Equipe'
 
 const PATRICIA: MembroEquipe = {

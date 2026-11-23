@@ -9,11 +9,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import br.pucminas.eduka.backend.domain.StatusSolicitacaoCorrecao;
-import br.pucminas.eduka.backend.dto.SolicitacaoCorrecaoResponse;
-import br.pucminas.eduka.backend.exception.RecursoNaoEncontradoException;
-import br.pucminas.eduka.backend.exception.SolicitacaoCorrecaoAbertaException;
-import br.pucminas.eduka.backend.service.SolicitacaoCorrecaoService;
+import br.pucminas.eduka.backend.domain.pessoas.StatusSolicitacaoCorrecao;
+import br.pucminas.eduka.backend.dto.pessoas.SolicitacaoCorrecaoResponse;
+import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.exception.pessoas.SolicitacaoCorrecaoAbertaException;
+import br.pucminas.eduka.backend.service.pessoas.SolicitacaoCorrecaoService;
 
 /**
  * Pedido de correcao de dados (IU15) no banco: uma solicitacao aberta por
@@ -52,7 +52,7 @@ class SolicitacaoCorrecaoBancoRealTest extends BancoRealTest {
     void secretariaVeOPedidoComONomeEAtendeLiberandoUmNovo() {
         UUID pedido = service.abrir("Telefone mudou").id();
 
-        autenticarComo("SECRETARIA", escola);
+        entrarComo("SECRETARIA", escola);
         assertThat(service.listarAbertas()).singleElement().satisfies(s -> {
             assertThat(s.alunoNome()).isEqualTo("Lucas Andrade");
             assertThat(s.alunoMatricula()).isNotBlank();
@@ -69,7 +69,7 @@ class SolicitacaoCorrecaoBancoRealTest extends BancoRealTest {
     void outraEscolaNaoVeNemAtendeOPedido() {
         UUID pedido = service.abrir("Nome com acento errado").id();
 
-        autenticarComo("SECRETARIA", dados.escola());
+        entrarComo("SECRETARIA", dados.escola());
         assertThat(service.listarAbertas()).isEmpty();
         assertThatThrownBy(() -> service.atender(pedido)).isInstanceOf(RecursoNaoEncontradoException.class);
     }

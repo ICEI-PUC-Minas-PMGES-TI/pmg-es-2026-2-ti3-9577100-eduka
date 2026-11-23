@@ -4,11 +4,11 @@ import {
   desalocarProfessor,
   listarAlocacoesDaTurma,
   listarTurmas,
-} from '../../../services/alocacaoService'
+} from '../../../services/academico/alocacaoService'
 import { ApiError } from '../../../services/api'
-import { listarProfessores } from '../../../services/professorService'
-import type { Alocacao, DisciplinaDaTurma, Turma } from '../../../types/alocacao'
-import type { Professor } from '../../../types/professor'
+import { listarProfessores } from '../../../services/pessoas/professorService'
+import type { Alocacao, DisciplinaDaTurma, Turma } from '../../../types/academico/alocacao'
+import type { Professor } from '../../../types/pessoas/professor'
 
 /** Professor escolhido por disciplina; '' é "sem professor". */
 export type EscolhasDaTurma = Record<number, string>

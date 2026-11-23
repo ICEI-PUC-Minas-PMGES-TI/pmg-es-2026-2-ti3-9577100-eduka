@@ -1,10 +1,16 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import logoEduka from '../../assets/eduka-logo-branca.svg'
-import { Icon } from '../../components/Icon/Icon'
-import { VerificacaoCodigo } from '../../components/VerificacaoCodigo/VerificacaoCodigo'
+import { Icon } from '../../components/ui/Icon/Icon'
+import { VerificacaoCodigo } from '../../components/acesso/VerificacaoCodigo/VerificacaoCodigo'
 import { rotaInicialPorPerfil } from '../../routes/paths'
-import { ApiError, ehEscolaSuspensa, motivoDaSuspensao, rotaAcessoSuspenso } from '../../services/api'
+import {
+  ApiError,
+  ehEscolaSuspensa,
+  ehModuloNaoContratado,
+  motivoDaSuspensao,
+  rotaAcessoSuspenso,
+} from '../../services/api'
 import {
   autenticar,
   definirSenhaDefinitiva,
@@ -12,11 +18,18 @@ import {
   obterUsuarioLogado,
   type LoginResponse,
   type VerificacaoLogin,
-} from '../../services/authService'
+} from '../../services/acesso/authService'
+import { MODULOS_ESCOLA, ROTULOS_MODULO, type ModuloEscola } from '../../types/escola/escola'
 import styles from './Login.module.css'
+import { RecuperarSenha } from './RecuperarSenha'
 
 // Mesmo mínimo do backend (UsuarioService.validarSenha).
 const SENHA_TAMANHO_MINIMO = 8
+
+/** Quem só existe com um módulo (FINANCEIRO, professor, aluno) não entra sem ele. */
+function mensagemModuloNaoContratado(modulo: ModuloEscola): string {
+  return `Seu acesso depende do módulo ${ROTULOS_MODULO[modulo]}, que a sua escola não contratou. Fale com a administração da escola.`
+}
 
 // Login da escola: master, secretaria, financeiro, professor e aluno entram
 // por aqui e caem na área do próprio perfil. O console da plataforma tem a
@@ -27,9 +40,12 @@ const SENHA_TAMANHO_MINIMO = 8
 //
 // Com a senha certa, a última etapa é "codigo": o backend manda um código por
 // e-mail e só emite o token quando ele é confirmado (VerificacaoCodigo).
+//
+// "Esqueceu sua senha?" abre a etapa "recuperar" (RecuperarSenha): um código
+// vai para o e-mail do cadastro e, com ele, o usuário define uma senha nova.
 export function Login() {
   const navigate = useNavigate()
-  const [etapa, setEtapa] = useState<'entrar' | 'novaSenha' | 'codigo'>('entrar')
+  const [etapa, setEtapa] = useState<'entrar' | 'novaSenha' | 'codigo' | 'recuperar'>('entrar')
   const [verificacao, setVerificacao] = useState<VerificacaoLogin | null>(null)
   const [login, setLogin] = useState('')
   const [senha, setSenha] = useState('')
@@ -37,7 +53,12 @@ export function Login() {
   const [confirmacao, setConfirmacao] = useState('')
   const [mostrarSenha, setMostrarSenha] = useState(false)
   const [carregando, setCarregando] = useState(false)
-  const [erro, setErro] = useState<string | null>(null)
+  // A sessão caiu porque a escola deixou de ter o módulo do perfil (PainelLayout).
+  const [busca] = useSearchParams()
+  const moduloPerdido = MODULOS_ESCOLA.find((m) => m === busca.get('modulo'))
+  const [erro, setErro] = useState<string | null>(
+    moduloPerdido ? mensagemModuloNaoContratado(moduloPerdido) : null,
+  )
   const [aviso, setAviso] = useState<string | null>(null)
 
   useEffect(() => {
@@ -50,6 +71,7 @@ export function Login() {
 
   function mensagemDeErro(err: unknown): string {
     if (!(err instanceof ApiError)) return 'Ocorreu um erro inesperado ao tentar entrar.'
+    if (ehModuloNaoContratado(err)) return mensagemModuloNaoContratado(err.modulo)
     if (err.status === 0) {
       return 'Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.'
     }
@@ -57,7 +79,7 @@ export function Login() {
       // O backend usa 401 também para a senha provisória vencida, e só o
       // detalhe diferencia os dois casos.
       return err.detalhe?.toLowerCase().includes('expirada')
-        ? 'Sua senha provisória expirou. Peça um novo acesso à secretaria da escola.'
+        ? 'Sua senha provisória expirou. Use "Esqueceu sua senha?" ou peça um novo acesso à secretaria.'
         : 'E-mail ou senha incorretos. Confira os dados e tente novamente.'
     }
     if (err.status === 400 && err.detalhe) return err.detalhe
@@ -140,6 +162,7 @@ export function Login() {
 
   function voltarParaEntrar() {
     setEtapa('entrar')
+    setAviso(null)
     setVerificacao(null)
     setSenha('')
     setNovaSenha('')
@@ -150,7 +173,15 @@ export function Login() {
 
   function handleEsqueciSenha() {
     setErro(null)
-    setAviso('Para redefinir sua senha, procure a secretaria da sua escola.')
+    setAviso(null)
+    setMostrarSenha(false)
+    setEtapa('recuperar')
+  }
+
+  function senhaRedefinida(loginRecuperado: string) {
+    voltarParaEntrar()
+    setLogin(loginRecuperado)
+    setAviso('Senha redefinida. Entre com a nova senha.')
   }
 
   const tipoSenha = mostrarSenha ? 'text' : 'password'
@@ -195,6 +226,12 @@ export function Login() {
               verificacao={verificacao}
               login={login}
               onAutenticado={concluir}
+              onVoltar={voltarParaEntrar}
+            />
+          ) : etapa === 'recuperar' ? (
+            <RecuperarSenha
+              loginInicial={login}
+              onConcluido={senhaRedefinida}
               onVoltar={voltarParaEntrar}
             />
           ) : etapa === 'entrar' ? (

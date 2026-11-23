@@ -23,10 +23,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpServerErrorException;
 
-import br.pucminas.eduka.backend.domain.Notificacao;
-import br.pucminas.eduka.backend.domain.StatusNotificacao;
-import br.pucminas.eduka.backend.domain.TipoNotificacao;
-import br.pucminas.eduka.backend.repository.NotificacaoRepository;
+import br.pucminas.eduka.backend.domain.notificacao.Notificacao;
+import br.pucminas.eduka.backend.domain.notificacao.StatusNotificacao;
+import br.pucminas.eduka.backend.domain.notificacao.TipoNotificacao;
+import br.pucminas.eduka.backend.repository.notificacao.NotificacaoRepository;
 
 @ExtendWith(MockitoExtension.class)
 class NotificacaoProcessadorTest {
