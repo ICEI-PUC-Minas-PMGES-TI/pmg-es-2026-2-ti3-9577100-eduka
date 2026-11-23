@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -33,6 +34,7 @@ import br.pucminas.eduka.backend.dto.escola.MembroEquipeRequest;
 import br.pucminas.eduka.backend.dto.escola.MembroEquipeResponse;
 import br.pucminas.eduka.backend.dto.escola.MembroEquipeUpdateRequest;
 import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
+import br.pucminas.eduka.backend.exception.escola.LimiteUsuariosAtingidoException;
 import br.pucminas.eduka.backend.exception.pessoas.CpfJaCadastradoException;
 import br.pucminas.eduka.backend.repository.acesso.UsuarioRepository;
 import br.pucminas.eduka.backend.repository.pessoas.PessoaPapelRepository;
@@ -55,6 +57,9 @@ class EquipeServiceTest {
 
     @Mock
     private UsuarioRepository usuarioRepository;
+
+    @Mock
+    private LimiteUsuariosService limiteUsuarios;
     @Mock
     private AuditoriaService auditoriaService;
     @Mock
@@ -69,7 +74,7 @@ class EquipeServiceTest {
     @BeforeEach
     void setUp() {
         equipeService = new EquipeService(usuarioRepository, pessoaRepository, pessoaPapelRepository, acessoService,
-                new IsolamentoEscola(), auditoriaService);
+                new IsolamentoEscola(), auditoriaService, limiteUsuarios);
         UsuarioAutenticado master = new UsuarioAutenticado(UUID.randomUUID(), "MASTER", ESCOLA_A);
         SecurityContextHolder.getContext().setAuthentication(
                 new TestingAuthenticationToken(master, null, "ROLE_MASTER"));
@@ -220,6 +225,22 @@ class EquipeServiceTest {
         assertThat(equipeService.inativar(usuario.getId()).ativo()).isFalse();
         assertThat(equipeService.ativar(usuario.getId()).ativo()).isTrue();
         assertThat(ana.isAtivo()).isTrue();
+    }
+
+    @Test
+    void reativarAlguemDaEquipePrecisaDeVagaNoLimite() {
+        Pessoa ana = pessoa("Ana", "11122233344");
+        Usuario usuario = usuario(ana, PerfilUsuario.FINANCEIRO);
+        usuario.setAtivo(false);
+        when(usuarioRepository.findByIdAndEscolaIdAndPerfilIn(usuario.getId(), ESCOLA_A, EQUIPE))
+                .thenReturn(Optional.of(usuario));
+        when(pessoaRepository.findByIdAndEscolaId(ana.getId(), ESCOLA_A)).thenReturn(Optional.of(ana));
+        doThrow(new LimiteUsuariosAtingidoException(5)).when(limiteUsuarios).exigirVaga(ESCOLA_A);
+
+        assertThatThrownBy(() -> equipeService.ativar(usuario.getId()))
+                .isInstanceOf(LimiteUsuariosAtingidoException.class);
+        assertThat(usuario.isAtivo()).isFalse();
+        verify(usuarioRepository, never()).save(any());
     }
 
     @Test

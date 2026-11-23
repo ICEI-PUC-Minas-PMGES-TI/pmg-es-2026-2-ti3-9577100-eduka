@@ -27,6 +27,8 @@ export const paths = {
     faturasEscola: '/super-admin/escolas/:id/faturas',
     /** Faturas de todas as escolas (IU24, item Assinaturas do menu). */
     assinaturas: '/super-admin/assinaturas',
+    /** Logins de todas as escolas; o Super Admin gere o do MASTER (S5-14). */
+    usuarios: '/super-admin/usuarios',
   },
   master: {
     raiz: '/master',

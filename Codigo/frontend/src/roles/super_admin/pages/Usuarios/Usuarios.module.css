@@ -1,0 +1,307 @@
+/* Mesma cara do Registro de atividades (filtros, card e tabela) e da Equipe (busca, avisos e ações). */
+/* Filtros em pílulas de vidro; o que está filtrando fica com a cor do botão principal. */
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.filtro {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  max-width: 100%;
+  padding: 6px 14px;
+  border: var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.filtro:hover {
+  color: var(--color-text);
+}
+
+.filtroAtivo,
+.filtroAtivo:hover {
+  border-color: transparent;
+  background: var(--button-primary-bg);
+  box-shadow: var(--button-primary-shadow);
+  color: var(--color-on-primary);
+}
+
+/* Card de vidro que envolve a tabela, como na Equipe. */
+.card {
+  padding: 8px 10px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+}
+
+.card[aria-busy='true'] .tabela {
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.rolagem {
+  /* Relative: o texto só para leitor de tela rola junto, sem alargar a página. */
+  position: relative;
+  overflow-x: auto;
+}
+
+.tabela {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+}
+
+.tabela th {
+  padding: 16px 14px 12px;
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tabela td {
+  padding: 12px 14px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-size: 14.5px;
+  vertical-align: middle;
+}
+
+.tabela tbody tr:hover {
+  background: rgba(242, 235, 251, 0.45);
+}
+
+.quando {
+  color: var(--color-text-muted);
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+.colPrincipal {
+  min-width: 220px;
+}
+
+.quem {
+  display: flex;
+  flex-direction: column;
+}
+
+.quem strong {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.secundario {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.somenteLeitor {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+
+.busca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 300px;
+  max-width: 100%;
+  min-height: 46px;
+  padding: 0 20px;
+  border: var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  backdrop-filter: var(--glass-blur);
+  color: var(--color-text-muted);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.busca:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: var(--glass-shadow-sm), 0 0 0 4px rgba(212, 187, 252, 0.5);
+}
+
+.busca input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 15px;
+}
+
+.busca input::placeholder {
+  color: var(--color-text-muted);
+}
+
+
+/* Mesmos avisos de sucesso e erro do painel de escolas. */
+.alerta,
+.sucesso {
+  padding: 14px 20px;
+  border: var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow-sm);
+  font-size: 14.5px;
+  font-weight: 500;
+  animation: var(--animacao-surgir);
+}
+
+.alerta {
+  background: linear-gradient(145deg, rgba(253, 227, 234, 0.95), rgba(253, 227, 234, 0.7));
+  color: var(--color-danger);
+}
+
+.sucesso {
+  background: linear-gradient(145deg, rgba(220, 242, 228, 0.95), rgba(220, 242, 228, 0.7));
+  color: var(--color-success);
+}
+
+.colAcoes {
+  text-align: right;
+}
+
+.tabela th.colAcoes {
+  text-align: right;
+}
+
+.acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.alternar {
+  min-width: 112px;
+  justify-content: center;
+}
+
+.mensagem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 36px 20px 30px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.rolagem + .mensagem {
+  border-top: 1px solid var(--color-border);
+}
+
+/* Celular: filtros um embaixo do outro e cada atividade vira um bloco, com o rótulo em cima. */
+@media (max-width: 640px) {
+  .filtros > * {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .tabela,
+  .tabela tbody {
+    display: block;
+    min-width: 0;
+  }
+
+  .tabela thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .tabela tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 12px;
+    padding: 14px 6px;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .tabela tbody tr:first-child {
+    border-top: 0;
+  }
+
+  .tabela tbody tr > td {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .tabela tbody tr > td[data-rotulo]::before {
+    content: attr(data-rotulo);
+    display: block;
+    margin-bottom: 2px;
+    color: var(--color-text-subtle);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+
+  .tabela tbody tr > .colPrincipal {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (pointer: coarse) {
+  .filtro {
+    min-height: 44px;
+  }
+}
+
+/* Celular: ações na linha inteira, alinhadas à esquerda; a busca ocupa a largura. */
+@media (max-width: 640px) {
+  .busca {
+    width: 100%;
+  }
+
+  .tabela tbody tr > .colAcoes {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+
+  .acoes {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .alternar {
+    min-width: 0;
+  }
+}

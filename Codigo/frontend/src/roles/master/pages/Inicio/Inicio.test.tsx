@@ -1,7 +1,8 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
+import { gravarSessao } from '../../../../services/acesso/modulosSessao'
 import { problema, simularApi, type RespostaApi } from '../../../../test/api'
 import type { DashboardEscola, DashboardFinanceiro } from '../../../../types/dashboard/dashboard'
 import { formatarMoeda } from '../../../../utils/formatters'
@@ -71,22 +72,42 @@ const FINANCEIRO: DashboardFinanceiro = {
 }
 
 function abrir(financeiro: RespostaApi) {
-  simularApi(({ caminho }) => {
+  return simularApi(({ caminho }) => {
     if (caminho === '/dashboard/escola') return { corpo: ESCOLA }
     if (caminho === '/cobrancas/risco-atraso?nivelMinimo=MEDIO') return { corpo: [] }
     if (caminho === '/dashboard/financeiro') return financeiro
     return undefined
   })
+}
+
+function renderizar(financeiro: RespostaApi) {
+  const chamadas = abrir(financeiro)
   render(
     <MemoryRouter>
       <Inicio />
     </MemoryRouter>,
   )
+  return chamadas
 }
 
 describe('Início do master', () => {
+  afterEach(() => localStorage.clear())
+
+  it('sem a gestão financeira contratada, fica só o acadêmico e não pede o financeiro', async () => {
+    gravarSessao('gestor@escola.com', ['PORTAL_ALUNO', 'PORTAL_PROFESSOR'])
+    const chamadas = renderizar({ status: 500 })
+
+    const resumo = await screen.findByRole('region', { name: 'Resumo da escola' })
+    expect(within(resumo).getByText('Turmas ativas')).toBeInTheDocument()
+    expect(within(resumo).queryByText('Recebido este mês')).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Dinheiro que entrou e saiu' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /lançar uma cobrança/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'A escola em números' })).toBeInTheDocument()
+    expect(chamadas.map((c) => c.caminho)).not.toContain('/dashboard/financeiro')
+  })
+
   it('junta o resumo da escola com o financeiro', async () => {
-    abrir({ corpo: FINANCEIRO })
+    renderizar({ corpo: FINANCEIRO })
 
     const resumo = await screen.findByRole('region', { name: 'Resumo da escola' })
     expect(within(resumo).getByText('De 120 alunos cadastrados')).toBeInTheDocument()
@@ -105,7 +126,7 @@ describe('Início do master', () => {
       usuarioNome: `Pessoa ${i + 1}`,
       registroId: `cob-${i}`,
     }))
-    abrir({ corpo: { ...FINANCEIRO, ultimasAcoes: acoes } })
+    renderizar({ corpo: { ...FINANCEIRO, ultimasAcoes: acoes } })
 
     const painel = await screen.findByRole('region', { name: 'Últimas ações' })
     expect(within(painel).getByText('Pessoa 5')).toBeInTheDocument()
@@ -118,7 +139,7 @@ describe('Início do master', () => {
   })
 
   it('conta quem fez cada ação, inclusive as que vêm do Asaas', async () => {
-    abrir({ corpo: FINANCEIRO })
+    renderizar({ corpo: FINANCEIRO })
 
     const acoes = await screen.findByRole('region', { name: 'Últimas ações' })
     expect(within(acoes).getByText('Fernanda Rocha')).toBeInTheDocument()
@@ -129,7 +150,7 @@ describe('Início do master', () => {
   })
 
   it('sem o resumo financeiro, mostra o erro em vez de uma tela pela metade', async () => {
-    abrir(problema(403, 'ACESSO_NEGADO'))
+    renderizar(problema(403, 'ACESSO_NEGADO'))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Você não tem permissão para acessar este recurso.')
     expect(screen.queryByRole('region', { name: 'Resumo da escola' })).not.toBeInTheDocument()

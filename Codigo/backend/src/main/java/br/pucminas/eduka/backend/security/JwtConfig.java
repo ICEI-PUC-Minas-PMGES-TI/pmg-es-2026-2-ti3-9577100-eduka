@@ -195,6 +195,8 @@ public class JwtConfig {
 				.addFilterAfter(new EscolaLogFilter(), BearerTokenAuthenticationFilter.class)
 				// Escola suspensa depois do login: o token ainda vale, a escola nao (RF24).
 				.addFilterAfter(new EscolaSuspensaFilter(escolaRepository, resolver), EscolaLogFilter.class)
+				// Modulo nao contratado (RotasPorModulo): depois da suspensao, que tem precedencia.
+				.addFilterAfter(new ModuloContratadoFilter(escolaRepository, resolver), EscolaSuspensaFilter.class)
 				.build();
 	}
 }

@@ -5,7 +5,7 @@ import { CampoData } from '../../../../../components/formulario/CampoData/CampoD
 import { Modal, ModalAlerta, ModalAviso } from '../../../../../components/modal/Modal/Modal'
 import { Select, type OpcaoSelect } from '../../../../../components/formulario/Select/Select'
 import { buscarAluno } from '../../../../../services/pessoas/alunoService'
-import { ApiError } from '../../../../../services/api'
+import { ApiError, ehLimiteDeUsuarios } from '../../../../../services/api'
 import {
   OPCOES_GENERO,
   type Aluno,
@@ -245,7 +245,10 @@ export function AlunoModal({ alunoId, onFechar, onSalvar, onSalvo, turmas = [] }
       const aluno = await onSalvar(paraRequest(campos, edicao ? [] : responsaveis))
       onSalvo(aluno, turmaId ? Number(turmaId) : null)
     } catch (e) {
-      if (e instanceof ApiError && e.status === 409) {
+      if (ehLimiteDeUsuarios(e)) {
+        // Também 409, mas não é de um campo: a escola está no limite de usuários do plano.
+        setErroEnvio((e as ApiError).message)
+      } else if (e instanceof ApiError && e.status === 409) {
         // O 409 vem da matrícula repetida na escola ou do e-mail já usado como login.
         const campo = e.detalhe?.toLowerCase().includes('matricula') ? 'matricula' : 'email'
         setErros(

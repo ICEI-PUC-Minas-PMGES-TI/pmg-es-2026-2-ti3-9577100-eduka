@@ -1,6 +1,7 @@
 package br.pucminas.eduka.backend.service.acesso;
 
 import java.time.Clock;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -10,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.pucminas.eduka.backend.domain.acesso.Usuario;
 import br.pucminas.eduka.backend.domain.escola.Escola;
+import br.pucminas.eduka.backend.domain.escola.ModuloEscola;
 import br.pucminas.eduka.backend.dto.acesso.LoginResponse;
 import br.pucminas.eduka.backend.dto.acesso.VerificacaoLoginResponse;
 import br.pucminas.eduka.backend.exception.acesso.CredenciaisInvalidasException;
@@ -18,10 +20,12 @@ import br.pucminas.eduka.backend.exception.acesso.SenhaProvisoriaExpiradaExcepti
 import br.pucminas.eduka.backend.exception.acesso.SessaoExpiradaException;
 import br.pucminas.eduka.backend.exception.acesso.VerificacaoLoginEncerradaException;
 import br.pucminas.eduka.backend.exception.escola.EscolaSuspensaException;
+import br.pucminas.eduka.backend.exception.escola.ModuloNaoContratadoException;
 import br.pucminas.eduka.backend.repository.acesso.UsuarioRepository;
 import br.pucminas.eduka.backend.repository.escola.EscolaRepository;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.security.RefreshTokenClaims;
+import br.pucminas.eduka.backend.security.RotasPorModulo;
 
 /**
  * Login (RF03). A senha recebida nunca e comparada com a coluna diretamente:
@@ -183,8 +187,9 @@ public class AuthService {
     }
 
     /**
-     * Escola suspensa pelo SUPER_ADMIN (RF24): ninguem dela entra. O
-     * SUPER_ADMIN nao tem escola e passa direto.
+     * Escola suspensa pelo SUPER_ADMIN (RF24): ninguem dela entra. Perfil que
+     * so existe com um modulo (ver {@link RotasPorModulo}) tambem nao entra se
+     * a escola nao o contratou. O SUPER_ADMIN nao tem escola e passa direto.
      */
     private void exigirEscolaAtiva(Usuario usuario) {
         if (usuario.getEscolaId() == null) {
@@ -194,6 +199,17 @@ public class AuthService {
         if (escola == null || !escola.isAtivo()) {
             throw new EscolaSuspensaException(escola == null ? null : escola.getMotivoSuspensao());
         }
+        RotasPorModulo.exigidoPeloPerfil(usuario.getPerfil())
+                .filter(modulo -> !modulosDaEscola(usuario).contains(modulo))
+                .ifPresent(modulo -> {
+                    throw new ModuloNaoContratadoException(modulo);
+                });
+    }
+
+    /** Nulo para quem nao tem escola (SUPER_ADMIN): nao ha modulo a restringir. */
+    private Set<ModuloEscola> modulosDaEscola(Usuario usuario) {
+        return usuario.getEscolaId() == null ? null
+                : ModuloEscola.dosNomes(escolaRepository.modulos(usuario.getEscolaId()));
     }
 
     private void exigirSenhaProvisoriaValida(Usuario usuario) {
@@ -216,11 +232,13 @@ public class AuthService {
     /** Tokens emitidos: e o acesso que conta como atividade da escola no Painel de Escolas. */
     private LoginResponse emitirTokens(Usuario usuario) {
         usuarioRepository.registrarAcesso(usuario.getId(), clock.instant());
+        Set<ModuloEscola> modulos = modulosDaEscola(usuario);
         return LoginResponse.autenticado(
                 jwtService.generateAccessToken(usuario.getId(), usuario.getPerfil().name(), usuario.getEscolaId()),
                 jwtService.generateRefreshToken(usuario.getId()),
                 usuario.getId(),
-                usuario.getPerfil());
+                usuario.getPerfil(),
+                modulos == null ? null : modulos.stream().sorted().toList());
     }
 
     /**

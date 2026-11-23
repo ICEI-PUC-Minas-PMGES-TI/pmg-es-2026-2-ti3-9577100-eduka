@@ -46,7 +46,7 @@ class AuthControllerTest {
     void retornaTokensParaCredenciaisValidas() throws Exception {
         when(authService.login("usuario@escola.com", "senha-correta"))
                 .thenReturn(LoginResponse.autenticado("access-token", "refresh-token", UUID.randomUUID(),
-                        PerfilUsuario.SECRETARIA));
+                        PerfilUsuario.SECRETARIA, null));
 
         mockMvc.perform(post("/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -115,7 +115,7 @@ class AuthControllerTest {
     void primeiroAcessoEhPublicoEDevolveTokens() throws Exception {
         when(authService.definirSenhaDefinitiva("prof@escola.com", "52998224725", "nova-senha-forte"))
                 .thenReturn(LoginResponse.autenticado("access-token", "refresh-token", UUID.randomUUID(),
-                        PerfilUsuario.PROFESSOR));
+                        PerfilUsuario.PROFESSOR, null));
 
         mockMvc.perform(post("/primeiro-acesso")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -167,7 +167,7 @@ class AuthControllerTest {
         UUID verificacaoId = UUID.randomUUID();
         when(authService.confirmarCodigo(verificacaoId, "123456"))
                 .thenReturn(LoginResponse.autenticado("access-token", "refresh-token", UUID.randomUUID(),
-                        PerfilUsuario.SECRETARIA));
+                        PerfilUsuario.SECRETARIA, null));
 
         mockMvc.perform(post("/login/codigo")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -244,7 +244,7 @@ class AuthControllerTest {
     void renovacaoEhPublicaEDevolveNovosTokens() throws Exception {
         when(authService.renovarSessao("refresh-antigo"))
                 .thenReturn(LoginResponse.autenticado("access-novo", "refresh-novo", UUID.randomUUID(),
-                        PerfilUsuario.FINANCEIRO));
+                        PerfilUsuario.FINANCEIRO, null));
 
         mockMvc.perform(post("/login/renovacao")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -1,6 +1,8 @@
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, apiRequest } from '../api'
+import type { ModuloEscola } from '../../types/escola/escola'
+import { USUARIO_KEY, gravarSessao } from './modulosSessao'
 
-export const USUARIO_KEY = 'eduka.usuario'
+export { USUARIO_KEY }
 
 export type PerfilUsuario =
   | 'SUPER_ADMIN'
@@ -26,6 +28,11 @@ export type LoginResponse = {
    * confirmarCodigo o código enviado por e-mail. Nulo quando não há essa etapa.
    */
   verificacao: VerificacaoLogin | null
+  /**
+   * Módulos contratados pela escola, para a tela esconder o que ela não tem.
+   * Nulo sem sessão aberta e para o SUPER_ADMIN, que não tem escola.
+   */
+  modulos?: ModuloEscola[] | null
 }
 
 export type VerificacaoLogin = {
@@ -135,12 +142,13 @@ export function salvarSessao(dados: LoginResponse, login: string): void {
     // O refresh renova o access antes de ele vencer (ver renovarSessao em api.ts).
     if (dados.refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, dados.refreshToken)
     else localStorage.removeItem(REFRESH_TOKEN_KEY)
-    // Só o login (e-mail) é guardado à parte: id e perfil não vêm daqui, são
-    // sempre lidos das claims do token em obterUsuarioLogado.
-    localStorage.setItem(USUARIO_KEY, JSON.stringify({ login }))
   } catch {
     // Silencia erros de storage (ex: navegação anônima com quota cheia)
   }
+  // Só o login (e-mail) e os módulos da escola são guardados à parte: id e
+  // perfil não vêm daqui, são sempre lidos das claims do token em
+  // obterUsuarioLogado.
+  gravarSessao(login, dados.modulos)
 }
 
 export function obterToken(): string | null {

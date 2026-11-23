@@ -62,7 +62,7 @@ class DemoControllerSecurityTest {
         @Test
         void entraSemToken() throws Exception {
             when(demoAcessoService.entrar(any(), any(), any())).thenReturn(
-                    LoginResponse.autenticado("access", "refresh", UUID.randomUUID(), PerfilUsuario.MASTER));
+                    LoginResponse.autenticado("access", "refresh", UUID.randomUUID(), PerfilUsuario.MASTER, null));
 
             mockMvc.perform(post("/demo/entrar").contentType(MediaType.APPLICATION_JSON).content(ENTRAR))
                     .andExpect(status().isOk())

@@ -22,7 +22,7 @@ FINANCEIRO <|- MASTER : " "
 
 rectangle "Plataforma" {
   usecase "UC01 Cadastrar Escola" as UC01
-  usecase "UC02 Gerenciar Escolas\nCadastradas" as UC02 <<parcial>>
+  usecase "UC02 Gerenciar Escolas\nCadastradas" as UC02
   usecase "UC27 Gerenciar Faturas\nda Plataforma" as UC27
 }
 

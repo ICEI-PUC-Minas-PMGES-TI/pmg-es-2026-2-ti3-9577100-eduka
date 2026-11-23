@@ -24,6 +24,7 @@ import br.pucminas.eduka.backend.security.HierarquiaPerfis;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.PerfilNaoPermitidoException;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
+import br.pucminas.eduka.backend.service.escola.LimiteUsuariosService;
 
 /**
  * Login de quem e cadastrado pela escola (professor e aluno hoje; depois
@@ -44,16 +45,19 @@ public class AcessoService {
     private final PasswordEncoder passwordEncoder;
     private final IsolamentoEscola isolamentoEscola;
     private final ApplicationEventPublisher eventos;
+    private final LimiteUsuariosService limiteUsuarios;
     private final Clock clock;
     private final Duration validadeSenhaProvisoria;
 
     public AcessoService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
-            IsolamentoEscola isolamentoEscola, ApplicationEventPublisher eventos, Clock clock,
+            IsolamentoEscola isolamentoEscola, ApplicationEventPublisher eventos,
+            LimiteUsuariosService limiteUsuarios, Clock clock,
             @Value("${app.acesso.senha-provisoria-validade-dias}") long validadeDias) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.isolamentoEscola = isolamentoEscola;
         this.eventos = eventos;
+        this.limiteUsuarios = limiteUsuarios;
         this.clock = clock;
         this.validadeSenhaProvisoria = Duration.ofDays(validadeDias);
     }
@@ -64,6 +68,8 @@ public class AcessoService {
      * sao renovadas e o login acompanha o e-mail atual.
      *
      * @throws AcessoJaAtivadoException se o usuario ja definiu a senha definitiva
+     * @throws br.pucminas.eduka.backend.exception.escola.LimiteUsuariosAtingidoException
+     *         se o login e novo e a escola ja esta no limite de usuarios
      */
     @Transactional
     public Usuario enviarAcessoInicial(Pessoa pessoa, PerfilUsuario perfil) {
@@ -75,6 +81,7 @@ public class AcessoService {
         Usuario usuario = usuarioRepository.findByPessoaId(pessoa.getId()).orElse(null);
         if (usuario == null) {
             exigirLoginLivre(login);
+            limiteUsuarios.exigirVaga(pessoa.getEscolaId());
             usuario = Usuario.builder()
                     .escolaId(pessoa.getEscolaId())
                     .pessoaId(pessoa.getId())
@@ -129,11 +136,17 @@ public class AcessoService {
         });
     }
 
-    /** Pessoa inativada perde o login; reativada, recupera. */
+    /**
+     * Pessoa inativada perde o login; reativada, recupera, se ainda couber no
+     * limite de usuarios da escola.
+     */
     @Transactional
     public void definirAtivo(Pessoa pessoa, boolean ativo) {
         usuarioRepository.findByPessoaId(pessoa.getId()).ifPresent(usuario -> {
             if (usuario.isAtivo() != ativo) {
+                if (ativo) {
+                    limiteUsuarios.exigirVaga(usuario.getEscolaId());
+                }
                 usuario.setAtivo(ativo);
                 usuarioRepository.save(usuario);
             }

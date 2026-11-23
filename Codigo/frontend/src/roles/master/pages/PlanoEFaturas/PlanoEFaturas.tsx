@@ -14,7 +14,7 @@ import {
   buscarProximaMinhaFatura,
   listarPaginaDeMinhasFaturas,
 } from '../../../../services/escola/faturaPlataformaService'
-import { ROTULOS_PLANO } from '../../../../types/escola/escola'
+import { ROTULOS_MODULO, ROTULOS_PLANO, modulosDisponiveis } from '../../../../types/escola/escola'
 import type { Assinatura, FaturaPlataforma } from '../../../../types/escola/faturaPlataforma'
 import { formatarMoeda } from '../../../../utils/formatters'
 import { formatarData } from '../../../../utils/formatacao'
@@ -144,9 +144,15 @@ export function PlanoEFaturas() {
                         ),
                       },
                       { rotulo: 'Vigência', valor: vigencia(assinatura.dados) },
+                      { rotulo: 'Usuários ativos', valor: usoDoLimite(assinatura.dados) },
                       {
-                        rotulo: 'Limite de usuários',
-                        valor: assinatura.dados.limiteUsuarios?.toLocaleString('pt-BR') ?? '—',
+                        rotulo: 'Módulos',
+                        valor:
+                          modulosDisponiveis(assinatura.dados.modulos).length === 0
+                            ? 'Nenhum'
+                            : modulosDisponiveis(assinatura.dados.modulos)
+                                .map((m) => ROTULOS_MODULO[m])
+                                .join(', '),
                       },
                     ]}
                   />
@@ -250,5 +256,22 @@ export function PlanoEFaturas() {
       {pagando && <ModalPagamentoFatura fatura={pagando} onPago={recarregar} onFechar={fecharPagamento} />}
       {comprovanteDe && <ModalComprovante buscar={buscarComprovante} onFechar={() => setComprovanteDe(null)} />}
     </MasterLayout>
+  )
+}
+
+/**
+ * Logins ativos contra o limite do plano (S5-11): no limite, a escola não
+ * cria nem reativa acesso até inativar alguém ou ampliar o plano.
+ */
+function usoDoLimite({ usuariosAtivos, limiteUsuarios }: Assinatura) {
+  const ativos = usuariosAtivos.toLocaleString('pt-BR')
+  if (limiteUsuarios === null) return `${ativos} · sem limite`
+  const texto = `${ativos} de ${limiteUsuarios.toLocaleString('pt-BR')}`
+  return usuariosAtivos >= limiteUsuarios ? (
+    <Badge tone="danger" icon="alert">
+      {texto} · limite atingido
+    </Badge>
+  ) : (
+    texto
   )
 }

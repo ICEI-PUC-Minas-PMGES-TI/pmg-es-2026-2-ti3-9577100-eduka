@@ -39,6 +39,8 @@ const ASSINATURA: Assinatura = {
   inicioVigencia: '2024-01-15',
   fimVigencia: '2027-01-15',
   limiteUsuarios: 1500,
+  usuariosAtivos: 320,
+  modulos: ['PORTAL_ALUNO', 'GESTAO_FINANCEIRA'],
 }
 
 /**
@@ -122,7 +124,8 @@ describe('PlanoEFaturas', () => {
     expect(await within(assinatura).findByText('Avançado')).toBeInTheDocument()
     expect(within(assinatura).getByText('Ativa')).toBeInTheDocument()
     expect(within(assinatura).getByText('15/01/2024 a 15/01/2027')).toBeInTheDocument()
-    expect(within(assinatura).getByText('1.500')).toBeInTheDocument()
+    expect(within(assinatura).getByText('320 de 1.500')).toBeInTheDocument()
+    expect(within(assinatura).getByText('Portal do Aluno, Gestão Financeira')).toBeInTheDocument()
 
     const anteriores = screen.getByRole('region', { name: 'Faturas anteriores' })
     await within(anteriores).findByText('Plano Avançado · outubro/2026')

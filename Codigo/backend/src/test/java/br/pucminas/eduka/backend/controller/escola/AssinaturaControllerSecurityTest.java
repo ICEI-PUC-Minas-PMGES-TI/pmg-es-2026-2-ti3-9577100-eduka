@@ -20,6 +20,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import br.pucminas.eduka.backend.domain.escola.ModuloEscola;
 import br.pucminas.eduka.backend.domain.escola.PlanoEscola;
 import br.pucminas.eduka.backend.dto.escola.AssinaturaResponse;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
@@ -51,14 +52,17 @@ class AssinaturaControllerSecurityTest {
     @Test
     void masterLeAAssinaturaDaPropriaEscola() throws Exception {
         when(escolaService.assinatura(ESCOLA)).thenReturn(new AssinaturaResponse("Colegio Horizonte",
-                PlanoEscola.values()[0], true, LocalDate.of(2026, 1, 15), LocalDate.of(2027, 1, 15), 1500));
+                PlanoEscola.values()[0], true, LocalDate.of(2026, 1, 15), LocalDate.of(2027, 1, 15), 1500,
+                320, List.of(ModuloEscola.GESTAO_FINANCEIRA)));
 
         mockMvc.perform(get("/config-pagamento/assinatura")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token("MASTER", ESCOLA)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.escolaNome").value("Colegio Horizonte"))
                 .andExpect(jsonPath("$.ativa").value(true))
-                .andExpect(jsonPath("$.limiteUsuarios").value(1500));
+                .andExpect(jsonPath("$.limiteUsuarios").value(1500))
+                .andExpect(jsonPath("$.usuariosAtivos").value(320))
+                .andExpect(jsonPath("$.modulos[0]").value("GESTAO_FINANCEIRA"));
     }
 
     @Test

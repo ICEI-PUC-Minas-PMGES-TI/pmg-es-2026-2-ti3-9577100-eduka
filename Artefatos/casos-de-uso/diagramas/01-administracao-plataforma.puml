@@ -12,7 +12,7 @@ actor "Gateway de Pagamento\n(Asaas)" as ASAAS <<sistema externo>>
 rectangle "Eduka — Administração da plataforma" {
   usecase "UC01\nCadastrar Escola" as UC01
   usecase "Criar Login do MASTER\n(e-mail de primeiro acesso)" as UC01M
-  usecase "UC02\nGerenciar Escolas\nCadastradas" as UC02 <<parcial>>
+  usecase "UC02\nGerenciar Escolas\nCadastradas" as UC02
   usecase "Editar Dados\nda Escola" as UC02A
   usecase "Suspender ou\nReativar Escola" as UC02B
   usecase "Consultar Uso\nda Escola" as UC02U
@@ -39,6 +39,6 @@ UC01M --> BREVO
 UC27A --> ASAAS
 UC28 --> ASAAS
 
-note "Sprint 5: o cadastro da escola já cria o primeiro login MASTER (S5-01).\nUC02 segue parcial: limite de usuários e módulos contratados\nainda não restringem o uso (S5-11, decisão de escopo pendente)." as N1
+note "Sprint 5: o cadastro da escola já cria o primeiro login MASTER (S5-01).\nUC02: o limite de usuários e os módulos contratados restringem o uso (S5-11)\ne a tela Usuários gere o acesso do MASTER (S5-14)." as N1
 
 @enduml
