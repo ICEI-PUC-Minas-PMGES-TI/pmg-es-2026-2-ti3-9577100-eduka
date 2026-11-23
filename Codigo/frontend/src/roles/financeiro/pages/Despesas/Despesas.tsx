@@ -19,6 +19,7 @@ import type {
 } from '../../../../types/despesa'
 import { formatarMoeda, hojeIso } from '../../../../utils/formatters'
 import { ModalCategorias } from '../../components/ModalCategorias/ModalCategorias'
+import { ModalEditarDespesa } from '../../components/ModalEditarDespesa/ModalEditarDespesa'
 import { FinanceiroLayout } from '../../layouts/FinanceiroLayout'
 import styles from './Despesas.module.css'
 
@@ -42,7 +43,10 @@ function mensagemDeErro(e: unknown, padrao: string): string {
 }
 
 /** Campo do formulário que a validação recusou; o valor é o id do controle. */
-type CampoDespesa = 'descricao' | 'valor' | 'data'
+type CampoDespesa = 'descricao' | 'responsavel' | 'valor' | 'data'
+
+/** Mesmo limite da coluna RESPONSAVEL no backend. */
+const MAX_RESPONSAVEL = 120
 
 const ERRO_FORM_ID = 'erroDespesa'
 
@@ -80,9 +84,12 @@ export function Despesas() {
   const [filtro, setFiltro] = useState<FiltroSituacaoDespesa>('TODAS')
   const [atualizandoId, setAtualizandoId] = useState<string | null>(null)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
+  const [editando, setEditando] = useState<Despesa | null>(null)
+  const [avisoLista, setAvisoLista] = useState<string | null>(null)
 
   // Estado do formulário "Lançar uma despesa"
   const [descricao, setDescricao] = useState('')
+  const [responsavel, setResponsavel] = useState('')
   const [categoriaId, setCategoriaId] = useState<string | null>(null)
   const [valor, setValor] = useState('')
   const [dataVencimento, setDataVencimento] = useState(hojeIso)
@@ -139,6 +146,7 @@ export function Despesas() {
   /** Marca como paga a despesa a pagar, ou desfaz o pagamento da paga. */
   async function handleAlternarSituacao(despesa: Despesa) {
     setErroAcao(null)
+    setAvisoLista(null)
     setAtualizandoId(despesa.id)
     try {
       await mudarSituacaoDespesa(despesa.id, despesa.situacao === 'PAGA' ? 'A_PAGAR' : 'PAGA')
@@ -149,6 +157,19 @@ export function Despesas() {
     } finally {
       setAtualizandoId(null)
     }
+  }
+
+  /** Depois de editar: confirma e lê a página e os totais de novo (o valor ou o mês podem ter mudado). */
+  function handleDespesaEditada(despesa: Despesa) {
+    setEditando(null)
+    setErroAcao(null)
+    const salva = `Despesa "${despesa.descricao}" atualizada.`
+    setAvisoLista(
+      despesa.dataVencimento.startsWith(mesAtual)
+        ? salva
+        : `${salva} Agora ela é de ${rotuloDoMes(despesa.dataVencimento.slice(0, 7)).toLowerCase()}, por isso saiu da lista deste mês.`,
+    )
+    recarregar()
   }
 
   /** Mostra o erro, marca o campo e leva o foco até ele. */
@@ -183,6 +204,11 @@ export function Despesas() {
       return
     }
 
+    if (!responsavel.trim()) {
+      recusar('responsavel', 'Informe o responsável pela despesa.')
+      return
+    }
+
     const valorLimpo = valor
       .replace(/^R\$\s*/i, '')
       .replace(/\./g, '')
@@ -209,6 +235,7 @@ export function Despesas() {
     try {
       const nova = await criarDespesa({
         descricao: descricao.trim(),
+        responsavel: responsavel.trim(),
         categoriaId,
         valor: valorNumerico,
         dataVencimento,
@@ -302,6 +329,11 @@ export function Despesas() {
                 {erroAcao}
               </p>
             )}
+            {avisoLista && (
+              <p className={styles.sucessoForm} role="status">
+                {avisoLista}
+              </p>
+            )}
 
             <div ref={topo} className={styles.tabelaWrapper} aria-busy={atualizando}>
               {carregando ? (
@@ -326,6 +358,9 @@ export function Despesas() {
                       </th>
                       <th scope="col" className={styles.thCategoria}>
                         Categoria
+                      </th>
+                      <th scope="col" className={styles.thResponsavel}>
+                        Responsável
                       </th>
                       <th scope="col" className={styles.thData}>
                         Data
@@ -356,6 +391,10 @@ export function Despesas() {
                         <td className={styles.tdCategoria} data-rotulo="Categoria">
                           {d.categoriaNome}
                         </td>
+                        <td className={styles.tdResponsavel} data-rotulo="Responsável">
+                          {/* Despesa antiga, lançada antes de o campo existir. */}
+                          {d.responsavel ?? '—'}
+                        </td>
                         <td className={styles.tdData} data-rotulo="Data">
                           {formatarDataBr(d.dataVencimento)}
                         </td>
@@ -363,6 +402,20 @@ export function Despesas() {
                           {formatarMoeda(d.valor)}
                         </td>
                         <td className={styles.tdAcao}>
+                          <div className={styles.acoes}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            icon="edit"
+                            aria-label={`Editar ${d.descricao}`}
+                            disabled={atualizandoId !== null}
+                            onClick={() => {
+                              setAvisoLista(null)
+                              setEditando(d)
+                            }}
+                          >
+                            Editar
+                          </Button>
                           <Button
                             size="sm"
                             variant={d.situacao === 'PAGA' ? 'outline' : 'primary'}
@@ -375,6 +428,7 @@ export function Despesas() {
                                 ? 'Desfazer'
                                 : 'Marcar como paga'}
                           </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -410,6 +464,27 @@ export function Despesas() {
                   }}
                   required
                   {...invalidez('descricao')}
+                />
+              </div>
+
+              {/* Responsável */}
+              <div className={styles.campo}>
+                <label htmlFor="responsavel" className={styles.label}>
+                  Responsável
+                </label>
+                <input
+                  id="responsavel"
+                  type="text"
+                  className={styles.input}
+                  placeholder="Ex.: Administração"
+                  maxLength={MAX_RESPONSAVEL}
+                  value={responsavel}
+                  onChange={(e) => {
+                    setResponsavel(e.target.value)
+                    editou('responsavel')
+                  }}
+                  required
+                  {...invalidez('responsavel')}
                 />
               </div>
 
@@ -534,6 +609,14 @@ export function Despesas() {
         </aside>
       </div>
 
+      {editando && (
+        <ModalEditarDespesa
+          despesa={editando}
+          categorias={categorias}
+          onFechar={() => setEditando(null)}
+          onSalva={handleDespesaEditada}
+        />
+      )}
       {gerenciandoCategorias && (
         <ModalCategorias
           categorias={categorias}

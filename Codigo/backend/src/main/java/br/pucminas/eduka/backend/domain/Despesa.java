@@ -60,6 +60,13 @@ public class Despesa {
     @Column(name = "DESCRICAO", nullable = false, length = 255)
     private String descricao;
 
+    /**
+     * Nome de quem responde pela despesa, em texto livre (V47). Nulo so nas
+     * despesas lancadas antes de o campo existir.
+     */
+    @Column(name = "RESPONSAVEL", length = 120)
+    private String responsavel;
+
     @Column(name = "VALOR", nullable = false, precision = 10, scale = 2)
     private BigDecimal valor;
 

@@ -301,10 +301,12 @@ public class RelatorioFinanceiroService {
     }
 
     private static void escreverDespesas(PlanilhaCsv planilha, List<Despesa> despesas) {
-        planilha.secao("Despesas", "Vencimento", "Categoria", "Descrição", "Valor", "Situação", "Paga em");
+        planilha.secao("Despesas", "Vencimento", "Categoria", "Descrição", "Responsável", "Valor", "Situação",
+                "Paga em");
         for (Despesa d : despesas) {
-            planilha.linha(d.getDataVencimento(), d.getCategoria().getNome(), d.getDescricao(), d.getValor(),
-                    rotulo(d.getSituacao()), dia(d.getPagaEm()));
+            // Despesa lancada antes do responsavel existir sai com a celula vazia.
+            planilha.linha(d.getDataVencimento(), d.getCategoria().getNome(), d.getDescricao(), d.getResponsavel(),
+                    d.getValor(), rotulo(d.getSituacao()), dia(d.getPagaEm()));
         }
     }
 

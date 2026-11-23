@@ -13,6 +13,8 @@ public record DespesaResponse(
         UUID categoriaId,
         String categoriaNome,
         String descricao,
+        /** Nulo nas despesas lancadas antes de o campo existir. */
+        String responsavel,
         BigDecimal valor,
         LocalDate dataVencimento,
         SituacaoDespesa situacao,
@@ -23,7 +25,7 @@ public record DespesaResponse(
 
     public static DespesaResponse de(Despesa despesa) {
         return new DespesaResponse(despesa.getId(), despesa.getCategoria().getId(), despesa.getCategoria().getNome(),
-                despesa.getDescricao(), despesa.getValor(), despesa.getDataVencimento(), despesa.getSituacao(),
+                despesa.getDescricao(), despesa.getResponsavel(), despesa.getValor(), despesa.getDataVencimento(), despesa.getSituacao(),
                 despesa.getPagaEm(), despesa.getCanceladaEm(), despesa.getCriadoEm(), despesa.getAtualizadoEm());
     }
 }

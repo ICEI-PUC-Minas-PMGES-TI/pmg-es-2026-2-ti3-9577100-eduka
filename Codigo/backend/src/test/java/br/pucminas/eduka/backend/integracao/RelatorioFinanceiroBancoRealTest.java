@@ -398,9 +398,10 @@ class RelatorioFinanceiroBancoRealTest extends BancoRealTest {
                 "12/04/2025;Bruno Lima;Mensalidade;100,00;Baixa manual;Pagamento",
                 "",
                 "Despesas",
-                "Vencimento;Categoria;Descrição;Valor;Situação;Paga em",
-                "15/03/2025;Contas;Conta de luz;30,00;Paga;15/03/2025",
-                "15/04/2025;Contas;Conta de luz;70,00;A pagar;");
+                "Vencimento;Categoria;Descrição;Responsável;Valor;Situação;Paga em",
+                // Lancadas direto no banco, sem responsavel, como as anteriores a V47.
+                "15/03/2025;Contas;Conta de luz;;30,00;Paga;15/03/2025",
+                "15/04/2025;Contas;Conta de luz;;70,00;A pagar;");
     }
 
     @Test

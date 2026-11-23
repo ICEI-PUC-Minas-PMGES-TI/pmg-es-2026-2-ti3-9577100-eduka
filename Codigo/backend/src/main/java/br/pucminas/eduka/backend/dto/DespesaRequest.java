@@ -14,12 +14,15 @@ import jakarta.validation.constraints.Size;
  * Lanca uma despesa da escola. Sem {@code escolaId}: a escola vem do token, e
  * categoria de outra escola responde 404.
  *
+ * @param responsavel nome de quem responde pela despesa, em texto livre
  * @param paga opcional; {@code true} lanca a despesa ja como PAGA (campo "Ja
  *             esta paga" da IU21). Padrao: A_PAGAR
  */
 public record DespesaRequest(
         @NotBlank(message = "descricao é obrigatória")
         @Size(max = 255, message = "descricao deve ter no máximo 255 caracteres") String descricao,
+        @NotBlank(message = "responsavel é obrigatório")
+        @Size(max = 120, message = "responsavel deve ter no máximo 120 caracteres") String responsavel,
         @NotNull(message = "categoriaId é obrigatório") UUID categoriaId,
         @NotNull(message = "valor é obrigatório")
         @DecimalMin(value = "0", inclusive = false, message = "valor deve ser maior que zero")

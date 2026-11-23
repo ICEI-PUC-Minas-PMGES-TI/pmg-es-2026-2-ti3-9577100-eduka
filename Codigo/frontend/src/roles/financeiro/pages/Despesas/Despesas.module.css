@@ -123,6 +123,7 @@
 
 .thDescricao,
 .thCategoria,
+.thResponsavel,
 .thData,
 .thValor {
   text-align: left;
@@ -151,6 +152,7 @@
 
 .tdDescricao,
 .tdCategoria,
+.tdResponsavel,
 .tdData,
 .tdValor {
   padding: 16px 0;
@@ -190,7 +192,8 @@
   color: #7c3aed;
 }
 
-.tdCategoria {
+.tdCategoria,
+.tdResponsavel {
   color: #64748b;
 }
 
@@ -214,6 +217,13 @@
   text-align: right;
   white-space: nowrap;
   vertical-align: middle;
+}
+
+/* Editar e Marcar como paga / Desfazer, lado a lado. */
+.acoes {
+  display: inline-flex;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 /* Rótulo só para leitor de tela */
@@ -492,7 +502,12 @@
     flex-wrap: wrap;
   }
 
-  .tabela .tdAcao > button {
+  .acoes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .acoes > button {
     width: 100%;
     justify-content: center;
   }

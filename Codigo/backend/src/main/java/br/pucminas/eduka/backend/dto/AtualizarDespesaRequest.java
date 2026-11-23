@@ -12,11 +12,14 @@ import jakarta.validation.constraints.Size;
 
 /**
  * Edicao de uma despesa. Substitui todos os campos; a situacao muda so por
- * {@link MudarSituacaoDespesaRequest}.
+ * {@link MudarSituacaoDespesaRequest}. O responsavel e exigido tambem aqui:
+ * despesa antiga, sem ele, ganha um na primeira edicao.
  */
 public record AtualizarDespesaRequest(
         @NotBlank(message = "descricao é obrigatória")
         @Size(max = 255, message = "descricao deve ter no máximo 255 caracteres") String descricao,
+        @NotBlank(message = "responsavel é obrigatório")
+        @Size(max = 120, message = "responsavel deve ter no máximo 120 caracteres") String responsavel,
         @NotNull(message = "categoriaId é obrigatório") UUID categoriaId,
         @NotNull(message = "valor é obrigatório")
         @DecimalMin(value = "0", inclusive = false, message = "valor deve ser maior que zero")
