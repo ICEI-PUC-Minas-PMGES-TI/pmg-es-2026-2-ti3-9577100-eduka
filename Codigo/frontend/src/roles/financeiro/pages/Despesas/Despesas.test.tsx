@@ -12,6 +12,7 @@ const LUZ: Despesa = {
   categoriaId: 'cat-1',
   categoriaNome: 'Contas',
   descricao: 'Conta de luz',
+  responsavel: 'Administração',
   valor: 90,
   dataVencimento: '2026-02-10',
   situacao: 'A_PAGAR',
@@ -45,13 +46,26 @@ function abrir(despesas: Despesa[]): ChamadaApi[] {
     if (caminho.startsWith('/despesas/pagina?')) return { corpo: paginaDe(despesas, caminho) }
     if (caminho === '/categorias-despesa') return { corpo: [{ id: 'cat-1', nome: 'Contas' }] }
     if (metodo === 'POST' && caminho === '/despesas') {
-      const pedido = corpo as { descricao: string; categoriaId: string; valor: number; dataVencimento: string; paga: boolean }
-      return {
-        status: 201,
-        corpo: { ...LUZ, id: 'desp-nova', ...pedido, situacao: pedido.paga ? 'PAGA' : 'A_PAGAR' },
+      const pedido = corpo as {
+        descricao: string
+        responsavel: string
+        categoriaId: string
+        valor: number
+        dataVencimento: string
+        paga: boolean
       }
+      const situacao: SituacaoDespesa = pedido.paga ? 'PAGA' : 'A_PAGAR'
+      const nova: Despesa = { ...LUZ, id: 'desp-nova', ...pedido, situacao }
+      despesas.push(nova)
+      return { status: 201, corpo: nova }
     }
     const marcar = caminho.match(/^\/despesas\/([^/?]+)$/)
+    if (marcar && metodo === 'PUT') {
+      const alvo = despesas.find((d) => d.id === marcar[1]) as Despesa
+      if (alvo.situacao === 'CANCELADA') return problema(400, 'ERRO', 'Despesa CANCELADA nao pode ser editada')
+      Object.assign(alvo, corpo, { atualizadoEm: '2026-02-16T12:00:00Z' })
+      return { corpo: alvo }
+    }
     if (marcar && metodo === 'PATCH') {
       const alvo = despesas.find((d) => d.id === marcar[1]) as Despesa
       alvo.situacao = (corpo as { situacao: SituacaoDespesa }).situacao
@@ -131,6 +145,113 @@ describe('Despesas', () => {
     expect(resumo).toHaveTextContent(/Ainda falta pagar\s*R\$\s*0,00/)
   })
 
+  it('mostra o responsável de cada despesa, e um traço na antiga que não tem', async () => {
+    abrir([LUZ, { ...despesa(2), responsavel: null }])
+
+    const linhaLuz = (await screen.findByText('Conta de luz')).closest('tr') as HTMLElement
+    expect(screen.getByRole('columnheader', { name: 'Responsável' })).toBeInTheDocument()
+    expect(within(linhaLuz).getByText('Administração')).toBeInTheDocument()
+    const linhaAntiga = screen.getByText('Despesa 02').closest('tr') as HTMLElement
+    expect(within(linhaAntiga).getByText('—')).toBeInTheDocument()
+  })
+
+  it('lançar exige o responsável e manda o nome sem espaços nas pontas', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-02-15T15:00:00Z'))
+    const chamadas = abrir([])
+    await screen.findByRole('button', { name: 'Contas' })
+
+    await userEvent.type(screen.getByLabelText('O que foi pago'), 'Conta de água')
+    await userEvent.type(screen.getByLabelText('Valor'), '120,50')
+    await userEvent.type(screen.getByLabelText('Responsável'), '   ')
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar despesa' }))
+
+    expect(screen.getByLabelText('Responsável')).toHaveAccessibleDescription('Informe o responsável pela despesa.')
+    expect(screen.getByLabelText('Responsável')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('Responsável')).toHaveFocus()
+    expect(chamadas.some((c) => c.metodo === 'POST')).toBe(false)
+
+    await userEvent.type(screen.getByLabelText('Responsável'), 'Zelador Antônio ')
+    expect(screen.getByLabelText('Responsável')).not.toHaveAccessibleDescription()
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar despesa' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Despesa "Conta de água" salva.')
+    const post = chamadas.find((c) => c.metodo === 'POST')
+    expect(post?.corpo).toMatchObject({ descricao: 'Conta de água', responsavel: 'Zelador Antônio', valor: 120.5 })
+    // Fica preenchido para o próximo lançamento, como a categoria e a data.
+    expect(screen.getByLabelText('Responsável')).toHaveValue('   Zelador Antônio ')
+  })
+
+  it('edita a despesa pelo modal, manda tudo menos a situação e lê a lista de novo', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-02-15T15:00:00Z'))
+    const chamadas = abrir([{ ...LUZ }])
+    await screen.findByText('Conta de luz')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Editar Conta de luz' }))
+    const dialogo = screen.getByRole('dialog', { name: 'Editar despesa' })
+    expect(within(dialogo).getByLabelText(/O que foi pago/)).toHaveValue('Conta de luz')
+    expect(within(dialogo).getByLabelText(/Responsável/)).toHaveValue('Administração')
+    expect(within(dialogo).getByLabelText(/Valor/)).toHaveValue('90,00')
+    expect(within(dialogo).getByRole('combobox', { name: /Categoria/ })).toHaveTextContent('Contas')
+
+    await userEvent.clear(within(dialogo).getByLabelText(/Responsável/))
+    await userEvent.type(within(dialogo).getByLabelText(/Responsável/), ' Zelador Antônio ')
+    await userEvent.clear(within(dialogo).getByLabelText(/Valor/))
+    await userEvent.type(within(dialogo).getByLabelText(/Valor/), '1.234,56')
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Salvar alterações' }))
+
+    expect(await screen.findByText('Despesa "Conta de luz" atualizada.')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Editar despesa' })).not.toBeInTheDocument()
+    const put = chamadas.find((c) => c.metodo === 'PUT')
+    expect(put?.caminho).toBe('/despesas/desp-1')
+    expect(put?.corpo).toEqual({
+      descricao: 'Conta de luz',
+      responsavel: 'Zelador Antônio',
+      categoriaId: 'cat-1',
+      valor: 1234.56,
+      dataVencimento: '2026-02-10',
+    })
+    // A página e os totais vêm de novo do backend, já com o valor novo.
+    const linha = (await screen.findByText('Zelador Antônio')).closest('tr') as HTMLElement
+    expect(linha).toHaveTextContent(/R\$\s*1\.234,56/)
+  })
+
+  it('a despesa antiga, sem responsável, só é salva depois de ganhar um', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-02-15T15:00:00Z'))
+    const chamadas = abrir([{ ...LUZ, responsavel: null }])
+    await screen.findByText('Conta de luz')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Editar Conta de luz' }))
+    const dialogo = screen.getByRole('dialog', { name: 'Editar despesa' })
+    expect(within(dialogo).getByLabelText(/Responsável/)).toHaveValue('')
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Salvar alterações' }))
+
+    expect(await within(dialogo).findByText('Informe o responsável pela despesa.')).toBeInTheDocument()
+    expect(chamadas.some((c) => c.metodo === 'PUT')).toBe(false)
+
+    await userEvent.type(within(dialogo).getByLabelText(/Responsável/), 'Direção')
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Salvar alterações' }))
+    expect(await screen.findByText('Despesa "Conta de luz" atualizada.')).toBeInTheDocument()
+  })
+
+  it('mostra no modal o motivo quando o backend recusa a edição', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-02-15T15:00:00Z'))
+    // Cancelada por outra pessoa enquanto a lista estava aberta.
+    const luz = { ...LUZ }
+    abrir([luz])
+    await screen.findByText('Conta de luz')
+    await userEvent.click(screen.getByRole('button', { name: 'Editar Conta de luz' }))
+    luz.situacao = 'CANCELADA'
+
+    const dialogo = screen.getByRole('dialog', { name: 'Editar despesa' })
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Salvar alterações' }))
+
+    expect(await within(dialogo).findByText('A despesa foi cancelada e não pode mais ser editada.')).toBeInTheDocument()
+  })
+
   /** O formulário "Lançar uma despesa", já com as categorias carregadas. */
   async function formulario() {
     const form = within(screen.getByRole('region', { name: 'Lançar uma despesa' }))
@@ -161,6 +282,7 @@ describe('Despesas', () => {
     const primeiroDoMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
 
     await userEvent.type(form.getByLabelText(/o que foi pago/i), 'Conta de água')
+    await userEvent.type(form.getByLabelText(/responsável/i), 'Administração')
     await userEvent.type(form.getByLabelText(/valor/i), '1.250,40')
     await escolherDia(userEvent.setup(), form.getByLabelText(/^data/i), primeiroDoMes)
     expect(form.getByLabelText(/^data/i)).toHaveTextContent(
@@ -172,6 +294,7 @@ describe('Despesas', () => {
     expect(await form.findByRole('status')).toHaveTextContent('Despesa "Conta de água" salva.')
     expect(chamadas.find((c) => c.metodo === 'POST')?.corpo).toEqual({
       descricao: 'Conta de água',
+      responsavel: 'Administração',
       categoriaId: 'cat-1',
       valor: 1250.4,
       dataVencimento: `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`,

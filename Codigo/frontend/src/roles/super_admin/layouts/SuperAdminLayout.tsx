@@ -7,8 +7,6 @@ const MENU: ItemMenu[] = [
   { label: 'Escolas', icon: 'home', to: paths.superAdmin.escolas },
   { label: 'Usuários', icon: 'users', to: paths.superAdmin.usuarios },
   { label: 'Assinaturas', icon: 'card', to: paths.superAdmin.assinaturas },
-  // Em breve: ainda sem página.
-  { label: 'Configurações', icon: 'settings' },
 ]
 
 type SuperAdminLayoutProps = {

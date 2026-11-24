@@ -1373,6 +1373,15 @@ public class MockDataSeeder implements ApplicationRunner {
     private record DespesaMock(String categoria, String descricao, String valor, int dia, boolean cancelada) {
     }
 
+    /** Quem responde pelas despesas de cada categoria do mock (texto livre, como na tela). */
+    private static final Map<String, String> RESPONSAVEL_POR_CATEGORIA = Map.of(
+            "Salários", "Departamento pessoal",
+            "Contas", "Administração",
+            "Consertos", "Zelador Antônio",
+            "Materiais", "Coordenação pedagógica",
+            "Limpeza", "Zelador Antônio",
+            "Outros", "Direção");
+
     /**
      * Quanto a escola cobra de mensalidade num mes tipico de cada ano: a soma
      * das mensalidades do ano dividida pelos meses que ele tem na janela.
@@ -1490,6 +1499,7 @@ public class MockDataSeeder implements ApplicationRunner {
                 .escolaId(c.escolaId)
                 .categoria(categoria)
                 .descricao(mock.descricao())
+                .responsavel(RESPONSAVEL_POR_CATEGORIA.getOrDefault(mock.categoria(), "Administração"))
                 .valor(new BigDecimal(mock.valor()))
                 .dataVencimento(vencimento)
                 .situacao(SituacaoDespesa.A_PAGAR)

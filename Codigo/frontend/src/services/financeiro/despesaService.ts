@@ -1,5 +1,12 @@
 import type { PaginaComResumo } from '../../hooks/usePaginacao'
-import type { CategoriaDespesa, Despesa, NovaDespesaRequest, ResumoDespesas, SituacaoDespesa } from '../../types/financeiro/despesa'
+import type {
+  AtualizarDespesaRequest,
+  CategoriaDespesa,
+  Despesa,
+  NovaDespesaRequest,
+  ResumoDespesas,
+  SituacaoDespesa,
+} from '../../types/financeiro/despesa'
 import { apiRequest } from '../api'
 
 // O backend já limita despesas e categorias à escola de quem está logado.
@@ -44,6 +51,15 @@ export function criarCategoriaDespesa(nome: string): Promise<CategoriaDespesa> {
 /** 404 se a categoria não é da escola. */
 export function criarDespesa(dados: NovaDespesaRequest): Promise<Despesa> {
   return apiRequest<Despesa>('/despesas', { method: 'POST', body: JSON.stringify(dados) })
+}
+
+/**
+ * Substitui descrição, responsável, categoria, valor e vencimento; a situação
+ * não muda. 400 se a despesa foi cancelada; 404 se ela ou a categoria não são
+ * da escola.
+ */
+export function atualizarDespesa(id: string, dados: AtualizarDespesaRequest): Promise<Despesa> {
+  return apiRequest<Despesa>(`/despesas/${id}`, { method: 'PUT', body: JSON.stringify(dados) })
 }
 
 /**

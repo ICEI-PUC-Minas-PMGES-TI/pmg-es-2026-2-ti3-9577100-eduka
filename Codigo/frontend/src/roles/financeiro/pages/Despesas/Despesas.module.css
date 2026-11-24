@@ -164,6 +164,13 @@
   white-space: nowrap;
 }
 
+/* Editar e Marcar como paga / Desfazer, lado a lado. */
+.acoes {
+  display: inline-flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 /* Cabeçalho da coluna de ação: só para leitor de tela. */
 .somenteLeitor {
   position: absolute;
@@ -383,6 +390,16 @@
 
   .descricaoEBadge {
     flex-wrap: wrap;
+  }
+
+  .acoes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .acoes > button {
+    width: 100%;
+    justify-content: center;
   }
 
   .escolhas {
