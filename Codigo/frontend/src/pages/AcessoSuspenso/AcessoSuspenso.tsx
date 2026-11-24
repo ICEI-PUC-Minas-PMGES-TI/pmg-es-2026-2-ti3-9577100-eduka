@@ -4,7 +4,7 @@ import { Icon } from '../../components/ui/Icon/Icon'
 import { paths } from '../../routes/paths'
 import styles from './AcessoSuspenso.module.css'
 
-/** Canal de suporte do Edúka (o mesmo do contato da página inicial). */
+/** Canal de suporte do Eduka (o mesmo do contato da página inicial). */
 export const EMAIL_SUPORTE = 'contato@eduka.com.br'
 
 /**
@@ -19,7 +19,7 @@ export function AcessoSuspenso() {
 
   return (
     <main className={styles.page}>
-      <img src={logoEduka} alt="Edúka" className={styles.logo} />
+      <img src={logoEduka} alt="Eduka" className={styles.logo} />
       <div className={styles.card}>
         <span className={styles.icone} aria-hidden="true">
           <Icon name="lock" size={28} />
@@ -27,7 +27,7 @@ export function AcessoSuspenso() {
         <h1 className={styles.title}>Acesso temporariamente indisponível</h1>
         {porFatura ? (
           <p className={styles.text}>
-            O acesso da sua escola ao Edúka foi suspenso porque uma fatura do Edúka está em atraso. A gestão da
+            O acesso da sua escola ao Eduka foi suspenso porque uma fatura do Eduka está em atraso. A gestão da
             escola recebeu o aviso por e-mail. Para reativar, a gestão deve falar com o nosso suporte.
           </p>
         ) : (
@@ -40,7 +40,7 @@ export function AcessoSuspenso() {
         </Link>
         <a
           className={styles.suporte}
-          href={`mailto:${EMAIL_SUPORTE}?subject=${encodeURIComponent('Acesso suspenso no Edúka')}`}
+          href={`mailto:${EMAIL_SUPORTE}?subject=${encodeURIComponent('Acesso suspenso no Eduka')}`}
         >
           <Icon name="mail" size={16} />
           Falar com o suporte técnico

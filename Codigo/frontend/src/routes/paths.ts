@@ -34,9 +34,9 @@ export const paths = {
     raiz: '/master',
     /** Dashboard da escola. */
     inicio: '/master/inicio',
-    /** Conta de recebimento da escola e faturas do Edúka (pagar e comprovante). */
+    /** Conta de recebimento da escola e faturas do Eduka (pagar e comprovante). */
     recebimentos: '/master/recebimentos',
-    /** Plano da escola e faturas do Edúka: pagar e ver o comprovante (IU24-A). */
+    /** Plano da escola e faturas do Eduka: pagar e ver o comprovante (IU24-A). */
     planoEFaturas: '/master/plano-e-faturas',
     /** Secretaria e financeiro da escola: cadastrar, editar, inativar e reenviar o acesso. */
     equipe: '/master/equipe',

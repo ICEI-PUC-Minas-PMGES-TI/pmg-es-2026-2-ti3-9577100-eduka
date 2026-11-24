@@ -90,7 +90,7 @@ class RoteadorFatura {
     private static final int TAMANHO_MAXIMO_ERRO = 500;
 
     /** No Fluxo A quem recebe e o Eduka (R30). */
-    private static final String BENEFICIARIO = "Edúka";
+    private static final String BENEFICIARIO = "Eduka";
 
     private final FaturaPlataformaRepository faturaRepository;
     private final EscolaRepository escolaRepository;

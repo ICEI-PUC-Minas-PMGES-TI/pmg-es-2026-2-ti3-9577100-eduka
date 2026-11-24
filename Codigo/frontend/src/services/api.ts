@@ -206,7 +206,7 @@ function mensagemDoCodigo(problema: Problema): string | null {
     const limite = problema.limite === null ? 'usuários' : `${problema.limite.toLocaleString('pt-BR')} usuários`
     return (
       `A escola chegou ao limite de ${limite} ativos do plano. ` +
-      'Inative um acesso que não é mais usado ou fale com o suporte do Edúka para ampliar o limite.'
+      'Inative um acesso que não é mais usado ou fale com o suporte do Eduka para ampliar o limite.'
     )
   }
   return null

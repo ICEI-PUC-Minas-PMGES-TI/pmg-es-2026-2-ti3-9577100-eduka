@@ -4,7 +4,7 @@ Requisito: **RNF05** (privacidade e LGPD). Tarefa: **S5-18** (#370). Depende de 
 
 ## 1. Objetivo
 
-A LGPD (Lei 13.709/2018) diz que o dado pessoal deve ser eliminado ou anonimizado quando o tratamento termina (art. 15 e 16). A exceção é o que a lei manda guardar. Até a Sprint 4, o Edúka só anonimizava manualmente: o MASTER clicava em **Anonimizar** no detalhe do aluno (UC39). Esta política define **por quanto tempo** a escola guarda os dados de quem saiu e **quando o sistema anonimiza sozinho**.
+A LGPD (Lei 13.709/2018) diz que o dado pessoal deve ser eliminado ou anonimizado quando o tratamento termina (art. 15 e 16). A exceção é o que a lei manda guardar. Até a Sprint 4, o Eduka só anonimizava manualmente: o MASTER clicava em **Anonimizar** no detalhe do aluno (UC39). Esta política define **por quanto tempo** a escola guarda os dados de quem saiu e **quando o sistema anonimiza sozinho**.
 
 ## 2. Ciclo de vida do aluno
 
@@ -36,7 +36,7 @@ Depois desse prazo, a escola não precisa mais saber **quem** era o aluno para c
 
 ### O que não muda
 
-- **Histórico escolar oficial.** A escrituração escolar é dever da escola e deve ser guardada sem prazo. O Edúka não substitui o arquivo oficial da secretaria: antes de inativar um aluno, a escola deve emitir ou exportar o que precisar arquivar (**Exportar dados (PDF)** no detalhe do aluno).
+- **Histórico escolar oficial.** A escrituração escolar é dever da escola e deve ser guardada sem prazo. O Eduka não substitui o arquivo oficial da secretaria: antes de inativar um aluno, a escola deve emitir ou exportar o que precisar arquivar (**Exportar dados (PDF)** no detalhe do aluno).
 - **Responsáveis.** O responsável é um titular à parte e pode ser responsável por outros alunos. A anonimização do aluno só desfaz o vínculo e não apaga o cadastro do responsável.
 - **Pedido do titular.** O aluno (ou o responsável) pode pedir a anonimização antes do prazo, e o MASTER a faz manualmente (UC39), com as mesmas travas.
 - **Equipe da escola e alunos ativos.** Esta política não trata desses casos.

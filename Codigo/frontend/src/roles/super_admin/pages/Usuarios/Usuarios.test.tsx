@@ -138,7 +138,7 @@ describe('Usuários do Super Admin (S5-14)', () => {
     await userEvent.click(within(linha('gestora@horizonte.com')).getByRole('button', { name: 'Inativar' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'O acesso de gestora@horizonte.com foi inativado e não entra mais no Edúka.',
+      'O acesso de gestora@horizonte.com foi inativado e não entra mais no Eduka.',
     )
     expect(await within(linha('gestora@horizonte.com')).findByRole('button', { name: 'Reativar' })).toBeInTheDocument()
   })

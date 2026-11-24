@@ -4,7 +4,7 @@ import { ROTULOS_FORMA_PAGAMENTO } from '../../../types/financeiro/pagamentoAlun
 import { salvarArquivo } from '../../../utils/arquivos'
 import { formatarMoeda } from '../../../utils/formatters'
 
-// PDF do comprovante (IU17-D), montado pelo próprio Edúka com os dados que o
+// PDF do comprovante (IU17-D), montado pelo próprio Eduka com os dados que o
 // backend confirmou: nada vem da página do provedor. É um PDF 1.4 só de
 // texto, com a Helvetica padrão em WinAnsi (cobre os acentos do português),
 // então não precisa de biblioteca.
@@ -76,11 +76,11 @@ function conteudoDaPagina(linhas: LinhaComprovante[]): string {
     comandos.push(`BT /${fonte} ${tamanho} Tf ${x} ${y} Td ${textoPdf(valor)} Tj ET`)
 
   let y = ALTURA - MARGEM
-  texto('F2', 20, MARGEM, y, 'Edúka')
+  texto('F2', 20, MARGEM, y, 'Eduka')
   y -= 40
   texto('F2', 18, MARGEM, y, 'Pagamento confirmado')
   y -= 18
-  texto('F1', 10, MARGEM, y, 'Comprovante emitido pelo Edúka com os dados confirmados pelo banco.')
+  texto('F1', 10, MARGEM, y, 'Comprovante emitido pelo Eduka com os dados confirmados pelo banco.')
   y -= 16
   comandos.push(`0.85 G ${MARGEM} ${y} m ${LARGURA - MARGEM} ${y} l S 0 G`)
   y -= 24

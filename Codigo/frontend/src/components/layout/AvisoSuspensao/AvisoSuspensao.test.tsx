@@ -97,7 +97,7 @@ describe('Aviso de suspensão', () => {
     const router = abrir(<TelaQueBusca />)
 
     expect(await screen.findByRole('heading', { name: /acesso temporariamente indisponível/i })).toBeInTheDocument()
-    expect(screen.getByText(/porque uma fatura do Edúka está em atraso/)).toBeInTheDocument()
+    expect(screen.getByText(/porque uma fatura do Eduka está em atraso/)).toBeInTheDocument()
     expect(router.state.location.search).toBe('?motivo=FATURA_EM_ATRASO')
     expect(localStorage.getItem(ACCESS_TOKEN_KEY)).toBeNull()
   })

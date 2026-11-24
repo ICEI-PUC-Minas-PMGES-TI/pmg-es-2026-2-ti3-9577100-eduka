@@ -36,7 +36,7 @@ function vigencia(assinatura: Assinatura): string {
 }
 
 /**
- * Plano e faturas do MASTER (IU24-A): o que a escola paga ao Edúka. A próxima
+ * Plano e faturas do MASTER (IU24-A): o que a escola paga ao Eduka. A próxima
  * fatura em destaque com o Pagar fatura (as mesmas modais do aluno, IU17-A a
  * IU17-D), a assinatura da escola e as faturas anteriores com o comprovante.
  * O backend acha a próxima e pagina as anteriores: a tela não baixa o
@@ -84,7 +84,7 @@ export function PlanoEFaturas() {
   const daPagina = paginacao && !anteriores.erro ? paginacao.itensDaPagina : []
 
   return (
-    <MasterLayout titulo="Plano e faturas" subtitulo="O que a escola paga ao Edúka pelo uso da plataforma.">
+    <MasterLayout titulo="Plano e faturas" subtitulo="O que a escola paga ao Eduka pelo uso da plataforma.">
       <EstadoDashboard carregando={proxima.carregando} erro={proxima.erro} onTentarDeNovo={recarregarProxima} />
       {!proxima.carregando && !proxima.erro && (
         <>

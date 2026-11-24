@@ -25,7 +25,7 @@ export const MODULOS_ESCOLA = [
 export type ModuloEscola = (typeof MODULOS_ESCOLA)[number]
 
 /**
- * Módulos que ainda não têm funcionalidade no Edúka: aparecem como "Em
+ * Módulos que ainda não têm funcionalidade no Eduka: aparecem como "Em
  * breve" na edição da escola e ficam fora das listas de contratados.
  */
 export const MODULOS_EM_BREVE: readonly ModuloEscola[] = ['SECRETARIA_VIRTUAL', 'BIBLIOTECA_DIGITAL']

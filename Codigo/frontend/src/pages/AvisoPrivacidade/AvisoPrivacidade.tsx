@@ -92,7 +92,7 @@ export function AvisoPrivacidade() {
 
   return (
     <main className={styles.page}>
-      <img src={logoEduka} alt="Edúka" className={styles.logo} />
+      <img src={logoEduka} alt="Eduka" className={styles.logo} />
       <section className={styles.card} aria-labelledby="titulo-aviso">
         <span className={styles.icone} aria-hidden="true">
           <Icon name="shield" size={28} />
@@ -101,7 +101,7 @@ export function AvisoPrivacidade() {
           Aviso de privacidade
         </h1>
         <p className={styles.texto}>
-          Antes de continuar, veja como o Edúka e a sua escola cuidam dos seus dados pessoais.
+          Antes de continuar, veja como o Eduka e a sua escola cuidam dos seus dados pessoais.
         </p>
 
         {!aviso && !erro && <p role="status">Carregando o aviso…</p>}

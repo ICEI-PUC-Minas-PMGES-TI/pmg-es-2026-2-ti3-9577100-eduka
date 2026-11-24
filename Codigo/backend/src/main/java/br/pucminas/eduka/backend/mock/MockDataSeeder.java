@@ -1529,7 +1529,7 @@ public class MockDataSeeder implements ApplicationRunner {
             FaturaPlataforma fatura = FaturaPlataforma.builder()
                     .escolaId(c.escolaId)
                     .competencia(competencia)
-                    .descricao("Assinatura Edúka Enterprise - %s/%d".formatted(
+                    .descricao("Assinatura Eduka Enterprise - %s/%d".formatted(
                             mes.getMonth().getDisplayName(TextStyle.FULL, PT_BR), mes.getYear()))
                     .valor(new BigDecimal(mes.getYear() < c.anoAtual() ? "1190.00" : "1290.00"))
                     .dataVencimento(vencimento)

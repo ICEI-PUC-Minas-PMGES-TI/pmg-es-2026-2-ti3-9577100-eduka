@@ -17,7 +17,7 @@ const VAZIO: Campos = { escolaId: '', referencia: '', valor: '', dataVencimento:
 
 function sugerirReferencia(escola: Escola | undefined): string {
   const hoje = hojeIso()
-  const plano = escola?.plano ? `Plano ${ROTULOS_PLANO[escola.plano]}` : 'Mensalidade Edúka'
+  const plano = escola?.plano ? `Plano ${ROTULOS_PLANO[escola.plano]}` : 'Mensalidade Eduka'
   return `${plano} · ${nomeDoMes(hoje)}/${hoje.slice(0, 4)}`
 }
 
@@ -149,7 +149,7 @@ export function FormLancarFatura({ escolas, faturas, onLancar, children }: FormL
       </div>
       <p className={styles.aviso}>
         <Icon name="info" size={16} />
-        <span>O valor vem da última fatura da escola e pode ser ajustado. O dinheiro cai na conta do Edúka.</span>
+        <span>O valor vem da última fatura da escola e pode ser ajustado. O dinheiro cai na conta do Eduka.</span>
       </p>
       {erroEnvio && (
         <p role="alert" className={styles.erro}>

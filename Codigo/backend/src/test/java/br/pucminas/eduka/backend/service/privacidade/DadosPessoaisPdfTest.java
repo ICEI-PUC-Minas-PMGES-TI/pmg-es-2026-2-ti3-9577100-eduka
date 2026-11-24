@@ -71,7 +71,7 @@ class DadosPessoaisPdfTest {
                 "Marta Gestora", "Carla Souza", "111.444.777-35", "Boletim", "93%", "Histórico de mensalidades",
                 "R$ 1.250,00", "art. 16, I");
         // Documento da escola: nada da plataforma.
-        assertThat(texto).doesNotContain("Edúka", "Eduka", "Acesso", "Login");
+        assertThat(texto).doesNotContain("Eduka", "Acesso", "Login");
     }
 
     @Test

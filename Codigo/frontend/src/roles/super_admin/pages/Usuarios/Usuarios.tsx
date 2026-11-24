@@ -139,7 +139,7 @@ export function Usuarios() {
       usuario,
       () => (usuario.ativo ? inativarUsuarioDaPlataforma(usuario.id) : ativarUsuarioDaPlataforma(usuario.id)),
       usuario.ativo
-        ? `O acesso de ${usuario.login} foi inativado e não entra mais no Edúka.`
+        ? `O acesso de ${usuario.login} foi inativado e não entra mais no Eduka.`
         : `O acesso de ${usuario.login} foi reativado.`,
       `Não foi possível ${usuario.ativo ? 'inativar' : 'reativar'} o acesso de ${usuario.login}.`,
     )

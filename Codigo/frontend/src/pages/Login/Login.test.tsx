@@ -32,7 +32,7 @@ describe('Login', () => {
     await userEvent.type(screen.getByLabelText(/^senha/i), 'senha-certa')
     await userEvent.click(screen.getByRole('button', { name: /acessar/i }))
 
-    expect(await screen.findByText(/porque uma fatura do Edúka está em atraso/)).toBeInTheDocument()
+    expect(await screen.findByText(/porque uma fatura do Eduka está em atraso/)).toBeInTheDocument()
   })
 
   it('perfil que depende de um módulo não contratado não entra e sabe por quê', async () => {

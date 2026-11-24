@@ -414,7 +414,7 @@ class RoteadorFaturaTest {
         ComprovanteResponse comprovante = roteador.comprovanteMinha(FATURA);
 
         assertThat(comprovante.numero()).isEqualTo(FATURA);
-        assertThat(comprovante.beneficiarioNome()).isEqualTo("Edúka");
+        assertThat(comprovante.beneficiarioNome()).isEqualTo("Eduka");
         assertThat(comprovante.pagadorNome()).isEqualTo("Colegio Horizonte");
         assertThat(comprovante.pagadorDocumentoMascarado()).isEqualTo("**.345.678/0001-**");
         assertThat(comprovante.codigoTransacao()).isEqualTo("tx-a1");
