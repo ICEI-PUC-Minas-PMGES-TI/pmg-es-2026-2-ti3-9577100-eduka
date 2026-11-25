@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createMemoryRouter, RouterProvider } from 'react-router'
+import { createMemoryRouter, RouterProvider, useLocation } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { paths } from '../../../../routes/paths'
 import { problema, simularApi, type RespostaApi } from '../../../../test/api'
@@ -124,6 +124,11 @@ const RISCOS = '/cobrancas/risco-atraso?nivelMinimo=MEDIO'
 
 const PAGINA_VAZIA = { conteudo: [], pagina: 0, tamanho: 10, totalElementos: 0, totalPaginas: 0, totaisPorStatus: [] }
 
+/** Mostra a busca da URL, para conferir o filtro com que o atalho abre a lista de alunos. */
+function TelaDeAlunos() {
+  return <p>Tela de alunos {useLocation().search}</p>
+}
+
 function abrir(painel: RespostaApi, riscos: RespostaApi = { corpo: [] }) {
   const chamadas = simularApi(({ caminho }) => {
     if (caminho === '/dashboard/financeiro') return painel
@@ -141,6 +146,7 @@ function abrir(painel: RespostaApi, riscos: RespostaApi = { corpo: [] }) {
       { path: paths.financeiro.cobrancas, element: <Cobrancas /> },
       { path: paths.financeiro.novaCobranca, element: <p>Tela de nova cobrança</p> },
       { path: paths.financeiro.despesas, element: <p>Tela de despesas</p> },
+      { path: paths.financeiro.alunos, element: <TelaDeAlunos /> },
     ],
     { initialEntries: [paths.financeiro.inicio] },
   )
@@ -278,6 +284,14 @@ describe('Início do financeiro', () => {
 
     expect(await screen.findByRole('button', { name: /Em atraso/ })).toHaveAttribute('aria-pressed', 'true')
     expect(chamadas.map((c) => c.caminho)).toContain('/cobrancas/pagina?pagina=0&tamanho=10&status=EM_ATRASO')
+  })
+
+  it('o atalho de alunos em atraso abre a lista de alunos já filtrada', async () => {
+    abrir({ corpo: PAINEL })
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Ver alunos em atraso' }))
+
+    expect(await screen.findByText('Tela de alunos ?financeiro=EM_ATRASO')).toBeInTheDocument()
   })
 
   it.each([

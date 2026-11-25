@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 import br.pucminas.eduka.backend.dto.comum.Ordenacao;
 import br.pucminas.eduka.backend.dto.comum.PaginaComResumoResponse;
 import br.pucminas.eduka.backend.dto.comum.Paginacao;
+import br.pucminas.eduka.backend.dto.financeiro.FiltroFinanceiroAlunos;
+import br.pucminas.eduka.backend.dto.financeiro.FinanceiroDoAlunoResponse;
 import br.pucminas.eduka.backend.dto.pessoas.AlunoRequest;
 import br.pucminas.eduka.backend.dto.pessoas.AlunoResponse;
 import br.pucminas.eduka.backend.dto.pessoas.ResumoAlunosResponse;
@@ -67,18 +69,31 @@ public class AlunoController {
     @Operation(summary = "Lista os alunos em paginas", description = "Perfis: MASTER, SECRETARIA, FINANCEIRO. "
             + "Filtros opcionais por parte do nome ou da matricula (`busca`) e por situacao (MATRICULADO, "
             + "TRANCADO, SEM_TURMA, INATIVO, ANONIMIZADO). `pagina` comeca em 0; `tamanho` vai de 1 a 100. `ordenarPor`: NOME "
-            + "(padrao) ou MATRICULA; `direcao`: ASC (padrao) ou DESC. O `resumo` conta os alunos da escola "
-            + "inteira por situacao, sem a busca nem o filtro de situacao.")
+            + "(padrao), MATRICULA ou EM_ABERTO; `direcao`: ASC ou DESC (padrao ASC, e DESC em EM_ABERTO). O `resumo` "
+            + "conta os alunos da escola inteira, sem a busca nem os filtros. Para MASTER e FINANCEIRO (com a gestao "
+            + "financeira), cada aluno e o resumo trazem o `financeiro`, e valem os filtros `situacaoFinanceira` "
+            + "(EM_ATRASO, A_VENCER, EM_DIA, SEM_COBRANCA), `faixaAtraso` (ATE_30_DIAS, DE_31_A_60_DIAS, "
+            + "MAIS_DE_60_DIAS), `venceEm7Dias` e `semMensalidadeNoMes`; os demais recebem 403 se usarem esses "
+            + "filtros ou EM_ABERTO.")
     @ApiResponse(responseCode = "200", description = "A pagina de alunos, com o resumo da escola.")
-    @ApiResponse(responseCode = "400", description = "Pagina, tamanho ou ordenacao invalidos.")
+    @ApiResponse(responseCode = "400", description = "Pagina, tamanho, filtro ou ordenacao invalidos.")
+    @ApiResponse(responseCode = "403", description = "Filtro ou ordem financeira sem poder ver o financeiro.")
     public PaginaComResumoResponse<AlunoResponse, ResumoAlunosResponse> listarPaginado(
             @Parameter(description = "Parte do nome ou da matricula") @RequestParam(required = false) String busca,
             @RequestParam(required = false) AlunoResponse.Situacao situacao,
+            @RequestParam(required = false) FinanceiroDoAlunoResponse.Situacao situacaoFinanceira,
+            @RequestParam(required = false) FinanceiroDoAlunoResponse.FaixaAtraso faixaAtraso,
+            @Parameter(description = "So quem tem cobranca vencendo de hoje ate daqui a 7 dias")
+            @RequestParam(defaultValue = "false") boolean venceEm7Dias,
+            @Parameter(description = "So quem nao tem mensalidade com vencimento no mes atual")
+            @RequestParam(defaultValue = "false") boolean semMensalidadeNoMes,
             @RequestParam(defaultValue = "0") int pagina,
             @RequestParam(defaultValue = Paginacao.TAMANHO_PADRAO) int tamanho,
             @RequestParam(defaultValue = "NOME") Ordenacao.Alunos ordenarPor,
             @RequestParam(required = false) Direction direcao) {
-        return alunoService.listarPaginado(busca, situacao, new Paginacao(pagina, tamanho), ordenarPor, direcao);
+        return alunoService.listarPaginado(busca, situacao,
+                new FiltroFinanceiroAlunos(situacaoFinanceira, faixaAtraso, venceEm7Dias, semMensalidadeNoMes),
+                new Paginacao(pagina, tamanho), ordenarPor, direcao);
     }
 
     @GetMapping("/{id}")

@@ -14,11 +14,20 @@ export type ItemMenu = {
 }
 
 type MenuBotaoProps = {
-  /** Texto do botão; a setinha ao lado indica que abre um menu. */
+  /**
+   * Texto do botão; a setinha ao lado indica que abre um menu. Com
+   * `somenteIcone`, não aparece: vira o nome acessível do botão e do menu.
+   */
   children: string
   itens: ItemMenu[]
   icon?: IconName
   variant?: 'primary' | 'outline'
+  size?: 'sm' | 'md'
+  /**
+   * Só o ícone, sem texto nem setinha (ex.: "⋯" com as ações raras de uma
+   * linha da tabela). O texto passa a ser lido só pelo leitor de tela.
+   */
+  somenteIcone?: boolean
   disabled?: boolean
 }
 
@@ -29,7 +38,15 @@ type MenuBotaoProps = {
  * End andam; Enter escolhe; Esc e Tab fecham. Abre pela borda direita quando
  * o botão está na metade direita da tela, para não sair do cabeçalho.
  */
-export function MenuBotao({ children, itens, icon, variant = 'outline', disabled }: MenuBotaoProps) {
+export function MenuBotao({
+  children,
+  itens,
+  icon,
+  variant = 'outline',
+  size = 'md',
+  somenteIcone = false,
+  disabled,
+}: MenuBotaoProps) {
   const [abertoPedido, setAberto] = useState(false)
   // Desabilitado com o menu aberto (ex.: a ação começou a gerar o arquivo), o menu some.
   const aberto = abertoPedido && !disabled
@@ -108,16 +125,22 @@ export function MenuBotao({ children, itens, icon, variant = 'outline', disabled
       <Button
         ref={ancoraRef}
         variant={variant}
+        size={size}
         icon={icon}
         disabled={disabled}
+        aria-label={somenteIcone ? children : undefined}
         aria-haspopup="menu"
         aria-expanded={aberto}
         aria-controls={aberto ? menuId : undefined}
         onClick={() => (aberto ? setAberto(false) : abrir())}
         onKeyDown={handleTeclaBotao}
       >
-        {children}
-        <Icon name="chevronDown" size={16} className={`${styles.seta} ${aberto ? styles.setaAberta : ''}`} />
+        {somenteIcone ? null : (
+          <>
+            {children}
+            <Icon name="chevronDown" size={16} className={`${styles.seta} ${aberto ? styles.setaAberta : ''}`} />
+          </>
+        )}
       </Button>
 
       {portal(

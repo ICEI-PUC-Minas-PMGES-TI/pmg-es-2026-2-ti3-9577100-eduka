@@ -7,6 +7,7 @@ import java.util.UUID;
 import br.pucminas.eduka.backend.domain.pessoas.Aluno;
 import br.pucminas.eduka.backend.domain.pessoas.Pessoa;
 import br.pucminas.eduka.backend.dto.comum.EnderecoResponse;
+import br.pucminas.eduka.backend.dto.financeiro.FinanceiroDoAlunoResponse;
 
 public record AlunoResponse(
         UUID id,
@@ -22,7 +23,8 @@ public record AlunoResponse(
         Situacao situacao,
         Long turmaId,
         String turmaNome,
-        LocalDate anonimizacaoPrevistaEm) {
+        LocalDate anonimizacaoPrevistaEm,
+        FinanceiroDoAlunoResponse financeiro) {
 
     /**
      * Onde o aluno esta hoje, pelas matriculas: com uma ATIVA, so com uma
@@ -42,7 +44,7 @@ public record AlunoResponse(
     public static AlunoResponse deResumo(Aluno aluno, Pessoa pessoa, Situacao situacao, Long turmaId,
             String turmaNome) {
         return new AlunoResponse(aluno.getId(), aluno.getEscolaId(), pessoa.getNome(), null, null, null, null,
-                aluno.getMatricula(), aluno.getGenero(), List.of(), situacao, turmaId, turmaNome, null);
+                aluno.getMatricula(), aluno.getGenero(), List.of(), situacao, turmaId, turmaNome, null, null);
     }
 
     /** Detalhe de um aluno especifico: todo dado pessoal, ja decifrado. Situacao so se anonimizado ou inativo. */
@@ -51,7 +53,7 @@ public record AlunoResponse(
                 pessoa.getEmail(),
                 pessoa.getDataNascimento() == null ? null : LocalDate.parse(pessoa.getDataNascimento()),
                 enderecoDe(pessoa), aluno.getMatricula(), aluno.getGenero(), responsaveis,
-                situacaoDoCadastro(aluno), null, null, null);
+                situacaoDoCadastro(aluno), null, null, null, null);
     }
 
     /**
@@ -60,7 +62,16 @@ public record AlunoResponse(
      */
     public AlunoResponse comAnonimizacaoPrevistaEm(LocalDate dia) {
         return new AlunoResponse(id, escolaId, nome, cpf, email, dataNascimento, endereco, matricula, genero,
-                responsaveis, situacao, turmaId, turmaNome, dia);
+                responsaveis, situacao, turmaId, turmaNome, dia, financeiro);
+    }
+
+    /**
+     * A listagem com a situacao financeira do aluno, so para quem ve o
+     * financeiro (MASTER e FINANCEIRO). Nos demais casos fica nula.
+     */
+    public AlunoResponse comFinanceiro(FinanceiroDoAlunoResponse situacaoFinanceira) {
+        return new AlunoResponse(id, escolaId, nome, cpf, email, dataNascimento, endereco, matricula, genero,
+                responsaveis, situacao, turmaId, turmaNome, anonimizacaoPrevistaEm, situacaoFinanceira);
     }
 
     /** O que vale acima das matriculas: anonimizado, depois inativo. Nulo se nenhum dos dois. */

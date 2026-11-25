@@ -31,6 +31,9 @@ import br.pucminas.eduka.backend.dto.comum.Ordenacao;
 import br.pucminas.eduka.backend.dto.comum.PaginaComResumoResponse;
 import br.pucminas.eduka.backend.dto.comum.PaginaResponse;
 import br.pucminas.eduka.backend.dto.comum.Paginacao;
+import br.pucminas.eduka.backend.dto.financeiro.FiltroFinanceiroAlunos;
+import br.pucminas.eduka.backend.dto.financeiro.FinanceiroDoAlunoResponse;
+import br.pucminas.eduka.backend.dto.financeiro.ResumoFinanceiroAlunosResponse;
 import br.pucminas.eduka.backend.dto.pessoas.AlunoRequest;
 import br.pucminas.eduka.backend.dto.pessoas.AlunoResponse;
 import br.pucminas.eduka.backend.dto.pessoas.ResponsavelResponse;
@@ -46,6 +49,7 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 import br.pucminas.eduka.backend.service.acesso.AcessoService;
 import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
+import br.pucminas.eduka.backend.service.financeiro.FinanceiroDosAlunosService;
 import br.pucminas.eduka.backend.service.privacidade.PoliticaRetencao;
 
 /**
@@ -84,12 +88,13 @@ public class AlunoService {
     private final Clock clock;
     private final AuditoriaService auditoriaService;
     private final PoliticaRetencao politicaRetencao;
+    private final FinanceiroDosAlunosService financeiroDosAlunos;
 
     public AlunoService(AlunoRepository alunoRepository, PessoaRepository pessoaRepository,
             PessoaPapelRepository pessoaPapelRepository, ResponsavelService responsavelService,
             IsolamentoEscola isolamentoEscola, AcessoService acessoService,
             MatriculaTurmaRepository matriculaRepository, Clock clock, AuditoriaService auditoriaService,
-            PoliticaRetencao politicaRetencao) {
+            PoliticaRetencao politicaRetencao, FinanceiroDosAlunosService financeiroDosAlunos) {
         this.alunoRepository = alunoRepository;
         this.pessoaRepository = pessoaRepository;
         this.pessoaPapelRepository = pessoaPapelRepository;
@@ -100,6 +105,7 @@ public class AlunoService {
         this.clock = clock;
         this.auditoriaService = auditoriaService;
         this.politicaRetencao = politicaRetencao;
+        this.financeiroDosAlunos = financeiroDosAlunos;
     }
 
     /**
@@ -107,26 +113,60 @@ public class AlunoService {
      * ou da matricula ({@code busca}) e pela situacao. O nome e cifrado, entao
      * filtro e ordem por nome sao feitos em memoria sobre os alunos da escola,
      * e so a pagina vai na resposta. O resumo conta a escola inteira, sem a
-     * busca nem a situacao ({@link PaginaComResumoResponse}).
+     * busca nem os filtros ({@link PaginaComResumoResponse}).
+     *
+     * <p>
+     * Para o MASTER e o FINANCEIRO (com a gestao financeira contratada), cada
+     * aluno e o resumo trazem tambem a situacao financeira, e valem os
+     * filtros financeiros e a ordem pelo valor em aberto. Para os demais, o
+     * financeiro fica nulo.
+     * </p>
+     *
+     * @throws br.pucminas.eduka.backend.security.PerfilNaoPermitidoException
+     *         se quem nao ve o financeiro pede filtro ou ordem financeira (403)
      */
     public PaginaComResumoResponse<AlunoResponse, ResumoAlunosResponse> listarPaginado(String busca,
-            AlunoResponse.Situacao situacao, Paginacao paginacao, Ordenacao.Alunos ordenarPor, Direction direcao) {
+            AlunoResponse.Situacao situacao, FiltroFinanceiroAlunos filtroFinanceiro, Paginacao paginacao,
+            Ordenacao.Alunos ordenarPor, Direction direcao) {
+        boolean pedeFinanceiro = !filtroFinanceiro.vazio() || ordenarPor == Ordenacao.Alunos.EM_ABERTO;
+        if (pedeFinanceiro) {
+            financeiroDosAlunos.exigirDisponivel();
+        }
+        boolean comFinanceiro = pedeFinanceiro || financeiroDosAlunos.disponivel();
+
+        List<AlunoResponse> daEscola = listar(null);
+        if (comFinanceiro) {
+            Map<UUID, FinanceiroDoAlunoResponse> porAluno = financeiroDosAlunos.porAluno();
+            daEscola = daEscola.stream()
+                    .map(aluno -> aluno.comFinanceiro(
+                            porAluno.getOrDefault(aluno.id(), FinanceiroDoAlunoResponse.SEM_COBRANCA)))
+                    .toList();
+        }
+
         Comparator<AlunoResponse> campo = switch (ordenarPor) {
             case NOME -> Comparator.comparing(AlunoResponse::nome, Paginacao.ORDEM_DE_NOME);
             case MATRICULA -> Comparator.comparing(AlunoResponse::matricula,
                     Comparator.nullsLast(Comparator.naturalOrder()));
+            case EM_ABERTO -> Comparator.comparing(aluno -> aluno.financeiro().valorEmAberto());
         };
-        List<AlunoResponse> daEscola = listar(null);
+        // Muitos alunos empatam no mesmo valor em aberto (zero): o nome desempata.
+        Comparator<AlunoResponse> desempate = Comparator.comparing(AlunoResponse::nome, Paginacao.ORDEM_DE_NOME)
+                .thenComparing(AlunoResponse::id);
         String termo = busca == null || busca.isBlank() ? null : busca.trim().toLowerCase(Locale.ROOT);
         List<AlunoResponse> ordenados = daEscola.stream()
                 .filter(aluno -> termo == null || aluno.nome().toLowerCase(Locale.ROOT).contains(termo)
                         || (aluno.matricula() != null && aluno.matricula().toLowerCase(Locale.ROOT).contains(termo)))
                 .filter(aluno -> situacao == null || aluno.situacao() == situacao)
-                .sorted(Ordenacao.emMemoria(campo, Ordenacao.ou(direcao, Direction.ASC),
-                        Comparator.comparing(AlunoResponse::id)))
+                .filter(aluno -> filtroFinanceiro.vazio() || filtroFinanceiro.aceita(aluno.financeiro()))
+                .sorted(Ordenacao.emMemoria(campo, Ordenacao.ou(direcao, ordenarPor.padrao), desempate))
                 .toList();
-        return PaginaComResumoResponse.de(PaginaResponse.recortar(ordenados, paginacao),
-                ResumoAlunosResponse.de(daEscola));
+
+        ResumoAlunosResponse resumo = ResumoAlunosResponse.de(daEscola);
+        if (comFinanceiro) {
+            resumo = resumo.comFinanceiro(
+                    ResumoFinanceiroAlunosResponse.de(daEscola.stream().map(AlunoResponse::financeiro).toList()));
+        }
+        return PaginaComResumoResponse.de(PaginaResponse.recortar(ordenados, paginacao), resumo);
     }
 
     public List<AlunoResponse> listar(String nome) {
