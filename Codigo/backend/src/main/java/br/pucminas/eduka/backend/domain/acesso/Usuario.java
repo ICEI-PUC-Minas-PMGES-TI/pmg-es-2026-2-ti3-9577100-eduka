@@ -83,6 +83,14 @@ public class Usuario {
     @Column(name = "CRIADO_EM", nullable = false, updatable = false)
     private Instant criadoEm;
 
+    /**
+     * Ultimo login concluido. So leitura: quem grava e
+     * {@code UsuarioRepository#registrarAcesso}, e um {@code save} deste
+     * objeto nunca volta a coluna para o valor lido antes.
+     */
+    @Column(name = "ULTIMO_ACESSO_EM", insertable = false, updatable = false)
+    private Instant ultimoAcessoEm;
+
     public boolean senhaProvisoriaExpirada(Instant agora) {
         return senhaProvisoriaExpiraEm != null && !agora.isBefore(senhaProvisoriaExpiraEm);
     }

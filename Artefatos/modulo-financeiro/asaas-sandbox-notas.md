@@ -36,7 +36,7 @@ emite esse evento para PIX/boleto, ver A3). Os achados da §4 mudam contratos da
   continua apontando para a URL antiga. URL fixa exige túnel nomeado (conta Cloudflare + domínio) e está fora da
   sprint. O que as rotinas cobrem nesse intervalo:
   - **Situação da conta filha:** a rotina de contas (a cada 15 min) lê a situação no Asaas.
-  - **Cobrança e fatura presas em `EMITINDO`:** a reconciliação (a cada 10 min, `ReconciliacaoRotina`) acha pela
+  - **Cobrança e fatura presas em `EMITINDO`:** a reconciliação (a cada 1 min, `ReconciliacaoRotina`) acha pela
     referência e grava emitida, paga ou com falha de emissão.
   - **Pagamento de cobrança já emitida:** nenhuma rotina cobre, o aviso precisa chegar. Atualize a URL do
     webhook no Asaas e, se a fila tiver sido interrompida pelas falhas, reative-a no painel: o Asaas guarda os
@@ -51,13 +51,13 @@ emite esse evento para PIX/boleto, ver A3). Os achados da §4 mudam contratos da
    "interrupted":false,"authToken":"<ASAAS_WEBHOOK_TOKEN>","sendType":"SEQUENTIALLY",
    "events":["PAYMENT_CREATED","PAYMENT_CONFIRMED","PAYMENT_RECEIVED","PAYMENT_DELETED"]}
   ```
-- **Depois do spike (RF22.2):** o Edúka passou a auditar estornos e contestações. Os webhooks também precisam
+- **Depois do spike (RF22.2):** o Eduka passou a auditar estornos e contestações. Os webhooks também precisam
   assinar `PAYMENT_REFUNDED`, `PAYMENT_PARTIALLY_REFUNDED`, `PAYMENT_CHARGEBACK_REQUESTED`,
   `PAYMENT_CHARGEBACK_DISPUTE` e `PAYMENT_AWAITING_CHARGEBACK_REVERSAL`. As contas filhas criadas a partir de agora
   já assinam (`AsaasAdapter.EVENTOS_WEBHOOK`); o webhook da conta-pai e o das contas filhas já existentes precisam
   ser atualizados (`PUT /v3/webhooks/{id}` com a chave da conta dona, ou pelo painel). Nomes conferidos na
   documentação de webhooks de cobranças do Asaas; ainda não vistos chegando no Sandbox.
-- **Valor do estorno:** o Edúka lê `payment.refunds` do aviso (`status` e `value`) e soma só os `DONE`, conforme a
+- **Valor do estorno:** o Eduka lê `payment.refunds` do aviso (`status` e `value`) e soma só os `DONE`, conforme a
   [documentação da cobrança](https://docs.asaas.com/reference/retrieve-a-single-payment). Nos exemplos capturados no
   Sandbox o campo só apareceu nulo, em cobranças sem estorno. **A conferir no Sandbox:** se o `PAYMENT_PARTIALLY_REFUNDED`
   já chega com o estorno em `DONE`. Se chegar `PENDING`, o valor não é descontado e o estorno fica só na auditoria até

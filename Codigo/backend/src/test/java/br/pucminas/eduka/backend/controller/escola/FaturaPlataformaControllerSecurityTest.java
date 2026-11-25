@@ -1,6 +1,7 @@
 package br.pucminas.eduka.backend.controller.escola;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -12,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,6 +27,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
+import br.pucminas.eduka.backend.dto.comum.Ordenacao;
+import br.pucminas.eduka.backend.dto.comum.PaginaResponse;
 import br.pucminas.eduka.backend.dto.escola.FaturaPlataformaResponse;
 import br.pucminas.eduka.backend.dto.financeiro.DadosPagamentoResponse;
 import br.pucminas.eduka.backend.dto.financeiro.PixResponse;
@@ -177,6 +182,20 @@ class FaturaPlataformaControllerSecurityTest {
         mockMvc.perform(comToken(get(MINHAS), token("MASTER", ESCOLA)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].acoes[0]").value("PAGAR"));
+    }
+
+    @Test
+    void paginaDeFaturasAceitaMaisDeUmaSituacao() throws Exception {
+        PaginaResponse<FaturaPlataformaResponse> vazia = new PaginaResponse<>(List.of(), 0, 10, 0, 0);
+        when(paymentRoutingService.listarMinhasFaturas(any(), any(), any(), any())).thenReturn(vazia);
+
+        mockMvc.perform(comToken(get(MINHAS + "/pagina?status=PAGA,CANCELADA&ordenarPor=COMPETENCIA"),
+                token("MASTER", ESCOLA))).andExpect(status().isOk());
+        verify(paymentRoutingService).listarMinhasFaturas(eq(EnumSet.of(StatusCobranca.PAGA,
+                StatusCobranca.CANCELADA)), any(), eq(Ordenacao.Faturas.COMPETENCIA), any());
+
+        mockMvc.perform(comToken(get(MINHAS + "/pagina?status=PAGA,QUITADA"), token("MASTER", ESCOLA)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

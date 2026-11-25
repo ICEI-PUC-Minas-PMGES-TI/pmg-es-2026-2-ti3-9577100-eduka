@@ -174,6 +174,7 @@ public class DespesaService {
                 .escolaId(escolaId)
                 .categoria(categoriaService.buscarDaEscola(request.categoriaId(), escolaId))
                 .descricao(request.descricao().trim())
+                .responsavel(request.responsavel().trim())
                 .valor(request.valor())
                 .dataVencimento(request.dataVencimento())
                 .situacao(paga ? SituacaoDespesa.PAGA : SituacaoDespesa.A_PAGAR)
@@ -183,7 +184,8 @@ public class DespesaService {
     }
 
     /**
-     * Substitui descricao, categoria, valor e vencimento. A situacao nao muda.
+     * Substitui descricao, responsavel, categoria, valor e vencimento. A
+     * situacao nao muda.
      *
      * @throws IllegalArgumentException se a despesa foi cancelada
      */
@@ -196,6 +198,7 @@ public class DespesaService {
         }
         despesa.setCategoria(categoriaService.buscarDaEscola(request.categoriaId(), escolaId));
         despesa.setDescricao(request.descricao().trim());
+        despesa.setResponsavel(request.responsavel().trim());
         despesa.setValor(request.valor());
         despesa.setDataVencimento(request.dataVencimento());
         despesa.setAtualizadoEm(clock.instant());

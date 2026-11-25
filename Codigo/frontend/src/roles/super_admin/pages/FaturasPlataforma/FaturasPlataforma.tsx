@@ -64,7 +64,7 @@ function indicadores(faturas: FaturaPlataforma[]) {
 }
 
 /**
- * Faturas da plataforma (IU24): o que cada escola paga ao Edúka. O Super
+ * Faturas da plataforma (IU24): o que cada escola paga ao Eduka. O Super
  * Admin lança (escolhendo a escola), cancela e vê o comprovante; a escola
  * paga pelo próprio painel (IU24-A).
  */
@@ -95,7 +95,7 @@ export function FaturasPlataforma() {
   return (
     <SuperAdminLayout
       titulo="Faturas da plataforma"
-      subtitulo="O que cada escola paga ao Edúka. A escola paga pelo próprio painel, por PIX ou boleto."
+      subtitulo="O que cada escola paga ao Eduka. A escola paga pelo próprio painel, por PIX ou boleto."
     >
       {sucesso && (
         <p role="status" className={estilosPainel.sucesso}>

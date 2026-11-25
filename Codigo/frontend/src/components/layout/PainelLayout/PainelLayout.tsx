@@ -2,8 +2,12 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router'
 import iconeEduka from '../../../assets/eduka-icone.svg'
 import { paths } from '../../../routes/paths'
-import { EVENTO_ESCOLA_SUSPENSA, rotaAcessoSuspenso } from '../../../services/api'
+import { EVENTO_ESCOLA_SUSPENSA, EVENTO_MODULO_NAO_CONTRATADO, rotaAcessoSuspenso } from '../../../services/api'
 import { limparSessao, obterUsuarioLogado } from '../../../services/acesso/authService'
+import { MODULO_DO_PERFIL, useModulos } from '../../../services/acesso/modulosSessao'
+import type { ModuloEscola } from '../../../types/escola/escola'
+import { AjudaContexto } from '../../ajuda/AjudaContexto'
+import { CentralAjuda } from '../../ajuda/CentralAjuda/CentralAjuda'
 import { AvisoSuspensao } from '../AvisoSuspensao/AvisoSuspensao'
 import { iniciais } from '../../../utils/formatters'
 import { Button } from '../../ui/Button/Button'
@@ -21,6 +25,8 @@ export type ItemMenu = {
    * marcando o que ainda falta implementar (no celular, some por inteiro).
    */
   to?: string
+  /** Módulo que a escola precisa ter contratado; sem ele, o item some. */
+  modulo?: ModuloEscola
 }
 
 type PainelLayoutProps = {
@@ -28,7 +34,10 @@ type PainelLayoutProps = {
   contexto: string
   titulo: string
   subtitulo?: ReactNode
-  /** Botão principal da tela, ao lado de "Ajuda" e "Sair". */
+  /**
+   * Botões da tela (ex.: "Nova despesa"), logo abaixo de "Ajuda" e "Sair". Eles
+   * ficam à parte para "Ajuda" e "Sair" estarem sempre no topo direito, em toda tela.
+   */
   acao?: ReactNode
   /** Link de volta, exibido no lugar da linha da marca. */
   voltar?: ReactNode
@@ -36,7 +45,10 @@ type PainelLayoutProps = {
   menu?: ItemMenu[]
   /** Rótulo acessível do menu (ex.: "Navegação da secretaria"). */
   menuRotulo?: string
-  /** Texto do diálogo de ajuda; sem ele, "Ajuda" aparece desabilitado. */
+  /**
+   * Orientações da área, no topo da Central de ajuda. A Central abre em toda
+   * tela, com ou sem elas: contato da escola, suporte do Eduka e perguntas do perfil.
+   */
   ajuda?: ReactNode
   /** Para onde o "Sair" leva; o padrão é o login da escola. */
   rotaSaida?: string
@@ -64,8 +76,11 @@ export function PainelLayout({
 }: PainelLayoutProps) {
   const navigate = useNavigate()
   const [ajudaAberta, setAjudaAberta] = useState(false)
-  const temMenu = menu.length > 0
-  const ehMaster = obterUsuarioLogado()?.perfil === 'MASTER'
+  const temModulo = useModulos()
+  const itens = menu.filter((item) => !item.modulo || temModulo(item.modulo))
+  const temMenu = itens.length > 0
+  const perfil = obterUsuarioLogado()?.perfil ?? null
+  const ehMaster = perfil === 'MASTER'
 
   // A escola foi suspensa com a tela aberta: qualquer requisição volta
   // ESCOLA_SUSPENSA. Encerra a sessão e mostra o aviso (IU04).
@@ -78,6 +93,25 @@ export function PainelLayout({
     return () => window.removeEventListener(EVENTO_ESCOLA_SUSPENSA, aoSuspender)
   }, [navigate])
 
+  // O SUPER_ADMIN tirou o módulo do perfil (ex.: a gestão financeira, com o
+  // FINANCEIRO logado): nada mais funciona. Encerra a sessão e explica no
+  // login. Outro módulo só some do menu (useModulos).
+  useEffect(() => {
+    function aoPerderModulo(evento: Event) {
+      const perfil = obterUsuarioLogado()?.perfil
+      const modulo = (evento as CustomEvent<ModuloEscola>).detail
+      if (!perfil || MODULO_DO_PERFIL[perfil] !== modulo) return
+      limparSessao()
+      navigate(`${paths.login}?${new URLSearchParams({ modulo })}`, { replace: true })
+    }
+    window.addEventListener(EVENTO_MODULO_NAO_CONTRATADO, aoPerderModulo)
+    return () => window.removeEventListener(EVENTO_MODULO_NAO_CONTRATADO, aoPerderModulo)
+  }, [navigate])
+
+  function abrirAjuda() {
+    setAjudaAberta(true)
+  }
+
   // JWT e stateless: basta descartar o token local. replace impede que o
   // "voltar" reabra o painel.
   function sair() {
@@ -87,7 +121,7 @@ export function PainelLayout({
 
   return (
     <div className={`${styles.shell} ${temMenu ? styles.comMenu : ''}`}>
-      <header className={styles.header}>
+      <header className={`${styles.header} ${acao ? styles.comAcao : ''}`}>
         <div className={styles.texto}>
           {voltar ?? (
             <div className={styles.brand}>
@@ -100,8 +134,8 @@ export function PainelLayout({
           {subtitulo && <p className={styles.subtitle}>{subtitulo}</p>}
         </div>
 
-        <div className={styles.acoes}>
-          {acao}
+        {/* Quem está logado, "Ajuda" e "Sair": sempre no topo direito. */}
+        <div className={styles.conta}>
           {usuario && (
             <div className={styles.usuario}>
               <span className={styles.avatar} aria-hidden="true">
@@ -113,8 +147,8 @@ export function PainelLayout({
               </span>
             </div>
           )}
-          <Dica texto={ajuda ? 'Ajuda e orientações' : 'Em breve'}>
-            <button type="button" className={styles.pilula} disabled={!ajuda} onClick={() => setAjudaAberta(true)}>
+          <Dica texto="Contato da escola, suporte e dúvidas frequentes">
+            <button type="button" className={styles.pilula} onClick={abrirAjuda} aria-haspopup="dialog">
               <Icon name="help" size={17} />
               Ajuda
             </button>
@@ -124,16 +158,19 @@ export function PainelLayout({
             Sair
           </button>
         </div>
+
+        {acao && <div className={styles.acaoTela}>{acao}</div>}
       </header>
 
       <main className={styles.main}>
         {ehMaster && <AvisoSuspensao />}
-        {children}
+        {/* Os indicadores de ajuda das telas (IndicadorAjuda) abrem a Central por aqui. */}
+        <AjudaContexto.Provider value={abrirAjuda}>{children}</AjudaContexto.Provider>
       </main>
 
       {temMenu && (
         <nav className={styles.nav} aria-label={menuRotulo}>
-          {menu.map((item) =>
+          {itens.map((item) =>
             item.to ? (
               <NavLink
                 key={item.label}
@@ -157,12 +194,16 @@ export function PainelLayout({
 
       {ajudaAberta && (
         <Modal
-          titulo="Precisa de ajuda?"
-          tamanho="pequeno"
+          titulo="Central de ajuda"
+          subtitulo={
+            perfil === 'MASTER' || perfil === 'SUPER_ADMIN'
+              ? 'Orientações, dúvidas frequentes e o suporte do Eduka.'
+              : 'Fale com a sua escola ou com o suporte do Eduka.'
+          }
           onFechar={() => setAjudaAberta(false)}
           rodape={<Button onClick={() => setAjudaAberta(false)}>Fechar</Button>}
         >
-          <div className={styles.ajuda}>{ajuda}</div>
+          <CentralAjuda perfil={perfil} tela={titulo} dicas={ajuda} />
         </Modal>
       )}
     </div>

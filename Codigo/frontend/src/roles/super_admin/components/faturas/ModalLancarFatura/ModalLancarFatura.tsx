@@ -110,7 +110,7 @@ export function ModalLancarFatura({ escolaNome, onFechar, onLancar }: ModalLanca
             {...props}
             name="descricao"
             maxLength={MAX_DESCRICAO}
-            placeholder="Ex.: Mensalidade Edúka de novembro"
+            placeholder="Ex.: Mensalidade Eduka de novembro"
             value={campos.descricao}
             onChange={(e) => alterar('descricao', e.target.value)}
           />

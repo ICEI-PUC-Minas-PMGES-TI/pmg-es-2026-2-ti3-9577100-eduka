@@ -12,10 +12,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -30,6 +32,7 @@ import br.pucminas.eduka.backend.domain.academico.Curso;
 import br.pucminas.eduka.backend.domain.academico.Disciplina;
 import br.pucminas.eduka.backend.domain.academico.PeriodoLetivo;
 import br.pucminas.eduka.backend.domain.academico.Turma;
+import br.pucminas.eduka.backend.domain.escola.ModuloEscola;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
 import br.pucminas.eduka.backend.repository.academico.AlocacaoProfessorRepository;
 import br.pucminas.eduka.backend.repository.academico.AulaRepository;
@@ -86,6 +89,12 @@ class AcademicoSecretariaControllerSecurityTest {
     private AvaliacaoRepository avaliacaoRepository;
     @MockitoBean
     private AulaRepository aulaRepository;
+
+    /** A escola tem todos os modulos: o FINANCEIRO entra (ver ModuloContratadoFilter). */
+    @BeforeEach
+    void escolaComTodosOsModulos() {
+        when(escolaRepository.modulos(any())).thenReturn(Arrays.stream(ModuloEscola.values()).map(Enum::name).toList());
+    }
 
     private String accessToken(String perfil, UUID escolaId) {
         return jwtService.generateAccessToken(UUID.randomUUID(), perfil, escolaId);

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Button } from '../../../../components/ui/Button/Button'
 import { Campo } from '../../../../components/formulario/Campo/Campo'
 import { Modal, ModalAlerta, ModalAviso } from '../../../../components/modal/Modal/Modal'
-import { ApiError } from '../../../../services/api'
+import { ApiError, ehLimiteDeUsuarios } from '../../../../services/api'
 import { buscarMembroEquipe } from '../../../../services/escola/equipeService'
 import {
   DESCRICOES_PERFIL_EQUIPE,
@@ -144,7 +144,10 @@ export function CadastroEquipeModal({
     try {
       onSalvo(await onSalvar(paraRequest(campos)))
     } catch (e) {
-      if (e instanceof ApiError && e.status === 409) {
+      if (ehLimiteDeUsuarios(e)) {
+        // Também 409, mas não é de um campo: a escola está no limite de usuários do plano.
+        setErroEnvio((e as ApiError).message)
+      } else if (e instanceof ApiError && e.status === 409) {
         // O 409 vem do CPF já na equipe ou do e-mail já usado como login.
         const campo = e.detalhe?.toLowerCase().includes('login') ? 'email' : 'cpf'
         setErros(

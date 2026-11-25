@@ -235,12 +235,12 @@ todas.
 | `PUT` | `/escolas/{id}` | `SUPER_ADMIN` |
 | `PATCH` | `/escolas/{id}/ativar` · `/suspender` | `SUPER_ADMIN` |
 | `GET` · `POST` | `/escolas/{id}/faturas` (faturas da plataforma da escola; competência única por escola) | `SUPER_ADMIN` |
-| `GET` | `/escolas/{id}/faturas/pagina?status&pagina&tamanho&ordenarPor&direcao` (`ordenarPor`: `COMPETENCIA`, padrão decrescente, `VENCIMENTO` ou `VALOR`) | `SUPER_ADMIN` |
+| `GET` | `/escolas/{id}/faturas/pagina?status&pagina&tamanho&ordenarPor&direcao` (`status`: uma ou mais situações separadas por vírgula, ex.: `PENDENTE,EM_ATRASO` para as em aberto, inclusive a vencida que a rotina diária ainda não marcou; `ordenarPor`: `COMPETENCIA`, padrão decrescente, `VENCIMENTO` ou `VALOR`) | `SUPER_ADMIN` |
 | `PATCH` | `/escolas/{id}/faturas/{faturaId}/cancelar` | `SUPER_ADMIN` |
 | `GET` | `/escolas/{id}/faturas/{faturaId}/comprovante` | `SUPER_ADMIN` |
 | `GET` | `/config-pagamento/faturas` (só as da escola do token) · `/config-pagamento/faturas/pagina` (mesmos parâmetros da do `SUPER_ADMIN`) · `/config-pagamento/faturas/{id}` (uma fatura, com a situação do pagamento: a tela de pagamento consulta só ela enquanto espera o PIX ou o boleto; 404 se é de outra escola) | `MASTER` |
 | `GET` | `/auditoria/pagina?usuarioId&de&ate&entidade&operacao&pagina&tamanho&direcao` (o `LOG_AUDITORIA` da escola do token, da mais recente para a mais antiga; `de` e `ate` inclusivos, no fuso da escola; 400 se o período está invertido) | `MASTER` |
-| `POST` | `/config-pagamento/faturas/{id}/pagar` (PIX ou boleto na conta-pai do Edúka; 202 enquanto gera) | `MASTER` |
+| `POST` | `/config-pagamento/faturas/{id}/pagar` (PIX ou boleto na conta-pai do Eduka; 202 enquanto gera) | `MASTER` |
 | `GET` | `/config-pagamento/faturas/{id}/comprovante` | `MASTER` |
 | `GET` | `/config-pagamento/conta` (conta de recebimento da escola do token; `NAO_INICIADA` antes da ativação; nunca traz a chave nem os dados bancários) | `MASTER` |
 | `POST` | `/config-pagamento/conta/ativar` (cria a conta filha no Asaas com o CNPJ da escola; em `NAO_INICIADA`, `ERRO_CRIACAO` ou `VERIFICACAO_PENDENTE`; sem resposta do Asaas fica `VERIFICACAO_PENDENTE` e a próxima ativação procura pelo CNPJ antes de criar; 409 `ATIVACAO_EM_ANDAMENTO` ou `CONTA_JA_CRIADA`) | `MASTER` |
@@ -248,7 +248,7 @@ todas.
 | `POST` | `/config-pagamento/conta/sandbox/aprovar` (só no perfil `dev`: aprova a conta filha no Sandbox do Asaas; 202; 409 `SANDBOX_INDISPONIVEL` fora do Sandbox) | `MASTER` |
 | `POST` | `/cobrancas/{id}/sandbox/confirmar-pagamento` (só no perfil `dev`: simula no Sandbox o pagamento da cobrança emitida, que chega pelo webhook; 202; 409 `SANDBOX_INDISPONIVEL`) | `MASTER`, `FINANCEIRO` |
 | `POST` | `/portal/aluno/cobrancas/{id}/sandbox/pagar` (perfis `dev` e `demo`: o aluno paga no Sandbox a própria cobrança depois de gerar o PIX ou o boleto; o backend consulta o Asaas e grava o pagamento sem esperar o webhook; 202; 404 cobrança de outro aluno; 409 `SANDBOX_INDISPONIVEL`) | `ALUNO` |
-| `POST` | `/config-pagamento/faturas/{id}/sandbox/pagar` (perfis `dev` e `demo`: o MASTER paga no Sandbox a fatura do Edúka depois de gerar o PIX ou o boleto; o valor cai na conta-pai e o backend grava o pagamento sem esperar o webhook; 202; 404 fatura de outra escola; 409 `COBRANCA_NAO_PAGAVEL` ou `SANDBOX_INDISPONIVEL`) | `MASTER` |
+| `POST` | `/config-pagamento/faturas/{id}/sandbox/pagar` (perfis `dev` e `demo`: o MASTER paga no Sandbox a fatura do Eduka depois de gerar o PIX ou o boleto; o valor cai na conta-pai e o backend grava o pagamento sem esperar o webhook; 202; 404 fatura de outra escola; 409 `COBRANCA_NAO_PAGAVEL` ou `SANDBOX_INDISPONIVEL`) | `MASTER` |
 | `GET` | `/usuarios/secretarias` · `/usuarios/secretarias/{id}` | `MASTER` |
 | `POST` | `/usuarios/secretarias` | `MASTER` |
 | `PUT` | `/usuarios/secretarias/{id}` | `MASTER` |
@@ -290,7 +290,7 @@ todas.
 | `PUT` | `/turmas/{turmaId}/horario/{horarioId}` (muda dia e horas; mesmas regras e 409) | `MASTER`, `SECRETARIA` |
 | `DELETE` | `/turmas/{turmaId}/horario/{horarioId}` | `MASTER`, `SECRETARIA` |
 | `GET` | `/matriculas?turmaId` · `/matriculas/{id}` | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
-| `GET` | `/matriculas/pagina?turmaId&alunoId&status&pagina&tamanho&ordenarPor&direcao` (`ordenarPor`: `ALUNO`, pelo nome, ou `DATA_MATRICULA`) | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
+| `GET` | `/matriculas/pagina?turmaId&alunoId&status&pagina&tamanho&ordenarPor&direcao` (`ordenarPor`: `ALUNO`, pelo nome, ou `DATA_MATRICULA`; o `resumo` conta a turma ou o aluno sem o filtro de `status`: `total`, `porSituacao` e, só na consulta por turma, `paraMatricular`, os alunos nem anonimizados nem inativos ainda sem registro nela) | `MASTER`, `SECRETARIA`, `FINANCEIRO` |
 | `POST` | `/matriculas` (409 se a turma está sem vagas ou o aluno já está nela) | `MASTER`, `SECRETARIA` |
 | `PATCH` | `/matriculas/{id}` (trancar, reativar, transferir, concluir, cancelar ou editar a observação) | `MASTER`, `SECRETARIA` |
 
@@ -303,8 +303,8 @@ todas.
 | `POST` | `/cobrancas` (aluno, descrição, valor e vencimento; `tipo` opcional, `OUTRO` por padrão; matrícula e responsável opcionais, mas têm de ser do aluno; sem matrícula, vale a única `ATIVA` do aluno, se houver só uma) | `MASTER`, `FINANCEIRO` |
 | `PUT` | `/cobrancas/{id}` (400 se a cobrança já foi paga ou cancelada; 409 `COBRANCA_NAO_EDITAVEL` depois que alguém clicou em Pagar, porque a cobrança já está no Asaas: aí só cancelando e lançando outra; a situação acompanha o novo vencimento) | `MASTER`, `FINANCEIRO` |
 | `PATCH` | `/cobrancas/{id}/cancelar` (a cobrança fica no histórico como `CANCELADA`; se já foi emitida, é removida antes no Asaas, fora de transação; 409 `COBRANCA_JA_PAGA` se já foi paga, aqui ou no Asaas, e nesse caso o pagamento achado fica registrado; 409 `PAGAMENTO_EM_PROCESSAMENTO` enquanto o pagamento está sendo gerado) | `MASTER`, `FINANCEIRO` |
-| `PATCH` | `/cobrancas/{id}/pagar` (baixa manual, UC12: o pagamento recebido fora do Edúka, com `valorPago`, que pode diferir do valor da cobrança, `dataPagamento`, até hoje no fuso da escola, e `forma`: `DINHEIRO`, `PIX`, `TRANSFERENCIA`, `CARTAO` ou `BOLETO`. Os três ficam na própria `COBRANCA` (V49), e não em `PAGAMENTO_COBRANCA`, que é só do provedor. O dia vira o `PAGA_EM`, por onde o painel e os relatórios contam o recebido: hoje, o momento da baixa; dia passado, a meia-noite dele. Se o aluno já gerou PIX ou boleto, a cobrança é removida antes no Asaas; 400 se já foi paga ou cancelada ou se o dia é futuro; 409 `COBRANCA_JA_PAGA` se o Asaas já recebeu; 409 `PAGAMENTO_EM_PROCESSAMENTO`) | `MASTER`, `FINANCEIRO` |
-| `GET` | `/cobrancas/{id}/comprovante` (comprovante do pagamento online montado pelo Edúka: a escola como beneficiária, o pagador com CPF mascarado, valor, data, forma e código da transação; 404 `COMPROVANTE_INDISPONIVEL` enquanto não há pagamento online registrado, inclusive na baixa manual) | `MASTER`, `FINANCEIRO` |
+| `PATCH` | `/cobrancas/{id}/pagar` (baixa manual, UC12: o pagamento recebido fora do Eduka, com `valorPago`, que pode diferir do valor da cobrança, `dataPagamento`, até hoje no fuso da escola, e `forma`: `DINHEIRO`, `PIX`, `TRANSFERENCIA`, `CARTAO` ou `BOLETO`. Os três ficam na própria `COBRANCA` (V49), e não em `PAGAMENTO_COBRANCA`, que é só do provedor. O dia vira o `PAGA_EM`, por onde o painel e os relatórios contam o recebido: hoje, o momento da baixa; dia passado, a meia-noite dele. Se o aluno já gerou PIX ou boleto, a cobrança é removida antes no Asaas; 400 se já foi paga ou cancelada ou se o dia é futuro; 409 `COBRANCA_JA_PAGA` se o Asaas já recebeu; 409 `PAGAMENTO_EM_PROCESSAMENTO`) | `MASTER`, `FINANCEIRO` |
+| `GET` | `/cobrancas/{id}/comprovante` (comprovante do pagamento online montado pelo Eduka: a escola como beneficiária, o pagador com CPF mascarado, valor, data, forma e código da transação; 404 `COMPROVANTE_INDISPONIVEL` enquanto não há pagamento online registrado, inclusive na baixa manual) | `MASTER`, `FINANCEIRO` |
 | `GET` | `/despesas?situacao&categoriaId&vencimentoDe&vencimentoAte` · `/despesas/{id}` (ordenado pelo vencimento) | `MASTER`, `FINANCEIRO` |
 | `GET` | `/despesas/pagina?situacao&categoriaId&vencimentoDe&vencimentoAte&pagina&tamanho&ordenarPor&direcao` (`situacao` aceita mais de uma: `situacao=A_PAGAR&situacao=PAGA` deixa as canceladas de fora; `ordenarPor`: `VENCIMENTO`, `VALOR` ou `DESCRICAO`; `resumo`: quantidade e soma de cada situação com o período e a categoria, sem o filtro de situação) | `MASTER`, `FINANCEIRO` |
 | `POST` | `/despesas` (descrição, categoria, valor e vencimento; `paga: true` lança já como `PAGA`; 404 se a categoria não for da escola) | `MASTER`, `FINANCEIRO` |
@@ -328,16 +328,18 @@ Estorno e contestação feitos no Asaas ficam registrados na auditoria, sem muda
 estorno também desconta o valor devolvido do recebido (ver Auditoria, abaixo).
 
 Duas rotinas cobrem o que o webhook não resolveu. Rodam sem usuário e chamam o Asaas fora de
-transação, pelo `PaymentRoutingService`. Uma falha num item não para os outros.
+transação, pelo `PaymentRoutingService`. Uma falha num item não para os outros. Uma falha geral (o banco
+fora do ar, por exemplo) sobe para o agendador do Spring, que a registra no log, e a execução seguinte
+tenta de novo. A primeira execução espera um intervalo depois da subida.
 
 | Rotina | Intervalo | O que faz |
 |---|---|---|
 | `EventoProvedorRotina` (`app.pagamento.eventos.*`) | 5 min | Reaplica os avisos de `EVENTO_PROVEDOR` em `RECEBIDO`, `PROCESSANDO` ou `ERRO` recebidos há mais de 1 min (para não disputar com o webhook), os mais antigos primeiro, até 50 por vez. O aviso é aplicado pelo mesmo caminho do webhook, com a trava do registro, então nunca vale duas vezes. Cada tentativa soma em `TENTATIVAS`; com 10, o aviso fica em `ERRO` para análise manual. |
-| `ReconciliacaoRotina` (`app.pagamento.reconciliacao.*`) | 10 min | Procura no Asaas, pela referência, as cobranças (`EDK-B-<id>`, na conta da escola) e faturas (`EDK-A-<id>`, na conta-pai) que estão em `EMITINDO` há mais de 5 min, porque a resposta da criação e o aviso `PAYMENT_CREATED` se perderam. Até 50 de cada por vez. |
+| `ReconciliacaoRotina` (`app.pagamento.reconciliacao.*`) | 1 min | Procura no Asaas, pela referência, as cobranças (`EDK-B-<id>`, na conta da escola) e faturas (`EDK-A-<id>`, na conta-pai) que estão em `EMITINDO` há mais de 5 min, porque a resposta da criação e o aviso `PAYMENT_CREATED` se perderam. Até 50 de cada por vez. |
 
 A reconciliação grava o mesmo resultado que o aviso gravaria:
 
-| Achado no Asaas | Resultado no Edúka |
+| Achado no Asaas | Resultado no Eduka |
 |---|---|
 | A cobrança, em aberto | `EMITIDA` com o id do Asaas, como no `PAYMENT_CREATED` |
 | A cobrança, já paga | `EMITIDA` e `PAGA`, com `PAGAMENTO_COBRANCA` `ONLINE` sem evento, auditoria `CONFIRMAR_PAGAMENTO` e e-mail de confirmação, como no `PAYMENT_RECEIVED` |
@@ -349,7 +351,7 @@ não responder, ou se a conta-pai não estiver configurada, a cobrança continua
 execução seguinte.
 
 Fatura da plataforma (Fluxo A, `FATURA_PLATAFORMA`): o Super Admin lança a fatura da escola e o MASTER paga com
-PIX ou boleto numa cobrança da **conta-pai** do Edúka (referência `EDK-A-<id>`, a escola como pagadora). O aviso
+PIX ou boleto numa cobrança da **conta-pai** do Eduka (referência `EDK-A-<id>`, a escola como pagadora). O aviso
 de pagamento com essa referência marca a própria fatura como `PAGA`; aviso de fatura vindo da conta de uma escola
 é ignorado. Faturas nunca entram nos painéis da escola.
 
@@ -393,7 +395,7 @@ uma linha em `ESTORNO_COBRANCA`, com a data do aviso, e a soma em `PAGAMENTO_COB
 fica encerrada em `PAGA`; para cobrar de novo, a escola lança outra.
 
 O aviso traz o total já devolvido (`payment.refunds`, só os `DONE`; no `PAYMENT_REFUNDED` sem nenhum, o valor da
-cobrança), e o Edúka grava só a diferença para o que já registrou, com o pagamento travado. Assim, aviso repetido, fora
+cobrança), e o Eduka grava só a diferença para o que já registrou, com o pagamento travado. Assim, aviso repetido, fora
 de ordem ou simultâneo não desconta em dobro, e o total nunca passa do valor pago. Se o aviso não diz o valor ou a
 cobrança não tem pagamento registrado, o estorno fica só na auditoria. Estorno em andamento ou negado não é estorno e
 chega como aviso sem efeito.
@@ -616,7 +618,7 @@ O schema é versionado por migrações Flyway, aplicadas na subida do backend
 | `V27__criar_evento_e_pagamento.sql` | `EVENTO_PROVEDOR` (caixa de entrada dos avisos do webhook) e `PAGAMENTO_COBRANCA` |
 | `V28__origem_do_pagamento.sql` | Origem do pagamento: `ONLINE` (provedor) ou `MANUAL` |
 | `V29__criar_notificacao.sql` | `NOTIFICACAO`: fila de e-mails gravada na transação da operação, com novas tentativas |
-| `V30__criar_fatura_plataforma.sql` | `FATURA_PLATAFORMA`: o que a escola paga ao Edúka (Fluxo A) |
+| `V30__criar_fatura_plataforma.sql` | `FATURA_PLATAFORMA`: o que a escola paga ao Eduka (Fluxo A) |
 | `V31__criar_despesa.sql` | `DESPESA` e `CATEGORIA_DESPESA`, com as categorias padrão de cada escola |
 | `V32__auditoria_do_provedor.sql` | Auditoria do que vem do provedor, sem usuário (origem `PROVEDOR`) |
 | `V33__auditoria_pago_apos_cancelar.sql` | Sinaliza na auditoria o pagamento que chegou depois do cancelamento |

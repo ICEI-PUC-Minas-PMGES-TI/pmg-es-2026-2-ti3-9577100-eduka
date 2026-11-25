@@ -1,9 +1,11 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { gravarSessao } from '../../../../services/acesso/modulosSessao'
 import { problema, simularApi, type RespostaApi } from '../../../../test/api'
 import type { TurmaDoProfessor } from '../../../../types/academico/turmaProfessor'
+import { MODULOS_ESCOLA } from '../../../../types/escola/escola'
 import type { Professor } from '../../../../types/pessoas/professor'
 import { MeuPerfil } from './MeuPerfil'
 
@@ -21,7 +23,7 @@ const PROFESSORA: Professor = {
   aguardandoPrimeiroAcesso: false,
 }
 
-function turma(id: number, disciplinas: number[]): TurmaDoProfessor {
+function turma(id: number, disciplinas: number[], aulasPorDisciplina = 0): TurmaDoProfessor {
   return {
     id,
     nome: `Turma ${id}`,
@@ -32,13 +34,23 @@ function turma(id: number, disciplinas: number[]): TurmaDoProfessor {
     periodoLetivoNome: '2026',
     cursoId: 1,
     cursoNome: 'Ensino Médio',
-    disciplinas: disciplinas.map((d) => ({ id: d, nome: `Disciplina ${d}`, codigo: null, cargaHoraria: 80, horarios: [] })),
+    disciplinas: disciplinas.map((d) => ({
+      id: d,
+      nome: `Disciplina ${d}`,
+      codigo: null,
+      cargaHoraria: 80,
+      horarios: (['SEGUNDA', 'QUARTA', 'SEXTA'] as const)
+        .slice(0, aulasPorDisciplina)
+        .map((dia) => ({ diaSemana: dia, horaInicio: '07:30:00', horaFim: '08:20:00' })),
+    })),
   }
 }
 
-function abrir(perfil: RespostaApi = { corpo: PROFESSORA }) {
-  // Matemática (3) nas duas turmas e Física (4) só na segunda: 2 disciplinas diferentes.
-  const turmas = [turma(1, [3]), turma(2, [3, 4])]
+// Matemática (3) nas duas turmas e Física (4) só na segunda: 2 disciplinas diferentes.
+// Na primeira turma, Matemática tem aula na segunda e na quarta; a segunda turma não tem grade.
+const TURMAS = [turma(1, [3], 2), turma(2, [3, 4])]
+
+function abrir(perfil: RespostaApi = { corpo: PROFESSORA }, turmas: TurmaDoProfessor[] = TURMAS) {
   simularApi(({ caminho }) => {
     if (caminho === '/portal/professor/me') return perfil
     if (caminho === '/portal/professor/turmas') return { corpo: turmas }
@@ -55,23 +67,28 @@ function abrir(perfil: RespostaApi = { corpo: PROFESSORA }) {
 }
 
 describe('MeuPerfil', () => {
-  afterEach(() => vi.unstubAllGlobals())
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    localStorage.clear()
+  })
 
-  it('mostra os dados pessoais, profissionais e de acesso do professor logado', async () => {
+  it('mostra os dados pessoais e profissionais juntos, sem abas', async () => {
     abrir()
 
     expect(await screen.findByRole('heading', { name: 'Paula Reis' })).toBeInTheDocument()
     expect(screen.getByText('Professor · CLT - 40h')).toBeInTheDocument()
-    expect(screen.getByText('529.982.247-25')).toBeInTheDocument()
-    expect(screen.getByText('paula@escola.com')).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('tab', { name: 'Dados profissionais' }))
-    expect(screen.getByText('Licenciatura em Matemática')).toBeInTheDocument()
-    expect(screen.getAllByText('01/02/2024').length).toBeGreaterThan(0)
+    const pessoais = screen.getByRole('region', { name: 'Dados pessoais' })
+    expect(within(pessoais).getByText('529.982.247-25')).toBeInTheDocument()
+    expect(within(pessoais).getByText('paula@escola.com')).toBeInTheDocument()
+    expect(within(pessoais).getByText('(31) 99999-8888')).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('tab', { name: 'Acesso' }))
-    expect(screen.getByText('Perfil no sistema')).toBeInTheDocument()
-    expect(screen.getByText(/esqueceu sua senha\?/i)).toBeInTheDocument()
+    const profissionais = screen.getByRole('region', { name: 'Dados profissionais' })
+    expect(within(profissionais).getByText('Licenciatura em Matemática')).toBeInTheDocument()
+    expect(within(profissionais).getByText('01/02/2024')).toBeInTheDocument()
+
+    expect(within(screen.getByRole('region', { name: 'Resumo do perfil' })).getByText('paula@escola.com')).toBeInTheDocument()
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
   })
 
   it('o atalho leva a Minhas turmas', async () => {
@@ -81,13 +98,69 @@ describe('MeuPerfil', () => {
     expect(await screen.findByText('Tela de turmas')).toBeInTheDocument()
   })
 
-  it('conta turmas e disciplinas sem repetir a mesma disciplina', async () => {
+  it('resume turmas, disciplinas sem repetir e aulas por semana', async () => {
     abrir()
 
-    expect(await screen.findByRole('heading', { name: 'Paula Reis' })).toBeInTheDocument()
-    const turmas = await screen.findByText('Turmas')
-    expect(turmas.nextElementSibling).toHaveTextContent('2')
-    expect(screen.getByText('Disciplinas').nextElementSibling).toHaveTextContent('2')
+    const resumo = await screen.findByLabelText('Resumo das turmas')
+    expect(await within(resumo).findByText('Turmas ativas')).toBeInTheDocument()
+    expect(within(resumo).getByText('Turmas ativas').nextElementSibling).toHaveTextContent('2')
+    expect(within(resumo).getByText('Disciplinas').nextElementSibling).toHaveTextContent('2')
+    expect(within(resumo).getByText('Aulas por semana').nextElementSibling).toHaveTextContent('2')
+  })
+
+  it('mostra as turmas no carrossel com o horário de cada disciplina e os atalhos', async () => {
+    abrir()
+
+    const carrossel = await screen.findByRole('region', { name: 'Minhas turmas' })
+    const primeira = await within(carrossel).findByRole('article', { name: 'Turma Turma 1' })
+    expect(within(primeira).getByText(/1 disciplina sua · 2 aulas por semana/i)).toBeInTheDocument()
+    expect(within(primeira).getByText(/seg e qua · 07h30/i)).toBeInTheDocument()
+    expect(within(primeira).getByRole('link', { name: 'Avaliações' })).toHaveAttribute(
+      'href',
+      '/professor/avaliacoes?turma=1&disciplina=3',
+    )
+    expect(within(primeira).getByRole('link', { name: 'Chamada' })).toHaveAttribute(
+      'href',
+      '/professor/chamada?turma=1&disciplina=3',
+    )
+
+    const segunda = within(carrossel).getByRole('article', { name: 'Turma Turma 2' })
+    expect(within(segunda).getAllByText(/horário a definir/i)).toHaveLength(2)
+    expect(within(carrossel).getByRole('button', { name: 'Próxima turma' })).toBeEnabled()
+  })
+
+  it('turma encerrada vai para o fim do carrossel e não entra no resumo', async () => {
+    const encerrada = { ...turma(9, [7], 3), nome: 'Turma antiga', ativa: false }
+    abrir({ corpo: PROFESSORA }, [encerrada, ...TURMAS])
+
+    const carrossel = await screen.findByRole('region', { name: 'Minhas turmas' })
+    await within(carrossel).findByRole('article', { name: 'Turma Turma antiga' })
+    const resumo = screen.getByLabelText('Resumo das turmas')
+    expect(within(resumo).getByText('Turmas ativas').nextElementSibling).toHaveTextContent('2')
+    expect(within(resumo).getByText('Aulas por semana').nextElementSibling).toHaveTextContent('2')
+
+    expect(within(carrossel).getByText(/2 turmas ativas e 1 encerrada/i)).toBeInTheDocument()
+    const cartoes = within(carrossel).getAllByRole('article')
+    expect(cartoes[0]).toHaveAccessibleName('Turma Turma 1')
+    expect(cartoes[2]).toHaveAccessibleName('Turma Turma antiga')
+    expect(within(cartoes[2]).getByText('Encerrada')).toBeInTheDocument()
+  })
+
+  it('sem o controle de frequência contratado, o atalho da Chamada some', async () => {
+    gravarSessao('paula@escola.com', MODULOS_ESCOLA.filter((m) => m !== 'CONTROLE_FREQUENCIA'))
+    abrir()
+
+    const carrossel = await screen.findByRole('region', { name: 'Minhas turmas' })
+    const primeira = await within(carrossel).findByRole('article', { name: 'Turma Turma 1' })
+    expect(within(primeira).getByRole('link', { name: 'Avaliações' })).toBeInTheDocument()
+    expect(within(primeira).queryByRole('link', { name: 'Chamada' })).not.toBeInTheDocument()
+  })
+
+  it('sem turmas, diz que a secretaria faz a alocação', async () => {
+    abrir({ corpo: PROFESSORA }, [])
+
+    const carrossel = await screen.findByRole('region', { name: 'Minhas turmas' })
+    expect(await within(carrossel).findByText(/ainda não está alocado em nenhuma turma/i)).toBeInTheDocument()
   })
 
   it('login sem cadastro de professor explica o que fazer', async () => {

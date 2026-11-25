@@ -3,8 +3,10 @@ package br.pucminas.eduka.backend.service.acesso;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -26,6 +28,8 @@ import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import br.pucminas.eduka.backend.exception.escola.LimiteUsuariosAtingidoException;
+import br.pucminas.eduka.backend.service.escola.LimiteUsuariosService;
 import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.acesso.Usuario;
 import br.pucminas.eduka.backend.domain.pessoas.Pessoa;
@@ -50,6 +54,9 @@ class AcessoServiceTest {
 
     @Mock
     private UsuarioRepository usuarioRepository;
+
+    @Mock
+    private LimiteUsuariosService limiteUsuarios;
     @Mock
     private ApplicationEventPublisher eventos;
 
@@ -60,7 +67,7 @@ class AcessoServiceTest {
     @BeforeEach
     void setUp() {
         acessoService = new AcessoService(usuarioRepository, passwordEncoder, new IsolamentoEscola(), eventos,
-                Clock.fixed(AGORA, ZoneOffset.UTC), 7);
+                limiteUsuarios, Clock.fixed(AGORA, ZoneOffset.UTC), 7);
     }
 
     @AfterEach
@@ -245,5 +252,48 @@ class AcessoServiceTest {
 
         assertThat(usuario.isAtivo()).isFalse();
         verify(usuarioRepository).save(usuario);
+    }
+
+    @Test
+    void loginNovoPrecisaDeVagaNoLimiteDaEscola() {
+        autenticarComo("SECRETARIA");
+        doThrow(new LimiteUsuariosAtingidoException(10)).when(limiteUsuarios).exigirVaga(ESCOLA);
+
+        assertThatThrownBy(() -> acessoService.enviarAcessoInicial(pessoa(), PerfilUsuario.PROFESSOR))
+                .isInstanceOf(LimiteUsuariosAtingidoException.class);
+        verify(usuarioRepository, never()).save(any());
+        verifyNoInteractions(eventos);
+    }
+
+    @Test
+    void reenvioNaoOcupaVagaNova() {
+        autenticarComo("SECRETARIA");
+        Pessoa pessoa = pessoa();
+        Usuario existente = Usuario.builder().id(UUID.randomUUID()).pessoaId(pessoa.getId())
+                .login("ana.souza@escola.com").senhaHash("{bcrypt}antigo").perfil(PerfilUsuario.PROFESSOR)
+                .ativo(true).senhaProvisoria(true).build();
+        when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.of(existente));
+        stubSave();
+
+        acessoService.enviarAcessoInicial(pessoa, PerfilUsuario.PROFESSOR);
+
+        verifyNoInteractions(limiteUsuarios);
+    }
+
+    @Test
+    void reativarPessoaPrecisaDeVagaEInativarNao() {
+        Pessoa pessoa = pessoa();
+        Usuario usuario = Usuario.builder().id(UUID.randomUUID()).escolaId(ESCOLA).ativo(false).build();
+        when(usuarioRepository.findByPessoaId(pessoa.getId())).thenReturn(Optional.of(usuario));
+        doThrow(new LimiteUsuariosAtingidoException(10)).when(limiteUsuarios).exigirVaga(ESCOLA);
+
+        assertThatThrownBy(() -> acessoService.definirAtivo(pessoa, true))
+                .isInstanceOf(LimiteUsuariosAtingidoException.class);
+        assertThat(usuario.isAtivo()).isFalse();
+
+        usuario.setAtivo(true);
+        acessoService.definirAtivo(pessoa, false);
+        assertThat(usuario.isAtivo()).isFalse();
+        verify(limiteUsuarios).exigirVaga(ESCOLA);
     }
 }

@@ -22,6 +22,7 @@ import { ProximaMensalidade } from '../../components/ProximaMensalidade/ProximaM
 import { TOM_STATUS_COBRANCA as TOM_STATUS } from '../../formatacao'
 import { useDadosDoAluno } from '../../hooks/useDadosDoAluno'
 import { AlunoLayout } from '../../layouts/AlunoLayout'
+import { IndicadorAjuda } from '../../../../components/ajuda/IndicadorAjuda/IndicadorAjuda'
 import styles from './Pagamentos.module.css'
 
 /** Como a cobrança foi paga: pagamento online registrado, ou só a data da baixa feita pela escola. */
@@ -262,6 +263,8 @@ export function Pagamentos() {
           )}
         </>
       )}
+
+      <IndicadorAjuda>Dúvida sobre uma cobrança, desconto ou pagamento? Veja como falar com a escola</IndicadorAjuda>
 
       {pagando && (
         <ModalPagamento

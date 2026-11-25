@@ -1,6 +1,6 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cortarPagina, problema, simularApi, type ChamadaApi } from '../../../../test/api'
 import { escolherDia } from '../../../../test/calendario'
@@ -12,6 +12,7 @@ const LUZ: Despesa = {
   categoriaId: 'cat-1',
   categoriaNome: 'Contas',
   descricao: 'Conta de luz',
+  responsavel: 'Administração',
   valor: 90,
   dataVencimento: '2026-02-10',
   situacao: 'A_PAGAR',
@@ -40,18 +41,31 @@ function despesa(n: number, situacao: SituacaoDespesa = 'A_PAGAR', valor = 10): 
   return { ...LUZ, id: `desp-${n}`, descricao: `Despesa ${String(n).padStart(2, '0')}`, situacao, valor }
 }
 
-function abrir(despesas: Despesa[]): ChamadaApi[] {
+function abrir(despesas: Despesa[], rota = '/financeiro/despesas'): ChamadaApi[] {
   const chamadas = simularApi(({ metodo, caminho, corpo }) => {
     if (caminho.startsWith('/despesas/pagina?')) return { corpo: paginaDe(despesas, caminho) }
     if (caminho === '/categorias-despesa') return { corpo: [{ id: 'cat-1', nome: 'Contas' }] }
     if (metodo === 'POST' && caminho === '/despesas') {
-      const pedido = corpo as { descricao: string; categoriaId: string; valor: number; dataVencimento: string; paga: boolean }
-      return {
-        status: 201,
-        corpo: { ...LUZ, id: 'desp-nova', ...pedido, situacao: pedido.paga ? 'PAGA' : 'A_PAGAR' },
+      const pedido = corpo as {
+        descricao: string
+        responsavel: string
+        categoriaId: string
+        valor: number
+        dataVencimento: string
+        paga: boolean
       }
+      const situacao: SituacaoDespesa = pedido.paga ? 'PAGA' : 'A_PAGAR'
+      const nova: Despesa = { ...LUZ, id: 'desp-nova', ...pedido, situacao }
+      despesas.push(nova)
+      return { status: 201, corpo: nova }
     }
     const marcar = caminho.match(/^\/despesas\/([^/?]+)$/)
+    if (marcar && metodo === 'PUT') {
+      const alvo = despesas.find((d) => d.id === marcar[1]) as Despesa
+      if (alvo.situacao === 'CANCELADA') return problema(400, 'ERRO', 'Despesa CANCELADA nao pode ser editada')
+      Object.assign(alvo, corpo, { atualizadoEm: '2026-02-16T12:00:00Z' })
+      return { corpo: alvo }
+    }
     if (marcar && metodo === 'PATCH') {
       const alvo = despesas.find((d) => d.id === marcar[1]) as Despesa
       alvo.situacao = (corpo as { situacao: SituacaoDespesa }).situacao
@@ -60,11 +74,18 @@ function abrir(despesas: Despesa[]): ChamadaApi[] {
     return undefined
   })
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[rota]}>
       <Despesas />
+      <Local />
     </MemoryRouter>,
   )
   return chamadas
+}
+
+/** Mostra a URL atual, para conferir o que a tela tira dela. */
+function Local() {
+  const { pathname, search } = useLocation()
+  return <p data-testid="local">{pathname + search}</p>
 }
 
 function consultas(chamadas: ChamadaApi[]) {
@@ -119,64 +140,245 @@ describe('Despesas', () => {
     expect(resumo).toHaveTextContent(/Já pago no mês\s*R\$\s*25,50/)
   })
 
-  it('marcar como paga lê a página e os totais de novo', async () => {
-    abrir([despesa(1, 'A_PAGAR', 40)])
+  it('marcar como paga fica junto da situação e lê a página e os totais de novo', async () => {
+    const chamadas = abrir([despesa(1, 'A_PAGAR', 40)])
     const resumo = await screen.findByRole('region', { name: 'Resumo das despesas' })
-    await screen.findByText('Despesa 01')
+    const linha = (await screen.findByText('Despesa 01')).closest('tr') as HTMLElement
+    const situacao = () => within(linha).getByText(/^(A pagar|Paga)$/).closest('td') as HTMLElement
+    // Na coluna de ação fica só o Editar.
+    expect(within(linha).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Marcar Despesa 01 como paga',
+      'Editar Despesa 01',
+    ])
 
-    await userEvent.click(screen.getByRole('button', { name: 'Marcar como paga' }))
+    await userEvent.click(within(situacao()).getByRole('button', { name: 'Marcar Despesa 01 como paga' }))
 
-    expect(await screen.findByRole('button', { name: 'Desfazer' })).toBeInTheDocument()
+    expect(await within(linha).findByRole('button', { name: 'Desfazer o pagamento de Despesa 01' })).toBeInTheDocument()
+    expect(situacao()).toHaveTextContent('Paga')
+    expect(chamadas.find((c) => c.metodo === 'PATCH')).toMatchObject({ caminho: '/despesas/desp-1', corpo: { situacao: 'PAGA' } })
     expect(resumo).toHaveTextContent(/Já pago no mês\s*R\$\s*40,00/)
     expect(resumo).toHaveTextContent(/Ainda falta pagar\s*R\$\s*0,00/)
   })
 
-  /** O formulário "Lançar uma despesa", já com as categorias carregadas. */
-  async function formulario() {
-    const form = within(screen.getByRole('region', { name: 'Lançar uma despesa' }))
-    expect(await form.findByRole('button', { name: 'Contas' })).toHaveAttribute('aria-pressed', 'true')
-    return form
+  it('o filtro de data abre no mês atual e troca para todas as datas', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-02-15T15:00:00Z'))
+    const chamadas = abrir([LUZ])
+    await screen.findByText('Conta de luz')
+    const resumo = screen.getByRole('region', { name: 'Resumo das despesas' })
+    const data = screen.getByRole('group', { name: 'Filtrar despesas por data' })
+    expect(within(data).getByRole('button', { name: 'Este mês' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('heading', { name: 'Despesas do mês' })).toBeInTheDocument()
+
+    await userEvent.click(within(data).getByRole('button', { name: 'Todas as datas' }))
+
+    await waitFor(() => expect(consultas(chamadas)).toHaveLength(2))
+    const todas = consultas(chamadas)[1]
+    expect(todas.has('vencimentoDe')).toBe(false)
+    expect(todas.has('vencimentoAte')).toBe(false)
+    expect(todas.getAll('situacao')).toEqual(['A_PAGAR', 'PAGA'])
+    expect(screen.getByRole('heading', { name: 'Todas as despesas' })).toBeInTheDocument()
+    expect(resumo).toHaveTextContent(/Já pago\s*R\$/)
+    expect(resumo).toHaveTextContent(/Total\s*R\$\s*90,00\s*Todas as datas/)
+
+    await userEvent.click(within(data).getByRole('button', { name: 'Este mês' }))
+    await waitFor(() => expect(consultas(chamadas).at(-1)?.get('vencimentoDe')).toBe('2026-02-01'))
+    expect(consultas(chamadas).at(-1)?.get('vencimentoAte')).toBe('2026-02-28')
+  })
+
+  it('filtra por um intervalo escolhido no calendário', async () => {
+    // O calendário abre no mês de hoje: fevereiro de 2026.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-02-15T15:00:00Z'))
+    const chamadas = abrir([LUZ])
+    await screen.findByText('Conta de luz')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Escolher datas' }))
+    const calendario = screen.getByRole('dialog', { name: 'Escolher período' })
+    await userEvent.click(within(calendario).getByRole('button', { name: /(?<!\d)10 de fevereiro de 2026/i }))
+    await userEvent.click(within(calendario).getByRole('button', { name: /(?<!\d)25 de fevereiro de 2026/i }))
+    await userEvent.click(within(calendario).getByRole('button', { name: 'Aplicar' }))
+
+    await waitFor(() => expect(consultas(chamadas).at(-1)?.get('vencimentoDe')).toBe('2026-02-10'))
+    expect(consultas(chamadas).at(-1)?.get('vencimentoAte')).toBe('2026-02-25')
+    expect(screen.getByRole('button', { name: /10\/02\/2026 – 25\/02\/2026/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Este mês' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('heading', { name: 'Despesas do período' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Resumo das despesas' })).toHaveTextContent(
+      /Total do período\s*R\$\s*90,00\s*10\/02\/2026 – 25\/02\/2026/,
+    )
+  })
+
+  it('mostra o responsável de cada despesa, e um traço na antiga que não tem', async () => {
+    abrir([LUZ, { ...despesa(2), responsavel: null }])
+
+    const linhaLuz = (await screen.findByText('Conta de luz')).closest('tr') as HTMLElement
+    expect(screen.getByRole('columnheader', { name: 'Responsável' })).toBeInTheDocument()
+    expect(within(linhaLuz).getByText('Administração')).toBeInTheDocument()
+    const linhaAntiga = screen.getByText('Despesa 02').closest('tr') as HTMLElement
+    expect(within(linhaAntiga).getByText('—')).toBeInTheDocument()
+  })
+
+  /** Abre o modal "Nova despesa", já com a primeira categoria escolhida. */
+  async function abrirNovaDespesa() {
+    await userEvent.click(await screen.findByRole('button', { name: 'Nova despesa' }))
+    const dialogo = within(screen.getByRole('dialog', { name: 'Nova despesa' }))
+    expect(await dialogo.findByRole('combobox', { name: /Categoria/ })).toHaveTextContent('Contas')
+    return dialogo
   }
 
-  it('não lança sem descrição nem valor e mostra o erro em cada campo', async () => {
+  it('o lançamento abre num modal, sem o formulário ao lado da lista', async () => {
+    abrir([LUZ])
+    await screen.findByText('Conta de luz')
+
+    expect(screen.queryByRole('region', { name: 'Lançar uma despesa' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/O que foi pago/)).not.toBeInTheDocument()
+
+    const dialogo = await abrirNovaDespesa()
+    expect(dialogo.getByLabelText(/O que foi pago/)).toHaveValue('')
+    expect(dialogo.getByRole('combobox', { name: /Situação/ })).toHaveTextContent('A pagar')
+
+    await userEvent.click(dialogo.getAllByRole('button', { name: /Cancelar|Fechar/ })[0])
+    expect(screen.queryByRole('dialog', { name: 'Nova despesa' })).not.toBeInTheDocument()
+  })
+
+  it('vinda do atalho do Início (?nova=1), já abre o lançamento e tira o parâmetro da URL', async () => {
+    abrir([LUZ], '/financeiro/despesas?nova=1')
+
+    expect(await screen.findByRole('dialog', { name: 'Nova despesa' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('local')).toHaveTextContent(/^\/financeiro\/despesas$/))
+    // Tirar o parâmetro não fecha o modal.
+    expect(screen.getByRole('dialog', { name: 'Nova despesa' })).toBeInTheDocument()
+  })
+
+  it('não lança sem descrição, responsável nem valor e mostra o erro em cada campo', async () => {
     const chamadas = abrir([LUZ])
-    const form = await formulario()
+    const dialogo = await abrirNovaDespesa()
 
-    await userEvent.click(form.getByRole('button', { name: 'Salvar despesa' }))
+    await userEvent.type(dialogo.getByLabelText(/Responsável/), '   ')
+    await userEvent.click(dialogo.getByRole('button', { name: 'Salvar despesa' }))
 
-    expect(form.getByLabelText(/o que foi pago/i)).toHaveAccessibleDescription('Informe a descrição do que foi pago.')
-    expect(form.getByLabelText(/o que foi pago/i)).toHaveFocus()
-    expect(form.getByLabelText(/valor/i)).toHaveAccessibleDescription(/maior que zero/)
+    expect(dialogo.getByLabelText(/O que foi pago/)).toHaveAccessibleDescription('Informe a descrição do que foi pago.')
+    expect(dialogo.getByLabelText(/Responsável/)).toHaveAccessibleDescription('Informe o responsável pela despesa.')
+    expect(dialogo.getByLabelText(/Valor/)).toHaveAccessibleDescription(/maior que zero/)
     expect(chamadas.some((c) => c.metodo === 'POST')).toBe(false)
 
     // Corrigir o campo tira o erro dele.
-    await userEvent.type(form.getByLabelText(/o que foi pago/i), 'Conta de água')
-    expect(form.getByLabelText(/o que foi pago/i)).not.toHaveAccessibleDescription()
+    await userEvent.type(dialogo.getByLabelText(/O que foi pago/), 'Conta de água')
+    expect(dialogo.getByLabelText(/O que foi pago/)).not.toHaveAccessibleDescription()
   })
 
-  it('lança a despesa com a data escolhida no calendário', async () => {
+  it('lança pelo modal, já paga e com a data do calendário, e lê a lista de novo', async () => {
     const chamadas = abrir([LUZ])
-    const form = await formulario()
+    const dialogo = await abrirNovaDespesa()
     const hoje = new Date()
     const primeiroDoMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
 
-    await userEvent.type(form.getByLabelText(/o que foi pago/i), 'Conta de água')
-    await userEvent.type(form.getByLabelText(/valor/i), '1.250,40')
-    await escolherDia(userEvent.setup(), form.getByLabelText(/^data/i), primeiroDoMes)
-    expect(form.getByLabelText(/^data/i)).toHaveTextContent(
-      `01/${String(hoje.getMonth() + 1).padStart(2, '0')}/${hoje.getFullYear()}`,
-    )
-    await userEvent.click(form.getByRole('button', { name: 'Paga' }))
-    await userEvent.click(form.getByRole('button', { name: 'Salvar despesa' }))
+    await userEvent.type(dialogo.getByLabelText(/O que foi pago/), 'Conta de água')
+    await userEvent.type(dialogo.getByLabelText(/Responsável/), ' Zelador Antônio ')
+    await userEvent.type(dialogo.getByLabelText(/Valor/), '1.250,40')
+    await escolherDia(userEvent.setup(), dialogo.getByLabelText(/^Data/), primeiroDoMes)
+    await userEvent.click(dialogo.getByRole('combobox', { name: /Situação/ }))
+    await userEvent.click(screen.getByRole('option', { name: 'Paga' }))
+    await userEvent.click(dialogo.getByRole('button', { name: 'Salvar despesa' }))
 
-    expect(await form.findByRole('status')).toHaveTextContent('Despesa "Conta de água" salva.')
+    expect(await screen.findByText('Despesa "Conta de água" salva.')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Nova despesa' })).not.toBeInTheDocument()
     expect(chamadas.find((c) => c.metodo === 'POST')?.corpo).toEqual({
       descricao: 'Conta de água',
+      responsavel: 'Zelador Antônio',
       categoriaId: 'cat-1',
       valor: 1250.4,
       dataVencimento: `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`,
       paga: true,
     })
+    // A nova entra na lista, que vem de novo do backend.
+    expect(await screen.findByText('Conta de água')).toBeInTheDocument()
+  })
+
+  it('o próximo lançamento já abre com o último responsável usado', async () => {
+    abrir([LUZ])
+    let dialogo = await abrirNovaDespesa()
+
+    await userEvent.type(dialogo.getByLabelText(/O que foi pago/), 'Seguro anual')
+    await userEvent.type(dialogo.getByLabelText(/Responsável/), 'Direção')
+    await userEvent.type(dialogo.getByLabelText(/Valor/), '600')
+    await userEvent.click(dialogo.getByRole('button', { name: 'Salvar despesa' }))
+    expect(await screen.findByText('Despesa "Seguro anual" salva.')).toBeInTheDocument()
+
+    dialogo = await abrirNovaDespesa()
+    expect(dialogo.getByLabelText(/Responsável/)).toHaveValue('Direção')
+    expect(dialogo.getByLabelText(/O que foi pago/)).toHaveValue('')
+  })
+
+  it('edita a despesa pelo modal, manda tudo menos a situação e lê a lista de novo', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-02-15T15:00:00Z'))
+    const chamadas = abrir([{ ...LUZ }])
+    await screen.findByText('Conta de luz')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Editar Conta de luz' }))
+    const dialogo = screen.getByRole('dialog', { name: 'Editar despesa' })
+    expect(within(dialogo).getByLabelText(/O que foi pago/)).toHaveValue('Conta de luz')
+    expect(within(dialogo).getByLabelText(/Responsável/)).toHaveValue('Administração')
+    expect(within(dialogo).getByLabelText(/Valor/)).toHaveValue('90,00')
+    expect(within(dialogo).getByRole('combobox', { name: /Categoria/ })).toHaveTextContent('Contas')
+
+    await userEvent.clear(within(dialogo).getByLabelText(/Responsável/))
+    await userEvent.type(within(dialogo).getByLabelText(/Responsável/), ' Zelador Antônio ')
+    await userEvent.clear(within(dialogo).getByLabelText(/Valor/))
+    await userEvent.type(within(dialogo).getByLabelText(/Valor/), '1.234,56')
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Salvar alterações' }))
+
+    expect(await screen.findByText('Despesa "Conta de luz" atualizada.')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Editar despesa' })).not.toBeInTheDocument()
+    const put = chamadas.find((c) => c.metodo === 'PUT')
+    expect(put?.caminho).toBe('/despesas/desp-1')
+    expect(put?.corpo).toEqual({
+      descricao: 'Conta de luz',
+      responsavel: 'Zelador Antônio',
+      categoriaId: 'cat-1',
+      valor: 1234.56,
+      dataVencimento: '2026-02-10',
+    })
+    // A página e os totais vêm de novo do backend, já com o valor novo.
+    const linha = (await screen.findByText('Zelador Antônio')).closest('tr') as HTMLElement
+    expect(linha).toHaveTextContent(/R\$\s*1\.234,56/)
+  })
+
+  it('a despesa antiga, sem responsável, só é salva depois de ganhar um', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-02-15T15:00:00Z'))
+    const chamadas = abrir([{ ...LUZ, responsavel: null }])
+    await screen.findByText('Conta de luz')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Editar Conta de luz' }))
+    const dialogo = screen.getByRole('dialog', { name: 'Editar despesa' })
+    expect(within(dialogo).getByLabelText(/Responsável/)).toHaveValue('')
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Salvar alterações' }))
+
+    expect(await within(dialogo).findByText('Informe o responsável pela despesa.')).toBeInTheDocument()
+    expect(chamadas.some((c) => c.metodo === 'PUT')).toBe(false)
+
+    await userEvent.type(within(dialogo).getByLabelText(/Responsável/), 'Direção')
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Salvar alterações' }))
+    expect(await screen.findByText('Despesa "Conta de luz" atualizada.')).toBeInTheDocument()
+  })
+
+  it('mostra no modal o motivo quando o backend recusa a edição', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-02-15T15:00:00Z'))
+    // Cancelada por outra pessoa enquanto a lista estava aberta.
+    const luz = { ...LUZ }
+    abrir([luz])
+    await screen.findByText('Conta de luz')
+    await userEvent.click(screen.getByRole('button', { name: 'Editar Conta de luz' }))
+    luz.situacao = 'CANCELADA'
+
+    const dialogo = screen.getByRole('dialog', { name: 'Editar despesa' })
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Salvar alterações' }))
+
+    expect(await within(dialogo).findByText('A despesa foi cancelada e não pode mais ser editada.')).toBeInTheDocument()
   })
 
   it('gerencia as categorias: lista, cadastra e a nova já aparece no lançamento', async () => {
@@ -194,7 +396,7 @@ describe('Despesas', () => {
         <Despesas />
       </MemoryRouter>,
     )
-    await screen.findByRole('button', { name: 'Contas' })
+    await screen.findByText('Conta de luz')
 
     await userEvent.click(screen.getByRole('button', { name: /gerenciar categorias/i }))
     const dialogo = screen.getByRole('dialog')
@@ -211,7 +413,9 @@ describe('Despesas', () => {
     expect(chamadas.filter((c) => c.metodo === 'POST')).toHaveLength(2)
 
     await userEvent.click(within(dialogo).getAllByRole('button', { name: 'Fechar' })[0])
-    expect(screen.getByRole('button', { name: 'Transporte' })).toBeInTheDocument()
+    const novaDespesa = await abrirNovaDespesa()
+    await userEvent.click(novaDespesa.getByRole('combobox', { name: /Categoria/ }))
+    expect(screen.getByRole('option', { name: 'Transporte' })).toBeInTheDocument()
   })
 })
 

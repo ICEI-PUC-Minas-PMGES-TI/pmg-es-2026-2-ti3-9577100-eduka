@@ -25,6 +25,9 @@ public interface AlunoRepository extends JpaRepository<Aluno, UUID> {
     /** Alunos que ainda contam na escola: o anonimizado ja saiu e nao e "sem turma". */
     long countByEscolaIdAndAnonimizadoEmIsNull(UUID escolaId);
 
+    /** Alunos que podem receber matricula: nem anonimizados nem inativados pela escola. */
+    long countByEscolaIdAndAnonimizadoEmIsNullAndAtivoTrue(UUID escolaId);
+
     Optional<Aluno> findByIdAndEscolaId(UUID id, UUID escolaId);
 
     /** Aluno dono do login (portal do aluno). */

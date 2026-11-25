@@ -20,7 +20,7 @@ import { MasterLayout } from '../../layouts/MasterLayout'
 /**
  * Recebimentos do MASTER (IU23): a conta de recebimento da escola no Asaas,
  * para receber as mensalidades dos alunos. As faturas que a escola paga ao
- * Edúka ficam em Plano e faturas (IU24-A).
+ * Eduka ficam em Plano e faturas (IU24-A).
  */
 export function Recebimentos() {
   const conta = useCarregamento<ContaRecebimento | null>(

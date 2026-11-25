@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router'
 import { Button } from '../components/ui/Button/Button'
 import { ApiError } from '../services/api'
 import { limparSessao } from '../services/acesso/authService'
+import { BotaoAjudaFlutuante } from '../components/ajuda/BotaoAjudaFlutuante/BotaoAjudaFlutuante'
 import { buscarAvisoPrivacidade } from '../services/privacidade/privacidadeService'
 import { aceiteConferido, registrarAceitePrivacidade, type EstadoAvisoPrivacidade } from './aceitePrivacidade'
 import { paths } from './paths'
@@ -62,6 +63,7 @@ export function ExigeAceitePrivacidade({ login, children }: { login: string; chi
         >
           Tentar novamente
         </Button>
+        <BotaoAjudaFlutuante tela="Aviso de privacidade" />
       </div>
     )
   }

@@ -12,6 +12,8 @@ import static org.mockito.Mockito.when;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,6 +29,7 @@ import org.springframework.security.oauth2.jwt.JwtException;
 import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.acesso.Usuario;
 import br.pucminas.eduka.backend.domain.escola.Escola;
+import br.pucminas.eduka.backend.domain.escola.ModuloEscola;
 import br.pucminas.eduka.backend.domain.escola.PlanoEscola;
 import br.pucminas.eduka.backend.dto.acesso.LoginResponse;
 import br.pucminas.eduka.backend.dto.acesso.VerificacaoLoginResponse;
@@ -36,6 +39,7 @@ import br.pucminas.eduka.backend.exception.acesso.SenhaProvisoriaExpiradaExcepti
 import br.pucminas.eduka.backend.exception.acesso.SessaoExpiradaException;
 import br.pucminas.eduka.backend.exception.acesso.VerificacaoLoginEncerradaException;
 import br.pucminas.eduka.backend.exception.escola.EscolaSuspensaException;
+import br.pucminas.eduka.backend.exception.escola.ModuloNaoContratadoException;
 import br.pucminas.eduka.backend.repository.acesso.UsuarioRepository;
 import br.pucminas.eduka.backend.repository.escola.EscolaRepository;
 import br.pucminas.eduka.backend.security.JwtService;
@@ -85,6 +89,9 @@ class AuthServiceTest {
                 .build();
         // Por padrao a escola do usuario esta ativa; os testes de suspensao trocam.
         lenient().when(escolaRepository.findById(usuario.getEscolaId())).thenReturn(Optional.of(escola(true)));
+        // E tem todos os modulos; os testes de modulo tiram o que precisam.
+        lenient().when(escolaRepository.modulos(usuario.getEscolaId()))
+                .thenReturn(Arrays.stream(ModuloEscola.values()).map(Enum::name).toList());
     }
 
     private static Escola escola(boolean ativa) {
@@ -125,6 +132,55 @@ class AuthServiceTest {
         assertThat(response.perfil()).isEqualTo(PerfilUsuario.FINANCEIRO);
         // O acesso conta como atividade da escola no Painel de Escolas.
         verify(usuarioRepository).registrarAcesso(usuario.getId(), AGORA);
+    }
+
+    @Test
+    void loginDevolveOsModulosDaEscola() {
+        when(usuarioRepository.findByLogin("maria")).thenReturn(Optional.of(usuario));
+        when(escolaRepository.modulos(usuario.getEscolaId()))
+                .thenReturn(List.of("PORTAL_ALUNO", "GESTAO_FINANCEIRA"));
+
+        LoginResponse response = authService.login("maria", SENHA);
+
+        assertThat(response.modulos()).containsExactly(ModuloEscola.PORTAL_ALUNO, ModuloEscola.GESTAO_FINANCEIRA);
+    }
+
+    @Test
+    void financeiroDeEscolaSemGestaoFinanceiraNaoEntraDepoisDaSenha() {
+        when(usuarioRepository.findByLogin("maria")).thenReturn(Optional.of(usuario));
+        when(escolaRepository.modulos(usuario.getEscolaId())).thenReturn(List.of("PORTAL_ALUNO"));
+
+        assertThatThrownBy(() -> authService.login("maria", SENHA))
+                .isInstanceOf(ModuloNaoContratadoException.class)
+                .extracting("modulo").isEqualTo(ModuloEscola.GESTAO_FINANCEIRA);
+        verifyNoInteractions(jwtService);
+    }
+
+    @Test
+    void masterEntraMesmoSemNenhumModulo() {
+        usuario.setPerfil(PerfilUsuario.MASTER);
+        when(usuarioRepository.findByLogin("maria")).thenReturn(Optional.of(usuario));
+        when(escolaRepository.modulos(usuario.getEscolaId())).thenReturn(List.of());
+        when(jwtService.generateAccessToken(usuario.getId(), "MASTER", usuario.getEscolaId()))
+                .thenReturn("access-token");
+
+        LoginResponse response = authService.login("maria", SENHA);
+
+        assertThat(response.accessToken()).isEqualTo("access-token");
+        assertThat(response.modulos()).isEmpty();
+    }
+
+    @Test
+    void sessaoDeAlunoNaoRenovaQuandoAEscolaTiraOPortal() {
+        usuario.setPerfil(PerfilUsuario.ALUNO);
+        when(jwtService.verifyRefreshToken("refresh"))
+                .thenReturn(new RefreshTokenClaims(usuario.getId(), AGORA.minusSeconds(60)));
+        when(usuarioRepository.findById(usuario.getId())).thenReturn(Optional.of(usuario));
+        when(escolaRepository.modulos(usuario.getEscolaId())).thenReturn(List.of("GESTAO_FINANCEIRA"));
+
+        assertThatThrownBy(() -> authService.renovarSessao("refresh"))
+                .isInstanceOf(ModuloNaoContratadoException.class)
+                .extracting("modulo").isEqualTo(ModuloEscola.PORTAL_ALUNO);
     }
 
     @Test

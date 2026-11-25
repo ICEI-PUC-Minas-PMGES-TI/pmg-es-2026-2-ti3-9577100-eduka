@@ -103,11 +103,15 @@ public class Escola {
      * Cadastro de uma escola nova (RF06). {@code id}, {@code criadoEm} e
      * {@code versao} sao geridos pelo banco/Hibernate.
      */
-    /** A vigencia comeca na data do cadastro e esse inicio nao muda depois. */
+    /**
+     * A vigencia comeca na data do cadastro e esse inicio nao muda depois. A
+     * escola nasce com todos os modulos; o SUPER_ADMIN tira os nao contratados.
+     */
     public static Escola cadastrar(String nome, String cnpjCpf, Endereco endereco, String email, String telefone,
             PlanoEscola plano, boolean ativo) {
         return new Escola(null, nome, cnpjCpf, endereco, email, telefone, plano, ativo,
-                ativo ? null : MotivoSuspensao.MANUAL, LocalDate.now(), null, null, new HashSet<>(), null, 0L);
+                ativo ? null : MotivoSuspensao.MANUAL, LocalDate.now(), null, null,
+                new HashSet<>(EnumSet.allOf(ModuloEscola.class)), null, 0L);
     }
 
     /**

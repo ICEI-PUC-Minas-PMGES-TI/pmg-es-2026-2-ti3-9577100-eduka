@@ -3,8 +3,14 @@ import { useNavigate } from 'react-router'
 import { Button } from '../../../../components/ui/Button/Button'
 import { StatCard, StatCards } from '../../../../components/ui/StatCard/StatCard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
+import { useListaPaginada, type PaginaComResumo } from '../../../../hooks/usePaginacao'
 import { useRotasAcademicas } from '../../../../routes/areas'
-import { atualizarMatricula, listarMatriculas, matricularAluno } from '../../../../services/academico/matriculaService'
+import {
+  atualizarMatricula,
+  listarMatriculas,
+  listarPaginaDeMatriculas,
+  matricularAluno,
+} from '../../../../services/academico/matriculaService'
 import type { TurmaAcademica } from '../../../../types/academico/academico'
 import { ROTULOS_TURNO } from '../../../../types/academico/alocacao'
 import {
@@ -12,6 +18,7 @@ import {
   type AtualizarMatriculaRequest,
   type Matricula,
   type MatriculaRequest,
+  type ResumoMatriculas,
   type StatusMatricula,
 } from '../../../../types/academico/matricula'
 import { plural } from '../../../../utils/formatters'
@@ -38,10 +45,10 @@ type AbaTurma = 'alunos' | 'matricular'
 // Estável: o useCarregamento pede o valor inicial sempre igual.
 const SEM_MATRICULAS: Matricula[] = []
 
-function porNomeDoAluno(a: Matricula, b: Matricula): number {
-  return (a.alunoNome ?? '').localeCompare(b.alunoNome ?? '', 'pt-BR')
-}
-
+/**
+ * Matrículas (IU11). A lista da turma vem do backend uma página por vez, já
+ * filtrada pela situação e com o resumo da turma inteira nos contadores.
+ */
 export function Matriculas() {
   const navigate = useNavigate()
   const rotas = useRotasAcademicas()
@@ -57,29 +64,51 @@ export function Matriculas() {
   // Sem escolha feita (ou com a turma escolhida fora da lista), abre na primeira ativa.
   const turma = turmas.find((t) => t.id === turmaId) ?? turmas.find((t) => t.ativa) ?? turmas[0] ?? null
 
-  // Só as matrículas da turma escolhida, em qualquer situação: trocar de turma busca as da outra.
+  // Uma página das matrículas da turma escolhida, na situação do filtro: trocar
+  // de turma ou de filtro volta para a primeira página.
   const idDaTurma = turma?.id ?? null
+  const [resumoDaTurma, setResumoDaTurma] = useState<{ turmaId: number; resumo: ResumoMatriculas } | null>(null)
   const buscarDaTurma = useMemo(
-    () => (idDaTurma === null ? null : (signal: AbortSignal) => listarMatriculas({ turmaId: idDaTurma }, signal)),
-    [idDaTurma],
+    () =>
+      idDaTurma === null
+        ? null
+        : async (pagina: number, tamanho: number, signal: AbortSignal) => {
+            const resposta = await listarPaginaDeMatriculas(
+              { turmaId: idDaTurma, status: filtro || undefined, pagina, tamanho },
+              signal,
+            )
+            setResumoDaTurma({ turmaId: idDaTurma, resumo: resposta.resumo })
+            return resposta
+          },
+    [idDaTurma, filtro],
   )
-  const daTurmaCarregadas = useCarregamento(buscarDaTurma, SEM_MATRICULAS, 'A turma não existe mais.')
-  const daTurma = [...daTurmaCarregadas.dados].sort(porNomeDoAluno)
-  const visiveis = filtro ? daTurma.filter((m) => m.status === filtro) : daTurma
+  const daTurma = useListaPaginada<PaginaComResumo<Matricula, ResumoMatriculas>>(
+    buscarDaTurma,
+    'Não foi possível carregar as matrículas da turma.',
+    'A turma não existe mais.',
+  )
+  // O resumo vale só para a turma que o pediu: ao trocar, a outra não mostra os números da anterior.
+  const resumoTurma = resumoDaTurma?.turmaId === idDaTurma ? resumoDaTurma.resumo : null
 
-  // A turma escolhida conta pelas matrículas já na tela, que mudam na hora; as outras, pelo backend.
-  const ativas = !turma
-    ? 0
-    : daTurmaCarregadas.carregando
-      ? turma.matriculasAtivas
-      : daTurma.filter((m) => m.status === 'ATIVA').length
+  // A aba Matricular precisa saber quem já tem registro na turma (em qualquer
+  // situação): busca a lista dela só enquanto a aba está aberta.
+  const buscarRegistros = useMemo(
+    () =>
+      aba !== 'matricular' || idDaTurma === null
+        ? null
+        : (signal: AbortSignal) => listarMatriculas({ turmaId: idDaTurma }, signal),
+    [aba, idDaTurma],
+  )
+  const registros = useCarregamento(buscarRegistros, SEM_MATRICULAS, 'A turma não existe mais.')
+
+  // A turma escolhida conta pelo resumo da página (relido a cada mudança); as outras, pela lista de turmas.
+  const ativas = !turma ? 0 : (resumoTurma?.porSituacao.ATIVA ?? turma.matriculasAtivas)
   const ativasPorTurma = new Map(turmas.map((t) => [t.id, t.id === turma?.id ? ativas : t.matriculasAtivas]))
   const vagasLivres = turma ? Math.max(turma.vagas - ativas, 0) : 0
-  // Quem pode entrar na turma: sem registro nela e com cadastro ativo (o mesmo corte da aba Matricular).
-  const naTurma = new Set(daTurma.map((m) => m.alunoId))
-  const paraMatricular = alunos.filter(
-    (a) => !naTurma.has(a.id) && a.situacao !== 'ANONIMIZADO' && a.situacao !== 'INATIVO',
-  ).length
+  const totalNaTurma = resumoTurma?.total ?? 0
+  // Quem pode entrar na turma, contado no backend com o mesmo corte da aba
+  // Matricular: sem registro nela, nem anonimizado, nem inativo.
+  const paraMatricular = resumoTurma?.paraMatricular ?? 0
 
   // Resumo da escola inteira, acima da turma escolhida, contado no backend.
   const totalAtivas = resumo?.matriculasPorSituacao.ATIVA ?? 0
@@ -90,19 +119,16 @@ export function Matriculas() {
   /** Matricula um aluno na turma escolhida; lança ApiError se o backend recusar. */
   async function matricular(dados: MatriculaRequest) {
     const criada = await matricularAluno(dados)
-    daTurmaCarregadas.atualizar((atuais) => [...atuais, criada])
+    // Já sai da lista de quem pode entrar, mesmo se outra do lote falhar.
+    registros.atualizar((atuais) => [...atuais, criada])
     return criada
   }
 
   /** Muda situação, turma e/ou observação; lança ApiError se o backend recusar. */
   async function atualizar(id: string, dados: AtualizarMatriculaRequest) {
     const atualizada = await atualizarMatricula(id, dados)
-    // Transferida para outra turma, sai da lista desta.
-    daTurmaCarregadas.atualizar((atuais) =>
-      atualizada.turmaId === idDaTurma
-        ? atuais.map((m) => (m.id === atualizada.id ? atualizada : m))
-        : atuais.filter((m) => m.id !== atualizada.id),
-    )
+    // Relê a página (a transferida sai dela) e as contagens.
+    daTurma.recarregar()
     atualizarContagens()
     return atualizada
   }
@@ -120,6 +146,7 @@ export function Matriculas() {
 
   function handleMatriculados({ matriculados, falhas }: ResultadoMatriculas) {
     if (matriculados.length > 0) {
+      daTurma.recarregar()
       atualizarContagens()
       // Mostra o resultado: os recém-matriculados na lista da turma.
       setFiltro('')
@@ -216,7 +243,7 @@ export function Matriculas() {
             <div className={styles.abas} role="tablist" aria-label={`Alunos da turma ${turma.nome}`}>
               {(
                 [
-                  { id: 'alunos', rotulo: 'Alunos da turma', quantidade: daTurma.length },
+                  { id: 'alunos', rotulo: 'Alunos da turma', quantidade: totalNaTurma },
                   { id: 'matricular', rotulo: 'Matricular alunos', quantidade: paraMatricular },
                 ] as const
               ).map((a) => (
@@ -249,21 +276,34 @@ export function Matriculas() {
 
             <div id="painel-turma" role="tabpanel" aria-labelledby={`aba-turma-${aba}`} className={styles.conteudo}>
               {aba === 'matricular' ? (
-                <MatricularAlunos
-                  // Remonta ao trocar de turma, para não levar a seleção da anterior.
-                  key={turma.id}
-                  turma={turma}
-                  alunos={alunos}
-                  matriculasDaTurma={daTurma}
-                  vagasLivres={vagasLivres}
-                  onMatricular={matricular}
-                  onConcluido={handleMatriculados}
-                />
+                registros.carregando ? (
+                  <p className={styles.estadoSecao} role="status">
+                    Carregando os alunos que podem entrar na turma…
+                  </p>
+                ) : registros.erro ? (
+                  <div className={styles.estadoSecao}>
+                    <span>{registros.erro}</span>
+                    <Button size="sm" onClick={registros.recarregar}>
+                      Tentar novamente
+                    </Button>
+                  </div>
+                ) : (
+                  <MatricularAlunos
+                    // Remonta ao trocar de turma, para não levar a seleção da anterior.
+                    key={turma.id}
+                    turma={turma}
+                    alunos={alunos}
+                    matriculasDaTurma={registros.dados}
+                    vagasLivres={vagasLivres}
+                    onMatricular={matricular}
+                    onConcluido={handleMatriculados}
+                  />
+                )
               ) : (
                 <>
                   <div className={styles.filtros} role="group" aria-label="Filtrar por situação">
                     {FILTROS.map((f) => {
-                      const quantidade = f.valor ? daTurma.filter((m) => m.status === f.valor).length : daTurma.length
+                      const quantidade = f.valor ? (resumoTurma?.porSituacao[f.valor] ?? 0) : totalNaTurma
                       return (
                         <button
                           key={f.rotulo}
@@ -279,33 +319,19 @@ export function Matriculas() {
                     })}
                   </div>
 
-                  {daTurmaCarregadas.carregando ? (
-                    <p className={styles.estadoSecao} role="status">
-                      Carregando as matrículas da turma…
-                    </p>
-                  ) : daTurmaCarregadas.erro ? (
-                    <div className={styles.estadoSecao}>
-                      <span>{daTurmaCarregadas.erro}</span>
-                      <Button size="sm" onClick={daTurmaCarregadas.recarregar}>
-                        Tentar novamente
-                      </Button>
-                    </div>
-                  ) : (
-                    <MatriculasTable
-                      matriculas={visiveis}
-                      reiniciarCom={`${turma.id}|${filtro}`}
-                      mensagemVazia={
-                        daTurma.length === 0
-                          ? 'Nenhum aluno matriculado nesta turma ainda.'
-                          : `Nenhuma matrícula ${filtro ? ROTULOS_STATUS_MATRICULA[filtro].toLowerCase() : ''} nesta turma.`
-                      }
-                      onVer={setVendo}
-                      onAlterar={(m) => {
-                        limparAvisos()
-                        setAlterando(m)
-                      }}
-                    />
-                  )}
+                  <MatriculasTable
+                    lista={daTurma}
+                    mensagemVazia={
+                      totalNaTurma === 0
+                        ? 'Nenhum aluno matriculado nesta turma ainda.'
+                        : `Nenhuma matrícula ${filtro ? ROTULOS_STATUS_MATRICULA[filtro].toLowerCase() : ''} nesta turma.`
+                    }
+                    onVer={setVendo}
+                    onAlterar={(m) => {
+                      limparAvisos()
+                      setAlterando(m)
+                    }}
+                  />
                 </>
               )}
             </div>

@@ -19,16 +19,44 @@
 
 /* ---------- Cabeçalho ---------- */
 
+/* Título à esquerda; "Ajuda" e "Sair" sempre no topo direito; os botões da
+   tela, quando há, embaixo deles, alinhados com o fim do título. */
 .header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'texto conta';
+  align-items: start;
+  gap: 14px 24px;
+}
+
+.comAcao {
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'texto conta'
+    'texto acao';
 }
 
 .texto {
+  grid-area: texto;
   min-width: 0;
+}
+
+.conta,
+.acaoTela {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.conta {
+  grid-area: conta;
+}
+
+.acaoTela {
+  grid-area: acao;
+  align-self: end;
 }
 
 .brand {
@@ -72,13 +100,6 @@
   margin-top: 6px;
   color: var(--color-text-muted);
   font-size: 16px;
-}
-
-.acoes {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
 }
 
 /* Pílulas de vidro "Ajuda" e "Sair" do protótipo. */
@@ -166,12 +187,6 @@
   font-size: 12.5px;
 }
 
-.ajuda {
-  color: var(--color-text-muted);
-  font-size: 15px;
-  line-height: 1.5;
-}
-
 /* ---------- Menu flutuante: o item ativo vira uma pílula lavanda cheia ---------- */
 
 .nav {
@@ -241,12 +256,20 @@
     letter-spacing: -0.8px;
   }
 
-  .acoes {
-    width: 100%;
+  /* Uma coluna: título, "Ajuda" e "Sair", e os botões da tela. */
+  .header,
+  .comAcao {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas:
+      'texto'
+      'conta'
+      'acao';
   }
 
   /* A base é o conteúdo: o que não couber desce de linha, em vez de sobrepor. */
-  .acoes > * {
+  .conta > *,
+  .acaoTela > * {
     flex: 1 1 auto;
     justify-content: center;
   }

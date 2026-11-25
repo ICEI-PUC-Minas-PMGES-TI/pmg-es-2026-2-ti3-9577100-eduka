@@ -34,8 +34,8 @@ const EXPLICACAO: Record<StatusContaRecebimento, string> = {
   AGUARDANDO_APROVACAO:
     'Conta criada. O provedor está analisando o cadastro; a situação é atualizada sozinha, ou use Sincronizar.',
   APROVADA: 'Os alunos já podem pagar online.',
-  REJEITADA: 'O provedor rejeitou o cadastro da conta. Fale com o suporte do Edúka.',
-  CREDENCIAL_INDISPONIVEL: 'A conta existe no provedor, mas o Edúka não tem acesso a ela. Fale com o suporte.',
+  REJEITADA: 'O provedor rejeitou o cadastro da conta. Fale com o suporte do Eduka.',
+  CREDENCIAL_INDISPONIVEL: 'A conta existe no provedor, mas o Eduka não tem acesso a ela. Fale com o suporte.',
 }
 
 function situacao(valor: SituacaoCadastral | null): string {

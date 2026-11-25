@@ -4,6 +4,7 @@ package br.pucminas.eduka.backend.controller.pessoas;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,9 +32,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
 import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.acesso.Usuario;
-import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
 import br.pucminas.eduka.backend.domain.pessoas.Aluno;
 import br.pucminas.eduka.backend.domain.pessoas.Pessoa;
 import br.pucminas.eduka.backend.exception.ApiExceptionHandler;
@@ -49,11 +50,14 @@ import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.JwtConfig;
 import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.security.PasswordEncoderConfig;
-import br.pucminas.eduka.backend.service.privacidade.PoliticaRetencao;
+import br.pucminas.eduka.backend.security.PerfilNaoPermitidoException;
 import br.pucminas.eduka.backend.service.acesso.AcessoService;
 import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
+import br.pucminas.eduka.backend.service.financeiro.FinanceiroDosAlunosService;
+import br.pucminas.eduka.backend.service.escola.LimiteUsuariosService;
 import br.pucminas.eduka.backend.service.pessoas.AlunoService;
 import br.pucminas.eduka.backend.service.pessoas.ResponsavelService;
+import br.pucminas.eduka.backend.service.privacidade.PoliticaRetencao;
 
 /**
  * Contrato de seguranca do primeiro recurso de negocio, ponta a ponta: filter
@@ -79,6 +83,8 @@ class AlunoControllerSecurityTest {
     private JwtService jwtService;
 
     @MockitoBean
+    private FinanceiroDosAlunosService financeiroDosAlunos;
+    @MockitoBean
     private AlunoRepository alunoRepository;
     @MockitoBean
     private AuditoriaService auditoriaService;
@@ -96,6 +102,8 @@ class AlunoControllerSecurityTest {
     private MatriculaTurmaRepository matriculaRepository;
     @MockitoBean
     private UsuarioRepository usuarioRepository;
+    @MockitoBean
+    private LimiteUsuariosService limiteUsuarios;
 
     private String accessToken(String perfil, UUID escolaId) {
         return jwtService.generateAccessToken(UUID.randomUUID(), perfil, escolaId);
@@ -190,6 +198,33 @@ class AlunoControllerSecurityTest {
 
             mockMvc.perform(getCom("/alunos", accessToken("FINANCEIRO", ESCOLA_A)))
                     .andExpect(status().isOk());
+        }
+
+        @Test
+        void financeiroFiltraALista() throws Exception {
+            when(alunoRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of());
+
+            mockMvc.perform(getCom("/alunos/pagina?situacaoFinanceira=EM_ATRASO&faixaAtraso=MAIS_DE_60_DIAS"
+                    + "&venceEm7Dias=true&semMensalidadeNoMes=true&ordenarPor=EM_ABERTO",
+                    accessToken("FINANCEIRO", ESCOLA_A)))
+                    .andExpect(status().isOk());
+            verify(financeiroDosAlunos).exigirDisponivel();
+        }
+
+        @Test
+        void quemNaoVeOFinanceiroRecebe403AoFiltrarPorEle() throws Exception {
+            doThrow(new PerfilNaoPermitidoException("so MASTER e FINANCEIRO")).when(financeiroDosAlunos)
+                    .exigirDisponivel();
+
+            mockMvc.perform(getCom("/alunos/pagina?situacaoFinanceira=EM_ATRASO", accessToken("SECRETARIA", ESCOLA_A)))
+                    .andExpect(status().isForbidden());
+            verify(alunoRepository, never()).findAllByEscolaId(any());
+        }
+
+        @Test
+        void situacaoFinanceiraDesconhecidaE400() throws Exception {
+            mockMvc.perform(getCom("/alunos/pagina?situacaoFinanceira=DEVENDO", accessToken("FINANCEIRO", ESCOLA_A)))
+                    .andExpect(status().isBadRequest());
         }
 
         @Test

@@ -22,15 +22,20 @@ import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { paths, type EstadoAbrirCadastro } from '../../../../routes/paths'
 import { obterDashboardEscola, obterDashboardFinanceiro } from '../../../../services/dashboard/dashboardService'
 import type { DashboardEscola, DashboardFinanceiro } from '../../../../types/dashboard/dashboard'
+import { temModulo } from '../../../../services/acesso/modulosSessao'
 import { formatarMoeda, plural } from '../../../../utils/formatters'
 import { MasterLayout } from '../../layouts/MasterLayout'
 import styles from './Inicio.module.css'
 
-type DadosInicio = { escola: DashboardEscola; financeiro: DashboardFinanceiro }
+/** `financeiro` é nulo quando a escola não contratou a gestão financeira. */
+type DadosInicio = { escola: DashboardEscola; financeiro: DashboardFinanceiro | null }
 
 /** Os dois resumos juntos: a tela só aparece com os dois carregados. */
 async function obterDadosInicio(signal: AbortSignal): Promise<DadosInicio> {
-  const [escola, financeiro] = await Promise.all([obterDashboardEscola(signal), obterDashboardFinanceiro(signal)])
+  const [escola, financeiro] = await Promise.all([
+    obterDashboardEscola(signal),
+    temModulo('GESTAO_FINANCEIRA') ? obterDashboardFinanceiro(signal) : Promise.resolve(null),
+  ])
   return { escola, financeiro }
 }
 
@@ -46,7 +51,11 @@ export function Inicio() {
   return (
     <MasterLayout
       titulo="Início"
-      subtitulo="O resumo da sua escola: alunos, dinheiro, turmas, vagas e desempenho."
+      subtitulo={
+        temModulo('GESTAO_FINANCEIRA')
+          ? 'O resumo da sua escola: alunos, dinheiro, turmas, vagas e desempenho.'
+          : 'O resumo da sua escola: alunos, turmas, vagas e desempenho.'
+      }
       acao={
         <Button variant="outline" icon="card" onClick={() => navigate(paths.master.planoEFaturas)}>
           Plano e faturas
@@ -54,16 +63,20 @@ export function Inicio() {
       }
     >
       <EstadoDashboard carregando={carregando} erro={erro} onTentarDeNovo={recarregar} />
-      {dados && <Resumo escola={dados.escola} financeiro={dados.financeiro} />}
+      {dados &&
+        (dados.financeiro ? (
+          <Resumo escola={dados.escola} financeiro={dados.financeiro} />
+        ) : (
+          <ResumoSemFinanceiro escola={dados.escola} />
+        ))}
     </MasterLayout>
   )
 }
 
-function Resumo({ escola, financeiro }: DadosInicio) {
+function Resumo({ escola, financeiro }: { escola: DashboardEscola; financeiro: DashboardFinanceiro }) {
   const navigate = useNavigate()
-  const { pessoas, estrutura, ocupacao, desempenho } = escola
+  const { pessoas } = escola
   const { recebidoNoMes, faltaReceber, emAtraso } = financeiro
-  const vagasLivres = Math.max(0, ocupacao.vagasOfertadas - ocupacao.matriculasAtivas)
 
   return (
     <>
@@ -95,41 +108,8 @@ function Resumo({ escola, financeiro }: DadosInicio) {
       <Colunas esticar>
         <EntrouESaiu meses={financeiro.ultimosMeses} />
         <Pilha>
-          {/* IU05: os atalhos levam às telas da secretaria e do financeiro dentro da gestão. */}
-          <Atalhos
-            titulo="O que você quer fazer?"
-            itens={[
-              { rotulo: 'Matricular um aluno', icon: 'check', onClick: () => navigate(paths.master.matriculas) },
-              { rotulo: 'Lançar uma cobrança', icon: 'card', onClick: () => navigate(paths.master.novaCobranca) },
-              {
-                rotulo: 'Cadastrar um professor',
-                icon: 'graduationCap',
-                onClick: () =>
-                  navigate(paths.master.professores, { state: { abrirCadastro: true } satisfies EstadoAbrirCadastro }),
-              },
-              { rotulo: 'Lançar uma despesa', icon: 'dollarSign', onClick: () => navigate(paths.master.despesas) },
-            ]}
-          />
-          <Painel titulo="Ocupação das vagas" descricao="Matrículas ativas sobre as vagas das turmas ativas.">
-            {ocupacao.percentual === null ? (
-              <PainelVazio>Nenhuma turma ativa com vagas ofertadas.</PainelVazio>
-            ) : (
-              <div className={styles.ocupacao}>
-                <strong className={styles.percentual}>{ocupacao.percentual}%</strong>
-                <div className={styles.barra}>
-                  <Medidor
-                    valor={ocupacao.matriculasAtivas}
-                    maximo={ocupacao.vagasOfertadas}
-                    rotulo="Ocupação das vagas da escola"
-                  />
-                  <span>
-                    {ocupacao.matriculasAtivas} de {ocupacao.vagasOfertadas} vagas · {vagasLivres}{' '}
-                    {plural(vagasLivres, 'livre', 'livres')}
-                  </span>
-                </div>
-              </div>
-            )}
-          </Painel>
+          <AtalhosDaGestao comFinanceiro />
+          <OcupacaoDasVagas escola={escola} />
         </Pilha>
       </Colunas>
 
@@ -154,43 +134,152 @@ function Resumo({ escola, financeiro }: DadosInicio) {
 
       <Colunas esticar>
         <UltimasAcoes acoes={financeiro.ultimasAcoes} />
-        <Painel titulo="A escola em números" descricao="Estrutura acadêmica, equipe e desempenho.">
-          <Numeros
-            itens={[
-              {
-                rotulo: 'Período letivo',
-                valor: estrutura.periodoLetivoAtual ?? '—',
-                detalhe: estrutura.periodoLetivoAtual ? 'Em andamento' : 'Nenhum em andamento',
-              },
-              {
-                rotulo: 'Turmas ativas',
-                valor: estrutura.turmasAtivas,
-                detalhe: `de ${estrutura.turmas} ${plural(estrutura.turmas, 'turma', 'turmas')}`,
-              },
-              { rotulo: 'Cursos', valor: estrutura.cursos },
-              { rotulo: 'Disciplinas', valor: estrutura.disciplinas },
-              {
-                rotulo: 'Professores',
-                valor: pessoas.professoresAtivos,
-                detalhe:
-                  pessoas.professoresInativos > 0
-                    ? `${pessoas.professoresInativos} ${plural(pessoas.professoresInativos, 'inativo', 'inativos')}`
-                    : undefined,
-              },
-              { rotulo: 'Secretaria', valor: pessoas.secretarias },
-              { rotulo: 'Financeiro', valor: pessoas.financeiro },
-              { rotulo: 'Alunos sem turma', valor: pessoas.alunosSemTurma },
-              { rotulo: 'Avaliações', valor: desempenho.avaliacoes },
-              { rotulo: 'Notas lançadas', valor: desempenho.notasLancadas },
-              {
-                rotulo: 'Aproveitamento',
-                valor: desempenho.aproveitamento === null ? '—' : `${desempenho.aproveitamento}%`,
-                detalhe: desempenho.aproveitamento === null ? 'Sem notas' : 'Média das notas',
-              },
-            ]}
-          />
-        </Painel>
+        <EscolaEmNumeros escola={escola} />
       </Colunas>
     </>
+  )
+}
+
+/**
+ * Escola sem a gestão financeira contratada: o resumo fica com o acadêmico,
+ * sem os cards de dinheiro, as cobranças e os atalhos do financeiro.
+ */
+function ResumoSemFinanceiro({ escola }: { escola: DashboardEscola }) {
+  const { pessoas, estrutura } = escola
+
+  return (
+    <>
+      <StatCards rotulo="Resumo da escola">
+        <StatCard
+          label="Alunos matriculados"
+          value={pessoas.alunosAtivos}
+          descricao={`De ${pessoas.alunos} ${plural(pessoas.alunos, 'aluno cadastrado', 'alunos cadastrados')}`}
+          destaque
+        />
+        <StatCard
+          label="Turmas ativas"
+          value={estrutura.turmasAtivas}
+          descricao={`De ${estrutura.turmas} ${plural(estrutura.turmas, 'turma', 'turmas')}`}
+        />
+        <StatCard label="Professores" value={pessoas.professoresAtivos} descricao="Com cadastro ativo" />
+        <StatCard
+          label="Alunos sem turma"
+          value={pessoas.alunosSemTurma}
+          descricao="Cadastrados sem matrícula ativa"
+          alerta={pessoas.alunosSemTurma > 0}
+        />
+      </StatCards>
+
+      <Colunas esticar>
+        <AtalhosDaGestao comFinanceiro={false} />
+        <OcupacaoDasVagas escola={escola} />
+      </Colunas>
+
+      <EscolaEmNumeros escola={escola} />
+    </>
+  )
+}
+
+/** IU05: os atalhos levam às telas da secretaria e do financeiro dentro da gestão. */
+function AtalhosDaGestao({ comFinanceiro }: { comFinanceiro: boolean }) {
+  const navigate = useNavigate()
+  const matricular = {
+    rotulo: 'Matricular um aluno',
+    icon: 'check' as const,
+    onClick: () => navigate(paths.master.matriculas),
+  }
+  const cadastrarProfessor = {
+    rotulo: 'Cadastrar um professor',
+    icon: 'graduationCap' as const,
+    onClick: () => navigate(paths.master.professores, { state: { abrirCadastro: true } satisfies EstadoAbrirCadastro }),
+  }
+  return (
+    <Atalhos
+      titulo="O que você quer fazer?"
+      itens={
+        comFinanceiro
+          ? [
+              matricular,
+              { rotulo: 'Lançar uma cobrança', icon: 'card', onClick: () => navigate(paths.master.novaCobranca) },
+              cadastrarProfessor,
+              { rotulo: 'Lançar uma despesa', icon: 'dollarSign', onClick: () => navigate(`${paths.master.despesas}?nova=1`) },
+            ]
+          : [
+              matricular,
+              cadastrarProfessor,
+              { rotulo: 'Ver alunos e turmas', icon: 'book', onClick: () => navigate(paths.master.alunos) },
+              { rotulo: 'Gerir a equipe', icon: 'users', onClick: () => navigate(paths.master.equipe) },
+            ]
+      }
+    />
+  )
+}
+
+function OcupacaoDasVagas({ escola }: { escola: DashboardEscola }) {
+  const { ocupacao } = escola
+  const vagasLivres = Math.max(0, ocupacao.vagasOfertadas - ocupacao.matriculasAtivas)
+  return (
+    <Painel titulo="Ocupação das vagas" descricao="Matrículas ativas sobre as vagas das turmas ativas.">
+      {ocupacao.percentual === null ? (
+        <PainelVazio>Nenhuma turma ativa com vagas ofertadas.</PainelVazio>
+      ) : (
+        <div className={styles.ocupacao}>
+          <strong className={styles.percentual}>{ocupacao.percentual}%</strong>
+          <div className={styles.barra}>
+            <Medidor
+              valor={ocupacao.matriculasAtivas}
+              maximo={ocupacao.vagasOfertadas}
+              rotulo="Ocupação das vagas da escola"
+            />
+            <span>
+              {ocupacao.matriculasAtivas} de {ocupacao.vagasOfertadas} vagas · {vagasLivres}{' '}
+              {plural(vagasLivres, 'livre', 'livres')}
+            </span>
+          </div>
+        </div>
+      )}
+    </Painel>
+  )
+}
+
+function EscolaEmNumeros({ escola }: { escola: DashboardEscola }) {
+  const { pessoas, estrutura, desempenho } = escola
+  return (
+    <Painel titulo="A escola em números" descricao="Estrutura acadêmica, equipe e desempenho.">
+      <Numeros
+        itens={[
+          {
+            rotulo: 'Período letivo',
+            valor: estrutura.periodoLetivoAtual ?? '—',
+            detalhe: estrutura.periodoLetivoAtual ? 'Em andamento' : 'Nenhum em andamento',
+          },
+          {
+            rotulo: 'Turmas ativas',
+            valor: estrutura.turmasAtivas,
+            detalhe: `de ${estrutura.turmas} ${plural(estrutura.turmas, 'turma', 'turmas')}`,
+          },
+          { rotulo: 'Cursos', valor: estrutura.cursos },
+          { rotulo: 'Disciplinas', valor: estrutura.disciplinas },
+          {
+            rotulo: 'Professores',
+            valor: pessoas.professoresAtivos,
+            detalhe:
+              pessoas.professoresInativos > 0
+                ? `${pessoas.professoresInativos} ${plural(pessoas.professoresInativos, 'inativo', 'inativos')}`
+                : undefined,
+          },
+          { rotulo: 'Secretaria', valor: pessoas.secretarias },
+          { rotulo: 'Financeiro', valor: pessoas.financeiro },
+          { rotulo: 'Alunos sem turma', valor: pessoas.alunosSemTurma },
+          { rotulo: 'Avaliações', valor: desempenho.avaliacoes },
+          { rotulo: 'Notas lançadas', valor: desempenho.notasLancadas },
+          {
+            rotulo: 'Aproveitamento',
+            valor: desempenho.aproveitamento === null ? '—' : `${desempenho.aproveitamento}%`,
+            detalhe: desempenho.aproveitamento === null ? 'Sem notas' : 'Média das notas',
+          },
+        ]}
+      />
+    </Painel>
   )
 }

@@ -87,6 +87,11 @@
   gap: 14px;
 }
 
+/* Só a média (escola sem o controle de frequência): ela ocupa a linha. */
+.metricaUnica {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .metrica {
   display: flex;
   flex-direction: column;

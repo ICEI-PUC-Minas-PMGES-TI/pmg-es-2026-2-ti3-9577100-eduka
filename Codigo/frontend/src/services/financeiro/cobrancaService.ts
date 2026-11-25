@@ -66,7 +66,7 @@ export function registrarPagamentoManual(id: string, dados: BaixaManualRequest):
   return apiRequest<Cobranca>(`/cobrancas/${id}/pagar`, { method: 'PATCH', body: JSON.stringify(dados) })
 }
 
-/** Comprovante do pagamento online, montado pelo Edúka (IU17-D). */
+/** Comprovante do pagamento online, montado pelo Eduka (IU17-D). */
 export function buscarComprovanteDaCobranca(id: string): Promise<Comprovante> {
   return apiRequest<Comprovante>(`/cobrancas/${id}/comprovante`)
 }

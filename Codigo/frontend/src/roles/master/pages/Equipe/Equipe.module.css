@@ -185,14 +185,6 @@
   min-width: 250px;
 }
 
-/* Selo de acesso pendente com o botão de reenviar ao lado. */
-.acesso {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
 .email {
   color: var(--color-text-muted);
   font-size: 13px;
@@ -207,12 +199,6 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-}
-
-/* Mesma largura para "Inativar" e "Reativar", para as colunas não pularem. */
-.alternar {
-  min-width: 112px;
-  justify-content: center;
 }
 
 /* Quem está inativo fica apagado. */
@@ -290,9 +276,5 @@
   .acoes {
     flex-wrap: wrap;
     justify-content: flex-start;
-  }
-
-  .alternar {
-    min-width: 0;
   }
 }

@@ -132,6 +132,66 @@ public interface CobrancaRepository
         BigDecimal getValorPago();
     }
 
+    // ---- Situacao financeira de cada aluno (lista de alunos, IU07) ----
+
+    /**
+     * Totais das cobrancas nao canceladas de cada aluno da escola, numa
+     * consulta so. Em atraso e a situacao efetiva ({@link StatusCobranca#efetivo}):
+     * EM_ATRASO gravado ou PENDENTE vencida antes de {@code hoje}. Aluno sem
+     * cobranca nao cancelada nao aparece.
+     *
+     * @param ate         ultimo dia (inclusive) do "vence em breve"
+     * @param inicioDoMes primeiro dia do mes atual
+     * @param fimDoMes    ultimo dia do mes atual
+     */
+    @Query("SELECT c.aluno.id AS alunoId, "
+            + "COUNT(CASE WHEN " + EM_ATRASO_EFETIVO + " THEN 1 END) AS emAtraso, "
+            + "COUNT(CASE WHEN " + A_VENCER + " THEN 1 END) AS pendentesNoPrazo, "
+            + "SUM(CASE WHEN " + EM_ABERTO + " THEN c.valor END) AS valorEmAberto, "
+            + "SUM(CASE WHEN " + EM_ATRASO_EFETIVO + " THEN c.valor END) AS valorEmAtraso, "
+            + "MIN(CASE WHEN " + EM_ATRASO_EFETIVO + " THEN c.dataVencimento END) AS vencimentoMaisAntigoEmAtraso, "
+            + "MIN(CASE WHEN " + A_VENCER + " THEN c.dataVencimento END) AS proximoVencimento, "
+            + "SUM(CASE WHEN " + A_VENCER + " AND c.dataVencimento <= :ate THEN c.valor END) AS valorVenceAte, "
+            + "COUNT(CASE WHEN c.tipo = br.pucminas.eduka.backend.domain.financeiro.TipoCobranca.MENSALIDADE "
+            + "AND c.dataVencimento BETWEEN :inicioDoMes AND :fimDoMes THEN 1 END) AS mensalidadesNoMes "
+            + "FROM Cobranca c WHERE c.escolaId = :escolaId "
+            + "AND c.status <> br.pucminas.eduka.backend.domain.financeiro.StatusCobranca.CANCELADA "
+            + "GROUP BY c.aluno.id")
+    List<FinanceiroPorAluno> financeiroPorAluno(@Param("escolaId") UUID escolaId, @Param("hoje") LocalDate hoje,
+            @Param("ate") LocalDate ate, @Param("inicioDoMes") LocalDate inicioDoMes,
+            @Param("fimDoMes") LocalDate fimDoMes);
+
+    String EM_ABERTO = "c.status IN (br.pucminas.eduka.backend.domain.financeiro.StatusCobranca.PENDENTE, "
+            + "br.pucminas.eduka.backend.domain.financeiro.StatusCobranca.EM_ATRASO)";
+
+    String EM_ATRASO_EFETIVO = "(c.status = br.pucminas.eduka.backend.domain.financeiro.StatusCobranca.EM_ATRASO "
+            + "OR (c.status = br.pucminas.eduka.backend.domain.financeiro.StatusCobranca.PENDENTE "
+            + "AND c.dataVencimento < :hoje))";
+
+    String A_VENCER = "(c.status = br.pucminas.eduka.backend.domain.financeiro.StatusCobranca.PENDENTE "
+            + "AND c.dataVencimento >= :hoje)";
+
+    /** Totais de {@link #financeiroPorAluno}. Somas e datas nulas quando nenhuma cobranca entra nelas. */
+    interface FinanceiroPorAluno {
+        UUID getAlunoId();
+
+        long getEmAtraso();
+
+        long getPendentesNoPrazo();
+
+        BigDecimal getValorEmAberto();
+
+        BigDecimal getValorEmAtraso();
+
+        LocalDate getVencimentoMaisAntigoEmAtraso();
+
+        LocalDate getProximoVencimento();
+
+        BigDecimal getValorVenceAte();
+
+        long getMensalidadesNoMes();
+    }
+
     /** {@code responsavelId} e o id da pessoa do responsavel, como na coluna. */
     boolean existsByEscolaIdAndResponsavelId(UUID escolaId, UUID responsavelId);
 

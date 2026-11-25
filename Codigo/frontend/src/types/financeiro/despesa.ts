@@ -15,6 +15,8 @@ export type Despesa = {
   categoriaId: string
   categoriaNome: string
   descricao: string
+  /** Nome em texto livre. Nulo nas despesas lançadas antes de o campo existir. */
+  responsavel: string | null
   valor: number
   dataVencimento: string // YYYY-MM-DD
   situacao: SituacaoDespesa
@@ -32,9 +34,21 @@ export type ResumoDespesas = {
   porSituacao: { situacao: SituacaoDespesa; quantidade: number; valor: number }[]
 }
 
+/** Corpo do PUT /despesas/{id}: substitui tudo menos a situação. */
+export type AtualizarDespesaRequest = {
+  descricao: string
+  /** Obrigatório, até 120 caracteres. */
+  responsavel: string
+  categoriaId: string
+  valor: number
+  dataVencimento: string
+}
+
 /** Corpo do POST /despesas. `paga: true` já lança como PAGA. */
 export type NovaDespesaRequest = {
   descricao: string
+  /** Obrigatório, até 120 caracteres. */
+  responsavel: string
   categoriaId: string
   valor: number
   dataVencimento: string

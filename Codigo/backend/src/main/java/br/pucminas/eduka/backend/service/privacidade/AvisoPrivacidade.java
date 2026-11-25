@@ -37,7 +37,7 @@ public final class AvisoPrivacidade {
     public static final List<Secao> SECOES = List.of(
             new Secao("Quem é responsável pelos dados", List.of(
                     "A sua escola é a controladora dos seus dados pessoais: é ela que decide para que eles são "
-                            + "usados. O Edúka é o sistema que a escola usa para isso e trata os dados em nome dela.")),
+                            + "usados. O Eduka é o sistema que a escola usa para isso e trata os dados em nome dela.")),
             new Secao("Quais dados usamos e para quê", List.of(
                     "Dados cadastrais (nome, CPF, data de nascimento, e-mail, telefone e endereço) do aluno, dos "
                             + "responsáveis e da equipe da escola, para identificar cada pessoa e dar acesso ao sistema.",

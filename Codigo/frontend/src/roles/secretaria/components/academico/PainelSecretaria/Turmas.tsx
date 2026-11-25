@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Badge } from '../../../../../components/ui/Badge/Badge'
 import { Campo } from '../../../../../components/formulario/Campo/Campo'
 import { ModalDetalhes } from '../../../../../components/modal/ModalDetalhes/ModalDetalhes'
 import { Select } from '../../../../../components/formulario/Select/Select'
 import { useDetalhe } from '../../../../../hooks/useDetalhe'
+import { useListaPaginada, type PaginaDoBackend } from '../../../../../hooks/usePaginacao'
+import { listarPaginaDeTurmas } from '../../../../../services/academico/academicoService'
 import { listarAlocacoesDaTurma } from '../../../../../services/academico/alocacaoService'
 import {
   OPCOES_TURNO,
@@ -15,7 +17,7 @@ import {
 } from '../../../../../types/academico/academico'
 import { ROTULOS_TURNO, type Turno } from '../../../../../types/academico/alocacao'
 import { mascararInteiro } from '../../../../../utils/formatters'
-import { AcoesLinha, CabecalhoAba, Tabela } from './comum'
+import { AcoesLinha, CabecalhoAba, TabelaDoBackend } from './comum'
 import { ConfirmarExclusao } from '../../../../../components/modal/ConfirmarExclusao/ConfirmarExclusao'
 import { mensagemErroAcademico } from './erros'
 import { opcional } from '../../../../../utils/formatacao'
@@ -27,7 +29,6 @@ const MAX_NOME = 100
 const MAX_CODIGO = 50
 
 type TurmasProps = {
-  turmas: TurmaAcademica[]
   periodos: PeriodoLetivo[]
   cursos: Curso[]
   disciplinas: Disciplina[]
@@ -39,7 +40,14 @@ type TurmasProps = {
 /** Formulário aberto: cadastro (sem turma) ou edição. */
 type Formulario = { aberto: false } | { aberto: true; turma?: TurmaAcademica }
 
-export function Turmas({ turmas, periodos, cursos, disciplinas, onCadastrar, onAtualizar, onExcluir }: TurmasProps) {
+/** A aba Turmas (IU09): a lista vem do backend uma página por vez, em ordem de nome. */
+export function Turmas({ periodos, cursos, disciplinas, onCadastrar, onAtualizar, onExcluir }: TurmasProps) {
+  const buscarTurmas = useCallback(
+    (pagina: number, tamanho: number, signal: AbortSignal) => listarPaginaDeTurmas(pagina, tamanho, signal),
+    [],
+  )
+  const lista = useListaPaginada<PaginaDoBackend<TurmaAcademica>>(buscarTurmas, 'Não foi possível carregar as turmas.')
+  const { recarregar } = lista
   const [formulario, setFormulario] = useState<Formulario>({ aberto: false })
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [vendo, setVendo] = useState<TurmaAcademica | null>(null)
@@ -56,11 +64,13 @@ export function Turmas({ turmas, periodos, cursos, disciplinas, onCadastrar, onA
     <>
       <CabecalhoAba titulo="Turmas" rotuloNovo="Nova turma" onNovo={() => abrir()} sucesso={sucesso} />
 
-      <Tabela
+      <TabelaDoBackend
         colunas={['Turma', 'Curso', 'Período letivo', 'Turno', 'Vagas', 'Disciplinas', '']}
         vazio="Nenhuma turma cadastrada ainda."
         rotuloPaginacao="Páginas das turmas"
-        linhas={turmas.map((t) => (
+        carregandoTexto="Carregando as turmas…"
+        lista={lista}
+        linha={(t) => (
           <tr key={t.id}>
             <td>
               <span className={styles.destaque}>{t.nome}</span>
@@ -90,7 +100,7 @@ export function Turmas({ turmas, periodos, cursos, disciplinas, onCadastrar, onA
               />
             </td>
           </tr>
-        ))}
+        )}
       />
 
       {vendo && <DetalhesTurma turma={vendo} onFechar={() => setVendo(null)} />}
@@ -105,6 +115,7 @@ export function Turmas({ turmas, periodos, cursos, disciplinas, onCadastrar, onA
           onFechar={() => setFormulario({ aberto: false })}
           onSalvar={async (dados) => {
             const salva = editando ? await onAtualizar(editando.id, dados) : await onCadastrar(dados)
+            recarregar()
             setFormulario({ aberto: false })
             setSucesso(editando ? `Turma "${salva.nome}" atualizada.` : `Turma "${salva.nome}" cadastrada.`)
           }}
@@ -119,6 +130,7 @@ export function Turmas({ turmas, periodos, cursos, disciplinas, onCadastrar, onA
           onFechar={() => setExcluindo(null)}
           onConfirmar={async () => {
             await onExcluir(excluindo.id)
+            recarregar()
             setExcluindo(null)
             setSucesso(`Turma "${excluindo.nome}" excluída.`)
           }}

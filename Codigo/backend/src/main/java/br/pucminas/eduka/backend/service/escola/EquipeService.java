@@ -63,16 +63,19 @@ public class EquipeService {
     private final AcessoService acessoService;
     private final IsolamentoEscola isolamentoEscola;
     private final AuditoriaService auditoriaService;
+    private final LimiteUsuariosService limiteUsuarios;
 
     public EquipeService(UsuarioRepository usuarioRepository, PessoaRepository pessoaRepository,
             PessoaPapelRepository pessoaPapelRepository, AcessoService acessoService,
-            IsolamentoEscola isolamentoEscola, AuditoriaService auditoriaService) {
+            IsolamentoEscola isolamentoEscola, AuditoriaService auditoriaService,
+            LimiteUsuariosService limiteUsuarios) {
         this.usuarioRepository = usuarioRepository;
         this.pessoaRepository = pessoaRepository;
         this.pessoaPapelRepository = pessoaPapelRepository;
         this.acessoService = acessoService;
         this.isolamentoEscola = isolamentoEscola;
         this.auditoriaService = auditoriaService;
+        this.limiteUsuarios = limiteUsuarios;
     }
 
     /**
@@ -180,6 +183,9 @@ public class EquipeService {
         Usuario usuario = buscarUsuario(id, escolaId);
         Pessoa pessoa = buscarPessoa(usuario, escolaId);
         if (usuario.isAtivo() != ativo) {
+            if (ativo) {
+                limiteUsuarios.exigirVaga(escolaId);
+            }
             usuario.setAtivo(ativo);
             usuario = usuarioRepository.save(usuario);
             auditar(ativo ? OperacaoAuditoria.ATIVAR : OperacaoAuditoria.INATIVAR, usuario);

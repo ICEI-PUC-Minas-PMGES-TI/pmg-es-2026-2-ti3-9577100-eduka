@@ -1,24 +1,23 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Badge } from '../../../../components/ui/Badge/Badge'
 import { Button } from '../../../../components/ui/Button/Button'
-import { Icon } from '../../../../components/ui/Icon/Icon'
+import { Icon, type IconName } from '../../../../components/ui/Icon/Icon'
 import { buscarMeusDados } from '../../../../services/pessoas/alunoService'
 import { obterUsuarioLogado } from '../../../../services/acesso/authService'
 import { listarMinhasTurmas } from '../../../../services/portal/portalAlunoService'
 import { buscarMinhaCorrecaoAberta } from '../../../../services/pessoas/solicitacaoCorrecaoService'
 import { ROTULOS_TURNO } from '../../../../types/academico/alocacao'
 import type { Aluno, Endereco } from '../../../../types/pessoas/aluno'
-import { ROTULOS_STATUS_MATRICULA, TOM_DO_STATUS } from '../../../../types/academico/matricula'
+import { ROTULOS_STATUS_MATRICULA } from '../../../../types/academico/matricula'
 import type { TurmaDoAluno } from '../../../../types/portal/portalAluno'
 import type { SolicitacaoCorrecao } from '../../../../types/pessoas/solicitacaoCorrecao'
 import { formatarCnpjCpf, iniciais, mascararCep, mascararTelefone } from '../../../../utils/formatters'
 import { formatarData } from '../../../../utils/formatacao'
+import { CarrosselTurmas } from '../../components/CarrosselTurmas/CarrosselTurmas'
 import { ModalCorrecaoDados } from '../../components/ModalCorrecaoDados/ModalCorrecaoDados'
 import { useDadosDoAluno } from '../../hooks/useDadosDoAluno'
 import { AlunoLayout } from '../../layouts/AlunoLayout'
 import styles from './MeusDados.module.css'
-
-type AbaPerfil = 'pessoais' | 'responsaveis' | 'turmas' | 'acesso'
 
 const SEM_DADO = '—'
 const SEM_TURMAS: TurmaDoAluno[] = []
@@ -39,6 +38,11 @@ function buscarAlunoOuNulo(signal: AbortSignal): Promise<Aluno | null> {
   return buscarMeusDados(signal)
 }
 
+/**
+ * Meus dados do ALUNO: o resumo com a turma atual no topo, os dados pessoais
+ * com os responsáveis e o acesso ao lado e, embaixo, o carrossel com todas as
+ * turmas. Tudo é só leitura; a correção é pedida à secretaria (IU15).
+ */
 export function MeusDados() {
   const { dados: aluno, carregando, erro, recarregar } = useDadosDoAluno(buscarAlunoOuNulo, null)
   const {
@@ -47,7 +51,6 @@ export function MeusDados() {
     erro: erroTurmas,
     recarregar: recarregarTurmas,
   } = useDadosDoAluno(listarMinhasTurmas, SEM_TURMAS)
-  const [abaAtiva, setAbaAtiva] = useState<AbaPerfil>('pessoais')
   // IU15: um pedido de correção aberto por vez; o enviado agora vale até a próxima leitura.
   const { dados: correcaoAberta } = useDadosDoAluno<SolicitacaoCorrecao | null>(buscarMinhaCorrecaoAberta, null)
   const [correcaoEnviada, setCorrecaoEnviada] = useState<SolicitacaoCorrecao | null>(null)
@@ -59,8 +62,12 @@ export function MeusDados() {
   const login = obterUsuarioLogado()?.login || aluno?.email || SEM_DADO
 
   return (
-    <AlunoLayout titulo="Meus dados" subtitulo="Confira suas informações. Para corrigir algo, fale com a secretaria.">
-      {carregando && <div className={styles.mensagem} role="status">Carregando seus dados…</div>}
+    <AlunoLayout titulo="Meus dados" subtitulo="Confira suas informações. Só a secretaria pode alterá-las.">
+      {carregando && (
+        <div className={styles.mensagem} role="status">
+          Carregando seus dados…
+        </div>
+      )}
 
       {!carregando && erro && (
         <div className={styles.mensagem} role="alert">
@@ -72,95 +79,79 @@ export function MeusDados() {
       )}
 
       {!carregando && !erro && aluno && (
-        <div className={styles.container}>
-          <aside className={styles.perfilCard} aria-label="Resumo do perfil">
-            <div className={styles.avatar} aria-hidden="true">
-              {iniciais(aluno.nome)}
+        <div className={styles.pagina}>
+          <section className={styles.perfil} aria-label="Resumo do perfil">
+            <div className={styles.identidade}>
+              <div className={styles.avatar} aria-hidden="true">
+                {iniciais(aluno.nome)}
+              </div>
+              <div className={styles.identidadeTexto}>
+                <h2 className={styles.nomeAluno}>{aluno.nome}</h2>
+                <div className={styles.identidadeLinha}>
+                  <span className={styles.matricula}>Matrícula {aluno.matricula}</span>
+                  {turma ? (
+                    <Badge tone={turma.situacaoMatricula === 'ATIVA' ? 'success' : 'neutral'}>
+                      {turma.situacaoMatricula === 'ATIVA'
+                        ? 'Matrícula ativa'
+                        : `Matrícula ${ROTULOS_STATUS_MATRICULA[turma.situacaoMatricula].toLowerCase()}`}
+                    </Badge>
+                  ) : (
+                    <Badge tone="neutral">Sem turma</Badge>
+                  )}
+                </div>
+                <span className={styles.login}>
+                  <Icon name="lock" size={13} />
+                  Login no Eduka: <strong>{login}</strong>
+                </span>
+              </div>
             </div>
-
-            <h2 className={styles.nomeAluno}>{aluno.nome}</h2>
-            <span className={styles.matricula}>Matrícula {aluno.matricula}</span>
-
-            {turma ? (
-              <Badge tone={turma.situacaoMatricula === 'ATIVA' ? 'success' : 'neutral'}>
-                {turma.situacaoMatricula === 'ATIVA'
-                  ? 'Matrícula ativa'
-                  : `Matrícula ${ROTULOS_STATUS_MATRICULA[turma.situacaoMatricula].toLowerCase()}`}
-              </Badge>
-            ) : (
-              <Badge tone="neutral">Sem turma</Badge>
-            )}
 
             {turma && (
-              <div className={styles.detalhesAcademicos}>
-                <LinhaInfo rotulo="Turma" valor={turma.turmaNome} />
-                <LinhaInfo rotulo="Curso" valor={turma.cursoNome} />
-                <LinhaInfo rotulo="Período" valor={turma.periodoLetivoNome} />
-                <LinhaInfo rotulo="Turno" valor={ROTULOS_TURNO[turma.turno]} />
-                <Button size="sm" icon="book" onClick={() => setAbaAtiva('turmas')}>
-                  {turmas.length > 1 ? `Ver as ${turmas.length} turmas e disciplinas` : 'Ver disciplinas'}
+              <dl className={styles.resumoAcademico} aria-label="Turma atual">
+                <InfoResumo icone="users" rotulo="Turma" valor={turma.turmaNome} />
+                <InfoResumo icone="graduationCap" rotulo="Curso" valor={turma.cursoNome} />
+                <InfoResumo icone="calendar" rotulo="Período" valor={turma.periodoLetivoNome} />
+                <InfoResumo icone="clock" rotulo="Turno" valor={ROTULOS_TURNO[turma.turno]} />
+              </dl>
+            )}
+
+            <div className={styles.acaoCorrecao}>
+              {pedido ? (
+                <p className={styles.pedidoCorrecao} role="status">
+                  <Icon name="clock" size={14} />
+                  Pedido de correção enviado em {formatarData(pedido.criadoEm.slice(0, 10))}. Aguardando a secretaria.
+                </p>
+              ) : (
+                <Button size="sm" icon="edit" onClick={() => setPedindoCorrecao(true)}>
+                  Pedir correção de dados
                 </Button>
-              </div>
-            )}
-
-            {pedido ? (
-              <p className={styles.pedidoCorrecao} role="status">
-                <Icon name="clock" size={14} />
-                Pedido de correção enviado em {formatarData(pedido.criadoEm.slice(0, 10))}. Aguardando a secretaria.
-              </p>
-            ) : (
-              <Button size="sm" icon="edit" onClick={() => setPedindoCorrecao(true)}>
-                Pedir correção de dados
-              </Button>
-            )}
-          </aside>
-
-          <section className={styles.painelDireito} aria-label="Detalhes cadastrais">
-            <div className={styles.tabsContainer} role="tablist" aria-label="Detalhes cadastrais">
-              <Aba id="pessoais" ativa={abaAtiva} onSelecionar={setAbaAtiva}>
-                Dados pessoais
-              </Aba>
-              <Aba id="responsaveis" ativa={abaAtiva} onSelecionar={setAbaAtiva}>
-                Responsáveis
-              </Aba>
-              <Aba id="turmas" ativa={abaAtiva} onSelecionar={setAbaAtiva}>
-                Turmas
-              </Aba>
-              <Aba id="acesso" ativa={abaAtiva} onSelecionar={setAbaAtiva}>
-                Acesso
-              </Aba>
-            </div>
-
-            <div
-              id="painel-meus-dados"
-              role="tabpanel"
-              aria-labelledby={`aba-${abaAtiva}`}
-              className={styles.conteudoCard}
-            >
-              {abaAtiva === 'pessoais' && <DadosPessoais aluno={aluno} />}
-              {abaAtiva === 'responsaveis' && <Responsaveis aluno={aluno} />}
-              {abaAtiva === 'turmas' && (
-                <Turmas
-                  turmas={turmas}
-                  carregando={carregandoTurmas}
-                  erro={erroTurmas}
-                  onTentarNovamente={recarregarTurmas}
-                />
-              )}
-              {abaAtiva === 'acesso' && (
-                <div>
-                  <h3 className={styles.tituloSecao}>Acesso ao Eduka</h3>
-                  <div className={styles.gridCampos}>
-                    <Campo rotulo="Login" valor={login} />
-                    <Campo rotulo="Perfil no sistema" valor="Aluno" />
-                  </div>
-                  <Aviso>Esqueceu a senha? Peça à secretaria para reenviar o seu acesso.</Aviso>
-                </div>
               )}
             </div>
           </section>
+
+          <div className={styles.grade}>
+            <Cartao titulo="Dados pessoais" icone="user">
+              <DadosPessoais aluno={aluno} />
+            </Cartao>
+
+            <Cartao titulo="Responsáveis" icone="users">
+              <Responsaveis aluno={aluno} />
+              <p className={styles.aviso}>
+                <Icon name="info" size={14} />
+                Algum dado seu ou dos responsáveis mudou? Use “Pedir correção de dados” lá em cima.
+              </p>
+            </Cartao>
+          </div>
+
+          <CarrosselTurmas
+            turmas={turmas}
+            carregando={carregandoTurmas}
+            erro={erroTurmas}
+            onTentarNovamente={recarregarTurmas}
+          />
         </div>
       )}
+
       {pedindoCorrecao && (
         <ModalCorrecaoDados
           onFechar={() => setPedindoCorrecao(false)}
@@ -177,169 +168,85 @@ export function MeusDados() {
 function DadosPessoais({ aluno }: { aluno: Aluno }) {
   const endereco = enderecoEmTexto(aluno.endereco)
   return (
-    <div>
-      <h3 className={styles.tituloSecao}>Dados pessoais</h3>
-      <div className={styles.gridCampos}>
-        <Campo rotulo="Nome completo" valor={aluno.nome} />
-        <Campo
-          rotulo="Data de nascimento"
-          valor={aluno.dataNascimento ? formatarData(aluno.dataNascimento) : SEM_DADO}
-        />
-        <Campo rotulo="CPF" valor={aluno.cpf ? formatarCnpjCpf(aluno.cpf) : SEM_DADO} />
-        <Campo rotulo="Gênero" valor={aluno.genero ?? SEM_DADO} />
-        <Campo rotulo="E-mail" valor={aluno.email ?? SEM_DADO} />
-        <Campo rotulo="Endereço" valor={endereco.rua} />
-        <Campo rotulo="Cidade" valor={endereco.cidade} />
-      </div>
-      <Aviso>Só a secretaria pode alterar estes dados.</Aviso>
-    </div>
+    <dl className={styles.gridCampos}>
+      <Campo rotulo="Nome completo" valor={aluno.nome} colunas={4} />
+      <Campo rotulo="Gênero" valor={aluno.genero ?? SEM_DADO} colunas={2} />
+      <Campo
+        rotulo="Data de nascimento"
+        valor={aluno.dataNascimento ? formatarData(aluno.dataNascimento) : SEM_DADO}
+        colunas={3}
+      />
+      <Campo rotulo="CPF" valor={aluno.cpf ? formatarCnpjCpf(aluno.cpf) : SEM_DADO} colunas={3} />
+      <Campo rotulo="E-mail" valor={aluno.email ?? SEM_DADO} colunas={6} />
+      <Campo rotulo="Endereço" valor={endereco.rua} colunas={3} />
+      <Campo rotulo="Cidade" valor={endereco.cidade} colunas={3} />
+    </dl>
   )
 }
 
 function Responsaveis({ aluno }: { aluno: Aluno }) {
+  if (aluno.responsaveis.length === 0) {
+    return <p className={styles.semDado}>Nenhum responsável cadastrado.</p>
+  }
   return (
-    <div>
-      <h3 className={styles.tituloSecao}>Responsáveis</h3>
-      {aluno.responsaveis.length === 0 ? (
-        <p className={styles.campoValor}>Nenhum responsável cadastrado.</p>
-      ) : (
-        aluno.responsaveis.map((r) => (
-          <div key={r.pessoaId} className={styles.gridCampos}>
-            <Campo rotulo="Nome" valor={r.nome} />
-            <Campo rotulo="Parentesco" valor={r.parentesco ?? SEM_DADO} />
+    <ul className={styles.responsaveis}>
+      {aluno.responsaveis.map((r) => (
+        <li key={r.pessoaId} className={styles.responsavel}>
+          <div className={styles.responsavelTopo}>
+            <span className={styles.responsavelAvatar} aria-hidden="true">
+              {iniciais(r.nome)}
+            </span>
+            <div className={styles.responsavelNome}>
+              <strong>{r.nome}</strong>
+              <span>{r.parentesco ?? 'Parentesco não informado'}</span>
+            </div>
+          </div>
+          <dl className={styles.listaCampos}>
             <Campo rotulo="E-mail" valor={r.email ?? SEM_DADO} />
             <Campo rotulo="Telefone" valor={r.telefone ? mascararTelefone(r.telefone) : SEM_DADO} />
-          </div>
-        ))
-      )}
-      <Aviso>Só a secretaria pode alterar estes dados.</Aviso>
-    </div>
+          </dl>
+        </li>
+      ))}
+    </ul>
   )
 }
 
-/** Todas as turmas do aluno (ativas primeiro, como o backend devolve), cada uma com a grade. */
-function Turmas({
-  turmas,
-  carregando,
-  erro,
-  onTentarNovamente,
-}: {
-  turmas: TurmaDoAluno[]
-  carregando: boolean
-  erro: string | null
-  onTentarNovamente: () => void
-}) {
+function Cartao({ titulo, icone, children }: { titulo: string; icone: IconName; children: ReactNode }) {
   return (
-    <div>
-      <h3 className={styles.tituloSecao}>Turmas e disciplinas</h3>
-      {carregando && <p className={styles.campoValor} role="status">Carregando suas turmas…</p>}
-      {!carregando && erro && (
-        <div className={styles.erroTurmas} role="alert">
-          <span>{erro}</span>
-          <Button size="sm" onClick={onTentarNovamente}>
-            Tentar novamente
-          </Button>
-        </div>
-      )}
-      {!carregando && !erro && turmas.length === 0 && (
-        <p className={styles.campoValor}>Você ainda não está matriculado em nenhuma turma.</p>
-      )}
-      {!carregando && !erro && turmas.length > 0 && (
-        <ul className={styles.listaTurmas}>
-          {turmas.map((t) => (
-            <li key={t.matriculaId}>
-              <article className={styles.turmaCard} aria-label={`Turma ${t.turmaNome}`}>
-                <header className={styles.turmaCabecalho}>
-                  <div>
-                    <h4 className={styles.turmaNome}>
-                      {t.turmaNome}
-                      {t.turmaCodigo && <span className={styles.turmaCodigo}> · {t.turmaCodigo}</span>}
-                    </h4>
-                    <p className={styles.turmaMeta}>
-                      {t.cursoNome} · {t.periodoLetivoNome} · {ROTULOS_TURNO[t.turno]}
-                    </p>
-                    <p className={styles.turmaMeta}>Matrícula em {formatarData(t.dataMatricula)}</p>
-                  </div>
-                  <Badge tone={TOM_DO_STATUS[t.situacaoMatricula]}>
-                    {ROTULOS_STATUS_MATRICULA[t.situacaoMatricula]}
-                  </Badge>
-                </header>
-                {t.disciplinas.length === 0 ? (
-                  <p className={styles.turmaMeta}>A grade desta turma ainda não tem disciplinas.</p>
-                ) : (
-                  <ul className={styles.listaDisciplinas} aria-label={`Disciplinas de ${t.turmaNome}`}>
-                    {t.disciplinas.map((d) => (
-                      <li key={d.id} className={styles.disciplina}>
-                        <span className={styles.disciplinaNome}>
-                          {d.nome}
-                          {d.codigo && <span className={styles.turmaCodigo}> · {d.codigo}</span>}
-                        </span>
-                        <span className={styles.disciplinaDetalhe}>
-                          {d.professorNome ?? 'Professor a definir'}{' '}
-                          <span className={styles.semQuebra}>· {d.cargaHoraria} h</span>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </article>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
-}
-
-function Aba({
-  id,
-  ativa,
-  onSelecionar,
-  children,
-}: {
-  id: AbaPerfil
-  ativa: AbaPerfil
-  onSelecionar: (aba: AbaPerfil) => void
-  children: string
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      id={`aba-${id}`}
-      aria-selected={ativa === id}
-      aria-controls="painel-meus-dados"
-      className={`${styles.tabBotao} ${ativa === id ? styles.tabAtiva : ''}`}
-      onClick={() => onSelecionar(id)}
-    >
+    <section className={styles.cartao} aria-label={titulo}>
+      <h3 className={styles.tituloCartao}>
+        <span className={styles.tituloIcone} aria-hidden="true">
+          <Icon name={icone} size={16} />
+        </span>
+        {titulo}
+      </h3>
       {children}
-    </button>
+    </section>
   )
 }
 
-function LinhaInfo({ rotulo, valor }: { rotulo: string; valor: string }) {
+function InfoResumo({ icone, rotulo, valor }: { icone: IconName; rotulo: string; valor: string }) {
   return (
-    <div className={styles.linhaInfo}>
-      <span className={styles.rotuloInfo}>{rotulo}</span>
-      <span className={styles.valorInfo}>{valor}</span>
+    <div className={styles.infoResumo}>
+      <span className={styles.infoIcone} aria-hidden="true">
+        <Icon name={icone} size={16} />
+      </span>
+      <div>
+        <dt className={styles.campoRotulo}>{rotulo}</dt>
+        <dd className={styles.infoValor}>{valor}</dd>
+      </div>
     </div>
   )
 }
 
-function Campo({ rotulo, valor }: { rotulo: string; valor: string }) {
-  return (
-    <div className={styles.campoItem}>
-      <span className={styles.campoRotulo}>{rotulo}</span>
-      <span className={styles.campoValor}>{valor}</span>
-    </div>
-  )
-}
+const SPAN = { 2: styles.span2, 3: styles.span3, 4: styles.span4, 6: styles.span6 } as const
 
-function Aviso({ children }: { children: string }) {
+/** `colunas` vale dentro da grade de seis colunas dos dados pessoais. */
+function Campo({ rotulo, valor, colunas }: { rotulo: string; valor: string; colunas?: keyof typeof SPAN }) {
   return (
-    <div className={styles.avisoRodape}>
-      <Icon name="info" size={16} />
-      <span>{children}</span>
+    <div className={`${styles.campo} ${colunas ? SPAN[colunas] : ''}`}>
+      <dt className={styles.campoRotulo}>{rotulo}</dt>
+      <dd className={styles.campoValor}>{valor}</dd>
     </div>
   )
 }

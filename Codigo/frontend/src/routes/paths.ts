@@ -27,14 +27,16 @@ export const paths = {
     faturasEscola: '/super-admin/escolas/:id/faturas',
     /** Faturas de todas as escolas (IU24, item Assinaturas do menu). */
     assinaturas: '/super-admin/assinaturas',
+    /** Logins de todas as escolas; o Super Admin gere o do MASTER (S5-14). */
+    usuarios: '/super-admin/usuarios',
   },
   master: {
     raiz: '/master',
     /** Dashboard da escola. */
     inicio: '/master/inicio',
-    /** Conta de recebimento da escola e faturas do Edúka (pagar e comprovante). */
+    /** Conta de recebimento da escola e faturas do Eduka (pagar e comprovante). */
     recebimentos: '/master/recebimentos',
-    /** Plano da escola e faturas do Edúka: pagar e ver o comprovante (IU24-A). */
+    /** Plano da escola e faturas do Eduka: pagar e ver o comprovante (IU24-A). */
     planoEFaturas: '/master/plano-e-faturas',
     /** Secretaria e financeiro da escola: cadastrar, editar, inativar e reenviar o acesso. */
     equipe: '/master/equipe',

@@ -27,6 +27,7 @@ import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import br.pucminas.eduka.backend.service.escola.LimiteUsuariosService;
 import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.acesso.Usuario;
 import br.pucminas.eduka.backend.dto.acesso.CadastroUsuarioRequest;
@@ -50,6 +51,9 @@ class UsuarioServiceTest {
     @Mock
     private UsuarioRepository usuarioRepository;
 
+    @Mock
+    private LimiteUsuariosService limiteUsuarios;
+
     // Encoder real: o ponto do teste e garantir que o hash e gerado de verdade.
     private final PasswordEncoder passwordEncoder = new PasswordEncoderConfig().passwordEncoder();
 
@@ -57,7 +61,8 @@ class UsuarioServiceTest {
 
     @BeforeEach
     void setUp() {
-        usuarioService = new UsuarioService(usuarioRepository, passwordEncoder, new IsolamentoEscola(), RELOGIO);
+        usuarioService = new UsuarioService(usuarioRepository, passwordEncoder, new IsolamentoEscola(), limiteUsuarios,
+                RELOGIO);
         // Padrao dos testes de senha/login: um MASTER cadastrando uma secretaria.
         autenticarComo("MASTER", ESCOLA_DO_TOKEN);
     }

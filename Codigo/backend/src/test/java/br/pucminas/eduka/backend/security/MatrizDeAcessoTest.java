@@ -98,7 +98,12 @@ class MatrizDeAcessoTest {
                 "POST /escolas/{escolaId}/faturas",
                 "GET /escolas/{escolaId}/faturas/pagina",
                 "PATCH /escolas/{escolaId}/faturas/{id}/cancelar",
-                "GET /escolas/{escolaId}/faturas/{id}/comprovante");
+                "GET /escolas/{escolaId}/faturas/{id}/comprovante",
+                // Tela Usuarios (S5-14): os logins de todas as escolas.
+                "GET /usuarios/plataforma",
+                "PATCH /usuarios/plataforma/{id}/inativar",
+                "PATCH /usuarios/plataforma/{id}/ativar",
+                "POST /usuarios/plataforma/{id}/primeiro-acesso");
 
         libera(matriz, GESTAO,
                 "GET /auditoria/pagina",
@@ -255,6 +260,10 @@ class MatrizDeAcessoTest {
                 "POST /portal/aluno/cobrancas/{id}/sandbox/pagar",
                 "POST /portal/aluno/correcoes",
                 "GET /portal/aluno/correcoes/aberta");
+
+        // Contato da propria escola, na Ajuda: todo perfil da escola; o SUPER_ADMIN nao tem escola.
+        libera(matriz, EnumSet.of(MASTER, SECRETARIA, FINANCEIRO, PROFESSOR, ALUNO),
+                "GET /minha-escola/contato");
 
         // Aviso de privacidade (IU29): todo usuario logado le e aceita, inclusive o SUPER_ADMIN.
         libera(matriz, TODOS,

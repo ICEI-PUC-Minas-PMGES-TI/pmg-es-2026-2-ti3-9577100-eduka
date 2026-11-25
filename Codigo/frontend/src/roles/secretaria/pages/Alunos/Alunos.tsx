@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { Button } from '../../../../components/ui/Button/Button'
 import { Icon } from '../../../../components/ui/Icon/Icon'
-import type { OpcaoSelect } from '../../../../components/formulario/Select/Select'
-import { StatCard, StatCards } from '../../../../components/ui/StatCard/StatCard'
+import { Select, type OpcaoSelect } from '../../../../components/formulario/Select/Select'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { useListaPaginada, type PaginaComResumo } from '../../../../hooks/usePaginacao'
 import { useTermoAdiado } from '../../../../hooks/useTermoAdiado'
@@ -19,15 +18,36 @@ import {
 } from '../../../../services/pessoas/alunoService'
 import { ApiError } from '../../../../services/api'
 import { obterUsuarioLogado } from '../../../../services/acesso/authService'
+import { useModulos } from '../../../../services/acesso/modulosSessao'
 import { matricularAluno, mensagemErroMatricula } from '../../../../services/academico/matriculaService'
 import type { TurmaAcademica } from '../../../../types/academico/academico'
-import type { Aluno, AlunoDaLista, ResumoAlunos, SituacaoNaEscola } from '../../../../types/pessoas/aluno'
+import {
+  ROTULOS_FAIXA_ATRASO,
+  ROTULOS_SITUACAO_FINANCEIRA,
+  type Aluno,
+  type AlunoDaLista,
+  type FaixaAtraso,
+  type ResumoAlunos,
+  type SituacaoFinanceira,
+  type SituacaoNaEscola,
+} from '../../../../types/pessoas/aluno'
 import { ROTULOS_TURNO } from '../../../../types/academico/alocacao'
 import { plural } from '../../../../utils/formatters'
 import { AlunoModal } from '../../components/alunos/AlunoModal/AlunoModal'
 import { AlunosTable } from '../../components/alunos/AlunosTable/AlunosTable'
 import { DetalhesAlunoModal } from '../../components/alunos/DetalhesAlunoModal/DetalhesAlunoModal'
+import { ResumoAlunos as CardsDoResumo } from '../../components/alunos/ResumoAlunos/ResumoAlunos'
 import { SecretariaLayout } from '../../layouts/SecretariaLayout'
+import {
+  FAIXAS_ATRASO,
+  SITUACOES_FINANCEIRAS,
+  consultaDosFiltros,
+  gravarFiltros,
+  lerFiltros,
+  proximaOrdem,
+  temFiltro,
+  type FiltrosDaLista,
+} from './filtrosDaLista'
 import styles from './Alunos.module.css'
 
 // Estável: o useCarregamento pede o valor inicial sempre igual.
@@ -58,8 +78,16 @@ function opcoesDeTurma(turmas: TurmaAcademica[]): OpcaoSelect<string>[] {
     })
 }
 
-/** Situações cuja pílula só aparece quando há algum aluno nela (ou quando já está escolhida). */
+/** Situações cuja opção só aparece quando há algum aluno nela (ou quando já está escolhida). */
 const SO_COM_ALUNOS: readonly Filtro[] = ['INATIVO', 'ANONIMIZADO']
+
+type FiltroFinanceiro = 'TODOS' | SituacaoFinanceira
+type FiltroAtraso = 'QUALQUER' | FaixaAtraso
+
+/** "Em atraso (9)", como as abas do Início; antes de o resumo chegar, só o nome. */
+function comQuantidade(rotulo: string, quantidade: number | undefined): string {
+  return quantidade === undefined ? rotulo : `${rotulo} (${quantidade})`
+}
 
 /** Mensagem para quando inativar ou reativar falha. */
 function motivoParaNaoAlternar(aluno: AlunoDaLista, e: unknown): string {
@@ -89,23 +117,39 @@ function podeCadastrarAlunos(): boolean {
   return perfil === 'MASTER' || perfil === 'SECRETARIA'
 }
 
+/** O financeiro dos alunos é do MASTER e do FINANCEIRO, com a gestão financeira contratada. */
+function perfilVeFinanceiro(): boolean {
+  const perfil = obterUsuarioLogado()?.perfil
+  return perfil === 'MASTER' || perfil === 'FINANCEIRO'
+}
+
 /**
  * Alunos da secretaria (IU07): a lista vem do backend uma página por vez
- * (GET /alunos/pagina), com a busca pelo nome ou matrícula e o filtro de
- * situação feitos lá. Cards e pílulas contam a escola inteira. O FINANCEIRO
- * abre a mesma tela só para consulta (/financeiro/alunos), para chegar à aba
+ * (GET /alunos/pagina), com a busca pelo nome ou matrícula e os filtros
+ * feitos lá. Cards e pílulas contam a escola inteira. O FINANCEIRO abre a
+ * mesma tela só para consulta (/financeiro/alunos), para chegar à aba
  * Financeiro de cada aluno (IU18).
+ *
+ * MASTER e FINANCEIRO veem também o financeiro de cada aluno: a coluna "Em
+ * aberto" (que ordena a lista), os seletores da situação na escola, da
+ * financeira e da faixa de atraso (na linha da busca) e os filtros de
+ * vencimento e mensalidade, que se somam a eles. Os filtros ficam na URL,
+ * para os atalhos do Início chegarem com eles aplicados.
  */
 export function Alunos() {
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const temModulo = useModulos()
   const podeCadastrar = podeCadastrarAlunos()
+  const veFinanceiro = perfilVeFinanceiro() && temModulo('GESTAO_FINANCEIRA')
   // O atalho "Cadastrar um aluno" do Início chega com o modal já aberto.
   const abrirCadastroAoEntrar =
     podeCadastrar && (location.state as EstadoAbrirCadastro | null)?.abrirCadastro === true
   const [busca, setBusca] = useState('')
   const termo = useTermoAdiado(busca)
-  const [filtro, setFiltro] = useState<Filtro>('TODOS')
+  const filtros = useMemo(() => lerFiltros(searchParams, veFinanceiro), [searchParams, veFinanceiro])
+  const filtro: Filtro = filtros.situacao ?? 'TODOS'
   const [modal, setModal] = useState<EstadoModal>(abrirCadastroAoEntrar ? { aberto: true } : { aberto: false })
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
@@ -113,13 +157,11 @@ export function Alunos() {
   const [alternandoId, setAlternandoId] = useState<string | null>(null)
   const [vendo, setVendo] = useState<AlunoDaLista | null>(null)
 
+  // Busca ou filtro novo troca a função, e a lista volta à primeira página.
   const buscarAlunos = useCallback(
     (pagina: number, tamanho: number, signal: AbortSignal) =>
-      listarPaginaDeAlunos(
-        { pagina, tamanho, busca: termo || undefined, situacao: filtro === 'TODOS' ? undefined : filtro },
-        signal,
-      ),
-    [termo, filtro],
+      listarPaginaDeAlunos({ pagina, tamanho, busca: termo || undefined, ...consultaDosFiltros(filtros) }, signal),
+    [termo, filtros],
   )
   const lista = useListaPaginada<PaginaComResumo<AlunoDaLista, ResumoAlunos>, HTMLElement>(
     buscarAlunos,
@@ -134,26 +176,93 @@ export function Alunos() {
     'Não foi possível carregar as turmas.',
   )
 
-  // Descarta o estado já lido, para o modal não reabrir ao recarregar a página.
+  // Descarta o estado já lido, para o modal não reabrir ao recarregar a
+  // página. Os filtros da URL ficam.
   useEffect(() => {
-    if (location.state) navigate(location.pathname, { replace: true, state: null })
-  }, [location.state, location.pathname, navigate])
+    if (location.state) {
+      navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null })
+    }
+  }, [location.state, location.pathname, location.search, navigate])
 
-  // Inativo e anonimizado não estão mais na escola: não contam como alunos
-  // cadastrados, e as pílulas deles só aparecem se houver algum.
-  const anonimizados = resumo?.porSituacao.ANONIMIZADO ?? 0
-  const inativos = resumo?.porSituacao.INATIVO ?? 0
-  const naEscola = (resumo?.total ?? 0) - anonimizados - inativos
-  const semTurma = resumo?.porSituacao.SEM_TURMA ?? 0
-  const filtros = FILTROS.filter(
-    (f) => !SO_COM_ALUNOS.includes(f.valor) || (resumo?.porSituacao[f.valor as SituacaoNaEscola] ?? 0) > 0 || filtro === f.valor,
+  /** Troca os filtros na URL, sem empilhar uma entrada no histórico a cada clique. */
+  function filtrar(mudanca: Partial<FiltrosDaLista>) {
+    setSearchParams((atuais) => gravarFiltros(atuais, { ...lerFiltros(atuais, veFinanceiro), ...mudanca }), {
+      replace: true,
+    })
+  }
+
+  function limparFiltros() {
+    filtrar({ situacao: null, financeiro: null, faixaAtraso: null, venceEm7Dias: false, semMensalidade: false })
+  }
+
+  // As pílulas de inativo e anonimizado só aparecem se houver algum aluno nelas.
+  const pilulasAcademicas = FILTROS.filter(
+    (f) =>
+      !SO_COM_ALUNOS.includes(f.valor) ||
+      (resumo?.porSituacao[f.valor as SituacaoNaEscola] ?? 0) > 0 ||
+      filtro === f.valor,
   )
+  const quantidadeNaEscola = (f: Filtro) =>
+    resumo ? (f === 'TODOS' ? resumo.total : resumo.porSituacao[f]) : undefined
+  const resumoFinanceiro = resumo?.financeiro ?? null
+
+  // Quem vê o financeiro filtra por seletores, para os três critérios caberem na linha da busca.
+  const opcoesNaEscola: OpcaoSelect<Filtro>[] = pilulasAcademicas.map((f) => ({
+    valor: f.valor,
+    rotulo: comQuantidade(f.rotulo, quantidadeNaEscola(f.valor)),
+  }))
+  const opcoesFinanceiro: OpcaoSelect<FiltroFinanceiro>[] = [
+    { valor: 'TODOS', rotulo: comQuantidade('Todos', resumo?.total) },
+    ...SITUACOES_FINANCEIRAS.map((s) => ({
+      valor: s,
+      rotulo: comQuantidade(ROTULOS_SITUACAO_FINANCEIRA[s], resumoFinanceiro?.porSituacao[s]),
+    })),
+  ]
+  const opcoesAtraso: OpcaoSelect<FiltroAtraso>[] = [
+    { valor: 'QUALQUER', rotulo: comQuantidade('Qualquer tempo', resumoFinanceiro?.porSituacao.EM_ATRASO) },
+    ...FAIXAS_ATRASO.map((faixa) => ({
+      valor: faixa,
+      rotulo: comQuantidade(ROTULOS_FAIXA_ATRASO[faixa], resumoFinanceiro?.porFaixaAtraso[faixa]),
+    })),
+  ]
+  const classeDoSeletor = (filtrando: boolean) => `${styles.seletor} ${filtrando ? styles.seletorAtivo : ''}`
+
   const mensagemVazia =
     resumo?.total === 0
       ? 'Nenhum aluno cadastrado ainda.'
       : termo
         ? 'Nenhum aluno encontrado para a busca.'
-        : 'Nenhum aluno nesta situação.'
+        : filtros.financeiro || filtros.venceEm7Dias || filtros.semMensalidade
+          ? 'Nenhum aluno com esses filtros.'
+          : 'Nenhum aluno nesta situação.'
+
+  const pilulasDaSituacao = (
+    <div className={styles.filtros} role="group" aria-label="Filtrar por situação">
+      {pilulasAcademicas.map((f) => (
+        <Pilula
+          key={f.valor}
+          ativa={filtro === f.valor}
+          onClick={() => filtrar({ situacao: f.valor === 'TODOS' ? null : f.valor })}
+          quantidade={quantidadeNaEscola(f.valor)}
+        >
+          {f.rotulo}
+        </Pilula>
+      ))}
+    </div>
+  )
+
+  const campoDeBusca = (
+    <label className={styles.busca}>
+      <Icon name="search" size={17} />
+      <input
+        type="search"
+        placeholder="Procurar pelo nome ou matrícula"
+        aria-label="Buscar aluno pelo nome ou matrícula"
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+      />
+    </label>
+  )
 
   function limparAvisos() {
     setSucesso(null)
@@ -257,58 +366,93 @@ export function Alunos() {
       }
     >
       {resumo && (
-        <StatCards rotulo="Resumo dos alunos">
-          <StatCard
-            label="Alunos cadastrados"
-            value={naEscola}
-            descricao={inativos ? `Na escola · ${inativos} ${plural(inativos, 'inativo', 'inativos')}` : 'Na escola'}
-            destaque
-          />
-          <StatCard label="Com turma" value={resumo.porSituacao.MATRICULADO} descricao="Com matrícula ativa" />
-          <StatCard
-            label="Sem turma"
-            value={semTurma}
-            descricao={semTurma ? (podeCadastrar ? 'Matricule em Matrículas' : 'Sem matrícula ativa') : 'Todos matriculados'}
-            atencao={semTurma > 0}
-          />
-        </StatCards>
+        <CardsDoResumo
+          resumo={resumo}
+          // O FINANCEIRO vê os cards financeiros; o MASTER escolhe entre os da escola e os financeiros.
+          visoes={!veFinanceiro ? 'ESCOLA' : podeCadastrar ? 'AMBOS' : 'FINANCEIRO'}
+          podeMatricular={podeCadastrar}
+          atalhos={{
+            emAtraso: () => filtrar({ financeiro: 'EM_ATRASO', faixaAtraso: null }),
+            venceEm7Dias: () => filtrar({ venceEm7Dias: true }),
+            semCobranca: () => filtrar({ financeiro: 'SEM_COBRANCA', faixaAtraso: null }),
+          }}
+        />
       )}
 
       <div className={styles.toolbar}>
-        <label className={styles.busca}>
-          <Icon name="search" size={17} />
-          <input
-            type="search"
-            placeholder="Procurar pelo nome ou matrícula"
-            aria-label="Buscar aluno pelo nome ou matrícula"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-          />
-        </label>
-        <div className={styles.filtros} role="group" aria-label="Filtrar por situação">
-          {filtros.map((f) => (
-            <button
-              key={f.valor}
-              type="button"
-              aria-pressed={filtro === f.valor}
-              className={`${styles.filtro} ${filtro === f.valor ? styles.filtroAtivo : ''}`}
-              onClick={() => setFiltro(f.valor)}
-            >
-              {f.rotulo}
-              {resumo && (
-                <span className={styles.filtroQuantidade}>
-                  {f.valor === 'TODOS' ? resumo.total : resumo.porSituacao[f.valor]}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+        {veFinanceiro ? (
+          // Busca e os três critérios numa linha só; o de atraso aparece ao lado,
+          // sem empurrar a tabela, quando o financeiro está em "Em atraso".
+          <div className={styles.controles}>
+            {campoDeBusca}
+            <Select<Filtro>
+              prefixo="Na escola"
+              aria-label="Filtrar por situação"
+              opcoes={opcoesNaEscola}
+              valor={filtro}
+              onChange={(v) => filtrar({ situacao: v === 'TODOS' ? null : v })}
+              className={classeDoSeletor(filtro !== 'TODOS')}
+            />
+            <Select<FiltroFinanceiro>
+              prefixo="Financeiro"
+              aria-label="Filtrar pela situação financeira"
+              opcoes={opcoesFinanceiro}
+              valor={filtros.financeiro ?? 'TODOS'}
+              onChange={(v) => filtrar({ financeiro: v === 'TODOS' ? null : v, faixaAtraso: null })}
+              className={classeDoSeletor(filtros.financeiro !== null)}
+            />
+            {filtros.financeiro === 'EM_ATRASO' && (
+              <Select<FiltroAtraso>
+                prefixo="Atraso"
+                aria-label="Filtrar pelo tempo de atraso"
+                opcoes={opcoesAtraso}
+                valor={filtros.faixaAtraso ?? 'QUALQUER'}
+                onChange={(v) => filtrar({ faixaAtraso: v === 'QUALQUER' ? null : v })}
+                className={classeDoSeletor(filtros.faixaAtraso !== null)}
+              />
+            )}
+          </div>
+        ) : (
+          // Sem o financeiro, as pílulas cabem na mesma linha da busca, como sempre foram.
+          <>
+            {campoDeBusca}
+            {pilulasDaSituacao}
+          </>
+        )}
         {podeCadastrar && (
           <Button variant="primary" icon="plus" onClick={abrirCadastro}>
             Novo aluno
           </Button>
         )}
       </div>
+
+      {veFinanceiro && (
+        <div className={styles.extras}>
+          <div className={styles.filtros} role="group" aria-label="Mais filtros financeiros">
+            <Pilula
+              ativa={filtros.venceEm7Dias}
+              marcavel
+              onClick={() => filtrar({ venceEm7Dias: !filtros.venceEm7Dias })}
+              quantidade={resumoFinanceiro?.venceEm7Dias}
+            >
+              Vence nos próximos 7 dias
+            </Pilula>
+            <Pilula
+              ativa={filtros.semMensalidade}
+              marcavel
+              onClick={() => filtrar({ semMensalidade: !filtros.semMensalidade })}
+              quantidade={resumoFinanceiro?.semMensalidadeNoMes}
+            >
+              Sem mensalidade neste mês
+            </Pilula>
+          </div>
+          {temFiltro(filtros) && (
+            <button type="button" className={styles.limpar} onClick={limparFiltros}>
+              Limpar filtros
+            </button>
+          )}
+        </div>
+      )}
 
       {sucesso && (
         <p className={styles.sucesso} role="status">
@@ -336,6 +480,14 @@ export function Alunos() {
         onEditar={podeCadastrar ? abrirEdicao : undefined}
         onReenviarAcesso={podeCadastrar ? handleReenviarAcesso : undefined}
         onAlternarSituacao={podeCadastrar ? handleAlternarSituacao : undefined}
+        colunaEmAberto={
+          veFinanceiro
+            ? {
+                ordem: filtros.ordem.campo === 'EM_ABERTO' ? filtros.ordem.direcao : null,
+                onOrdenar: () => filtrar({ ordem: proximaOrdem(filtros.ordem) }),
+              }
+            : undefined
+        }
       />
 
       {vendo && (
@@ -359,5 +511,34 @@ export function Alunos() {
         />
       )}
     </SecretariaLayout>
+  )
+}
+
+type PilulaProps = {
+  ativa: boolean
+  onClick: () => void
+  /** Quantos alunos a pílula traz; sem ela (resumo ainda não chegou), não mostra o número. */
+  quantidade?: number
+  /** Liga e desliga sozinha (combina com as outras), em vez de escolher uma entre várias. */
+  marcavel?: boolean
+  children: string
+}
+
+function Pilula({ ativa, onClick, quantidade, marcavel = false, children }: PilulaProps) {
+  return (
+    <button
+      type="button"
+      aria-pressed={ativa}
+      className={`${styles.filtro} ${ativa ? styles.filtroAtivo : ''}`}
+      onClick={onClick}
+    >
+      {marcavel && (
+        <span className={`${styles.marca} ${ativa ? styles.marcaLigada : ''}`} aria-hidden="true">
+          {ativa && <Icon name="check" size={12} strokeWidth={3} />}
+        </span>
+      )}
+      {children}
+      {quantidade !== undefined && <span className={styles.filtroQuantidade}>{quantidade}</span>}
+    </button>
   )
 }

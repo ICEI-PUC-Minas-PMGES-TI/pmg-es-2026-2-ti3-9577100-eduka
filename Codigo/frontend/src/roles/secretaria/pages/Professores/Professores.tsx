@@ -17,6 +17,10 @@ import {
   reenviarAcessoProfessor,
 } from '../../../../services/pessoas/professorService'
 import type { Professor, ResumoProfessores } from '../../../../types/pessoas/professor'
+import {
+  AlocacoesProfessorModal,
+  type VisaoAlocacoes,
+} from '../../components/professores/AlocacoesProfessorModal/AlocacoesProfessorModal'
 import { CadastroProfessorModal } from '../../components/professores/CadastroProfessorModal/CadastroProfessorModal'
 import { DetalhesProfessorModal } from '../../components/professores/DetalhesProfessorModal/DetalhesProfessorModal'
 import { ExcluirProfessorModal } from '../../components/professores/ExcluirProfessorModal/ExcluirProfessorModal'
@@ -57,6 +61,7 @@ export function Professores() {
   const [reenviandoId, setReenviandoId] = useState<string | null>(null)
   const [excluindo, setExcluindo] = useState<Professor | null>(null)
   const [vendo, setVendo] = useState<Professor | null>(null)
+  const [alocacoesDe, setAlocacoesDe] = useState<{ professor: Professor; visao: VisaoAlocacoes } | null>(null)
 
   // Descarta o estado já lido, para o modal não reabrir ao recarregar a página.
   useEffect(() => {
@@ -225,6 +230,7 @@ export function Professores() {
         reenviandoId={reenviandoId}
         onTentarNovamente={recarregar}
         onVer={setVendo}
+        onVerAlocacoes={(professor, visao) => setAlocacoesDe({ professor, visao })}
         onEditar={abrirEdicao}
         onAlternarSituacao={handleAlternarSituacao}
         onReenviarAcesso={(professor) => void handleReenviarAcesso(professor)}
@@ -232,6 +238,14 @@ export function Professores() {
       />
 
       {vendo && <DetalhesProfessorModal professor={vendo} onFechar={() => setVendo(null)} />}
+
+      {alocacoesDe && (
+        <AlocacoesProfessorModal
+          professor={alocacoesDe.professor}
+          visao={alocacoesDe.visao}
+          onFechar={() => setAlocacoesDe(null)}
+        />
+      )}
 
       {editando && (
         <CadastroProfessorModal

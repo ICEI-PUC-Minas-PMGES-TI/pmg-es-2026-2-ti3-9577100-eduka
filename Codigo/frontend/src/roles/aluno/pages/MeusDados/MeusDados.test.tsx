@@ -94,17 +94,34 @@ describe('MeusDados', () => {
     expect(chamadas.find((c) => c.metodo === 'POST')?.corpo).toEqual({ mensagem: 'Meu telefone mudou' })
   })
 
-  it('mostra todas as turmas, não só a atual, cada uma com as disciplinas e os professores', async () => {
+  it('mostra o login, os dados pessoais e os responsáveis juntos, sem abas', async () => {
+    abrir({ status: 204 })
+
+    const resumo = await screen.findByRole('region', { name: 'Resumo do perfil' })
+    expect(within(resumo).getByText('lucas@email.com')).toBeInTheDocument()
+    const pessoais = screen.getByRole('region', { name: 'Dados pessoais' })
+    expect(within(pessoais).getByText('529.982.247-25')).toBeInTheDocument()
+    expect(within(pessoais).getByText('14/03/2009')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Responsáveis' })).toHaveTextContent(/nenhum responsável cadastrado/i)
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
+  })
+
+  it('mostra todas as turmas no carrossel, cada uma com as disciplinas e os professores', async () => {
     abrir({ status: 204 }, undefined, { corpo: TURMAS })
 
-    // O resumo lateral continua com a turma atual e leva à lista completa.
-    await userEvent.click(await screen.findByRole('button', { name: /ver as 2 turmas e disciplinas/i }))
-    expect(screen.getByRole('tab', { name: 'Turmas' })).toHaveAttribute('aria-selected', 'true')
+    // O resumo do topo mostra a turma que o aluno está cursando.
+    const resumo = await screen.findByRole('region', { name: 'Resumo do perfil' })
+    expect(within(resumo).getByText('Matrícula ativa')).toBeInTheDocument()
+    expect(await within(resumo).findByText('2º ano A')).toBeInTheDocument()
 
-    const atual = screen.getByRole('article', { name: 'Turma 2º ano A' })
+    const carrossel = screen.getByRole('region', { name: 'Minhas turmas' })
+    const atual = within(carrossel).getByRole('article', { name: 'Turma 2º ano A' })
     expect(within(atual).getByText('Ativa')).toBeInTheDocument()
-    expect(within(atual).getByText(/ensino médio · 2026 · matutino/i)).toBeInTheDocument()
+    expect(within(atual).getByText('Ensino Médio')).toBeInTheDocument()
+    expect(within(atual).getByText(/período 2026/i)).toBeInTheDocument()
+    expect(within(atual).getByText('Matutino')).toBeInTheDocument()
     expect(within(atual).getByText(/matrícula em 01\/02\/2026/i)).toBeInTheDocument()
+    expect(within(atual).getByText(/2 disciplinas · 200 h no total/i)).toBeInTheDocument()
     const disciplinas = within(within(atual).getByRole('list', { name: /disciplinas de 2º ano a/i })).getAllByRole(
       'listitem',
     )
@@ -118,11 +135,41 @@ describe('MeusDados', () => {
     expect(anterior).toHaveTextContent(/rui lima · 80 h/i)
   })
 
-  it('sem matrícula, a aba Turmas diz que ainda não há turma', async () => {
+  it('navega entre as turmas pelas setas e pelos indicadores', async () => {
+    abrir({ status: 204 }, undefined, { corpo: TURMAS })
+
+    const carrossel = await screen.findByRole('region', { name: 'Minhas turmas' })
+    const anterior = await within(carrossel).findByRole('button', { name: 'Turma anterior' })
+    const proxima = within(carrossel).getByRole('button', { name: 'Próxima turma' })
+    expect(within(carrossel).getByText('1 de 2')).toBeInTheDocument()
+    expect(anterior).toBeDisabled()
+
+    await userEvent.click(proxima)
+    expect(within(carrossel).getByText('2 de 2')).toBeInTheDocument()
+    expect(proxima).toBeDisabled()
+    expect(within(carrossel).getByRole('button', { name: 'Ir para a turma 1º ano A' })).toHaveAttribute(
+      'aria-current',
+      'true',
+    )
+
+    await userEvent.click(within(carrossel).getByRole('button', { name: 'Ir para a turma 2º ano A' }))
+    expect(within(carrossel).getByText('1 de 2')).toBeInTheDocument()
+  })
+
+  it('com uma turma só, o carrossel não mostra setas', async () => {
+    abrir({ status: 204 }, undefined, { corpo: [TURMAS[0]] })
+
+    const carrossel = await screen.findByRole('region', { name: 'Minhas turmas' })
+    expect(await within(carrossel).findByRole('article', { name: 'Turma 2º ano A' })).toBeInTheDocument()
+    expect(within(carrossel).queryByRole('button', { name: 'Próxima turma' })).not.toBeInTheDocument()
+  })
+
+  it('sem matrícula, o carrossel diz que ainda não há turma', async () => {
     abrir({ status: 204 })
 
-    await userEvent.click(await screen.findByRole('tab', { name: 'Turmas' }))
-    expect(screen.getByText(/ainda não está matriculado em nenhuma turma/i)).toBeInTheDocument()
+    const carrossel = await screen.findByRole('region', { name: 'Minhas turmas' })
+    expect(await within(carrossel).findByText(/ainda não está matriculado em nenhuma turma/i)).toBeInTheDocument()
+    expect(screen.getByText('Sem turma')).toBeInTheDocument()
   })
 
   it('com um pedido aberto, não deixa pedir outro', async () => {

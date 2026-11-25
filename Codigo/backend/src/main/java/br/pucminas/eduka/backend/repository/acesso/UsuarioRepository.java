@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import br.pucminas.eduka.backend.domain.acesso.PerfilUsuario;
 import br.pucminas.eduka.backend.domain.acesso.Usuario;
 
-public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
+public interface UsuarioRepository extends JpaRepository<Usuario, UUID>, JpaSpecificationExecutor<Usuario> {
 
     Optional<Usuario> findByLogin(String login);
 
@@ -30,6 +31,9 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
     Optional<Usuario> findByIdAndEscolaIdAndPerfilIn(UUID id, UUID escolaId, Collection<PerfilUsuario> perfis);
 
     Optional<Usuario> findByPessoaId(UUID pessoaId);
+
+    /** Logins ativos da escola, de todos os perfis: o que conta no limite do plano. */
+    long countByEscolaIdAndAtivoTrue(UUID escolaId);
 
     /**
      * Grava o login concluido em {@code ULTIMO_ACESSO_EM} (V42). Nativo e fora

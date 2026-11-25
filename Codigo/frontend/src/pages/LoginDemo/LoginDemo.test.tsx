@@ -78,7 +78,7 @@ describe('LoginDemo', () => {
     await userEvent.click(await screen.findByRole('button', { name: /helena duarte/i }))
 
     expect(await screen.findByRole('heading', { name: /acesso temporariamente indisponível/i })).toBeInTheDocument()
-    expect(screen.getByText(/porque uma fatura do Edúka está em atraso/)).toBeInTheDocument()
+    expect(screen.getByText(/porque uma fatura do Eduka está em atraso/)).toBeInTheDocument()
   })
 
   it('não manda o token salvo de uma sessão anterior', async () => {

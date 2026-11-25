@@ -90,7 +90,7 @@ type ModalAtivarRecebimentosProps = {
 
 /**
  * Cadastro da conta de recebimento (spec §8.1). O CNPJ vem do cadastro da
- * escola. Os dados bancários vão para o provedor e não ficam no Edúka.
+ * escola. Os dados bancários vão para o provedor e não ficam no Eduka.
  */
 export function ModalAtivarRecebimentos({ conta, onFechar, onAtivar }: ModalAtivarRecebimentosProps) {
   const [campos, setCampos] = useState<Campos>(() => camposIniciais(conta))
@@ -224,7 +224,7 @@ export function ModalAtivarRecebimentos({ conta, onFechar, onAtivar }: ModalAtiv
       <Campo
         label="Banco (código)"
         erro={erros.codigoBanco}
-        dica="Os dados bancários vão direto para o provedor de pagamento e não ficam no Edúka."
+        dica="Os dados bancários vão direto para o provedor de pagamento e não ficam no Eduka."
         obrigatorio
         largo
       >

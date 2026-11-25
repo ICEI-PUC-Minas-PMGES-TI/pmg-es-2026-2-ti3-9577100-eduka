@@ -6,6 +6,7 @@ import { Badge } from '../../../../components/ui/Badge/Badge'
 import { Button } from '../../../../components/ui/Button/Button'
 import { Icon } from '../../../../components/ui/Icon/Icon'
 import { StatCard, StatCards } from '../../../../components/ui/StatCard/StatCard'
+import { temModulo } from '../../../../services/acesso/modulosSessao'
 import { buscarBoletim } from '../../../../services/portal/portalAlunoService'
 import { ROTULOS_STATUS_MATRICULA } from '../../../../types/academico/matricula'
 import {
@@ -20,6 +21,7 @@ import { AgendaAvaliacoes } from '../../components/AgendaAvaliacoes/AgendaAvalia
 import { aproveitamento } from '../../formatacao'
 import { useDadosDoAluno } from '../../hooks/useDadosDoAluno'
 import { AlunoLayout } from '../../layouts/AlunoLayout'
+import { IndicadorAjuda } from '../../../../components/ajuda/IndicadorAjuda/IndicadorAjuda'
 import {
   agruparPorAno,
   avaliacoesNoRecorte,
@@ -78,7 +80,15 @@ export function Boletim() {
   }
 
   return (
-    <AlunoLayout titulo="Boletim" subtitulo="Suas notas por ano e bimestre, a frequência e as tarefas e provas.">
+    <AlunoLayout
+      titulo="Boletim"
+      subtitulo={
+        // Sem o controle de frequência contratado, a escola não registra chamada: não há frequência a mostrar.
+        temModulo('CONTROLE_FREQUENCIA')
+          ? 'Suas notas por ano e bimestre, a frequência e as tarefas e provas.'
+          : 'Suas notas por ano e bimestre e as tarefas e provas.'
+      }
+    >
       <div className={styles.abas} role="tablist" aria-label="Boletim">
         {ABAS.map((a) => (
           <button
@@ -172,6 +182,7 @@ type BoletimDoAnoProps = {
 }
 
 function BoletimDoAno({ anos, ano, bimestre, onAno, onBimestre }: BoletimDoAnoProps) {
+  const comFrequencia = temModulo('CONTROLE_FREQUENCIA')
   const linhas = useMemo(() => quadroDoAno(ano), [ano])
   const resumo = resumir(ano, linhas, bimestre)
   const bimestreDeHoje = bimestreDaData(ano, hojeIso())
@@ -259,12 +270,14 @@ function BoletimDoAno({ anos, ano, bimestre, onAno, onBimestre }: BoletimDoAnoPr
           destaque
           alerta={percentual !== null && !atingiuMedia(resumo.pontos.obtidos, resumo.pontos.avaliados)}
         />
-        <StatCard
-          label="Frequência"
-          value={resumo.frequencia === null ? '—' : formatarPercentual(resumo.frequencia.percentualFrequencia)}
-          descricao={textoFrequencia(resumo.frequencia)}
-          alerta={resumo.frequencia?.alertaFaltas}
-        />
+        {comFrequencia && (
+          <StatCard
+            label="Frequência"
+            value={resumo.frequencia === null ? '—' : formatarPercentual(resumo.frequencia.percentualFrequencia)}
+            descricao={textoFrequencia(resumo.frequencia)}
+            alerta={resumo.frequencia?.alertaFaltas}
+          />
+        )}
         <StatCard
           label="Abaixo da média"
           value={resumo.abaixoDaMedia.length}
@@ -290,10 +303,13 @@ function BoletimDoAno({ anos, ano, bimestre, onAno, onBimestre }: BoletimDoAnoPr
         <Icon name="info" size={16} />
         <span>
           <strong>Regras de aprovação:</strong> média mínima de {formatarPontos(PERCENTUAL_APROVACAO * 100)}% dos
-          pontos e limite de {formatarPontos(ano.limiteFaltasPercentual)}% de faltas nas aulas dadas. A nota de cada
-          bimestre é a soma das avaliações com data dentro dele.
+          pontos
+          {comFrequencia && <> e limite de {formatarPontos(ano.limiteFaltasPercentual)}% de faltas nas aulas dadas</>}.
+          A nota de cada bimestre é a soma das avaliações com data dentro dele.
         </span>
       </p>
+
+      <IndicadorAjuda>Alguma nota ou falta parece errada? Veja como falar com a escola</IndicadorAjuda>
     </>
   )
 }
@@ -314,7 +330,8 @@ type QuadroDeNotasProps = {
 function QuadroDeNotas({ ano, linhas, bimestre }: QuadroDeNotasProps) {
   const [abertas, setAbertas] = useState<Set<number>>(() => new Set())
   const todasAbertas = linhas.length > 0 && linhas.every((l) => abertas.has(l.disciplinaId))
-  const colunas = ano.bimestres.length + 4
+  const comFrequencia = temModulo('CONTROLE_FREQUENCIA')
+  const colunas = ano.bimestres.length + (comFrequencia ? 4 : 3)
 
   function alternar(id: number) {
     setAbertas((atual) => {
@@ -378,9 +395,11 @@ function QuadroDeNotas({ ano, linhas, bimestre }: QuadroDeNotasProps) {
                 <th scope="col" className={`${styles.colNota} ${bimestre === null ? styles.colAtiva : ''}`}>
                   Total
                 </th>
-                <th scope="col" className={styles.colNota}>
-                  Frequência
-                </th>
+                {comFrequencia && (
+                  <th scope="col" className={styles.colNota}>
+                    Frequência
+                  </th>
+                )}
                 <th scope="col">Situação</th>
               </tr>
             </thead>
@@ -417,13 +436,15 @@ function QuadroDeNotas({ ano, linhas, bimestre }: QuadroDeNotasProps) {
                         />
                       ))}
                       <CelulaNota rotulo="Total" pontos={linha.total} ativa={bimestre === null} total />
-                      <td data-rotulo="Frequência" className={styles.colNota}>
-                        <CelulaFrequencia frequencia={doRecorte.frequencia} />
-                      </td>
+                      {comFrequencia && (
+                        <td data-rotulo="Frequência" className={styles.colNota}>
+                          <CelulaFrequencia frequencia={doRecorte.frequencia} />
+                        </td>
+                      )}
                       <td data-rotulo="Situação" className={styles.colSituacao}>
                         <span className={styles.situacao}>
                           <Badge tone={TOM_SITUACAO[sit]}>{ROTULO_SITUACAO[sit]}</Badge>
-                          {doRecorte.frequencia?.alertaFaltas && (
+                          {comFrequencia && doRecorte.frequencia?.alertaFaltas && (
                             <Badge tone="danger" icon="alert">
                               Faltas acima do limite
                             </Badge>

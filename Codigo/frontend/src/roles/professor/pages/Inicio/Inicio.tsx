@@ -5,6 +5,7 @@ import { Atalhos, Colunas, EstadoDashboard, Painel, PainelVazio } from '../../..
 import { StatCard, StatCards } from '../../../../components/ui/StatCard/StatCard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { paths, type EstadoNovaAvaliacao } from '../../../../routes/paths'
+import { temModulo } from '../../../../services/acesso/modulosSessao'
 import { obterDashboardProfessor } from '../../../../services/portal/portalProfessorService'
 import type { AulaDaSemana, AvaliacaoResumo, DashboardProfessor } from '../../../../types/dashboard/dashboard'
 import { ROTULOS_TIPO_AVALIACAO } from '../../../../types/portal/portalAluno'
@@ -38,7 +39,9 @@ function Resumo({ dados }: { dados: DashboardProfessor }) {
   const { proximasAvaliacoes, avaliacoesPendentes, aulasDaSemana } = dados
   const hoje = hojeIso()
   const aulasHoje = aulasDaSemana.filter((a) => a.data === hoje).length
-  const chamadasPendentes = aulasDaSemana.filter((a) => chamadaPendente(a, hoje)).length
+  // Sem o controle de frequência contratado, não há chamada a fazer.
+  const comChamada = temModulo('CONTROLE_FREQUENCIA')
+  const chamadasPendentes = comChamada ? aulasDaSemana.filter((a) => chamadaPendente(a, hoje)).length : 0
 
   function fazerChamada(aula: AulaDaSemana) {
     const params = new URLSearchParams({
@@ -102,7 +105,9 @@ function Resumo({ dados }: { dados: DashboardProfessor }) {
           titulo="Atalhos do dia"
           horizontal
           itens={[
-            { rotulo: 'Fazer chamada', icon: 'calendar', onClick: () => navigate(paths.professor.chamada) },
+            ...(comChamada
+              ? [{ rotulo: 'Fazer chamada', icon: 'calendar' as const, onClick: () => navigate(paths.professor.chamada) }]
+              : []),
             { rotulo: 'Lançar notas', icon: 'check', onClick: () => navigate(paths.professor.avaliacoes) },
             {
               rotulo: 'Criar uma avaliação',
@@ -140,7 +145,7 @@ function Resumo({ dados }: { dados: DashboardProfessor }) {
               A secretaria ainda não definiu o horário das suas aulas. Quando definir, a semana aparece aqui.
             </PainelVazio>
           ) : (
-            <AulasDaSemana aulas={aulasDaSemana} hoje={hoje} onFazerChamada={fazerChamada} />
+            <AulasDaSemana aulas={aulasDaSemana} hoje={hoje} onFazerChamada={comChamada ? fazerChamada : undefined} />
           )}
         </Painel>
       )}

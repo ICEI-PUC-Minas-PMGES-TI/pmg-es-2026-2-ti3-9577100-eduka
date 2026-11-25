@@ -27,7 +27,7 @@ A coluna **Sprint 5** traz o ID da tarefa no planejamento. Tarefas marcadas com 
 | ID | Caso de uso | Ator primário | Requisitos | Situação | Tela | Sprint 5 |
 |---|---|---|---|---|---|---|
 | UC01 | Cadastrar Escola | SUPER_ADMIN | RF01 | Completo | `/super-admin/escolas` (cria o primeiro login MASTER) | S5-01 ✓ |
-| UC02 | Gerenciar Escolas Cadastradas | SUPER_ADMIN | RF02, RF23, RF24 | Parcial | `/super-admin/escolas`, com o uso de cada escola | S5-11 |
+| UC02 | Gerenciar Escolas Cadastradas | SUPER_ADMIN | RF02, RF23, RF24 | Completo | `/super-admin/escolas`, com o uso de cada escola; `/super-admin/usuarios` | S5-11 ✓, S5-14 ✓ |
 | UC27 | Gerenciar Faturas da Plataforma | SUPER_ADMIN | RF23, RF24 | Completo | `/super-admin/escolas/:id/faturas`, `/super-admin/assinaturas` | — |
 | UC28 | Pagar Fatura da Plataforma | MASTER | RF23, RF24 | Completo | `/master/plano-e-faturas`, `/master/recebimentos` | — |
 
@@ -118,7 +118,7 @@ A [visão geral](diagramas/png/00-visao-geral.png) reúne todos os casos de uso,
 | UC11 | Parcial | Completo | Filtros por período letivo e por vencimento na tela (S5-06). |
 | UC13 | Parcial | Completo | Resumo financeiro e próxima mensalidade no Início do aluno; o FINANCEIRO consulta pela tela Alunos. |
 | UC15, UC38, UC40, UC41 | Planejado | Completo | Entregues no fim da Sprint 4: relatórios com CSV e planilha, aviso de privacidade, risco de atraso e suspensão automática. |
-| UC02 | Parcial | Parcial | O uso de cada escola já aparece no painel. Limite de usuários e módulos ainda não restringem o uso (S5-11, decisão de escopo pendente). |
+| UC02 | Parcial | Completo | O limite de usuários barra login novo ou reativado acima do plano, e os módulos contratados restringem rotas, perfis e telas (S5-11). A tela Usuários lista os logins de todas as escolas e gere o acesso do MASTER (S5-14). |
 
 ### Novos comportamentos em casos de uso existentes
 
@@ -132,13 +132,12 @@ A [visão geral](diagramas/png/00-visao-geral.png) reúne todos os casos de uso,
 
 | UC | Situação | Sprint 5 |
 |---|---|---|
-| UC02 | Limite de usuários e módulos contratados não restringem o uso. | S5-11 |
 | UC06 | O reenvio do acesso ao professor existe só na API. | S5-10 |
 | UC14 | Editar despesa só na API; a despesa não tem responsável (RF18). | S5-07, S5-08 |
 | UC24 | A tela mostra só o resumo da turma atual. | S5-12 |
 | UC42 | Tela Meu perfil do professor não existe. | S5-13 |
 
-As telas *Usuários* e *Configurações* do Super Admin (S5-14, S5-15) aparecem no menu como "Em breve" e aguardam decisão de escopo. Por isso não entram nos diagramas.
+A tela *Usuários* do Super Admin (S5-14) faz parte do UC02. A tela *Configurações* (S5-15) continua no menu como "Em breve" e aguarda decisão de escopo; por isso não entra nos diagramas.
 
 ## Tarefas da Sprint 5 sem caso de uso próprio
 

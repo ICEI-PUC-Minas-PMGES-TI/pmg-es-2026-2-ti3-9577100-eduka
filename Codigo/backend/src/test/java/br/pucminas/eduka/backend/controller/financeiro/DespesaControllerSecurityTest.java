@@ -118,8 +118,8 @@ class DespesaControllerSecurityTest {
         return com(request, token).contentType(MediaType.APPLICATION_JSON).content(corpo);
     }
 
-    private static final String DADOS = "\"descricao\":\"Conta de energia\",\"valor\":4320.00,"
-            + "\"dataVencimento\":\"2026-10-15\"";
+    private static final String DADOS = "\"descricao\":\"Conta de energia\",\"responsavel\":\"Administração\","
+            + "\"valor\":4320.00,\"dataVencimento\":\"2026-10-15\"";
 
     private String lancar(CategoriaDespesa categoria, String extras) {
         return "{\"categoriaId\":\"" + categoria.getId() + "\"," + DADOS + extras + "}";
@@ -226,6 +226,7 @@ class DespesaControllerSecurityTest {
                 .andExpect(jsonPath("$.categoriaId").value(contas.getId().toString()))
                 .andExpect(jsonPath("$.categoriaNome").value("Contas"))
                 .andExpect(jsonPath("$.descricao").value("Conta de energia"))
+                .andExpect(jsonPath("$.responsavel").value("Administração"))
                 .andExpect(jsonPath("$.valor").value(4320.00))
                 .andExpect(jsonPath("$.dataVencimento").value("2026-10-15"))
                 .andExpect(jsonPath("$.situacao").value("A_PAGAR"))
@@ -248,12 +249,20 @@ class DespesaControllerSecurityTest {
     void dadosInvalidosRespondem400() throws Exception {
         String token = accessToken("FINANCEIRO", ESCOLA_A);
         String categoria = "\"categoriaId\":\"" + contas.getId() + "\"";
+        String responsavel = ",\"responsavel\":\"Administração\"";
         for (String corpo : List.of(
                 "{" + DADOS + "}",
-                "{" + categoria + ",\"descricao\":\" \",\"valor\":10,\"dataVencimento\":\"2026-10-15\"}",
-                "{" + categoria + ",\"descricao\":\"Luz\",\"valor\":0,\"dataVencimento\":\"2026-10-15\"}",
-                "{" + categoria + ",\"descricao\":\"Luz\",\"valor\":10.123,\"dataVencimento\":\"2026-10-15\"}",
-                "{" + categoria + ",\"descricao\":\"Luz\",\"valor\":10}")) {
+                "{" + categoria + responsavel + ",\"descricao\":\" \",\"valor\":10,\"dataVencimento\":\"2026-10-15\"}",
+                "{" + categoria + responsavel + ",\"descricao\":\"Luz\",\"valor\":0,\"dataVencimento\":\"2026-10-15\"}",
+                "{" + categoria + responsavel
+                        + ",\"descricao\":\"Luz\",\"valor\":10.123,\"dataVencimento\":\"2026-10-15\"}",
+                "{" + categoria + responsavel + ",\"descricao\":\"Luz\",\"valor\":10}",
+                // Responsável ausente, em branco ou com mais de 120 caracteres.
+                "{" + categoria + ",\"descricao\":\"Luz\",\"valor\":10,\"dataVencimento\":\"2026-10-15\"}",
+                "{" + categoria + ",\"descricao\":\"Luz\",\"responsavel\":\"  \",\"valor\":10,"
+                        + "\"dataVencimento\":\"2026-10-15\"}",
+                "{" + categoria + ",\"descricao\":\"Luz\",\"responsavel\":\"" + "a".repeat(121) + "\",\"valor\":10,"
+                        + "\"dataVencimento\":\"2026-10-15\"}")) {
             mockMvc.perform(json(post("/despesas"), token, corpo))
                     .andExpect(status().isBadRequest());
         }
@@ -280,10 +289,12 @@ class DespesaControllerSecurityTest {
 
             mockMvc.perform(json(put("/despesas/" + despesa.getId()), token,
                     "{\"categoriaId\":\"" + materiais.getId() + "\",\"descricao\":\"  Livros da biblioteca \","
+                            + "\"responsavel\":\" Coordenação pedagógica  \","
                             + "\"valor\":3400,\"dataVencimento\":\"2026-10-30\"}"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.categoriaNome").value("Materiais"))
                     .andExpect(jsonPath("$.descricao").value("Livros da biblioteca"))
+                    .andExpect(jsonPath("$.responsavel").value("Coordenação pedagógica"))
                     .andExpect(jsonPath("$.valor").value(3400))
                     .andExpect(jsonPath("$.dataVencimento").value("2026-10-30"))
                     .andExpect(jsonPath("$.situacao").value(situacao.name()))

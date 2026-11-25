@@ -19,6 +19,7 @@ import br.pucminas.eduka.backend.security.HierarquiaPerfis;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
 import br.pucminas.eduka.backend.security.PerfilNaoPermitidoException;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
+import br.pucminas.eduka.backend.service.escola.LimiteUsuariosService;
 
 /**
  * Cadastro e troca de senha. A senha em texto puro so existe dentro destes
@@ -38,13 +39,15 @@ public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
     private final IsolamentoEscola isolamentoEscola;
+    private final LimiteUsuariosService limiteUsuarios;
     private final Clock clock;
 
     public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
-            IsolamentoEscola isolamentoEscola, Clock clock) {
+            IsolamentoEscola isolamentoEscola, LimiteUsuariosService limiteUsuarios, Clock clock) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.isolamentoEscola = isolamentoEscola;
+        this.limiteUsuarios = limiteUsuarios;
         this.clock = clock;
     }
 
@@ -72,6 +75,7 @@ public class UsuarioService {
         if (usuarioRepository.existsByLogin(login)) {
             throw new LoginJaCadastradoException(login);
         }
+        limiteUsuarios.exigirVaga(escolaId);
 
         Usuario usuario = Usuario.builder()
                 .escolaId(escolaId)

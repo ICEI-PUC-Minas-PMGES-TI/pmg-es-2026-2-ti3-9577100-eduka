@@ -1,6 +1,6 @@
 import { Badge } from '../../../../../components/ui/Badge/Badge'
 import { ModalDetalhes } from '../../../../../components/modal/ModalDetalhes/ModalDetalhes'
-import { ROTULOS_MODULO, ROTULOS_PLANO, type Escola } from '../../../../../types/escola/escola'
+import { ROTULOS_MODULO, ROTULOS_PLANO, modulosDisponiveis, type Escola } from '../../../../../types/escola/escola'
 import { formatarCnpjCpf, formatarEndereco, mascararTelefone } from '../../../../../utils/formatters'
 
 /** "AAAA-MM-DD" -> "dd/mm/aaaa", sem passar por Date (que mudaria o dia pelo fuso). */
@@ -50,7 +50,12 @@ export function DetalhesEscolaModal({ escola, onFechar }: DetalhesEscolaModalPro
             { rotulo: 'Fim da vigência', valor: formatarData(escola.fimVigencia) ?? 'Sem prazo' },
             {
               rotulo: 'Módulos',
-              valor: escola.modulos.length === 0 ? 'Nenhum' : escola.modulos.map((m) => ROTULOS_MODULO[m]).join(', '),
+              valor:
+                modulosDisponiveis(escola.modulos).length === 0
+                  ? 'Nenhum'
+                  : modulosDisponiveis(escola.modulos)
+                      .map((m) => ROTULOS_MODULO[m])
+                      .join(', '),
               largo: true,
             },
           ],

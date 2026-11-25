@@ -16,6 +16,14 @@ const paths = {
       <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </>
   ),
+  /** Três pontos: "mais ações" (menu da linha da tabela). */
+  more: (
+    <>
+      <circle cx="5" cy="12" r="1.6" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+      <circle cx="19" cy="12" r="1.6" fill="currentColor" />
+    </>
+  ),
   pause: (
     <>
       <rect x="6" y="5" width="4" height="14" rx="1" />
@@ -97,6 +105,9 @@ const paths = {
       <path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2Z" />
       <path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7Z" />
     </>
+  ),
+  phone: (
+    <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z" />
   ),
   mail: (
     <>

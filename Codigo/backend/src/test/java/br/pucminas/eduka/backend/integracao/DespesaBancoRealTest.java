@@ -49,8 +49,8 @@ class DespesaBancoRealTest extends BancoRealTest {
     }
 
     private DespesaResponse lancar(boolean paga) {
-        return despesaService.criar(new DespesaRequest("Conta de luz", categoria, new BigDecimal("90.00"),
-                LocalDate.now().plusDays(5), paga));
+        return despesaService.criar(new DespesaRequest("Conta de luz", "Administração", categoria,
+                new BigDecimal("90.00"), LocalDate.now().plusDays(5), paga));
     }
 
     private DespesaResponse mudarPara(UUID despesa, SituacaoDespesa situacao) {
@@ -58,8 +58,32 @@ class DespesaBancoRealTest extends BancoRealTest {
     }
 
     private AtualizarDespesaRequest edicao() {
-        return new AtualizarDespesaRequest("Conta de agua", categoria, new BigDecimal("75.00"),
+        return new AtualizarDespesaRequest("Conta de agua", "Zelador Antônio", categoria, new BigDecimal("75.00"),
                 LocalDate.now().plusDays(8));
+    }
+
+    // ---------- Responsavel ----------
+
+    @Test
+    void responsavelEGravadoNoLancamentoETrocadoNaEdicao() {
+        UUID despesa = lancar(false).id();
+        assertThat(despesaService.buscar(despesa).responsavel()).isEqualTo("Administração");
+
+        despesaService.atualizar(despesa, edicao());
+
+        assertThat(despesaService.buscar(despesa).responsavel()).isEqualTo("Zelador Antônio");
+    }
+
+    @Test
+    void despesaAntigaSemResponsavelContinuaListadaEGanhaUmNaEdicao() {
+        // Lancada antes da V56: a coluna fica nula.
+        UUID antiga = dados.despesa(escola, categoria, new BigDecimal("50.00"), LocalDate.now().plusDays(3),
+                SituacaoDespesa.A_PAGAR, null);
+
+        assertThat(despesaService.buscar(antiga).responsavel()).isNull();
+
+        despesaService.atualizar(antiga, edicao());
+        assertThat(despesaService.buscar(antiga).responsavel()).isEqualTo("Zelador Antônio");
     }
 
     // ---------- Listagem ----------

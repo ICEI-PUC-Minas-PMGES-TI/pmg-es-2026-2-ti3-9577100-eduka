@@ -17,7 +17,6 @@ import {
   listarCursos,
   listarDisciplinas,
   listarPeriodosLetivos,
-  listarTurmasAcademicas,
 } from '../../../services/academico/academicoService'
 import { ApiError } from '../../../services/api'
 import type {
@@ -27,8 +26,6 @@ import type {
   DisciplinaRequest,
   PeriodoLetivo,
   PeriodoLetivoRequest,
-  TurmaAcademica,
-  TurmaRequest,
 } from '../../../types/academico/academico'
 
 function mensagemDeErro(erro: unknown): string {
@@ -44,31 +41,29 @@ function buscarTudo(signal?: AbortSignal) {
     listarPeriodosLetivos(signal),
     listarCursos(signal),
     listarDisciplinas(signal),
-    listarTurmasAcademicas(signal),
   ])
 }
 
 /**
- * Dados do painel acadêmico da secretaria. As quatro listas são carregadas
- * juntas porque se referenciam: a disciplina escolhe um curso, e a turma
- * escolhe período, curso e disciplinas.
+ * Dados do painel acadêmico da secretaria. Períodos, cursos e disciplinas são
+ * carregados juntos porque se referenciam: a disciplina escolhe um curso, e o
+ * formulário da turma escolhe período, curso e disciplinas. As turmas não vêm
+ * aqui: a aba Turmas pede ao backend só a página que mostra.
  */
 export function useEstruturaAcademica() {
   const [periodos, setPeriodos] = useState<PeriodoLetivo[]>([])
   const [cursos, setCursos] = useState<Curso[]>([])
   const [disciplinas, setDisciplinas] = useState<Disciplina[]>([])
-  const [turmas, setTurmas] = useState<TurmaAcademica[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
   const [versao, setVersao] = useState(0)
 
   const aplicar = useCallback(
-    ([p, c, d, t]: [PeriodoLetivo[], Curso[], Disciplina[], TurmaAcademica[]]) => {
+    ([p, c, d]: [PeriodoLetivo[], Curso[], Disciplina[]]) => {
       // Período mais recente primeiro; o resto em ordem alfabética.
       setPeriodos([...p].sort((a, b) => b.dataInicio.localeCompare(a.dataInicio)))
       setCursos([...c].sort(porNome))
       setDisciplinas([...d].sort(porNome))
-      setTurmas([...t].sort(porNome))
     },
     [],
   )
@@ -97,8 +92,9 @@ export function useEstruturaAcademica() {
   }, [])
 
   /**
-   * Depois de uma edição, relê as quatro listas sem o "carregando": um nome
-   * de curso ou período alterado aparece também nas disciplinas e turmas.
+   * Depois de uma edição, relê as três listas sem o "carregando": um nome
+   * de curso alterado aparece também nas disciplinas. A aba Turmas busca a
+   * página de novo ao abrir, já com os nomes novos.
    * Se a releitura falhar, a lista atual fica (a edição já foi salva).
    */
   const sincronizar = useCallback(async () => {
@@ -126,12 +122,6 @@ export function useEstruturaAcademica() {
   const cadastrarNovaDisciplina = useCallback(async (dados: DisciplinaRequest) => {
     const criada = await cadastrarDisciplina(dados)
     setDisciplinas((atuais) => [criada, ...atuais])
-    return criada
-  }, [])
-
-  const cadastrarNovaTurma = useCallback(async (dados: TurmaRequest) => {
-    const criada = await cadastrarTurma(dados)
-    setTurmas((atuais) => [criada, ...atuais])
     return criada
   }, [])
 
@@ -184,15 +174,6 @@ export function useEstruturaAcademica() {
     [sincronizar],
   )
 
-  const editarTurma = useCallback(
-    async (id: number, dados: TurmaRequest) => {
-      const salva = await atualizarTurma(id, dados)
-      await sincronizar()
-      return salva
-    },
-    [sincronizar],
-  )
-
   const removerPeriodo = useCallback(async (id: number) => {
     await excluirPeriodoLetivo(id)
     setPeriodos((atuais) => atuais.filter((p) => p.id !== id))
@@ -208,32 +189,27 @@ export function useEstruturaAcademica() {
     setDisciplinas((atuais) => atuais.filter((d) => d.id !== id))
   }, [])
 
-  const removerTurma = useCallback(async (id: number) => {
-    await excluirTurma(id)
-    setTurmas((atuais) => atuais.filter((t) => t.id !== id))
-  }, [])
-
   return {
     periodos,
     cursos,
     disciplinas,
-    turmas,
     carregando,
     erro,
     recarregar,
     cadastrarPeriodo,
     cadastrarCurso: cadastrarNovoCurso,
     cadastrarDisciplina: cadastrarNovaDisciplina,
-    cadastrarTurma: cadastrarNovaTurma,
+    // A turma não muda as outras listas: só grava, e a aba relê a própria página.
+    cadastrarTurma,
     editarPeriodo,
     encerrarPeriodo,
     abrirMatriculas,
     editarCurso,
     editarDisciplina,
-    editarTurma,
+    editarTurma: atualizarTurma,
     removerPeriodo,
     removerCurso,
     removerDisciplina,
-    removerTurma,
+    removerTurma: excluirTurma,
   }
 }

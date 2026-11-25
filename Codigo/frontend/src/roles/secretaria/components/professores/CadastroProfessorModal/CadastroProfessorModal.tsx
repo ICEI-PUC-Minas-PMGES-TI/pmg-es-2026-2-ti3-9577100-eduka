@@ -4,7 +4,7 @@ import { Campo } from '../../../../../components/formulario/Campo/Campo'
 import { CampoData } from '../../../../../components/formulario/CampoData/CampoData'
 import { Modal, ModalAlerta, ModalAviso } from '../../../../../components/modal/Modal/Modal'
 import { Select } from '../../../../../components/formulario/Select/Select'
-import { ApiError } from '../../../../../services/api'
+import { ApiError, ehLimiteDeUsuarios } from '../../../../../services/api'
 import { buscarProfessor } from '../../../../../services/pessoas/professorService'
 import {
   OPCOES_VINCULO,
@@ -171,7 +171,10 @@ export function CadastroProfessorModal({ professorId, onFechar, onSalvar, onCada
       const professor = await onSalvar(paraRequest(campos))
       onCadastrado(professor)
     } catch (e) {
-      if (e instanceof ApiError && e.status === 409) {
+      if (ehLimiteDeUsuarios(e)) {
+        // Também 409, mas não é de um campo: a escola está no limite de usuários do plano.
+        setErroEnvio((e as ApiError).message)
+      } else if (e instanceof ApiError && e.status === 409) {
         // O 409 vem do CPF repetido na escola ou do e-mail já usado como login.
         const campo = e.detalhe?.toLowerCase().includes('login') ? 'email' : 'cpf'
         setErros(

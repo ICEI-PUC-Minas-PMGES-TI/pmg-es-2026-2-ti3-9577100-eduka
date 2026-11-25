@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -65,6 +65,7 @@ function abrir(
       }
       return { corpo: alunos[i] }
     }
+    if (metodo === 'POST' && /^\/alunos\/[^/]+\/primeiro-acesso$/.test(caminho)) return { status: 204 }
     if (caminho.startsWith('/alunos/pagina?')) {
       const { busca, situacao } = parametros(caminho)
       const termo = busca?.toLowerCase()
@@ -97,6 +98,16 @@ function abrir(
   return chamadas
 }
 
+/** O "⋯" da linha, com as ações raras (reenviar o acesso, inativar e reativar). */
+const maisAcoes = (linha: HTMLElement, nome: string) =>
+  within(linha).getByRole('button', { name: `Mais ações para ${nome}` })
+
+/** Abre o "⋯" da linha e escolhe a ação. */
+async function escolherNoMenu(linha: HTMLElement, nome: string, acao: RegExp) {
+  await userEvent.click(maisAcoes(linha, nome))
+  await userEvent.click(await screen.findByRole('menuitem', { name: acao }))
+}
+
 function consultasDeAlunos(chamadas: ChamadaApi[]) {
   return chamadas.filter((c) => c.caminho.startsWith('/alunos/pagina?')).map((c) => parametros(c.caminho))
 }
@@ -116,9 +127,26 @@ describe('Alunos', () => {
     abrir(ALUNOS)
 
     const linhaDaAna = (await screen.findByText('Ana Souza')).closest('tr') as HTMLElement
+    expect(within(linhaDaAna).getByRole('button', { name: 'Ver' })).toBeInTheDocument()
     expect(within(linhaDaAna).getByRole('button', { name: 'Editar' })).toBeInTheDocument()
-    expect(within(linhaDaAna).getByRole('button', { name: 'Reenviar acesso' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /novo aluno/i })).toBeInTheDocument()
+    // As ações raras ficam no "⋯", não como botões na linha.
+    expect(within(linhaDaAna).queryByRole('button', { name: /reenviar acesso|inativar/i })).not.toBeInTheDocument()
+
+    await userEvent.click(maisAcoes(linhaDaAna, 'Ana Souza'))
+    const itens = screen.getAllByRole('menuitem')
+    expect(itens.map((item) => item.querySelector('strong')?.textContent)).toEqual(['Reenviar acesso', 'Inativar'])
+    expect(itens[0]).toHaveTextContent('Envia uma nova senha provisória para o e-mail do aluno')
+  })
+
+  it('reenvia o acesso pelo menu da linha', async () => {
+    const chamadas = abrir(ALUNOS)
+
+    const linhaDaAna = (await screen.findByText('Ana Souza')).closest('tr') as HTMLElement
+    await escolherNoMenu(linhaDaAna, 'Ana Souza', /^reenviar acesso/i)
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Um novo acesso foi enviado para o e-mail de "Ana Souza".')
+    expect(chamadas.find((c) => c.metodo === 'POST')).toMatchObject({ caminho: '/alunos/ana/primeiro-acesso' })
   })
 
   it('o financeiro só consulta, no próprio menu, e não busca as turmas do cadastro', async () => {
@@ -128,7 +156,7 @@ describe('Alunos', () => {
     const linhaDaAna = (await screen.findByText('Ana Souza')).closest('tr') as HTMLElement
     expect(within(linhaDaAna).getByRole('button', { name: 'Ver' })).toBeInTheDocument()
     expect(within(linhaDaAna).queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
-    expect(within(linhaDaAna).queryByRole('button', { name: 'Reenviar acesso' })).not.toBeInTheDocument()
+    expect(within(linhaDaAna).queryByRole('button', { name: /mais ações/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /novo aluno/i })).not.toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: /navegação do financeiro/i })).toBeInTheDocument()
     expect(chamadas.some((c) => c.caminho.startsWith('/academico'))).toBe(false)
@@ -229,7 +257,8 @@ describe('Alunos', () => {
     expect(within(linha).getByText('Anonimizado')).toBeInTheDocument()
     expect(within(linha).getByRole('button', { name: 'Ver' })).toBeInTheDocument()
     expect(within(linha).queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
-    expect(within(linha).queryByRole('button', { name: 'Reenviar acesso' })).not.toBeInTheDocument()
+    // Sem acesso para reenviar nem situação para trocar: nem o "⋯" aparece.
+    expect(within(linha).queryByRole('button', { name: /mais ações/i })).not.toBeInTheDocument()
 
     const resumo = screen.getByRole('region', { name: 'Resumo dos alunos' })
     expect(within(resumo).getByText('3')).toBeInTheDocument()
@@ -241,14 +270,17 @@ describe('Alunos', () => {
       const chamadas = abrir(ALUNOS.map((a) => ({ ...a })))
 
       const linhaDoCaio = (await screen.findByText('Caio Dias')).closest('tr') as HTMLElement
-      await userEvent.click(within(linhaDoCaio).getByRole('button', { name: 'Inativar Caio Dias' }))
+      await escolherNoMenu(linhaDoCaio, 'Caio Dias', /^inativar/i)
 
       expect(await screen.findByRole('status')).toHaveTextContent('"Caio Dias" foi inativado.')
       expect(chamadas.find((c) => c.metodo === 'PATCH')).toMatchObject({ caminho: '/alunos/caio/inativar' })
       const linha = (await screen.findByText('Inativo')).closest('tr') as HTMLElement
-      expect(within(linha).getByRole('button', { name: 'Reativar Caio Dias' })).toBeInTheDocument()
-      // Inativo não entra no portal: reenviar o acesso não faz sentido.
-      expect(within(linha).queryByRole('button', { name: 'Reenviar acesso' })).not.toBeInTheDocument()
+      // Inativo não entra no portal: no "⋯", só reativar; reenviar o acesso não faz sentido.
+      await userEvent.click(maisAcoes(linha, 'Caio Dias'))
+      expect(screen.getAllByRole('menuitem').map((item) => item.querySelector('strong')?.textContent)).toEqual([
+        'Reativar',
+      ])
+      await userEvent.keyboard('{Escape}')
       const resumo = screen.getByRole('region', { name: 'Resumo dos alunos' })
       expect(resumo).toHaveTextContent(/Alunos cadastrados\s*2/)
       expect(resumo).toHaveTextContent('1 inativo')
@@ -261,11 +293,13 @@ describe('Alunos', () => {
 
       const linha = (await screen.findByText('Caio Dias')).closest('tr') as HTMLElement
       expect(within(linha).getByText('Inativo')).toBeInTheDocument()
-      await userEvent.click(within(linha).getByRole('button', { name: 'Reativar Caio Dias' }))
+      await escolherNoMenu(linha, 'Caio Dias', /^reativar/i)
 
       expect(await screen.findByRole('status')).toHaveTextContent('"Caio Dias" foi reativado')
       expect(chamadas.find((c) => c.metodo === 'PATCH')).toMatchObject({ caminho: '/alunos/caio/ativar' })
-      expect(await screen.findByRole('button', { name: 'Inativar Caio Dias' })).toBeInTheDocument()
+      await waitFor(() => expect(within(linha).queryByText('Inativo')).not.toBeInTheDocument())
+      await userEvent.click(maisAcoes(linha, 'Caio Dias'))
+      expect(screen.getByRole('menuitem', { name: /^inativar/i })).toBeInTheDocument()
     })
 
     it('com matrícula ativa, explica que precisa trancar, cancelar ou concluir antes', async () => {
@@ -275,7 +309,7 @@ describe('Alunos', () => {
       }))
 
       const linhaDaAna = (await screen.findByText('Ana Souza')).closest('tr') as HTMLElement
-      await userEvent.click(within(linhaDaAna).getByRole('button', { name: 'Inativar Ana Souza' }))
+      await escolherNoMenu(linhaDaAna, 'Ana Souza', /^inativar/i)
 
       expect(await screen.findByRole('alert')).toHaveTextContent(
         '"Ana Souza" tem matrícula ativa. Tranque, cancele ou conclua a matrícula em Matrículas antes de inativar.',
@@ -288,14 +322,14 @@ describe('Alunos', () => {
       abrir([...ALUNOS, { ...ALUNOS[2], id: 'dora', nome: 'Dora Reis', situacao: 'INATIVO' }], '/financeiro/alunos')
 
       await screen.findByText('Ana Souza')
-      expect(screen.queryByRole('button', { name: /^(inativar|reativar) /i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /mais ações/i })).not.toBeInTheDocument()
     })
 
     it('aluno anonimizado não pode ser inativado nem reativado', async () => {
       abrir([{ ...ALUNOS[2], nome: 'Aluno anonimizado', situacao: 'ANONIMIZADO' }])
 
       const linha = (await screen.findByText('Aluno anonimizado')).closest('tr') as HTMLElement
-      expect(within(linha).queryByRole('button', { name: /inativar|reativar/i })).not.toBeInTheDocument()
+      expect(within(linha).queryByRole('button', { name: /mais ações/i })).not.toBeInTheDocument()
     })
   })
 })

@@ -19,6 +19,9 @@ import { FinanceiroLayout } from '../../layouts/FinanceiroLayout'
 /** Cobranças já filtradas em "Em atraso". */
 const COBRANCAS_EM_ATRASO = `${paths.financeiro.cobrancas}?status=EM_ATRASO`
 
+/** Alunos já filtrados em "Em atraso" (filtro financeiro da lista de alunos). */
+const ALUNOS_EM_ATRASO = `${paths.financeiro.alunos}?financeiro=EM_ATRASO`
+
 /** Início do FINANCEIRO: recebido, em aberto, atraso, despesas e as movimentações recentes. */
 export function Inicio() {
   const { dados, carregando, erro, recarregar } = useCarregamento<DashboardFinanceiro | null>(
@@ -81,7 +84,9 @@ function Resumo({ dados }: { dados: DashboardFinanceiro }) {
         itens={[
           { rotulo: 'Nova cobrança', icon: 'plus', onClick: () => navigate(paths.financeiro.novaCobranca) },
           { rotulo: 'Ver cobranças em atraso', icon: 'alert', onClick: () => navigate(COBRANCAS_EM_ATRASO) },
-          { rotulo: 'Lançar uma despesa', icon: 'dollarSign', onClick: () => navigate(paths.financeiro.despesas) },
+          { rotulo: 'Ver alunos em atraso', icon: 'users', onClick: () => navigate(ALUNOS_EM_ATRASO) },
+          { rotulo: 'Lançar uma despesa', icon: 'dollarSign', onClick: () => navigate(`${paths.financeiro.despesas}?nova=1`) },
+
         ]}
       />
 

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Button } from '../../../../components/ui/Button/Button'
 import { paths } from '../../../../routes/paths'
+import { temModulo } from '../../../../services/acesso/modulosSessao'
 import { buscarHistoricoFinanceiro } from '../../../../services/financeiro/pagamentoAlunoService'
 import { buscarBoletim, listarMinhasAvaliacoes } from '../../../../services/portal/portalAlunoService'
 import { podePagar, type CobrancaDoHistorico, type HistoricoFinanceiro } from '../../../../types/financeiro/pagamentoAluno'
@@ -35,9 +36,15 @@ function somarDias(iso: string, dias: number): string {
  * Cada bloco carrega sozinho: uma falha não esconde os outros.
  */
 export function Inicio() {
+  const comFinanceiro = temModulo('GESTAO_FINANCEIRA')
   return (
-    <AlunoLayout titulo="Início" subtitulo="Sua mensalidade, suas notas e o que vem pela frente.">
-      <Mensalidade />
+    <AlunoLayout
+      titulo="Início"
+      subtitulo={
+        comFinanceiro ? 'Sua mensalidade, suas notas e o que vem pela frente.' : 'Suas notas e o que vem pela frente.'
+      }
+    >
+      {comFinanceiro && <Mensalidade />}
       <div className={styles.grade}>
         <div className={styles.principal}>
           <ProximasAvaliacoes />
@@ -134,6 +141,8 @@ function Metrica({ rotulo, valor, sufixo, percentual, descricao, alerta = false 
  */
 function Desempenho() {
   const navigate = useNavigate()
+  // Sem o controle de frequência contratado, a escola não registra chamada.
+  const comFrequencia = temModulo('CONTROLE_FREQUENCIA')
   const { dados: turmas, carregando, erro, recarregar } = useDadosDoAluno(buscarBoletim, SEM_TURMAS)
 
   if (carregando) {
@@ -151,7 +160,7 @@ function Desempenho() {
     return (
       <div className={styles.mensagem}>
         <strong>Você ainda não está cursando nenhuma turma.</strong>
-        <span>Assim que a secretaria fizer sua matrícula, suas notas e sua frequência aparecem aqui.</span>
+        <span>Assim que a secretaria fizer sua matrícula, suas notas aparecem aqui.</span>
       </div>
     )
   }
@@ -194,7 +203,7 @@ function Desempenho() {
         )}
       </header>
 
-      <div className={styles.metricas}>
+      <div className={`${styles.metricas} ${comFrequencia ? '' : styles.metricaUnica}`}>
         <Metrica
           rotulo="Média geral"
           valor={media === null ? '—' : formatarPontos(media)}
@@ -209,19 +218,21 @@ function Desempenho() {
           }
           alerta={media !== null && media < PERCENTUAL_APROVACAO * 10}
         />
-        <Metrica
-          rotulo="Frequência"
-          valor={frequencia === null ? '—' : `${formatarPontos(frequencia.percentualFrequencia)}%`}
-          percentual={frequencia?.percentualFrequencia ?? null}
-          descricao={
-            frequencia === null
-              ? 'Sem aulas registradas ainda'
-              : maisFaltas
-                ? `Mais faltas em ${maisFaltas.disciplinaNome}: ${faltasDela} ${plural(faltasDela, 'falta', 'faltas')}`
-                : 'Nenhuma falta até agora'
-          }
-          alerta={frequencia?.alertaFaltas}
-        />
+        {comFrequencia && (
+          <Metrica
+            rotulo="Frequência"
+            valor={frequencia === null ? '—' : `${formatarPontos(frequencia.percentualFrequencia)}%`}
+            percentual={frequencia?.percentualFrequencia ?? null}
+            descricao={
+              frequencia === null
+                ? 'Sem aulas registradas ainda'
+                : maisFaltas
+                  ? `Mais faltas em ${maisFaltas.disciplinaNome}: ${faltasDela} ${plural(faltasDela, 'falta', 'faltas')}`
+                  : 'Nenhuma falta até agora'
+            }
+            alerta={frequencia?.alertaFaltas}
+          />
+        )}
       </div>
 
       <div className={styles.disciplinas}>

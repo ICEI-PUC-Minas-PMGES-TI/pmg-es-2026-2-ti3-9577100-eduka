@@ -12,6 +12,7 @@ import { limparSessao, obterToken, obterUsuarioLogado } from '../../services/ace
 import { aceitarAvisoPrivacidade, buscarAvisoPrivacidade } from '../../services/privacidade/privacidadeService'
 import type { AvisoPrivacidade as Aviso } from '../../types/privacidade/privacidade'
 import styles from './AvisoPrivacidade.module.css'
+import { BotaoAjudaFlutuante } from '../../components/ajuda/BotaoAjudaFlutuante/BotaoAjudaFlutuante'
 
 const ICONES: readonly string[] = ['user', 'users', 'lock', 'shield', 'info', 'mail', 'eye', 'card']
 
@@ -92,7 +93,7 @@ export function AvisoPrivacidade() {
 
   return (
     <main className={styles.page}>
-      <img src={logoEduka} alt="Edúka" className={styles.logo} />
+      <img src={logoEduka} alt="Eduka" className={styles.logo} />
       <section className={styles.card} aria-labelledby="titulo-aviso">
         <span className={styles.icone} aria-hidden="true">
           <Icon name="shield" size={28} />
@@ -101,7 +102,7 @@ export function AvisoPrivacidade() {
           Aviso de privacidade
         </h1>
         <p className={styles.texto}>
-          Antes de continuar, veja como o Edúka e a sua escola cuidam dos seus dados pessoais.
+          Antes de continuar, veja como o Eduka e a sua escola cuidam dos seus dados pessoais.
         </p>
 
         {!aviso && !erro && <p role="status">Carregando o aviso…</p>}
@@ -178,6 +179,7 @@ export function AvisoPrivacidade() {
           </div>
         </Modal>
       )}
+      <BotaoAjudaFlutuante tela="Aviso de privacidade" />
     </main>
   )
 }

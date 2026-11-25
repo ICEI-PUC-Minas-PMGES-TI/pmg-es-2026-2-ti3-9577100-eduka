@@ -34,7 +34,16 @@ public final class Ordenacao {
     }
 
     public enum Alunos {
-        NOME, MATRICULA;
+        NOME(Direction.ASC),
+        MATRICULA(Direction.ASC),
+        /** Valor em aberto; so MASTER e FINANCEIRO. Padrao decrescente: quem deve mais primeiro. */
+        EM_ABERTO(Direction.DESC);
+
+        public final Direction padrao;
+
+        Alunos(Direction padrao) {
+            this.padrao = padrao;
+        }
     }
 
     public enum Professores {

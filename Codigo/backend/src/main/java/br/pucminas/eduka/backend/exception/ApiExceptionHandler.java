@@ -36,6 +36,8 @@ import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.exception.comum.RegistroEmUsoException;
 import br.pucminas.eduka.backend.exception.escola.CnpjJaCadastradoException;
 import br.pucminas.eduka.backend.exception.escola.EscolaSuspensaException;
+import br.pucminas.eduka.backend.exception.escola.LimiteUsuariosAtingidoException;
+import br.pucminas.eduka.backend.exception.escola.ModuloNaoContratadoException;
 import br.pucminas.eduka.backend.exception.escola.FaturaDuplicadaException;
 import br.pucminas.eduka.backend.exception.financeiro.BoletoNaoGeradoException;
 import br.pucminas.eduka.backend.exception.financeiro.CategoriaDespesaJaExisteException;
@@ -104,6 +106,25 @@ public class ApiExceptionHandler {
     public ResponseEntity<ProblemDetail> escolaSuspensa(EscolaSuspensaException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(comMotivo(problema(HttpStatus.FORBIDDEN, ex.getMessage(), "ESCOLA_SUSPENSA"), ex));
+    }
+
+    /**
+     * Modulo nao contratado (ver {@code RotasPorModulo}). {@code modulo} diz
+     * qual: o front mostra o nome dele e, se veio do login, nao abre a sessao.
+     */
+    @ExceptionHandler(ModuloNaoContratadoException.class)
+    public ResponseEntity<ProblemDetail> moduloNaoContratado(ModuloNaoContratadoException ex) {
+        ProblemDetail problem = problema(HttpStatus.FORBIDDEN, ex.getMessage(), "MODULO_NAO_CONTRATADO");
+        problem.setProperty("modulo", ex.getModulo().name());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);
+    }
+
+    /** Limite de usuarios ativos do plano; {@code limite} vai junto para a tela citar o numero. */
+    @ExceptionHandler(LimiteUsuariosAtingidoException.class)
+    public ResponseEntity<ProblemDetail> limiteUsuariosAtingido(LimiteUsuariosAtingidoException ex) {
+        ProblemDetail problem = problema(HttpStatus.CONFLICT, ex.getMessage(), "LIMITE_USUARIOS_ATINGIDO");
+        problem.setProperty("limite", ex.getLimite());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
     }
 
     @ExceptionHandler(SenhaProvisoriaExpiradaException.class)

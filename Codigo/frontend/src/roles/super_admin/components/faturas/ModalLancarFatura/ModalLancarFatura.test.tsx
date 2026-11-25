@@ -20,7 +20,7 @@ describe('ModalLancarFatura', () => {
     await userEvent.keyboard('{ArrowDown}{Enter}')
     expect(screen.getByRole('combobox', { name: /competência/i })).toHaveTextContent('Dezembro de 2026')
 
-    await userEvent.type(screen.getByLabelText(/descrição/i), 'Mensalidade Edúka de dezembro')
+    await userEvent.type(screen.getByLabelText(/descrição/i), 'Mensalidade Eduka de dezembro')
     await userEvent.type(screen.getByLabelText(/valor/i), '299,90')
     await userEvent.click(screen.getByRole('button', { name: /vencimento/i }))
     await userEvent.click(screen.getByRole('button', { name: /20 de novembro de 2026/i }))
@@ -28,7 +28,7 @@ describe('ModalLancarFatura', () => {
 
     expect(onLancar).toHaveBeenCalledWith({
       competencia: '2026-12',
-      descricao: 'Mensalidade Edúka de dezembro',
+      descricao: 'Mensalidade Eduka de dezembro',
       valor: 299.9,
       dataVencimento: '2026-11-20',
     })

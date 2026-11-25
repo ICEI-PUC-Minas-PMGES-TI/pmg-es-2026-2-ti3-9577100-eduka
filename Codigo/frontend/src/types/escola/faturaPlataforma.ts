@@ -1,4 +1,4 @@
-import type { PlanoEscola } from './escola'
+import type { ModuloEscola, PlanoEscola } from './escola'
 import type { FormaPagamento, PagamentoResumo, SituacaoPagamento } from '../financeiro/pagamentoAluno'
 
 // Fatura da plataforma (Fluxo A): o que a escola paga ao Eduka. Espelha
@@ -84,5 +84,10 @@ export type Assinatura = {
   /** ISO (yyyy-MM-dd). */
   inicioVigencia: string | null
   fimVigencia: string | null
+  /** Nulo quando o plano não tem limite. */
   limiteUsuarios: number | null
+  /** Logins ativos da escola hoje, de todos os perfis: o que conta no limite. */
+  usuariosAtivos: number
+  /** Módulos contratados; sem um deles, a tela dele some. */
+  modulos: ModuloEscola[]
 }
