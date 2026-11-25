@@ -6,6 +6,8 @@ import { EVENTO_ESCOLA_SUSPENSA, EVENTO_MODULO_NAO_CONTRATADO, rotaAcessoSuspens
 import { limparSessao, obterUsuarioLogado } from '../../../services/acesso/authService'
 import { MODULO_DO_PERFIL, useModulos } from '../../../services/acesso/modulosSessao'
 import type { ModuloEscola } from '../../../types/escola/escola'
+import { AjudaContexto } from '../../ajuda/AjudaContexto'
+import { CentralAjuda } from '../../ajuda/CentralAjuda/CentralAjuda'
 import { AvisoSuspensao } from '../AvisoSuspensao/AvisoSuspensao'
 import { iniciais } from '../../../utils/formatters'
 import { Button } from '../../ui/Button/Button'
@@ -40,7 +42,10 @@ type PainelLayoutProps = {
   menu?: ItemMenu[]
   /** Rótulo acessível do menu (ex.: "Navegação da secretaria"). */
   menuRotulo?: string
-  /** Texto do diálogo de ajuda; sem ele, "Ajuda" aparece desabilitado. */
+  /**
+   * Orientações da área, no topo da Central de ajuda. A Central abre em toda
+   * tela, com ou sem elas: contato da escola, suporte do Eduka e perguntas do perfil.
+   */
   ajuda?: ReactNode
   /** Para onde o "Sair" leva; o padrão é o login da escola. */
   rotaSaida?: string
@@ -71,7 +76,8 @@ export function PainelLayout({
   const temModulo = useModulos()
   const itens = menu.filter((item) => !item.modulo || temModulo(item.modulo))
   const temMenu = itens.length > 0
-  const ehMaster = obterUsuarioLogado()?.perfil === 'MASTER'
+  const perfil = obterUsuarioLogado()?.perfil ?? null
+  const ehMaster = perfil === 'MASTER'
 
   // A escola foi suspensa com a tela aberta: qualquer requisição volta
   // ESCOLA_SUSPENSA. Encerra a sessão e mostra o aviso (IU04).
@@ -98,6 +104,10 @@ export function PainelLayout({
     window.addEventListener(EVENTO_MODULO_NAO_CONTRATADO, aoPerderModulo)
     return () => window.removeEventListener(EVENTO_MODULO_NAO_CONTRATADO, aoPerderModulo)
   }, [navigate])
+
+  function abrirAjuda() {
+    setAjudaAberta(true)
+  }
 
   // JWT e stateless: basta descartar o token local. replace impede que o
   // "voltar" reabra o painel.
@@ -134,8 +144,8 @@ export function PainelLayout({
               </span>
             </div>
           )}
-          <Dica texto={ajuda ? 'Ajuda e orientações' : 'Em breve'}>
-            <button type="button" className={styles.pilula} disabled={!ajuda} onClick={() => setAjudaAberta(true)}>
+          <Dica texto="Contato da escola, suporte e dúvidas frequentes">
+            <button type="button" className={styles.pilula} onClick={abrirAjuda} aria-haspopup="dialog">
               <Icon name="help" size={17} />
               Ajuda
             </button>
@@ -149,7 +159,8 @@ export function PainelLayout({
 
       <main className={styles.main}>
         {ehMaster && <AvisoSuspensao />}
-        {children}
+        {/* Os indicadores de ajuda das telas (IndicadorAjuda) abrem a Central por aqui. */}
+        <AjudaContexto.Provider value={abrirAjuda}>{children}</AjudaContexto.Provider>
       </main>
 
       {temMenu && (
@@ -178,12 +189,16 @@ export function PainelLayout({
 
       {ajudaAberta && (
         <Modal
-          titulo="Precisa de ajuda?"
-          tamanho="pequeno"
+          titulo="Central de ajuda"
+          subtitulo={
+            perfil === 'MASTER' || perfil === 'SUPER_ADMIN'
+              ? 'Orientações, dúvidas frequentes e o suporte do Eduka.'
+              : 'Fale com a sua escola ou com o suporte do Eduka.'
+          }
           onFechar={() => setAjudaAberta(false)}
           rodape={<Button onClick={() => setAjudaAberta(false)}>Fechar</Button>}
         >
-          <div className={styles.ajuda}>{ajuda}</div>
+          <CentralAjuda perfil={perfil} tela={titulo} dicas={ajuda} />
         </Modal>
       )}
     </div>

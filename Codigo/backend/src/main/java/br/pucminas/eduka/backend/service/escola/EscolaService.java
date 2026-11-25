@@ -14,6 +14,7 @@ import br.pucminas.eduka.backend.domain.comum.Endereco;
 import br.pucminas.eduka.backend.domain.escola.Escola;
 import br.pucminas.eduka.backend.dto.comum.EnderecoDto;
 import br.pucminas.eduka.backend.dto.escola.AssinaturaResponse;
+import br.pucminas.eduka.backend.dto.escola.ContatoEscolaResponse;
 import br.pucminas.eduka.backend.dto.escola.EscolaRequest;
 import br.pucminas.eduka.backend.dto.escola.EscolaResponse;
 import br.pucminas.eduka.backend.dto.escola.EscolaUpdateRequest;
@@ -47,6 +48,12 @@ public class EscolaService {
 
     public EscolaResponse buscarPorId(UUID id) {
         return EscolaResponse.from(buscarOuFalhar(id));
+    }
+
+    /** Canais de atendimento da escola do token, para a Ajuda de todos os perfis da escola. */
+    @Transactional(readOnly = true)
+    public ContatoEscolaResponse contato(UUID escolaId) {
+        return ContatoEscolaResponse.from(buscarOuFalhar(escolaId));
     }
 
     /** Assinatura da escola (IU24-A): o MASTER consulta a da escola do token. */

@@ -1,11 +1,10 @@
 import { Link, useSearchParams } from 'react-router'
 import logoEduka from '../../assets/eduka-logo.svg'
+import { BotaoAjudaFlutuante } from '../../components/ajuda/BotaoAjudaFlutuante/BotaoAjudaFlutuante'
 import { Icon } from '../../components/ui/Icon/Icon'
+import { EMAIL_SUPORTE } from '../../config/suporte'
 import { paths } from '../../routes/paths'
 import styles from './AcessoSuspenso.module.css'
-
-/** Canal de suporte do Eduka (o mesmo do contato da página inicial). */
-export const EMAIL_SUPORTE = 'contato@eduka.com.br'
 
 /**
  * Aviso de suspensão (IU04): o login de quem é de uma escola suspensa cai
@@ -46,6 +45,7 @@ export function AcessoSuspenso() {
           Falar com o suporte técnico
         </a>
       </div>
+      <BotaoAjudaFlutuante tela="Acesso suspenso" />
     </main>
   )
 }

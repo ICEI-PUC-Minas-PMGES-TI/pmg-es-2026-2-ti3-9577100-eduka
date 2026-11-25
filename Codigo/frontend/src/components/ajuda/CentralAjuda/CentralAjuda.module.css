@@ -1,0 +1,247 @@
+.central {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.secao {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* O bloco de quem procurar primeiro ganha o brilho lilás. */
+.secaoDestaque {
+  border-color: var(--color-mauve);
+  background:
+    radial-gradient(120% 100% at 100% 0%, var(--color-primary-soft) 0%, transparent 60%), rgba(255, 255, 255, 0.85);
+}
+
+.secaoTitulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 900;
+  color: var(--color-text);
+}
+
+.secaoIcone {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  background: var(--color-veil);
+  color: var(--color-primary-text);
+}
+
+.texto,
+.dicas {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.dicas p + p {
+  margin-top: 6px;
+}
+
+.legenda {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text-subtle);
+}
+
+.lista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lista li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--color-text);
+}
+
+.lista svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-primary-text);
+}
+
+/* ---- Contato da escola ---- */
+
+.contato {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.contatoTopo {
+  display: flex;
+  flex-direction: column;
+}
+
+.contatoTopo strong {
+  font-size: 15px;
+  color: var(--color-text);
+}
+
+.contatoTopo span {
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+}
+
+/* Um canal por linha: o e-mail costuma ser longo e o modal é estreito. */
+.canais {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.canal {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(235, 217, 252, 0.95);
+  border-radius: var(--radius-md);
+  background: var(--color-surface, #fff);
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+}
+
+.canal:hover {
+  border-color: var(--color-primary);
+  background: var(--color-mist);
+}
+
+.canal svg {
+  flex-shrink: 0;
+  color: var(--color-primary-text);
+}
+
+.canalTexto {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Num flex, o texto não encolhe abaixo do próprio tamanho sem min-width: 0; o
+   overflow-wrap quebra o que ainda não couber em vez de vazar do cartão. */
+.canalValor {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+.canal small {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-text-subtle);
+}
+
+.contatoVazio {
+  font-size: 13.5px;
+  color: var(--color-text-muted);
+}
+
+/* ---- Suporte do Eduka ---- */
+
+.botaoSuporte {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: var(--radius-pill);
+  background: var(--button-primary-bg);
+  box-shadow: var(--button-primary-shadow);
+  color: var(--color-on-primary);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.botaoSuporte:hover {
+  filter: brightness(1.05);
+}
+
+.botaoSuporte:focus-visible,
+.canal:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ---- Perguntas frequentes ---- */
+
+.perguntas {
+  display: flex;
+  flex-direction: column;
+}
+
+.pergunta {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.pergunta:last-child {
+  border-bottom: 0;
+}
+
+.pergunta summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+  cursor: pointer;
+  list-style: none;
+}
+
+.pergunta summary::-webkit-details-marker {
+  display: none;
+}
+
+.pergunta summary svg {
+  flex-shrink: 0;
+  color: var(--color-text-subtle);
+  transition: transform 0.2s;
+}
+
+.pergunta[open] summary svg {
+  transform: rotate(180deg);
+}
+
+.pergunta p {
+  padding: 0 0 12px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
