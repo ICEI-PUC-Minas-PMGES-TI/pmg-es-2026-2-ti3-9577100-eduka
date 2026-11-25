@@ -26,6 +26,24 @@ function professor(n: number, ativo = true, aguardandoPrimeiroAcesso = false): P
 function abrir(professores: Professor[], reenvio: RespostaApi = { status: 204 }): ChamadaApi[] {
   const chamadas = simularApi(({ metodo, caminho }) => {
     if (metodo === 'POST' && /^\/professores\/[^/]+\/primeiro-acesso$/.test(caminho)) return reenvio
+    if (caminho === '/professores/prof-2/alocacoes') {
+      return {
+        corpo: [
+          {
+            id: 'a1',
+            professorId: 'prof-2',
+            professorNome: 'Professor 02',
+            turmaId: 1,
+            turmaNome: '1º ano A',
+            turno: 'MATUTINO',
+            periodoLetivoId: 1,
+            periodoLetivoNome: '2026/2',
+            disciplinaId: 10,
+            disciplinaNome: 'Matemática',
+          },
+        ],
+      }
+    }
     if (caminho.startsWith('/professores/pagina?')) {
       const nome = parametros(caminho).nome?.toLowerCase()
       const filtrados = professores.filter((p) => !nome || p.nome.toLowerCase().includes(nome))
@@ -75,6 +93,23 @@ describe('Professores', () => {
     await userEvent.click(screen.getByRole('button', { name: /próxima/i }))
     expect(await screen.findByText('Professor 12')).toBeInTheDocument()
     expect(consultas(chamadas).at(-1)).toEqual({ pagina: '1', tamanho: '10' })
+  })
+
+  it('os botões Disciplinas e Turmas da linha abrem o modal com as alocações do professor', async () => {
+    abrir([professor(1), professor(2)])
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Disciplinas de Professor 02' }))
+    const disciplinas = screen.getByRole('dialog', { name: 'Disciplinas de Professor 02' })
+    expect(await within(disciplinas).findByText('Matemática')).toBeInTheDocument()
+    expect(within(disciplinas).getByText('1º ano A · 2026/2')).toBeInTheDocument()
+    // O X e o botão do rodapé se chamam "Fechar"; qualquer um fecha.
+    await userEvent.click(within(disciplinas).getAllByRole('button', { name: 'Fechar' })[0])
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Turmas de Professor 02' }))
+    const turmas = screen.getByRole('dialog', { name: 'Turmas de Professor 02' })
+    expect(await within(turmas).findByText('1º ano A')).toBeInTheDocument()
+    expect(within(turmas).getByRole('region', { name: 'Período 2026/2' })).toHaveTextContent(/matutino/i)
   })
 
   it('a busca pelo nome vai ao backend, sem prometer a busca por disciplina', async () => {

@@ -6,10 +6,9 @@ import { Paginacao } from '../../../../../components/ui/Paginacao/Paginacao'
 import type { EstadoPaginacao } from '../../../../../hooks/usePaginacao'
 import { ROTULOS_VINCULO, type Professor } from '../../../../../types/pessoas/professor'
 import { iniciais } from '../../../../../utils/formatters'
+import type { VisaoAlocacoes } from '../AlocacoesProfessorModal/AlocacoesProfessorModal'
 import styles from './ProfessoresTable.module.css'
 
-// Disciplinas e turmas ainda não vêm no ProfessorResponse (dependem da alocação);
-// as colunas ficam com um traço até o backend expor esses dados.
 const SEM_DADO = '—'
 
 type ProfessoresTableProps = {
@@ -29,6 +28,11 @@ type ProfessoresTableProps = {
   reenviandoId: string | null
   onTentarNovamente: () => void
   onVer: (professor: Professor) => void
+  /**
+   * Disciplinas e turmas não vêm na listagem (dependem das alocações): cada
+   * botão abre um modal que busca as do professor.
+   */
+  onVerAlocacoes: (professor: Professor, visao: VisaoAlocacoes) => void
   onEditar: (professor: Professor) => void
   onAlternarSituacao: (professor: Professor) => void
   onReenviarAcesso: (professor: Professor) => void
@@ -47,6 +51,7 @@ export function ProfessoresTable({
   reenviandoId,
   onTentarNovamente,
   onVer,
+  onVerAlocacoes,
   onEditar,
   onAlternarSituacao,
   onReenviarAcesso,
@@ -60,10 +65,11 @@ export function ProfessoresTable({
           <table className={styles.tabela}>
             <thead>
               <tr>
-                <th scope="col">Professor</th>
-                <th scope="col">Disciplinas</th>
+                <th scope="col" className={styles.colPrincipal}>
+                  Professor
+                </th>
+                <th scope="col">Alocação</th>
                 <th scope="col">Vínculo</th>
-                <th scope="col">Turmas</th>
                 <th scope="col">Situação</th>
                 <th scope="col" className={styles.colAcoes}>
                   Ações
@@ -84,9 +90,29 @@ export function ProfessoresTable({
                         </div>
                       </div>
                     </td>
-                    <td className={`${styles.secundario} ${styles.semDado}`}>{SEM_DADO}</td>
-                    <td data-rotulo="Vínculo">{professor.vinculo ? ROTULOS_VINCULO[professor.vinculo] : SEM_DADO}</td>
-                    <td className={styles.semDado}>{SEM_DADO}</td>
+                    <td data-rotulo="Alocação">
+                      <div className={styles.alocacao}>
+                        <Button
+                          size="sm"
+                          icon="book"
+                          aria-label={`Disciplinas de ${professor.nome}`}
+                          onClick={() => onVerAlocacoes(professor, 'disciplinas')}
+                        >
+                          Disciplinas
+                        </Button>
+                        <Button
+                          size="sm"
+                          icon="users"
+                          aria-label={`Turmas de ${professor.nome}`}
+                          onClick={() => onVerAlocacoes(professor, 'turmas')}
+                        >
+                          Turmas
+                        </Button>
+                      </div>
+                    </td>
+                    <td data-rotulo="Vínculo" className={styles.vinculo}>
+                      {professor.vinculo ? ROTULOS_VINCULO[professor.vinculo] : SEM_DADO}
+                    </td>
                     <td data-rotulo="Situação">
                       <div className={styles.situacao}>
                         {professor.ativo ? (
