@@ -124,6 +124,13 @@ function ultimaConsulta(chamadas: ChamadaApi[]) {
 }
 
 const grupo = (nome: string) => screen.getByRole('group', { name: nome })
+const seletor = (nome: string) => screen.getByRole('combobox', { name: nome })
+
+/** Abre o seletor do filtro e escolhe a opção. */
+async function escolher(filtro: string, opcao: RegExp) {
+  await userEvent.click(seletor(filtro))
+  await userEvent.click(await screen.findByRole('option', { name: opcao }))
+}
 
 describe('Alunos: o financeiro de cada aluno', () => {
   beforeEach(() => {
@@ -134,7 +141,7 @@ describe('Alunos: o financeiro de cada aluno', () => {
     localStorage.clear()
   })
 
-  it('o financeiro vê a coluna Em aberto, as pílulas financeiras e os cards financeiros', async () => {
+  it('o financeiro vê a coluna Em aberto, os filtros financeiros e os cards financeiros', async () => {
     logarComo('FINANCEIRO')
     abrir('/financeiro/alunos')
 
@@ -150,27 +157,29 @@ describe('Alunos: o financeiro de cada aluno', () => {
     expect(cards).toHaveTextContent(/Vencem em 7 dias\s*1/)
     // O FINANCEIRO não escolhe a visão: só o MASTER tem o seletor.
     expect(screen.queryByRole('group', { name: 'Resumo' })).not.toBeInTheDocument()
-    expect(within(grupo('Filtrar pela situação financeira')).getByRole('button', { name: /^em atraso/i }))
-      .toHaveTextContent('1')
+    expect(seletor('Filtrar pela situação financeira')).toHaveTextContent('Financeiro')
+    await userEvent.click(seletor('Filtrar pela situação financeira'))
+    expect(screen.getByRole('option', { name: 'Em atraso (1)' })).toBeInTheDocument()
   })
 
   it('filtra pela situação financeira, com a faixa de atraso só dentro de Em atraso', async () => {
     logarComo('FINANCEIRO')
     const chamadas = abrir('/financeiro/alunos')
     await screen.findByText('Ana Souza')
-    expect(screen.queryByRole('group', { name: 'Filtrar pelo tempo de atraso' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Filtrar pelo tempo de atraso' })).not.toBeInTheDocument()
 
-    await userEvent.click(within(grupo('Filtrar pela situação financeira')).getByRole('button', { name: /^em atraso/i }))
+    await escolher('Filtrar pela situação financeira', /^em atraso/i)
     expect(ultimaConsulta(chamadas)).toEqual({ pagina: '0', tamanho: '10', situacaoFinanceira: 'EM_ATRASO' })
 
-    await userEvent.click(within(grupo('Filtrar pelo tempo de atraso')).getByRole('button', { name: /^até 30 dias/i }))
+    await escolher('Filtrar pelo tempo de atraso', /^até 30 dias/i)
     expect(await screen.findByText('Nenhum aluno com esses filtros.')).toBeInTheDocument()
     expect(ultimaConsulta(chamadas)).toMatchObject({ situacaoFinanceira: 'EM_ATRASO', faixaAtraso: 'ATE_30_DIAS' })
 
-    // Trocar a situação financeira tira a faixa de atraso.
-    await userEvent.click(within(grupo('Filtrar pela situação financeira')).getByRole('button', { name: /^a vencer/i }))
+    // Trocar a situação financeira tira a faixa de atraso (e o seletor dela).
+    await escolher('Filtrar pela situação financeira', /^a vencer/i)
     expect(await screen.findByText('Bia Lima')).toBeInTheDocument()
     expect(ultimaConsulta(chamadas)).toEqual({ pagina: '0', tamanho: '10', situacaoFinanceira: 'A_VENCER' })
+    expect(screen.queryByRole('combobox', { name: 'Filtrar pelo tempo de atraso' })).not.toBeInTheDocument()
   })
 
   it('combina o filtro da escola com o financeiro e os demais filtros, e limpa todos', async () => {
@@ -178,7 +187,7 @@ describe('Alunos: o financeiro de cada aluno', () => {
     const chamadas = abrir('/financeiro/alunos')
     await screen.findByText('Ana Souza')
 
-    await userEvent.click(within(grupo('Filtrar por situação')).getByRole('button', { name: /^sem turma/i }))
+    await escolher('Filtrar por situação', /^sem turma/i)
     await userEvent.click(within(grupo('Mais filtros financeiros')).getByRole('button', { name: /sem mensalidade/i }))
     expect(ultimaConsulta(chamadas)).toEqual({
       pagina: '0',
@@ -201,8 +210,8 @@ describe('Alunos: o financeiro de cada aluno', () => {
     expect(await screen.findByText('Ana Souza')).toBeInTheDocument()
     expect(screen.queryByText('Bia Lima')).not.toBeInTheDocument()
     expect(ultimaConsulta(chamadas)).toMatchObject({ situacaoFinanceira: 'EM_ATRASO', faixaAtraso: 'MAIS_DE_60_DIAS' })
-    expect(within(grupo('Filtrar pelo tempo de atraso')).getByRole('button', { name: /^mais de 60 dias/i }))
-      .toHaveAttribute('aria-pressed', 'true')
+    expect(seletor('Filtrar pela situação financeira')).toHaveTextContent('Em atraso')
+    expect(seletor('Filtrar pelo tempo de atraso')).toHaveTextContent('Mais de 60 dias')
   })
 
   it('o card Em atraso leva à lista filtrada', async () => {
@@ -271,7 +280,7 @@ describe('Alunos: o financeiro de cada aluno', () => {
     expect(await screen.findByText('Ana Souza')).toBeInTheDocument()
     expect(ultimaConsulta(chamadas)).toEqual({ pagina: '0', tamanho: '10' })
     expect(screen.queryByRole('columnheader', { name: /em aberto/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('group', { name: 'Filtrar pela situação financeira' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Filtrar pela situação financeira' })).not.toBeInTheDocument()
     expect(screen.queryByRole('group', { name: 'Resumo' })).not.toBeInTheDocument()
   })
 

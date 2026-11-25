@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { Button } from '../../../../components/ui/Button/Button'
 import { Icon } from '../../../../components/ui/Icon/Icon'
-import type { OpcaoSelect } from '../../../../components/formulario/Select/Select'
+import { Select, type OpcaoSelect } from '../../../../components/formulario/Select/Select'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { useListaPaginada, type PaginaComResumo } from '../../../../hooks/usePaginacao'
 import { useTermoAdiado } from '../../../../hooks/useTermoAdiado'
@@ -28,6 +28,7 @@ import {
   type AlunoDaLista,
   type FaixaAtraso,
   type ResumoAlunos,
+  type SituacaoFinanceira,
   type SituacaoNaEscola,
 } from '../../../../types/pessoas/aluno'
 import { ROTULOS_TURNO } from '../../../../types/academico/alocacao'
@@ -77,8 +78,16 @@ function opcoesDeTurma(turmas: TurmaAcademica[]): OpcaoSelect<string>[] {
     })
 }
 
-/** Situações cuja pílula só aparece quando há algum aluno nela (ou quando já está escolhida). */
+/** Situações cuja opção só aparece quando há algum aluno nela (ou quando já está escolhida). */
 const SO_COM_ALUNOS: readonly Filtro[] = ['INATIVO', 'ANONIMIZADO']
+
+type FiltroFinanceiro = 'TODOS' | SituacaoFinanceira
+type FiltroAtraso = 'QUALQUER' | FaixaAtraso
+
+/** "Em atraso (9)", como as abas do Início; antes de o resumo chegar, só o nome. */
+function comQuantidade(rotulo: string, quantidade: number | undefined): string {
+  return quantidade === undefined ? rotulo : `${rotulo} (${quantidade})`
+}
 
 /** Mensagem para quando inativar ou reativar falha. */
 function motivoParaNaoAlternar(aluno: AlunoDaLista, e: unknown): string {
@@ -122,8 +131,9 @@ function perfilVeFinanceiro(): boolean {
  * Financeiro de cada aluno (IU18).
  *
  * MASTER e FINANCEIRO veem também o financeiro de cada aluno: a coluna "Em
- * aberto" (que ordena a lista), as pílulas da situação financeira, a faixa de
- * atraso e os filtros de vencimento e mensalidade. Os filtros ficam na URL,
+ * aberto" (que ordena a lista), os seletores da situação na escola, da
+ * financeira e da faixa de atraso (na linha da busca) e os filtros de
+ * vencimento e mensalidade, que se somam a eles. Os filtros ficam na URL,
  * para os atalhos do Início chegarem com eles aplicados.
  */
 export function Alunos() {
@@ -192,7 +202,31 @@ export function Alunos() {
       (resumo?.porSituacao[f.valor as SituacaoNaEscola] ?? 0) > 0 ||
       filtro === f.valor,
   )
+  const quantidadeNaEscola = (f: Filtro) =>
+    resumo ? (f === 'TODOS' ? resumo.total : resumo.porSituacao[f]) : undefined
   const resumoFinanceiro = resumo?.financeiro ?? null
+
+  // Quem vê o financeiro filtra por seletores, para os três critérios caberem na linha da busca.
+  const opcoesNaEscola: OpcaoSelect<Filtro>[] = pilulasAcademicas.map((f) => ({
+    valor: f.valor,
+    rotulo: comQuantidade(f.rotulo, quantidadeNaEscola(f.valor)),
+  }))
+  const opcoesFinanceiro: OpcaoSelect<FiltroFinanceiro>[] = [
+    { valor: 'TODOS', rotulo: comQuantidade('Todos', resumo?.total) },
+    ...SITUACOES_FINANCEIRAS.map((s) => ({
+      valor: s,
+      rotulo: comQuantidade(ROTULOS_SITUACAO_FINANCEIRA[s], resumoFinanceiro?.porSituacao[s]),
+    })),
+  ]
+  const opcoesAtraso: OpcaoSelect<FiltroAtraso>[] = [
+    { valor: 'QUALQUER', rotulo: comQuantidade('Qualquer tempo', resumoFinanceiro?.porSituacao.EM_ATRASO) },
+    ...FAIXAS_ATRASO.map((faixa) => ({
+      valor: faixa,
+      rotulo: comQuantidade(ROTULOS_FAIXA_ATRASO[faixa], resumoFinanceiro?.porFaixaAtraso[faixa]),
+    })),
+  ]
+  const classeDoSeletor = (filtrando: boolean) => `${styles.seletor} ${filtrando ? styles.seletorAtivo : ''}`
+
   const mensagemVazia =
     resumo?.total === 0
       ? 'Nenhum aluno cadastrado ainda.'
@@ -209,12 +243,25 @@ export function Alunos() {
           key={f.valor}
           ativa={filtro === f.valor}
           onClick={() => filtrar({ situacao: f.valor === 'TODOS' ? null : f.valor })}
-          quantidade={resumo ? (f.valor === 'TODOS' ? resumo.total : resumo.porSituacao[f.valor]) : undefined}
+          quantidade={quantidadeNaEscola(f.valor)}
         >
           {f.rotulo}
         </Pilula>
       ))}
     </div>
+  )
+
+  const campoDeBusca = (
+    <label className={styles.busca}>
+      <Icon name="search" size={17} />
+      <input
+        type="search"
+        placeholder="Procurar pelo nome ou matrícula"
+        aria-label="Buscar aluno pelo nome ou matrícula"
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+      />
+    </label>
   )
 
   function limparAvisos() {
@@ -333,18 +380,45 @@ export function Alunos() {
       )}
 
       <div className={styles.toolbar}>
-        <label className={styles.busca}>
-          <Icon name="search" size={17} />
-          <input
-            type="search"
-            placeholder="Procurar pelo nome ou matrícula"
-            aria-label="Buscar aluno pelo nome ou matrícula"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-          />
-        </label>
-        {/* Sem o financeiro, as pílulas cabem na mesma linha da busca, como sempre foram. */}
-        {!veFinanceiro && pilulasDaSituacao}
+        {veFinanceiro ? (
+          // Busca e os três critérios numa linha só; o de atraso aparece ao lado,
+          // sem empurrar a tabela, quando o financeiro está em "Em atraso".
+          <div className={styles.controles}>
+            {campoDeBusca}
+            <Select<Filtro>
+              prefixo="Na escola"
+              aria-label="Filtrar por situação"
+              opcoes={opcoesNaEscola}
+              valor={filtro}
+              onChange={(v) => filtrar({ situacao: v === 'TODOS' ? null : v })}
+              className={classeDoSeletor(filtro !== 'TODOS')}
+            />
+            <Select<FiltroFinanceiro>
+              prefixo="Financeiro"
+              aria-label="Filtrar pela situação financeira"
+              opcoes={opcoesFinanceiro}
+              valor={filtros.financeiro ?? 'TODOS'}
+              onChange={(v) => filtrar({ financeiro: v === 'TODOS' ? null : v, faixaAtraso: null })}
+              className={classeDoSeletor(filtros.financeiro !== null)}
+            />
+            {filtros.financeiro === 'EM_ATRASO' && (
+              <Select<FiltroAtraso>
+                prefixo="Atraso"
+                aria-label="Filtrar pelo tempo de atraso"
+                opcoes={opcoesAtraso}
+                valor={filtros.faixaAtraso ?? 'QUALQUER'}
+                onChange={(v) => filtrar({ faixaAtraso: v === 'QUALQUER' ? null : v })}
+                className={classeDoSeletor(filtros.faixaAtraso !== null)}
+              />
+            )}
+          </div>
+        ) : (
+          // Sem o financeiro, as pílulas cabem na mesma linha da busca, como sempre foram.
+          <>
+            {campoDeBusca}
+            {pilulasDaSituacao}
+          </>
+        )}
         {podeCadastrar && (
           <Button variant="primary" icon="plus" onClick={abrirCadastro}>
             Novo aluno
@@ -353,81 +427,30 @@ export function Alunos() {
       </div>
 
       {veFinanceiro && (
-        <div className={styles.grupos}>
-          <GrupoDeFiltros rotulo="Na escola">{pilulasDaSituacao}</GrupoDeFiltros>
-
-          <GrupoDeFiltros rotulo="Financeiro">
-            <div className={styles.filtros} role="group" aria-label="Filtrar pela situação financeira">
-              <Pilula
-                ativa={filtros.financeiro === null}
-                onClick={() => filtrar({ financeiro: null, faixaAtraso: null })}
-                quantidade={resumo?.total}
-              >
-                Todos
-              </Pilula>
-              {SITUACOES_FINANCEIRAS.map((s) => (
-                <Pilula
-                  key={s}
-                  ativa={filtros.financeiro === s}
-                  onClick={() => filtrar({ financeiro: s, faixaAtraso: null })}
-                  quantidade={resumoFinanceiro?.porSituacao[s]}
-                  tom={s === 'EM_ATRASO' ? 'alerta' : undefined}
-                >
-                  {ROTULOS_SITUACAO_FINANCEIRA[s]}
-                </Pilula>
-              ))}
-            </div>
-          </GrupoDeFiltros>
-
-          {filtros.financeiro === 'EM_ATRASO' && (
-            <GrupoDeFiltros rotulo="Atrasado há">
-              <div className={styles.filtros} role="group" aria-label="Filtrar pelo tempo de atraso">
-                <Pilula
-                  ativa={filtros.faixaAtraso === null}
-                  onClick={() => filtrar({ faixaAtraso: null })}
-                  quantidade={resumoFinanceiro?.porSituacao.EM_ATRASO}
-                >
-                  Qualquer tempo
-                </Pilula>
-                {FAIXAS_ATRASO.map((faixa: FaixaAtraso) => (
-                  <Pilula
-                    key={faixa}
-                    ativa={filtros.faixaAtraso === faixa}
-                    onClick={() => filtrar({ faixaAtraso: faixa })}
-                    quantidade={resumoFinanceiro?.porFaixaAtraso[faixa]}
-                  >
-                    {ROTULOS_FAIXA_ATRASO[faixa]}
-                  </Pilula>
-                ))}
-              </div>
-            </GrupoDeFiltros>
+        <div className={styles.extras}>
+          <div className={styles.filtros} role="group" aria-label="Mais filtros financeiros">
+            <Pilula
+              ativa={filtros.venceEm7Dias}
+              marcavel
+              onClick={() => filtrar({ venceEm7Dias: !filtros.venceEm7Dias })}
+              quantidade={resumoFinanceiro?.venceEm7Dias}
+            >
+              Vence nos próximos 7 dias
+            </Pilula>
+            <Pilula
+              ativa={filtros.semMensalidade}
+              marcavel
+              onClick={() => filtrar({ semMensalidade: !filtros.semMensalidade })}
+              quantidade={resumoFinanceiro?.semMensalidadeNoMes}
+            >
+              Sem mensalidade neste mês
+            </Pilula>
+          </div>
+          {temFiltro(filtros) && (
+            <button type="button" className={styles.limpar} onClick={limparFiltros}>
+              Limpar filtros
+            </button>
           )}
-
-          <GrupoDeFiltros rotulo="Mais filtros">
-            <div className={styles.filtros} role="group" aria-label="Mais filtros financeiros">
-              <Pilula
-                ativa={filtros.venceEm7Dias}
-                marcavel
-                onClick={() => filtrar({ venceEm7Dias: !filtros.venceEm7Dias })}
-                quantidade={resumoFinanceiro?.venceEm7Dias}
-              >
-                Vence nos próximos 7 dias
-              </Pilula>
-              <Pilula
-                ativa={filtros.semMensalidade}
-                marcavel
-                onClick={() => filtrar({ semMensalidade: !filtros.semMensalidade })}
-                quantidade={resumoFinanceiro?.semMensalidadeNoMes}
-              >
-                Sem mensalidade neste mês
-              </Pilula>
-              {temFiltro(filtros) && (
-                <button type="button" className={styles.limpar} onClick={limparFiltros}>
-                  Limpar filtros
-                </button>
-              )}
-            </div>
-          </GrupoDeFiltros>
         </div>
       )}
 
@@ -496,15 +519,12 @@ type PilulaProps = {
   onClick: () => void
   /** Quantos alunos a pílula traz; sem ela (resumo ainda não chegou), não mostra o número. */
   quantidade?: number
-  /** Número em vermelho quando há algum aluno, para o que pede atenção. */
-  tom?: 'alerta'
   /** Liga e desliga sozinha (combina com as outras), em vez de escolher uma entre várias. */
   marcavel?: boolean
   children: string
 }
 
-function Pilula({ ativa, onClick, quantidade, tom, marcavel = false, children }: PilulaProps) {
-  const alerta = tom === 'alerta' && (quantidade ?? 0) > 0
+function Pilula({ ativa, onClick, quantidade, marcavel = false, children }: PilulaProps) {
   return (
     <button
       type="button"
@@ -518,21 +538,7 @@ function Pilula({ ativa, onClick, quantidade, tom, marcavel = false, children }:
         </span>
       )}
       {children}
-      {quantidade !== undefined && (
-        <span className={`${styles.filtroQuantidade} ${alerta && !ativa ? styles.quantidadeAlerta : ''}`}>
-          {quantidade}
-        </span>
-      )}
+      {quantidade !== undefined && <span className={styles.filtroQuantidade}>{quantidade}</span>}
     </button>
-  )
-}
-
-/** Uma linha de pílulas com o rótulo do grupo à esquerda (empilha no celular). */
-function GrupoDeFiltros({ rotulo, children }: { rotulo: string; children: ReactNode }) {
-  return (
-    <div className={styles.grupo}>
-      <span className={styles.grupoRotulo}>{rotulo}</span>
-      {children}
-    </div>
   )
 }

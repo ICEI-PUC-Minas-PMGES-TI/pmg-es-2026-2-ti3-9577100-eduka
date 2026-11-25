@@ -16,6 +16,14 @@ const paths = {
       <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </>
   ),
+  /** Três pontos: "mais ações" (menu da linha da tabela). */
+  more: (
+    <>
+      <circle cx="5" cy="12" r="1.6" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+      <circle cx="19" cy="12" r="1.6" fill="currentColor" />
+    </>
+  ),
   pause: (
     <>
       <rect x="6" y="5" width="4" height="14" rx="1" />

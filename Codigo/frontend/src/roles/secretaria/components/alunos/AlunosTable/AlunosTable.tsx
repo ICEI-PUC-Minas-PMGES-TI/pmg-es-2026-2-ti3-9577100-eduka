@@ -1,8 +1,8 @@
 import type { ReactNode, Ref } from 'react'
 import { Badge } from '../../../../../components/ui/Badge/Badge'
 import { Button } from '../../../../../components/ui/Button/Button'
-import { Dica } from '../../../../../components/ui/Dica/Dica'
 import { Icon } from '../../../../../components/ui/Icon/Icon'
+import { MenuBotao, type ItemMenu } from '../../../../../components/ui/MenuBotao/MenuBotao'
 import { Paginacao } from '../../../../../components/ui/Paginacao/Paginacao'
 import type { EstadoPaginacao } from '../../../../../hooks/usePaginacao'
 import {
@@ -44,6 +44,44 @@ function detalheFinanceiro(financeiro: FinanceiroDoAluno): string | null {
 }
 
 const ARIA_SORT = { ASC: 'ascending', DESC: 'descending' } as const
+
+/**
+ * As ações raras da linha, no menu "⋯": reenviar o acesso e inativar ou
+ * reativar. Ficam fora da vista para a linha não virar uma fileira de botões
+ * e para o Inativar não ficar a um clique distraído, colado no Editar.
+ */
+function maisAcoesDoAluno(
+  aluno: AlunoDaLista,
+  onReenviarAcesso: ((aluno: AlunoDaLista) => void) | undefined,
+  onAlternarSituacao: ((aluno: AlunoDaLista) => void) | undefined,
+): ItemMenu[] {
+  // Sem dado pessoal, não há acesso para reenviar nem situação para trocar.
+  if (aluno.situacao === 'ANONIMIZADO') return []
+  const inativo = aluno.situacao === 'INATIVO'
+  const itens: ItemMenu[] = []
+  // Inativo não entra no portal: reenviar o acesso não adianta até reativar.
+  if (!inativo && onReenviarAcesso) {
+    itens.push({
+      id: 'reenviar',
+      rotulo: 'Reenviar acesso',
+      descricao: 'Envia uma nova senha provisória para o e-mail do aluno',
+      icone: 'mail',
+      onSelecionar: () => onReenviarAcesso(aluno),
+    })
+  }
+  if (onAlternarSituacao) {
+    itens.push({
+      id: 'alternar',
+      rotulo: inativo ? 'Reativar' : 'Inativar',
+      descricao: inativo
+        ? 'Devolve o acesso ao portal com a senha que o aluno já tinha'
+        : 'Bloqueia o acesso ao portal sem apagar os dados do aluno',
+      icone: inativo ? 'check' : 'pause',
+      onSelecionar: () => onAlternarSituacao(aluno),
+    })
+  }
+  return itens
+}
 
 /** A coluna "Em aberto", para quem vê o financeiro (MASTER e FINANCEIRO). */
 export type ColunaEmAberto = {
@@ -137,10 +175,10 @@ export function AlunosTable({
             <tbody>
               {alunos.map((aluno) => {
                 const badge = BADGE_SITUACAO[aluno.situacao]
-                // Sem dado pessoal, não há o que editar nem acesso para reenviar.
+                // Sem dado pessoal, não há o que editar.
                 const anonimizado = aluno.situacao === 'ANONIMIZADO'
-                // Inativo não entra no portal: reenviar o acesso não adianta até reativar.
                 const inativo = aluno.situacao === 'INATIVO'
+                const maisAcoes = maisAcoesDoAluno(aluno, onReenviarAcesso, onAlternarSituacao)
                 return (
                   <tr key={aluno.id} className={inativo ? styles.inativo : undefined}>
                     <td className={styles.colPrincipal}>
@@ -173,37 +211,17 @@ export function AlunosTable({
                             Editar
                           </Button>
                         )}
-                        {!anonimizado && !inativo && onReenviarAcesso && (
-                          <Dica texto="Envia uma nova senha provisória para o e-mail do aluno">
-                            <Button
-                              size="sm"
-                              icon="mail"
-                              disabled={reenviandoId === aluno.id}
-                              onClick={() => onReenviarAcesso(aluno)}
-                            >
-                              Reenviar acesso
-                            </Button>
-                          </Dica>
-                        )}
-                        {!anonimizado && onAlternarSituacao && (
-                          <Dica
-                            texto={
-                              inativo
-                                ? 'Devolve o acesso ao portal com a senha que o aluno já tinha'
-                                : 'Bloqueia o acesso ao portal sem apagar os dados do aluno'
-                            }
+                        {maisAcoes.length > 0 && (
+                          <MenuBotao
+                            somenteIcone
+                            icon="more"
+                            size="sm"
+                            itens={maisAcoes}
+                            // Enquanto reenvia, inativa ou reativa este aluno, o menu dele espera.
+                            disabled={reenviandoId === aluno.id || alternandoId === aluno.id}
                           >
-                            <Button
-                              size="sm"
-                              className={styles.alternar}
-                              icon={inativo ? 'check' : 'pause'}
-                              disabled={alternandoId === aluno.id}
-                              aria-label={`${inativo ? 'Reativar' : 'Inativar'} ${aluno.nome}`}
-                              onClick={() => onAlternarSituacao(aluno)}
-                            >
-                              {inativo ? 'Reativar' : 'Inativar'}
-                            </Button>
-                          </Dica>
+                            {`Mais ações para ${aluno.nome}`}
+                          </MenuBotao>
                         )}
                       </div>
                     </td>

@@ -161,15 +161,11 @@
   color: var(--color-text-muted);
 }
 
+/* Ver e Editar à vista; o "⋯" com as ações raras fecha a fila, sempre no mesmo lugar. */
 .acoes {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-}
-
-.alternar {
-  min-width: 104px;
-  justify-content: center;
 }
 
 /* Aluno inativo fica apagado, como o professor inativo. */
@@ -247,9 +243,5 @@
   .acoes {
     flex-wrap: wrap;
     justify-content: flex-start;
-  }
-
-  .alternar {
-    min-width: 0;
   }
 }

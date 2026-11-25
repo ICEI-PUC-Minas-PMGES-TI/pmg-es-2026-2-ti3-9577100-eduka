@@ -19,6 +19,12 @@ type SelectProps<T extends string> = {
    * numa lista longa de meses); sem ela, a primeira.
    */
   sugestao?: T
+  /**
+   * Nome do filtro, fixo no botão antes do valor (ex.: "Financeiro" em
+   * "Financeiro  Todos"): um filtro de barra de ferramentas, sem rótulo em
+   * cima, não fica ambíguo quando está em "Todos". Fica fora da lista.
+   */
+  prefixo?: string
   /** Classe do botão; o Campo passa a dele para ficar igual aos inputs. */
   className?: string
   /** Aplicada ao botão quando há uma opção escolhida. */
@@ -46,6 +52,7 @@ export function Select<T extends string>({
   onChange,
   placeholder = 'Selecione…',
   sugestao,
+  prefixo,
   className,
   classNamePreenchido,
   id,
@@ -185,6 +192,7 @@ export function Select<T extends string>({
         onClick={() => (aberto ? setAberto(false) : abrir())}
         onKeyDown={handleTeclaBotao}
       >
+        {prefixo && <span className={styles.prefixo}>{prefixo}</span>}
         <span className={opcaoAtual ? styles.valor : styles.placeholder}>
           {opcaoAtual?.rotulo ?? placeholder}
         </span>

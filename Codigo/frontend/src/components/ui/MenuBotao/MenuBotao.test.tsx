@@ -72,6 +72,23 @@ describe('MenuBotao', () => {
     expect(planilha).not.toHaveBeenCalled()
   })
 
+  it('só com o ícone, o texto vira o nome do botão e do menu, sem aparecer', async () => {
+    const editar = vi.fn()
+    const usuario = userEvent.setup()
+    render(
+      <MenuBotao somenteIcone icon="more" size="sm" itens={[{ id: 'editar', rotulo: 'Editar', onSelecionar: editar }]}>
+        Mais ações para Ana
+      </MenuBotao>,
+    )
+
+    const botao = screen.getByRole('button', { name: 'Mais ações para Ana' })
+    expect(botao.textContent).toBe('')
+    await usuario.click(botao)
+    expect(screen.getByRole('menu', { name: 'Mais ações para Ana' })).toBeInTheDocument()
+    await usuario.click(screen.getByRole('menuitem', { name: 'Editar' }))
+    expect(editar).toHaveBeenCalledOnce()
+  })
+
   it('desabilitado, não abre', async () => {
     montar(true)
     const usuario = userEvent.setup()

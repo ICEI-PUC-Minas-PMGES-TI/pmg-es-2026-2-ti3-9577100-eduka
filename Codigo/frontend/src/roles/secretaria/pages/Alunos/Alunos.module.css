@@ -95,12 +95,6 @@
   opacity: 0.6;
 }
 
-/* Número da pílula em vermelho: há aluno nela que pede atenção (ex.: em atraso). */
-.quantidadeAlerta {
-  background: var(--color-danger-bg);
-  color: var(--color-danger);
-}
-
 /* Caixinha das pílulas que ligam e desligam sozinhas ("Mais filtros"). */
 .marca {
   display: inline-grid;
@@ -117,28 +111,76 @@
   opacity: 1;
 }
 
-/* Filtros do MASTER e do FINANCEIRO: uma linha por grupo, com o rótulo à esquerda. */
-.grupos {
+/* Filtros do MASTER e do FINANCEIRO: busca e seletores numa linha, que quebra se faltar espaço. */
+.controles {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.grupo {
-  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  min-width: 0;
 }
 
-.grupoRotulo {
-  flex-shrink: 0;
-  width: 104px;
-  color: var(--color-text-muted);
+/* A busca cede espaço antes de um seletor quebrar de linha. */
+.controles .busca {
+  flex: 0 1 300px;
+  min-width: 220px;
+}
+
+/* Se os seletores quebrarem em duas linhas, o "Novo aluno" fica na primeira, não no meio. */
+.controles ~ button {
+  align-self: flex-start;
+}
+
+/* Seletor em pílula de vidro, da altura da busca; filtrando, fica na cor das pílulas ativas. */
+.seletor {
+  min-height: 46px;
+  max-width: 100%;
+  padding: 0 16px 0 18px;
+  border: var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  backdrop-filter: var(--glass-blur);
+  color: var(--color-text);
   font-family: var(--font-display);
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 800;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
+  white-space: nowrap;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.seletor:hover {
+  border-color: var(--color-primary);
+}
+
+.seletor:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--glass-shadow-sm), 0 0 0 4px rgba(212, 187, 252, 0.5);
+}
+
+.seletorAtivo,
+.seletorAtivo:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+/* A seta do Select é apagada; no seletor ativo, acompanha o texto claro. */
+.seletorAtivo svg {
+  color: inherit;
+}
+
+/* Filtros que se somam aos seletores, com o "Limpar filtros" sempre no fim da linha. */
+.extras {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
 }
 
 .limpar {
@@ -182,23 +224,12 @@
     width: 100%;
   }
 
-  /* No celular, o rótulo fica em cima e as pílulas rolam de lado, sem quebrar em várias linhas. */
-  .grupo {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
+  /* No celular, um seletor por linha, com o nome à esquerda e o valor junto da seta. */
+  .seletor {
+    width: 100%;
   }
 
-  .grupo .filtros {
-    flex-wrap: nowrap;
-    padding: 2px 2px 6px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .grupo .filtro,
-  .grupo .limpar {
-    flex-shrink: 0;
-    white-space: nowrap;
+  .extras .filtros {
+    width: 100%;
   }
 }
