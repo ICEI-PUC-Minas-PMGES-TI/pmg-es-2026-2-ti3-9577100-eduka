@@ -21,6 +21,7 @@ import { AgendaAvaliacoes } from '../../components/AgendaAvaliacoes/AgendaAvalia
 import { aproveitamento } from '../../formatacao'
 import { useDadosDoAluno } from '../../hooks/useDadosDoAluno'
 import { AlunoLayout } from '../../layouts/AlunoLayout'
+import { IndicadorAjuda } from '../../../../components/ajuda/IndicadorAjuda/IndicadorAjuda'
 import {
   agruparPorAno,
   avaliacoesNoRecorte,
@@ -307,6 +308,8 @@ function BoletimDoAno({ anos, ano, bimestre, onAno, onBimestre }: BoletimDoAnoPr
           A nota de cada bimestre é a soma das avaliações com data dentro dele.
         </span>
       </p>
+
+      <IndicadorAjuda>Alguma nota ou falta parece errada? Veja como falar com a escola</IndicadorAjuda>
     </>
   )
 }

@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
 import styles from './PaginaNaoEncontrada.module.css'
+import { BotaoAjudaFlutuante } from '../../components/ajuda/BotaoAjudaFlutuante/BotaoAjudaFlutuante'
 
 export function PaginaNaoEncontrada() {
   return (
@@ -12,6 +13,7 @@ export function PaginaNaoEncontrada() {
           Voltar ao início
         </Link>
       </div>
+      <BotaoAjudaFlutuante tela="Página não encontrada" />
     </main>
   )
 }

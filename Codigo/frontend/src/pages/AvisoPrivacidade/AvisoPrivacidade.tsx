@@ -12,6 +12,7 @@ import { limparSessao, obterToken, obterUsuarioLogado } from '../../services/ace
 import { aceitarAvisoPrivacidade, buscarAvisoPrivacidade } from '../../services/privacidade/privacidadeService'
 import type { AvisoPrivacidade as Aviso } from '../../types/privacidade/privacidade'
 import styles from './AvisoPrivacidade.module.css'
+import { BotaoAjudaFlutuante } from '../../components/ajuda/BotaoAjudaFlutuante/BotaoAjudaFlutuante'
 
 const ICONES: readonly string[] = ['user', 'users', 'lock', 'shield', 'info', 'mail', 'eye', 'card']
 
@@ -178,6 +179,7 @@ export function AvisoPrivacidade() {
           </div>
         </Modal>
       )}
+      <BotaoAjudaFlutuante tela="Aviso de privacidade" />
     </main>
   )
 }

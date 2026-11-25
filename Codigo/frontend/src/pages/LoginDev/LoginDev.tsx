@@ -6,6 +6,7 @@ import { rotaInicialPorPerfil } from '../../routes/paths'
 import { ApiError, ehEscolaSuspensa, motivoDaSuspensao, rotaAcessoSuspenso } from '../../services/api'
 import { autenticar, type PerfilUsuario } from '../../services/acesso/authService'
 import styles from './LoginDev.module.css'
+import { BotaoAjudaFlutuante } from '../../components/ajuda/BotaoAjudaFlutuante/BotaoAjudaFlutuante'
 
 // Só existe em dev: a rota /login/dev nem entra no build de produção (ver
 // router.tsx). As contas são criadas pelos seeders do backend no perfil "dev",
@@ -123,6 +124,7 @@ export function LoginDev() {
           </p>
         )}
       </main>
+      <BotaoAjudaFlutuante tela="Login de desenvolvimento" />
     </div>
   )
 }

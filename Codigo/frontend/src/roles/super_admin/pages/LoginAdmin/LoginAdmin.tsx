@@ -12,6 +12,7 @@ import {
   type VerificacaoLogin,
 } from '../../../../services/acesso/authService'
 import styles from './LoginAdmin.module.css'
+import { BotaoAjudaFlutuante } from '../../../../components/ajuda/BotaoAjudaFlutuante/BotaoAjudaFlutuante'
 
 export function LoginAdmin() {
   const navigate = useNavigate()
@@ -205,6 +206,7 @@ export function LoginAdmin() {
           )}
         </main>
       </div>
+      <BotaoAjudaFlutuante tela="Login do Super Admin" />
     </div>
   )
 }

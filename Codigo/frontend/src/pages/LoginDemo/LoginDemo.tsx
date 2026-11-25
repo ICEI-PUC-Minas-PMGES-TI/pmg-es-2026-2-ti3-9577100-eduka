@@ -10,6 +10,7 @@ import type { PerfilUsuario } from '../../services/acesso/authService'
 import { entrarComoDemo, listarContasDemo, type ContaDemo, type GrupoDemo } from '../../services/acesso/demoService'
 import styles from '../LoginDev/LoginDev.module.css'
 import demoStyles from './LoginDemo.module.css'
+import { BotaoAjudaFlutuante } from '../../components/ajuda/BotaoAjudaFlutuante/BotaoAjudaFlutuante'
 
 const ICONE_POR_PERFIL: Record<PerfilUsuario, IconName> = {
   SUPER_ADMIN: 'shield',
@@ -149,6 +150,7 @@ export function LoginDemo() {
           </p>
         )}
       </main>
+      <BotaoAjudaFlutuante tela="Acesso de demonstração" />
     </div>
   )
 }

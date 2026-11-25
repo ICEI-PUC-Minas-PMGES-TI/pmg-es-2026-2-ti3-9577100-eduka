@@ -4,6 +4,7 @@ import { Icon } from '../../components/ui/Icon/Icon'
 import { paths } from '../../routes/paths'
 import { limparSessao, obterUsuarioLogado } from '../../services/acesso/authService'
 import styles from './AreaEmConstrucao.module.css'
+import { BotaoAjudaFlutuante } from '../../components/ajuda/BotaoAjudaFlutuante/BotaoAjudaFlutuante'
 
 type AreaEmConstrucaoProps = {
   area: string
@@ -35,6 +36,7 @@ export function AreaEmConstrucao({ area }: AreaEmConstrucaoProps) {
           Sair
         </button>
       </div>
+      <BotaoAjudaFlutuante tela="Área em construção" />
     </main>
   )
 }
