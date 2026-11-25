@@ -18,6 +18,7 @@ const TURMA: TurmaDoProfessor = {
   periodoLetivoNome: '2026/2',
   cursoId: 1,
   cursoNome: 'Ensino Médio',
+  alunosAtivos: 30,
   disciplinas: [
     {
       id: 3,

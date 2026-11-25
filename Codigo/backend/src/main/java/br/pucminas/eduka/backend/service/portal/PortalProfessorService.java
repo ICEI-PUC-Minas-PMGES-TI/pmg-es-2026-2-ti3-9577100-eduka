@@ -67,7 +67,8 @@ public class PortalProfessorService {
 
     /**
      * Turmas em que o professor autenticado leciona, cada uma so com as
-     * disciplinas dele e o horario de cada uma (IU13). Ordenado por nome da
+     * disciplinas dele, o horario de cada uma (IU13) e quantos alunos ativos
+     * ela tem. Ordenado por nome da
      * turma e da disciplina; sem alocacao, lista vazia.
      *
      * @throws RecursoNaoEncontradoException se o login nao e de um professor
@@ -90,8 +91,14 @@ public class PortalProfessorService {
                         .collect(Collectors.groupingBy(h -> h.getAlocacao().getId(),
                                 Collectors.mapping(HorarioDaDisciplina::de, Collectors.toList())));
 
+        // Alunos ativos de cada turma, contados no banco numa query so (turma sem aluno fica de fora).
+        Map<Long, Long> alunosAtivos = alocacoes.isEmpty() ? Map.of()
+                : matriculaRepository.contarAtivasPorTurma(escolaId).stream()
+                        .collect(Collectors.toMap(MatriculaTurmaRepository.AtivasNaTurma::getTurmaId,
+                                MatriculaTurmaRepository.AtivasNaTurma::getQuantidade));
+
         return porTurma.values().stream()
-                .map(daTurma -> paraResposta(daTurma, horarios))
+                .map(daTurma -> paraResposta(daTurma, horarios, alunosAtivos))
                 .sorted(Comparator.comparing(TurmaDoProfessorResponse::nome, String.CASE_INSENSITIVE_ORDER))
                 .toList();
     }
@@ -131,13 +138,13 @@ public class PortalProfessorService {
     }
 
     private static TurmaDoProfessorResponse paraResposta(List<AlocacaoProfessor> alocacoesDaTurma,
-            Map<UUID, List<HorarioDaDisciplina>> horarios) {
+            Map<UUID, List<HorarioDaDisciplina>> horarios, Map<Long, Long> alunosAtivos) {
         Turma turma = alocacoesDaTurma.get(0).getTurma();
         List<DisciplinaDoProfessor> disciplinas = alocacoesDaTurma.stream()
                 .map(alocacao -> DisciplinaDoProfessor.de(alocacao.getDisciplina(),
                         horarios.getOrDefault(alocacao.getId(), List.of())))
                 .sorted(Comparator.comparing(DisciplinaDoProfessor::nome, String.CASE_INSENSITIVE_ORDER))
                 .toList();
-        return TurmaDoProfessorResponse.de(turma, disciplinas);
+        return TurmaDoProfessorResponse.de(turma, alunosAtivos.getOrDefault(turma.getId(), 0L), disciplinas);
     }
 }

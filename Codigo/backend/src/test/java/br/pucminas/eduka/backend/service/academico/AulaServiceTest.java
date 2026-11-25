@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -41,6 +42,7 @@ import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.academico.Aula;
 import br.pucminas.eduka.backend.domain.academico.Disciplina;
+import br.pucminas.eduka.backend.domain.academico.DiaSemana;
 import br.pucminas.eduka.backend.domain.academico.Frequencia;
 import br.pucminas.eduka.backend.domain.academico.MatriculaTurma;
 import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
@@ -53,6 +55,7 @@ import br.pucminas.eduka.backend.dto.academico.AulaRequest;
 import br.pucminas.eduka.backend.dto.academico.AulaResponse;
 import br.pucminas.eduka.backend.dto.academico.AulaResumoResponse;
 import br.pucminas.eduka.backend.dto.academico.ChamadaDoDiaResponse;
+import br.pucminas.eduka.backend.dto.academico.MesDeAulasResponse;
 import br.pucminas.eduka.backend.dto.academico.ChamadaItem;
 import br.pucminas.eduka.backend.dto.comum.PaginaResponse;
 import br.pucminas.eduka.backend.dto.comum.Paginacao;
@@ -61,6 +64,7 @@ import br.pucminas.eduka.backend.repository.academico.AlocacaoProfessorRepositor
 import br.pucminas.eduka.backend.repository.academico.AulaRepository;
 import br.pucminas.eduka.backend.repository.academico.DisciplinaRepository;
 import br.pucminas.eduka.backend.repository.academico.FrequenciaRepository;
+import br.pucminas.eduka.backend.repository.academico.HorarioTurmaRepository;
 import br.pucminas.eduka.backend.repository.academico.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.academico.TurmaRepository;
 import br.pucminas.eduka.backend.repository.pessoas.PessoaRepository;
@@ -78,9 +82,9 @@ class AulaServiceTest {
 
     private static final UUID ESCOLA = UUID.randomUUID();
     private static final UUID USUARIO = UUID.randomUUID();
-    /** 01/11/2026 15:00 em Brasilia. */
-    private static final Instant AGORA = Instant.parse("2026-11-01T18:00:00Z");
-    private static final LocalDate HOJE = LocalDate.of(2026, 11, 1);
+    /** Segunda, 02/11/2026, 15:00 em Brasilia. */
+    private static final Instant AGORA = Instant.parse("2026-11-02T18:00:00Z");
+    private static final LocalDate HOJE = LocalDate.of(2026, 11, 2);
 
     @Mock
     private AuditoriaService auditoriaService;
@@ -92,6 +96,8 @@ class AulaServiceTest {
     private ProfessorRepository professorRepository;
     @Mock
     private AlocacaoProfessorRepository alocacaoRepository;
+    @Mock
+    private HorarioTurmaRepository horarioRepository;
     @Mock
     private TurmaRepository turmaRepository;
     @Mock
@@ -114,6 +120,9 @@ class AulaServiceTest {
         turma = Turma.builder().id(1L).nome("1A").build();
         disciplina = Disciplina.builder().id(10L).nome("Matematica").build();
         when(professorRepository.findByUsuarioIdAndEscolaId(USUARIO, ESCOLA)).thenReturn(Optional.of(professor));
+        // Por padrao a grade tem aula da disciplina em todo dia; os testes do dia sem aula trocam.
+        lenient().when(horarioRepository.existsByEscolaIdAndAlocacao_Turma_IdAndAlocacao_Disciplina_IdAndDiaSemana(
+                any(), any(), any(), any())).thenReturn(true);
     }
 
     @AfterEach
@@ -127,7 +136,7 @@ class AulaServiceTest {
 
     private AulaService servico(Instant agora) {
         return new AulaService(aulaRepository, frequenciaRepository, professorRepository, alocacaoRepository,
-                turmaRepository, disciplinaRepository, matriculaRepository, pessoaRepository,
+                horarioRepository, turmaRepository, disciplinaRepository, matriculaRepository, pessoaRepository,
                 new IsolamentoEscola(), Clock.fixed(agora, ZoneOffset.UTC), auditoriaService);
     }
 
@@ -267,18 +276,34 @@ class AulaServiceTest {
     @Test
     void hojeVaiPeloFusoDaEscolaEntaoDiaDeBrasiliaAindaValeAposAMeiaNoiteUtc() {
         alocado(true);
-        // 02/11 01:00 UTC = 01/11 22:00 em Brasilia: o dia da escola ainda e 01/11.
-        Instant noiteEmBrasilia = Instant.parse("2026-11-02T01:00:00Z");
+        // 03/11 01:00 UTC = 02/11 22:00 em Brasilia: o dia da escola ainda e 02/11.
+        Instant noiteEmBrasilia = Instant.parse("2026-11-03T01:00:00Z");
         turmaComMatriculas();
         when(turmaRepository.getReferenceById(1L)).thenReturn(turma);
         when(disciplinaRepository.getReferenceById(10L)).thenReturn(disciplina);
         gravacaoDaAula();
 
-        assertThat(servico(noiteEmBrasilia).registrar(registro(LocalDate.of(2026, 11, 1))).data())
-                .isEqualTo(LocalDate.of(2026, 11, 1));
-        assertThatThrownBy(() -> servico(noiteEmBrasilia).registrar(registro(LocalDate.of(2026, 11, 2))))
+        assertThat(servico(noiteEmBrasilia).registrar(registro(LocalDate.of(2026, 11, 2))).data())
+                .isEqualTo(LocalDate.of(2026, 11, 2));
+        assertThatThrownBy(() -> servico(noiteEmBrasilia).registrar(registro(LocalDate.of(2026, 11, 3))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("A data da aula nao pode ser futura");
+    }
+
+    @Test
+    void registrarEmDiaSemAulaDaDisciplinaNaGradeRespondeErroSemGravar() {
+        alocado(true);
+        // Segunda (hoje) sem aula desta disciplina na grade; 01/11 e domingo, que nunca tem grade.
+        when(horarioRepository.existsByEscolaIdAndAlocacao_Turma_IdAndAlocacao_Disciplina_IdAndDiaSemana(ESCOLA, 1L,
+                10L, DiaSemana.SEGUNDA)).thenReturn(false);
+
+        assertThatThrownBy(() -> servico().registrar(registro(HOJE)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Nao ha aula");
+        assertThatThrownBy(() -> servico().registrar(registro(LocalDate.of(2026, 11, 1))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Nao ha aula");
+        verify(aulaRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -602,7 +627,7 @@ class AulaServiceTest {
     void listarEmDisciplinaNaoAlocadaRespondeNaoEncontrado() {
         alocado(false);
 
-        assertThatThrownBy(() -> servico().listar(1L, 10L, new Paginacao(0, 20), null))
+        assertThatThrownBy(() -> servico().listar(1L, 10L, null, null, null, new Paginacao(0, 20), null))
                 .isInstanceOf(RecursoNaoEncontradoException.class);
         verify(aulaRepository, never()).findAllByEscolaIdAndTurmaIdAndDisciplinaId(any(), any(), any(), any());
     }
@@ -631,7 +656,7 @@ class AulaServiceTest {
         };
         when(frequenciaRepository.contarPorAula(eq(ESCOLA), anyCollection())).thenReturn(List.of(totais));
 
-        PaginaResponse<AulaResumoResponse> resposta = servico().listar(1L, 10L, new Paginacao(0, 2), null);
+        PaginaResponse<AulaResumoResponse> resposta = servico().listar(1L, 10L, null, null, null, new Paginacao(0, 2), null);
 
         assertThat(pagina.getValue().getSort().getOrderFor("data").getDirection()).isEqualTo(Direction.DESC);
         assertThat(pagina.getValue().getSort().getOrderFor("id").getDirection()).isEqualTo(Direction.ASC);
@@ -651,11 +676,100 @@ class AulaServiceTest {
         when(aulaRepository.findAllByEscolaIdAndTurmaIdAndDisciplinaId(eq(ESCOLA), eq(1L), eq(10L),
                 pagina.capture())).thenReturn(new PageImpl<>(List.of()));
 
-        PaginaResponse<AulaResumoResponse> resposta = servico().listar(1L, 10L, new Paginacao(0, 20), Direction.ASC);
+        PaginaResponse<AulaResumoResponse> resposta = servico().listar(1L, 10L, null, null, null, new Paginacao(0, 20), Direction.ASC);
 
         assertThat(resposta.conteudo()).isEmpty();
         assertThat(pagina.getValue().getSort().getOrderFor("data").getDirection()).isEqualTo(Direction.ASC);
         verify(frequenciaRepository, never()).contarPorAula(any(), any());
+    }
+
+    @Test
+    void listarComDatasFiltraNoBancoEDeixaPontaAbertaSemData() {
+        alocado(true);
+        when(aulaRepository.filtrar(eq(ESCOLA), eq(1L), eq(10L), any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        servico().listar(1L, 10L, HOJE.minusDays(7), HOJE, null, new Paginacao(0, 20), null);
+        servico().listar(1L, 10L, HOJE.minusDays(7), null, null, new Paginacao(0, 20), null);
+
+        verify(aulaRepository).filtrar(eq(ESCOLA), eq(1L), eq(10L), eq(HOJE.minusDays(7)), eq(HOJE), eq("%"), any());
+        verify(aulaRepository).filtrar(eq(ESCOLA), eq(1L), eq(10L), eq(HOJE.minusDays(7)),
+                eq(LocalDate.of(9999, 12, 31)), eq("%"), any());
+        verify(aulaRepository, never()).findAllByEscolaIdAndTurmaIdAndDisciplinaId(any(), any(), any(), any());
+    }
+
+    @Test
+    void listarComDataInicialDepoisDaFinalRespondeErro() {
+        alocado(true);
+
+        assertThatThrownBy(() -> servico().listar(1L, 10L, HOJE, HOJE.minusDays(1), null, new Paginacao(0, 20), null))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(aulaRepository, never()).filtrar(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void listarComBuscaFiltraPeloConteudoSemDiferenciarMaiusculasETrataCuringasComoTexto() {
+        alocado(true);
+        when(aulaRepository.filtrar(eq(ESCOLA), eq(1L), eq(10L), any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        servico().listar(1L, 10L, null, null, "  Logaritmo ", new Paginacao(0, 20), null);
+        servico().listar(1L, 10L, null, null, "50%_a", new Paginacao(0, 20), null);
+
+        verify(aulaRepository).filtrar(eq(ESCOLA), eq(1L), eq(10L), eq(LocalDate.of(1900, 1, 1)),
+                eq(LocalDate.of(9999, 12, 31)), eq("%logaritmo%"), any());
+        verify(aulaRepository).filtrar(any(), any(), any(), any(), any(), eq("%50\\%\\_a%"), any());
+    }
+
+    @Test
+    void listarComBuscaLongaDemaisRespondeErro() {
+        alocado(true);
+
+        assertThatThrownBy(() -> servico().listar(1L, 10L, null, null, "a".repeat(101), new Paginacao(0, 20), null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    // ---- meses do historico ----
+
+    @Test
+    void mesesDevolveOsTotaisDeCadaMesComOsFiltros() {
+        alocado(true);
+        AulaRepository.AulasDoMes novembro = new AulaRepository.AulasDoMes() {
+            public int getAno() {
+                return 2026;
+            }
+
+            public int getMes() {
+                return 11;
+            }
+
+            public long getAulas() {
+                return 12;
+            }
+
+            public long getPresentes() {
+                return 340;
+            }
+
+            public long getFaltas() {
+                return 20;
+            }
+        };
+        when(aulaRepository.contarPorMes(ESCOLA, 1L, 10L, HOJE.minusDays(30), HOJE, "%frac%"))
+                .thenReturn(List.of(novembro));
+
+        List<MesDeAulasResponse> meses = servico().meses(1L, 10L, HOJE.minusDays(30), HOJE, "Frac");
+
+        assertThat(meses).containsExactly(new MesDeAulasResponse("2026-11", 12, 340, 20));
+    }
+
+    @Test
+    void mesesEmDisciplinaNaoAlocadaRespondeNaoEncontrado() {
+        alocado(false);
+
+        assertThatThrownBy(() -> servico().meses(1L, 10L, null, null, null))
+                .isInstanceOf(RecursoNaoEncontradoException.class);
+        verify(aulaRepository, never()).contarPorMes(any(), any(), any(), any(), any(), any());
     }
 
     // ---- chamada do dia ----
@@ -727,6 +841,7 @@ class AulaServiceTest {
 
         ChamadaDoDiaResponse resposta = servico().chamadaDoDia(1L, 10L, null);
 
+        assertThat(resposta.diaDeAula()).isTrue();
         assertThat(resposta.data()).isEqualTo(HOJE);
         assertThat(resposta.alunos()).isEmpty();
         assertThat(resposta.aulas()).isEmpty();

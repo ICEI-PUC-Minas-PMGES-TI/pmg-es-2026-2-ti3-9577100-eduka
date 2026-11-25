@@ -2,24 +2,24 @@ import { useCallback, useId, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { Button } from '../../../../components/ui/Button/Button'
 import { CampoData } from '../../../../components/formulario/CampoData/CampoData'
+import { paraData, paraIso } from '../../../../components/formulario/CampoData/datas'
 import { ConfirmarExclusao } from '../../../../components/modal/ConfirmarExclusao/ConfirmarExclusao'
 import { Modal } from '../../../../components/modal/Modal/Modal'
-import { Paginacao } from '../../../../components/ui/Paginacao/Paginacao'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
-import { useListaPaginada, type PaginaDoBackend } from '../../../../hooks/usePaginacao'
 import {
   atualizarAula,
   buscarAula,
   excluirAula,
-  listarAulas,
   obterChamadaDoDia,
   registrarAula,
 } from '../../../../services/portal/portalProfessorService'
 import type { Aula, AulaResumo, ChamadaDoDia, DadosAula } from '../../../../types/academico/aula'
+import { DIAS_SEMANA, diaDaSemanaJs, ordemDoDia, type DiaSemana, type HorarioDaDisciplina } from '../../../../types/academico/horario'
 import { hojeIso, plural } from '../../../../utils/formatters'
 import { formatarData } from '../../../../utils/formatacao'
 import { EstadoTurmas } from '../../components/EstadoTurmas/EstadoTurmas'
 import { FormularioChamada } from '../../components/FormularioChamada/FormularioChamada'
+import { HistoricoDeAulas } from '../../components/HistoricoDeAulas/HistoricoDeAulas'
 import { SeletorTurmaDisciplina } from '../../components/SeletorTurmaDisciplina/SeletorTurmaDisciplina'
 import { useConfirmarSaida } from '../../hooks/useConfirmarSaida'
 import { useTurmaDisciplina } from '../../hooks/useTurmaDisciplina'
@@ -33,13 +33,31 @@ const SUBTITULO = 'Registre a presença dos alunos e o conteúdo de cada aula.'
 const NOVA_AULA = 'nova'
 const MENSAGEM_404 = 'Você não está mais alocado nesta turma/disciplina. Recarregue a página.'
 
-const DIA_VAZIO: ChamadaDoDia = { data: '', alunos: [], aulas: [] }
+const DIA_VAZIO: ChamadaDoDia = { data: '', diaDeAula: false, alunos: [], aulas: [] }
 const SEM_AULA: Aula | null = null
 
-/** A data da URL, se for válida para uma aula; senão, hoje. */
-function diaDaUrl(valor: string | null): string {
-  const hoje = hojeIso()
-  return valor && /^\d{4}-\d{2}-\d{2}$/.test(valor) && valor <= hoje ? valor : hoje
+/** A data da URL, se for válida para uma aula (não futura); senão, null. */
+function diaDaUrl(valor: string | null, hoje: string): string | null {
+  return valor && /^\d{4}-\d{2}-\d{2}$/.test(valor) && valor <= hoje ? valor : null
+}
+
+/** Os dias de aula da disciplina na grade da turma, na ordem da semana. */
+function diasDaGrade(horarios: HorarioDaDisciplina[]): DiaSemana[] {
+  return DIAS_SEMANA.map((d) => d.dia).filter((d) => horarios.some((h) => h.diaSemana === d))
+}
+
+/** O último dia de aula da grade até hoje (hoje, se for); null sem grade. */
+function ultimoDiaDeAula(horarios: HorarioDaDisciplina[], hoje: string): string | null {
+  const diasJs = diasDaGrade(horarios).map(diaDaSemanaJs)
+  if (diasJs.length === 0) return null
+  const dia = paraData(hoje) as Date
+  while (!diasJs.includes(dia.getDay())) dia.setDate(dia.getDate() - 1)
+  return paraIso(dia)
+}
+
+/** "Seg, Qua e Sex", na ordem da semana. */
+function listarDias(dias: string[]): string {
+  return dias.length > 1 ? `${dias.slice(0, -1).join(', ')} e ${dias[dias.length - 1]}` : (dias[0] ?? '')
 }
 
 function resumoDaChamada(aula: { presentes: number; faltas: number }): string {
@@ -57,12 +75,17 @@ export function Chamada() {
     useTurmaDisciplina()
   const turmaId = selecionada?.turma.id
   const disciplinaId = selecionada?.disciplina.id
-  const data = diaDaUrl(params.get('data'))
+  const hoje = hojeIso()
+  const ultimaAula = ultimoDiaDeAula(selecionada?.disciplina.horarios ?? [], hoje)
+  // Sem dia na URL, abre no último dia de aula da grade (hoje, se for); sem grade, hoje.
+  const data = diaDaUrl(params.get('data'), hoje) ?? ultimaAula ?? hoje
   const aulaPedida = params.get('aula')
 
   const saida = useConfirmarSaida()
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [excluindo, setExcluindo] = useState<AulaResumo | null>(null)
+  // Muda depois de salvar ou excluir, para o histórico ler de novo.
+  const [versaoHistorico, setVersaoHistorico] = useState(0)
   const campoDataId = useId()
 
   const buscarDia = useCallback(
@@ -78,27 +101,6 @@ export function Chamada() {
   const buscarDetalhe = useCallback((signal: AbortSignal) => buscarAula(aulaAbertaId as string, signal), [aulaAbertaId])
   const detalhe = useCarregamento(aulaAbertaId ? buscarDetalhe : null, SEM_AULA, 'Esta aula não existe mais. Recarregue a página.')
 
-  // Outra turma ou disciplina troca a busca, e o histórico volta para a primeira página.
-  const buscarHistorico = useCallback(
-    (pagina: number, tamanho: number, signal: AbortSignal) =>
-      listarAulas(turmaId as number, disciplinaId as number, pagina, tamanho, signal),
-    [turmaId, disciplinaId],
-  )
-  // Desestruturado: com o `topo` (ref) junto, o lint trataria toda leitura do objeto como leitura de ref.
-  const {
-    paginacao: paginacaoHistorico,
-    carregando: carregandoHistorico,
-    atualizando: atualizandoHistorico,
-    erro: erroHistorico,
-    recarregar: recarregarHistorico,
-    topo: topoHistorico,
-  } = useListaPaginada<PaginaDoBackend<AulaResumo>, HTMLElement>(
-    selecionada ? buscarHistorico : null,
-    'Não foi possível carregar o histórico de aulas.',
-    MENSAGEM_404,
-  )
-  const aulasDoHistorico = paginacaoHistorico?.itensDaPagina ?? []
-
   if (!selecionada) {
     return (
       <ProfessorLayout titulo={TITULO} subtitulo={SUBTITULO}>
@@ -108,6 +110,18 @@ export function Chamada() {
   }
 
   const turmaDisciplina = { turma: String(selecionada.turma.id), disciplina: String(selecionada.disciplina.id) }
+
+  // No calendário do dia da aula, só os dias de aula da grade podem ser escolhidos.
+  const diasDeAula = diasDaGrade(selecionada.disciplina.horarios)
+  const nomesDosDias = listarDias(diasDeAula.map((d) => DIAS_SEMANA[ordemDoDia(d)].curto))
+  const destaqueDoCalendario = {
+    diasDaSemana: diasDeAula.map(diaDaSemanaJs),
+    somenteEles: true,
+    legenda:
+      diasDeAula.length > 0
+        ? `Dias de aula de ${selecionada.disciplina.nome} no ${selecionada.turma.nome}: ${nomesDosDias}.`
+        : `A grade do ${selecionada.turma.nome} ainda não tem horário de ${selecionada.disciplina.nome}.`,
+  }
 
   function abrir(novaData: string, aula?: string) {
     setParams({ ...turmaDisciplina, data: novaData, ...(aula ? { aula } : {}) }, { replace: true })
@@ -127,12 +141,14 @@ export function Chamada() {
     abrir(salva.data, salva.id)
     dia.recarregar()
     if (aulaAberta) detalhe.recarregar()
-    recarregarHistorico()
+    setVersaoHistorico((v) => v + 1)
   }
 
   const carregandoAula = dia.carregando || detalhe.carregando
   const erroAula = dia.erro ?? detalhe.erro
-  const semAlunos = !aulaAberta && dia.dados.alunos.length === 0
+  // Aula nova só em dia de aula da grade; as já registradas abrem em qualquer dia.
+  const semAulaNoDia = !aulaAberta && !dia.dados.diaDeAula
+  const semAlunos = !aulaAberta && !semAulaNoDia && dia.dados.alunos.length === 0
 
   return (
     <ProfessorLayout titulo={TITULO} subtitulo={SUBTITULO}>
@@ -156,7 +172,8 @@ export function Chamada() {
             id={campoDataId}
             className={styles.campoData}
             valor={data}
-            max={hojeIso()}
+            max={hoje}
+            destaque={destaqueDoCalendario}
             onChange={(nova) =>
               saida.trocar(() => {
                 setSucesso(null)
@@ -194,6 +211,40 @@ export function Chamada() {
         </div>
       )}
 
+      {!carregandoAula && !erroAula && semAulaNoDia && (
+        <div className={styles.mensagem}>
+          {diasDeAula.length > 0 ? (
+            <>
+              <strong>
+                Não há aula de {selecionada.disciplina.nome} no {selecionada.turma.nome} em {formatarData(data)}.
+              </strong>
+              <span>
+                A chamada é feita nos dias de aula da grade: {nomesDosDias}.
+              </span>
+            </>
+          ) : (
+            <>
+              <strong>
+                A grade do {selecionada.turma.nome} ainda não tem horário de {selecionada.disciplina.nome}.
+              </strong>
+              <span>A chamada fica disponível nos dias de aula, depois que a secretaria montar o horário.</span>
+            </>
+          )}
+          {dia.dados.aulas.length > 0 ? (
+            <Button size="sm" onClick={() => abrir(data)}>
+              Voltar para a aula registrada
+            </Button>
+          ) : (
+            ultimaAula &&
+            ultimaAula !== data && (
+              <Button size="sm" onClick={() => abrir(ultimaAula)}>
+                Ir para a última aula ({formatarData(ultimaAula)})
+              </Button>
+            )
+          )}
+        </div>
+      )}
+
       {!carregandoAula && !erroAula && semAlunos && (
         <div className={styles.mensagem}>
           <strong>Nenhum aluno para a chamada de {formatarData(data)}.</strong>
@@ -206,10 +257,12 @@ export function Chamada() {
         </div>
       )}
 
-      {!carregandoAula && !erroAula && !semAlunos && (
+      {!carregandoAula && !erroAula && !semAulaNoDia && !semAlunos && (
         <FormularioChamada
           key={aulaAberta?.id ?? `nova-${turmaDisciplina.turma}-${turmaDisciplina.disciplina}-${data}`}
           data={data}
+          turma={selecionada.turma.nome}
+          disciplina={selecionada.disciplina.nome}
           alunos={dia.dados.alunos}
           aula={aulaAberta ? detalhe.dados : null}
           onPendente={saida.setPendente}
@@ -218,7 +271,7 @@ export function Chamada() {
             !aulaAberta && dia.dados.aulas.length > 0 ? () => saida.trocar(() => abrir(data)) : undefined
           }
           onOutraAula={
-            aulaAberta
+            aulaAberta && dia.dados.diaDeAula
               ? () =>
                   saida.trocar(() => {
                     setSucesso(null)
@@ -237,91 +290,19 @@ export function Chamada() {
         />
       )}
 
-      <section
-        ref={topoHistorico}
-        className={styles.historico}
-        aria-labelledby="titulo-historico-aulas"
-        aria-busy={atualizandoHistorico}
-      >
-        <h2 id="titulo-historico-aulas" className={styles.tituloHistorico}>
-          Histórico de aulas
-        </h2>
-
-        {carregandoHistorico && <p role="status">Carregando o histórico…</p>}
-
-        {!carregandoHistorico && erroHistorico && (
-          <div className={styles.erroHistorico} role="alert">
-            <span>{erroHistorico}</span>
-            <Button size="sm" onClick={recarregarHistorico}>
-              Tentar novamente
-            </Button>
-          </div>
-        )}
-
-        {paginacaoHistorico && !erroHistorico && aulasDoHistorico.length === 0 && (
-          <p className={styles.semAulas}>Nenhuma aula registrada nesta turma ainda.</p>
-        )}
-
-        {paginacaoHistorico && !erroHistorico && aulasDoHistorico.length > 0 && (
-          <>
-            <div className={styles.rolagem}>
-              <table className={styles.tabela}>
-                <thead>
-                  <tr>
-                    <th scope="col">Data</th>
-                    <th scope="col">Conteúdo</th>
-                    <th scope="col" className={styles.numero}>
-                      Presentes
-                    </th>
-                    <th scope="col" className={styles.numero}>
-                      Faltas
-                    </th>
-                    <th scope="col" className={styles.acao}>
-                      <span className={styles.somenteLeitor}>Ações</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {aulasDoHistorico.map((aula) => (
-                    <tr
-                      key={aula.id}
-                      className={aula.id === aulaAbertaId ? styles.aberta : undefined}
-                      aria-current={aula.id === aulaAbertaId || undefined}
-                    >
-                      <td data-rotulo="Data" className={styles.data}>{formatarData(aula.data)}</td>
-                      <td className={styles.conteudo}>{aula.conteudo}</td>
-                      <td data-rotulo="Presentes" className={styles.numero}>{aula.presentes}</td>
-                      <td data-rotulo="Faltas" className={styles.numero}>{aula.faltas}</td>
-                      <td className={styles.acao}>
-                        <Button
-                          size="sm"
-                          icon="eye"
-                          aria-label={`Abrir a aula de ${formatarData(aula.data)}`}
-                          disabled={aula.id === aulaAbertaId}
-                          onClick={() =>
-                            saida.trocar(() => {
-                              setSucesso(null)
-                              abrir(aula.data, aula.id)
-                              window.scrollTo({ top: 0, behavior: 'smooth' })
-                            })
-                          }
-                        >
-                          Abrir
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <Paginacao
-              paginacao={paginacaoHistorico}
-              rotulo="Páginas do histórico de aulas"
-              carregando={atualizandoHistorico}
-            />
-          </>
-        )}
-      </section>
+      <HistoricoDeAulas
+        turmaId={selecionada.turma.id}
+        disciplinaId={selecionada.disciplina.id}
+        aulaAbertaId={aulaAbertaId}
+        versao={versaoHistorico}
+        onAbrir={(aula) =>
+          saida.trocar(() => {
+            setSucesso(null)
+            abrir(aula.data, aula.id)
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          })
+        }
+      />
 
       {excluindo && (
         <ConfirmarExclusao
@@ -334,9 +315,8 @@ export function Chamada() {
             saida.setPendente(false)
             setSucesso(`Aula de ${formatarData(excluindo.data)} excluída. As faltas dela deixaram de contar no boletim.`)
             abrir(excluindo.data)
-            // Se a página atual do histórico acabou com esta exclusão, o hook vai para a última.
             dia.recarregar()
-            recarregarHistorico()
+            setVersaoHistorico((v) => v + 1)
           }}
         />
       )}

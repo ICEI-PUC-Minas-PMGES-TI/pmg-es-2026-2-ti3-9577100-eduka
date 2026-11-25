@@ -75,6 +75,18 @@ class HorarioEAlunosDaTurmaBancoRealTest extends BancoRealTest {
     }
 
     @Test
+    void contaSoOsAlunosComMatriculaAtivaNaTurma() {
+        UUID ana = dados.aluno(escola, "Ana");
+        UUID bruno = dados.aluno(escola, "Bruno");
+        UUID carla = dados.aluno(escola, "Carla");
+        dados.matricula(escola, ana, turma, StatusMatricula.ATIVA, LocalDate.now());
+        dados.matricula(escola, bruno, turma, StatusMatricula.ATIVA, LocalDate.now());
+        dados.matricula(escola, carla, turma, StatusMatricula.TRANCADA, LocalDate.now());
+
+        assertThat(portalProfessorService.listarMinhasTurmas().get(0).alunosAtivos()).isEqualTo(2);
+    }
+
+    @Test
     void semGradeMontadaOHorarioVemVazio() {
         assertThat(portalProfessorService.listarMinhasTurmas().get(0).disciplinas().get(0).horarios()).isEmpty();
     }

@@ -12,6 +12,8 @@ import java.util.List;
  */
 public record ChamadaDoDiaResponse(
         LocalDate data,
+        /** A disciplina tem aula na grade da turma nesse dia da semana: so entao da para registrar aula nova. */
+        boolean diaDeAula,
         List<AlunoDaChamadaResponse> alunos,
         List<AulaResumoResponse> aulas) {
 }

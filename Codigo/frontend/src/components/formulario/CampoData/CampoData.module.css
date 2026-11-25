@@ -109,3 +109,52 @@
   background: var(--color-primary);
   color: var(--color-on-primary);
 }
+
+/* Dia marcado (ex.: dia de aula da turma): um ponto roxo embaixo do número. */
+.calendario :global(.rdp-day).diaDestacado :global(.rdp-day_button) {
+  position: relative;
+  color: var(--color-primary-text);
+  font-weight: 800;
+}
+
+.calendario :global(.rdp-day).diaDestacado :global(.rdp-day_button)::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  transform: translateX(-50%);
+}
+
+/* No dia escolhido (fundo roxo) e no desabilitado, o ponto acompanha o texto. */
+.calendario :global(.rdp-selected).diaDestacado :global(.rdp-day_button) {
+  color: var(--color-on-primary);
+}
+
+.calendario :global(.rdp-selected).diaDestacado :global(.rdp-day_button)::after {
+  background: var(--color-on-primary);
+}
+
+.legenda {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 280px;
+  margin: 6px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.marca {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-primary);
+}

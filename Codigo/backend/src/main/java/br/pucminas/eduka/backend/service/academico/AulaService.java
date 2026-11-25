@@ -9,6 +9,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.pucminas.eduka.backend.domain.academico.Aula;
+import br.pucminas.eduka.backend.domain.academico.DiaSemana;
 import br.pucminas.eduka.backend.domain.academico.Frequencia;
 import br.pucminas.eduka.backend.domain.academico.MatriculaTurma;
 import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
@@ -31,6 +33,7 @@ import br.pucminas.eduka.backend.dto.academico.AulaRequest;
 import br.pucminas.eduka.backend.dto.academico.AulaResponse;
 import br.pucminas.eduka.backend.dto.academico.AulaResumoResponse;
 import br.pucminas.eduka.backend.dto.academico.ChamadaDoDiaResponse;
+import br.pucminas.eduka.backend.dto.academico.MesDeAulasResponse;
 import br.pucminas.eduka.backend.dto.academico.ChamadaItem;
 import br.pucminas.eduka.backend.dto.academico.FrequenciaAlunoResponse;
 import br.pucminas.eduka.backend.dto.comum.Ordenacao;
@@ -39,6 +42,7 @@ import br.pucminas.eduka.backend.dto.comum.Paginacao;
 import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.repository.academico.AlocacaoProfessorRepository;
 import br.pucminas.eduka.backend.repository.academico.AulaRepository;
+import br.pucminas.eduka.backend.repository.academico.HorarioTurmaRepository;
 import br.pucminas.eduka.backend.repository.academico.DisciplinaRepository;
 import br.pucminas.eduka.backend.repository.academico.FrequenciaRepository;
 import br.pucminas.eduka.backend.repository.academico.MatriculaTurmaRepository;
@@ -87,11 +91,17 @@ public class AulaService {
 
     /** A escola conta o dia no horario de Brasilia, nao em UTC. */
     private static final ZoneId FUSO_ESCOLA = ZoneId.of("America/Sao_Paulo");
+    /** Pontas abertas do filtro de datas do historico. */
+    private static final LocalDate PRIMEIRO_DIA = LocalDate.of(1900, 1, 1);
+    private static final LocalDate ULTIMO_DIA = LocalDate.of(9999, 12, 31);
+    /** Tamanho maximo do texto da busca por conteudo do historico. */
+    static final int MAX_BUSCA = 100;
 
     private final AulaRepository aulaRepository;
     private final FrequenciaRepository frequenciaRepository;
     private final ProfessorRepository professorRepository;
     private final AlocacaoProfessorRepository alocacaoRepository;
+    private final HorarioTurmaRepository horarioRepository;
     private final TurmaRepository turmaRepository;
     private final DisciplinaRepository disciplinaRepository;
     private final MatriculaTurmaRepository matriculaRepository;
@@ -102,13 +112,14 @@ public class AulaService {
 
     public AulaService(AulaRepository aulaRepository, FrequenciaRepository frequenciaRepository,
             ProfessorRepository professorRepository, AlocacaoProfessorRepository alocacaoRepository,
-            TurmaRepository turmaRepository, DisciplinaRepository disciplinaRepository,
+            HorarioTurmaRepository horarioRepository, TurmaRepository turmaRepository, DisciplinaRepository disciplinaRepository,
             MatriculaTurmaRepository matriculaRepository, PessoaRepository pessoaRepository,
             IsolamentoEscola isolamentoEscola, Clock clock, AuditoriaService auditoriaService) {
         this.aulaRepository = aulaRepository;
         this.frequenciaRepository = frequenciaRepository;
         this.professorRepository = professorRepository;
         this.alocacaoRepository = alocacaoRepository;
+        this.horarioRepository = horarioRepository;
         this.turmaRepository = turmaRepository;
         this.disciplinaRepository = disciplinaRepository;
         this.matriculaRepository = matriculaRepository;
@@ -121,15 +132,24 @@ public class AulaService {
     /**
      * Pagina das aulas da disciplina na turma, por data (a mais recente
      * primeiro, salvo {@code direcao}), cada uma com os totais da chamada.
+     * {@code de} e {@code ate} (inclusive) limitam as datas e {@code busca}, o
+     * conteudo (trecho, sem diferenciar maiusculas); nulos, nao limitam.
+     *
+     * @throws IllegalArgumentException {@code de} depois de {@code ate} ou busca longa demais
      */
     @Transactional(readOnly = true)
-    public PaginaResponse<AulaResumoResponse> listar(Long turmaId, Long disciplinaId, Paginacao paginacao,
-            Direction direcao) {
+    public PaginaResponse<AulaResumoResponse> listar(Long turmaId, Long disciplinaId, LocalDate de, LocalDate ate,
+            String busca, Paginacao paginacao, Direction direcao) {
         UUID escolaId = isolamentoEscola.escolaIdAtual();
         exigirAlocacao(professorAtual(escolaId), escolaId, turmaId, disciplinaId);
+        validarFiltro(de, ate, busca);
 
-        var pagina = aulaRepository.findAllByEscolaIdAndTurmaIdAndDisciplinaId(escolaId, turmaId, disciplinaId,
-                paginacao.comOrdem(Ordenacao.noBanco(Ordenacao.ou(direcao, Direction.DESC), "data")));
+        var ordem = paginacao.comOrdem(Ordenacao.noBanco(Ordenacao.ou(direcao, Direction.DESC), "data"));
+        var pagina = de == null && ate == null && semBusca(busca)
+                ? aulaRepository.findAllByEscolaIdAndTurmaIdAndDisciplinaId(escolaId, turmaId, disciplinaId, ordem)
+                // Uma ponta so: a outra fica aberta, num limite que o DATE do Postgres aceita.
+                : aulaRepository.filtrar(escolaId, turmaId, disciplinaId, de != null ? de : PRIMEIRO_DIA,
+                        ate != null ? ate : ULTIMO_DIA, padraoDaBusca(busca), ordem);
         if (pagina.isEmpty()) {
             return PaginaResponse.de(pagina, aula -> AulaResumoResponse.de(aula, 0, 0));
         }
@@ -138,9 +158,55 @@ public class AulaService {
     }
 
     /**
-     * O que a tela de chamada precisa para um dia: quem entra na chamada (as
-     * mesmas regras do registro) e as aulas ja registradas nele. Sem
-     * {@code data}, vale hoje no fuso da escola.
+     * Os meses com aula no historico da disciplina na turma (o mais recente
+     * primeiro), com os mesmos filtros de {@link #listar}: quantas aulas e o
+     * total de presencas e faltas de cada mes. A tela carrega o historico mes a
+     * mes e soma estes totais para o resumo.
+     *
+     * @throws IllegalArgumentException {@code de} depois de {@code ate} ou busca longa demais
+     */
+    @Transactional(readOnly = true)
+    public List<MesDeAulasResponse> meses(Long turmaId, Long disciplinaId, LocalDate de, LocalDate ate,
+            String busca) {
+        UUID escolaId = isolamentoEscola.escolaIdAtual();
+        exigirAlocacao(professorAtual(escolaId), escolaId, turmaId, disciplinaId);
+        validarFiltro(de, ate, busca);
+        return aulaRepository.contarPorMes(escolaId, turmaId, disciplinaId, de != null ? de : PRIMEIRO_DIA,
+                ate != null ? ate : ULTIMO_DIA, padraoDaBusca(busca)).stream()
+                .map(MesDeAulasResponse::de)
+                .toList();
+    }
+
+    private static void validarFiltro(LocalDate de, LocalDate ate, String busca) {
+        if (de != null && ate != null && de.isAfter(ate)) {
+            throw new IllegalArgumentException("A data inicial nao pode ser depois da final");
+        }
+        if (busca != null && busca.trim().length() > MAX_BUSCA) {
+            throw new IllegalArgumentException("A busca pode ter no maximo " + MAX_BUSCA + " caracteres");
+        }
+    }
+
+    private static boolean semBusca(String busca) {
+        return busca == null || busca.isBlank();
+    }
+
+    /** "Logaritmo" vira "%logaritmo%"; %, _ e \\ digitados valem como texto. Sem busca, "%". */
+    static String padraoDaBusca(String busca) {
+        if (semBusca(busca)) {
+            return "%";
+        }
+        String texto = busca.trim().toLowerCase(Locale.ROOT)
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
+        return "%" + texto + "%";
+    }
+
+    /**
+     * O que a tela de chamada precisa para um dia: se ele e dia de aula da
+     * disciplina na grade da turma, quem entra na chamada (as mesmas regras do
+     * registro) e as aulas ja registradas nele. Sem {@code data}, vale hoje no
+     * fuso da escola.
      *
      * @throws IllegalArgumentException data futura
      */
@@ -157,7 +223,8 @@ public class AulaService {
                 disciplinaId, dia, Ordenacao.noBanco(Direction.ASC, "criadoEm"));
         Map<UUID, FrequenciaRepository.TotaisDaAula> totais = aulas.isEmpty() ? Map.of()
                 : totaisPorAula(escolaId, aulas);
-        return new ChamadaDoDiaResponse(dia, alunosDaChamada(escolaId, turmaId, dia),
+        return new ChamadaDoDiaResponse(dia, diaDeAula(escolaId, turmaId, disciplinaId, dia),
+                alunosDaChamada(escolaId, turmaId, dia),
                 aulas.stream().map(aula -> resumo(aula, totais)).toList());
     }
 
@@ -171,9 +238,10 @@ public class AulaService {
     /**
      * Registra a aula com a chamada, tudo ou nada.
      *
-     * @throws IllegalArgumentException data futura, aluno repetido, aluno sem
-     *                                  matricula ativa na turma ou aluno
-     *                                  ativo fora da chamada
+     * @throws IllegalArgumentException data futura, dia sem aula da disciplina
+     *                                  na grade da turma, aluno repetido,
+     *                                  aluno sem matricula ativa na turma ou
+     *                                  aluno ativo fora da chamada
      */
     @Transactional
     public AulaResponse registrar(AulaRequest request) {
@@ -182,6 +250,9 @@ public class AulaService {
         exigirAlocacao(professor, escolaId, request.turmaId(), request.disciplinaId());
         if (request.data().isAfter(hoje())) {
             throw new IllegalArgumentException("A data da aula nao pode ser futura");
+        }
+        if (!diaDeAula(escolaId, request.turmaId(), request.disciplinaId(), request.data())) {
+            throw new IllegalArgumentException("Nao ha aula desta disciplina na turma neste dia da semana");
         }
         Map<UUID, MatriculaTurma> ativos = matriculasAtivas(escolaId, request.turmaId(), request.data());
         validarChamada(request.chamada(), ativos, Set.of());
@@ -378,6 +449,17 @@ public class AulaService {
         UsuarioAutenticado usuario = isolamentoEscola.usuarioAtual();
         return professorRepository.findByUsuarioIdAndEscolaId(usuario.id(), escolaId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Professor nao encontrado"));
+    }
+
+    /**
+     * O dia da semana da data tem aula da disciplina na grade da turma
+     * (HORARIO_TURMA). Domingo nunca tem; sem grade montada, nenhum dia tem.
+     */
+    private boolean diaDeAula(UUID escolaId, Long turmaId, Long disciplinaId, LocalDate data) {
+        return DiaSemana.de(data)
+                .map(dia -> horarioRepository.existsByEscolaIdAndAlocacao_Turma_IdAndAlocacao_Disciplina_IdAndDiaSemana(
+                        escolaId, turmaId, disciplinaId, dia))
+                .orElse(false);
     }
 
     private void exigirAlocacao(Professor professor, UUID escolaId, Long turmaId, Long disciplinaId) {

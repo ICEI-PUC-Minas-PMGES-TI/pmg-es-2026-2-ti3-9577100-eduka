@@ -46,6 +46,62 @@ export function horaCurta(hora: string): string {
   return hora.slice(0, 5)
 }
 
+/** Dia da semana como o Date.getDay() conta (domingo = 0): segunda = 1 ... sábado = 6. */
+export function diaDaSemanaJs(dia: DiaSemana): number {
+  return ordemDoDia(dia) + 1
+}
+
+/** Um instante no fuso da escola: o dia da semana (domingo = 0) e a hora "HH:mm". */
+export type Agora = { diaDaSemana: number; hora: string }
+
+const AGORA_NA_ESCOLA = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/Sao_Paulo',
+  weekday: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
+const DIAS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+/** Dia da semana e hora de agora no fuso da escola, para achar a próxima aula. */
+export function agoraNaEscola(data: Date = new Date()): Agora {
+  const partes = Object.fromEntries(AGORA_NA_ESCOLA.formatToParts(data).map((p) => [p.type, p.value]))
+  return { diaDaSemana: DIAS_EN.indexOf(partes.weekday), hora: `${partes.hour}:${partes.minute}` }
+}
+
+function minutos(hora: string): number {
+  const [h, m] = hora.split(':').map(Number)
+  return h * 60 + m
+}
+
+/** A próxima aula da grade a partir de agora: em andamento, mais tarde hoje ou num dos próximos dias. */
+export type ProximaAula = { emAndamento: boolean; daquiA: number; dias: number; horario: HorarioDaDisciplina }
+
+export function proximaAula(horarios: HorarioDaDisciplina[], agora: Agora): ProximaAula | null {
+  const atual = minutos(agora.hora)
+  let melhor: ProximaAula | null = null
+  for (const horario of horarios) {
+    const inicio = minutos(horario.horaInicio)
+    const fim = minutos(horario.horaFim)
+    let dias = (diaDaSemanaJs(horario.diaSemana) - agora.diaDaSemana + 7) % 7
+    const emAndamento = dias === 0 && atual >= inicio && atual < fim
+    // A aula de hoje que já acabou só volta na semana que vem.
+    if (dias === 0 && !emAndamento && atual >= inicio) dias = 7
+    const daquiA = emAndamento ? 0 : dias * 24 * 60 + inicio - atual
+    if (!melhor || daquiA < melhor.daquiA) melhor = { emAndamento, daquiA, dias, horario }
+  }
+  return melhor
+}
+
+/** "Aula agora", "Hoje 14:00", "Amanhã 08:00" ou "Qui 08:00". */
+export function rotuloDaProximaAula(proxima: ProximaAula): string {
+  if (proxima.emAndamento) return 'Aula agora'
+  const hora = horaCurta(proxima.horario.horaInicio)
+  if (proxima.dias === 0) return `Hoje ${hora}`
+  if (proxima.dias === 1) return `Amanhã ${hora}`
+  return `${DIAS_SEMANA[ordemDoDia(proxima.horario.diaSemana)].curto} ${hora}`
+}
+
 /**
  * Resumo do horário de uma disciplina, como na IU13: "Seg, Qua e Sex · 07h30".
  * Horas de início diferentes ficam separadas: "Qui · 07h30 · Ter · 09h20".

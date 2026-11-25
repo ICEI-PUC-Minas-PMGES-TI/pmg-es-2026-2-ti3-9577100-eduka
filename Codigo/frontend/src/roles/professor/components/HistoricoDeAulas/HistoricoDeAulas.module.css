@@ -1,0 +1,371 @@
+.historico {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 22px 24px 14px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+}
+
+/* Outro filtro a caminho: a lista anterior fica, só um pouco apagada. O atraso
+   evita mexer no visual quando a resposta chega rápido. */
+.historico .grupo,
+.historico .resumo,
+.historico .carregarMais {
+  transition: opacity 0.2s ease;
+}
+
+.atualizando .grupo,
+.atualizando .resumo,
+.atualizando .carregarMais {
+  opacity: 0.55;
+  transition-delay: 0.25s;
+}
+
+/* ---------- Cabeçalho: título e resumo à esquerda, filtros à direita ---------- */
+
+.cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin-bottom: 10px;
+}
+
+.titulos {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.titulo {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 900;
+  letter-spacing: -0.3px;
+}
+
+.resumo {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Segmented control: trilho cinza-lilás; a opção escolhida em branco, sem roxo cheio. */
+.segmentos {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-mist);
+}
+
+.segmento {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 5px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s,
+    box-shadow 0.15s;
+}
+
+.segmento:hover {
+  color: var(--color-text);
+}
+
+.segmentoAtivo,
+.segmentoAtivo:hover {
+  border-color: rgba(255, 255, 255, 0.9);
+  background: var(--color-surface);
+  box-shadow: 0 1px 3px rgba(34, 26, 51, 0.1);
+  color: var(--color-text);
+}
+
+.botaoBuscar {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 6px 18px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.botaoBuscar:hover {
+  border-color: var(--color-primary);
+}
+
+.busca {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 260px;
+  max-width: 100%;
+  min-height: 42px;
+  padding: 0 6px 0 14px;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+
+.busca input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+/* O "x" de limpar do navegador some: o botão de fechar já limpa. */
+.busca input::-webkit-search-cancel-button {
+  display: none;
+  -webkit-appearance: none;
+}
+
+.fecharBusca {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.fecharBusca:hover {
+  background: var(--color-mist);
+  color: var(--color-text);
+}
+
+/* ---------- Grupos por mês ---------- */
+
+.grupo {
+  display: flex;
+  flex-direction: column;
+}
+
+.tituloMes {
+  padding: 14px 14px 8px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-subtle);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lista li + li {
+  border-top: 1px solid var(--color-border);
+}
+
+/* Linha inteira clicável: dia | conteúdo e faltas | seta. */
+.linha {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s;
+}
+
+.linha:hover:not(:disabled) {
+  background: var(--color-mist);
+}
+
+.linha:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.linha:hover:not(:disabled) .chevron {
+  color: var(--color-primary-text);
+  transform: translateX(2px);
+}
+
+/* A aula aberta no formulário. */
+.aberta {
+  background: var(--color-primary-soft);
+  cursor: default;
+}
+
+.dia {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.15;
+}
+
+.dia strong {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.dia span {
+  color: var(--color-text-subtle);
+  font-size: 12.5px;
+}
+
+.detalhe {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* Conteúdo longo fica em duas linhas; o texto inteiro está na aula aberta. */
+.conteudo {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.todosPresentes {
+  flex-shrink: 0;
+  color: var(--color-text-subtle);
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+.faltas {
+  flex-shrink: 0;
+  padding: 3px 11px;
+  border-radius: var(--radius-pill);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.chevron {
+  color: var(--color-text-subtle);
+  transition:
+    color 0.12s,
+    transform 0.12s;
+}
+
+.aberta .chevron {
+  visibility: hidden;
+}
+
+/* ---------- Estados e "Carregar outubro" ---------- */
+
+.aviso {
+  margin: 0;
+  padding: 22px 0 14px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.erro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  color: var(--color-text-muted);
+}
+
+.carregarMais {
+  display: inline-flex;
+  align-self: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-primary-text);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.carregarMais:hover:not(:disabled) {
+  background: var(--color-mist);
+}
+
+@media (max-width: 640px) {
+  .historico {
+    padding: 16px 12px 10px;
+  }
+
+  .filtros {
+    width: 100%;
+  }
+
+  .busca {
+    flex: 1;
+  }
+
+  .linha {
+    grid-template-columns: 42px minmax(0, 1fr) 16px;
+    gap: 12px;
+    padding: 12px 8px;
+  }
+
+  /* No celular, as faltas descem para baixo do conteúdo. */
+  .detalhe {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}

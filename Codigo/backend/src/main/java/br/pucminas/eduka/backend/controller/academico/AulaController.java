@@ -2,6 +2,7 @@ package br.pucminas.eduka.backend.controller.academico;
 
 import java.net.URI;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Sort.Direction;
@@ -22,6 +23,7 @@ import br.pucminas.eduka.backend.dto.academico.AulaRequest;
 import br.pucminas.eduka.backend.dto.academico.AulaResponse;
 import br.pucminas.eduka.backend.dto.academico.AulaResumoResponse;
 import br.pucminas.eduka.backend.dto.academico.ChamadaDoDiaResponse;
+import br.pucminas.eduka.backend.dto.academico.MesDeAulasResponse;
 import br.pucminas.eduka.backend.dto.comum.PaginaResponse;
 import br.pucminas.eduka.backend.dto.comum.Paginacao;
 import br.pucminas.eduka.backend.security.Perfis;
@@ -53,17 +55,39 @@ public class AulaController {
     @GetMapping
     @Operation(summary = "Lista as aulas de uma disciplina na turma, em paginas",
             description = "`pagina` comeca em 0; `tamanho` vai de 1 a 100. Ordenadas por data: `direcao` DESC (padrao, a mais recente primeiro) ou ASC. "
+                    + "`de` e `ate` (AAAA-MM-DD, inclusive) limitam as datas; sem eles, todas. "
+                    + "`busca` filtra pelo conteudo (trecho, sem diferenciar maiusculas). "
                     + "Cada aula traz so os totais de presentes e faltas; a chamada inteira vem em `GET /{id}`.")
     @ApiResponse(responseCode = "200", description = "A pagina de aulas.")
-    @ApiResponse(responseCode = "400", description = "Pagina, tamanho ou direcao invalidos.")
+    @ApiResponse(responseCode = "400", description = "Pagina, tamanho, direcao, datas (`de` depois de `ate`) ou busca invalidos.")
     @ApiResponse(responseCode = "404", description = "Turma ou disciplina nao alocada ao professor.")
     public PaginaResponse<AulaResumoResponse> listar(
             @Parameter(description = "Turma") @RequestParam Long turmaId,
             @Parameter(description = "Disciplina") @RequestParam Long disciplinaId,
             @RequestParam(defaultValue = "0") int pagina,
             @RequestParam(defaultValue = Paginacao.TAMANHO_PADRAO) int tamanho,
-            @RequestParam(required = false) Direction direcao) {
-        return aulaService.listar(turmaId, disciplinaId, new Paginacao(pagina, tamanho), direcao);
+            @RequestParam(required = false) Direction direcao,
+            @Parameter(description = "Primeiro dia, AAAA-MM-DD") @RequestParam(required = false) LocalDate de,
+            @Parameter(description = "Ultimo dia, AAAA-MM-DD") @RequestParam(required = false) LocalDate ate,
+            @Parameter(description = "Trecho do conteudo") @RequestParam(required = false) String busca) {
+        return aulaService.listar(turmaId, disciplinaId, de, ate, busca, new Paginacao(pagina, tamanho), direcao);
+    }
+
+    @GetMapping("/meses")
+    @Operation(summary = "Meses com aula no historico, com os totais",
+            description = "Os meses (`AAAA-MM`, o mais recente primeiro) com aula da disciplina na turma, com os mesmos "
+                    + "filtros da listagem (`de`, `ate`, `busca`): quantas aulas e o total de presencas e faltas de cada "
+                    + "mes. A tela carrega o historico mes a mes e soma os totais para o resumo.")
+    @ApiResponse(responseCode = "200", description = "Os meses com aula; vazio sem nenhuma.")
+    @ApiResponse(responseCode = "400", description = "Datas (`de` depois de `ate`) ou busca invalidos.")
+    @ApiResponse(responseCode = "404", description = "Turma ou disciplina nao alocada ao professor.")
+    public List<MesDeAulasResponse> meses(
+            @Parameter(description = "Turma") @RequestParam Long turmaId,
+            @Parameter(description = "Disciplina") @RequestParam Long disciplinaId,
+            @Parameter(description = "Primeiro dia, AAAA-MM-DD") @RequestParam(required = false) LocalDate de,
+            @Parameter(description = "Ultimo dia, AAAA-MM-DD") @RequestParam(required = false) LocalDate ate,
+            @Parameter(description = "Trecho do conteudo") @RequestParam(required = false) String busca) {
+        return aulaService.meses(turmaId, disciplinaId, de, ate, busca);
     }
 
     @GetMapping("/chamada")

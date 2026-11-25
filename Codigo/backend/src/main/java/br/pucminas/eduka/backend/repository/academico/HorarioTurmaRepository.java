@@ -23,6 +23,10 @@ public interface HorarioTurmaRepository extends JpaRepository<HorarioTurma, UUID
     Optional<HorarioTurma> findByIdAndEscolaIdAndAlocacao_Turma_Id(UUID id, UUID escolaId, Long turmaId);
 
     /** As aulas das alocacoes do professor, para o horario no portal dele (IU13). */
+    /** A disciplina tem aula na grade da turma nesse dia da semana. */
+    boolean existsByEscolaIdAndAlocacao_Turma_IdAndAlocacao_Disciplina_IdAndDiaSemana(UUID escolaId, Long turmaId,
+            Long disciplinaId, DiaSemana diaSemana);
+
     List<HorarioTurma> findAllByEscolaIdAndAlocacao_IdIn(UUID escolaId, Collection<UUID> alocacaoIds);
 
     /** As aulas da turma no dia, para conferir sobreposicao. */

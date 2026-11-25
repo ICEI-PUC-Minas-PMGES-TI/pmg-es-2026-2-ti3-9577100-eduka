@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import br.pucminas.eduka.backend.domain.academico.DiaSemana;
 import br.pucminas.eduka.backend.domain.academico.StatusMatricula;
 import br.pucminas.eduka.backend.domain.academico.Turno;
 import br.pucminas.eduka.backend.dto.academico.AtualizarAulaRequest;
@@ -60,8 +62,8 @@ class AulaBancoRealTest extends BancoRealTest {
         UUID professor = jdbc.queryForObject("INSERT INTO PROFESSOR (ESCOLA_ID, PESSOA_ID, USUARIO_ID) "
                 + "SELECT ESCOLA_ID, PESSOA_ID, ID_USUARIO FROM USUARIO WHERE ID_USUARIO = ? RETURNING ID_PROFESSOR",
                 UUID.class, professorUsuario);
-        alocar(professor, matematica);
-        alocar(professor, fisica);
+        gradeDeSegundaASabado(alocar(professor, matematica), "07:30", "08:20");
+        gradeDeSegundaASabado(alocar(professor, fisica), "08:20", "09:10");
         ana = dados.aluno(escola, "Ana Souza");
         bruno = dados.aluno(escola, "Bruno Alves");
         dados.matricula(escola, ana, turma, StatusMatricula.ATIVA, LocalDate.now().minusDays(30));
@@ -76,9 +78,29 @@ class AulaBancoRealTest extends BancoRealTest {
         return id;
     }
 
-    private void alocar(UUID professor, long disciplina) {
-        jdbc.update("INSERT INTO ALOCACAO_PROFESSOR (ESCOLA_ID, PROFESSOR_ID, TURMA_ID, DISCIPLINA_ID) "
-                + "VALUES (?, ?, ?, ?)", escola, professor, turma, disciplina);
+    private UUID alocar(UUID professor, long disciplina) {
+        return jdbc.queryForObject("INSERT INTO ALOCACAO_PROFESSOR (ESCOLA_ID, PROFESSOR_ID, TURMA_ID, DISCIPLINA_ID) "
+                + "VALUES (?, ?, ?, ?) RETURNING ID_ALOCACAO", UUID.class, escola, professor, turma, disciplina);
+    }
+
+    /** Aula da disciplina todo dia da grade: so domingo fica sem aula. */
+    private void gradeDeSegundaASabado(UUID alocacao, String inicio, String fim) {
+        for (DiaSemana dia : DiaSemana.values()) {
+            jdbc.update("INSERT INTO HORARIO_TURMA (ESCOLA_ID, ALOCACAO_ID, DIA_SEMANA, HORA_INICIO, HORA_FIM) "
+                    + "VALUES (?, ?, ?, ?::time, ?::time)", escola, alocacao, dia.name(), inicio, fim);
+        }
+    }
+
+    /** O dia de aula {@code dias} dias letivos antes de hoje (0 = hoje ou, num domingo, o sabado). */
+    private static LocalDate letivo(int dias) {
+        LocalDate dia = LocalDate.now();
+        int contados = -1;
+        while (true) {
+            if (dia.getDayOfWeek() != DayOfWeek.SUNDAY && ++contados == dias) {
+                return dia;
+            }
+            dia = dia.minusDays(1);
+        }
     }
 
     private AulaResponse registrar(long disciplina, LocalDate data, boolean anaPresente, boolean brunoPresente) {
@@ -88,7 +110,7 @@ class AulaBancoRealTest extends BancoRealTest {
 
     @Test
     void registraBuscaECorrigeAChamada() {
-        AulaResponse registrada = registrar(matematica, LocalDate.now().minusDays(1), true, false);
+        AulaResponse registrada = registrar(matematica, letivo(1), true, false);
 
         assertThat(registrada.id()).isNotNull();
         assertThat(registrada.criadoEm()).isNotNull();
@@ -111,12 +133,12 @@ class AulaBancoRealTest extends BancoRealTest {
 
     @Test
     void listaEmPaginasDasMaisRecentesComOsTotais() {
-        registrar(matematica, LocalDate.now().minusDays(3), true, true);
-        AulaResponse maisRecente = registrar(matematica, LocalDate.now().minusDays(1), false, false);
-        registrar(fisica, LocalDate.now().minusDays(1), true, true);
+        registrar(matematica, letivo(3), true, true);
+        AulaResponse maisRecente = registrar(matematica, letivo(1), false, false);
+        registrar(fisica, letivo(1), true, true);
 
-        var primeira = aulaService.listar(turma, matematica, new Paginacao(0, 1), null);
-        var segunda = aulaService.listar(turma, matematica, new Paginacao(1, 1), null);
+        var primeira = aulaService.listar(turma, matematica, null, null, null, new Paginacao(0, 1), null);
+        var segunda = aulaService.listar(turma, matematica, null, null, null, new Paginacao(1, 1), null);
 
         assertThat(primeira.totalElementos()).isEqualTo(2);
         assertThat(primeira.totalPaginas()).isEqualTo(2);
@@ -130,8 +152,62 @@ class AulaBancoRealTest extends BancoRealTest {
     }
 
     @Test
+    void filtraOHistoricoPelasDatasInclusive() {
+        registrar(matematica, letivo(10), true, true);
+        AulaResponse dentro = registrar(matematica, letivo(5), true, true);
+        AulaResponse naPonta = registrar(matematica, letivo(3), true, true);
+        AulaResponse recente = registrar(matematica, letivo(1), true, true);
+
+        var periodo = aulaService.listar(turma, matematica, letivo(5), letivo(3), null, new Paginacao(0, 20), null);
+        var desde = aulaService.listar(turma, matematica, letivo(3), null, null, new Paginacao(0, 20), null);
+
+        assertThat(periodo.conteudo()).extracting("id").containsExactly(naPonta.id(), dentro.id());
+        assertThat(desde.conteudo()).extracting("id").containsExactly(recente.id(), naPonta.id());
+    }
+
+    @Test
+    void buscaPeloConteudoEContaOsMesesComOsTotaisDaChamada() {
+        AulaResponse logaritmo = aulaService.registrar(new AulaRequest(turma, matematica, letivo(2),
+                "Introducao a LOGARITMOS", List.of(new ChamadaItem(ana, true), new ChamadaItem(bruno, false))));
+        registrar(matematica, letivo(1), true, true);
+        registrar(fisica, letivo(1), true, true);
+
+        var achadas = aulaService.listar(turma, matematica, null, null, "logaritmo", new Paginacao(0, 20), null);
+        var meses = aulaService.meses(turma, matematica, null, null, null);
+        var mesesDaBusca = aulaService.meses(turma, matematica, null, null, "logar");
+
+        assertThat(achadas.conteudo()).extracting("id").containsExactly(logaritmo.id());
+        // As duas aulas de Matematica (a de Fisica fica de fora), em um ou dois meses conforme o dia de hoje.
+        assertThat(meses).hasSizeBetween(1, 2);
+        assertThat(meses.stream().mapToLong(m -> m.aulas()).sum()).isEqualTo(2);
+        assertThat(meses.stream().mapToLong(m -> m.presentes()).sum()).isEqualTo(3);
+        assertThat(meses.stream().mapToLong(m -> m.faltas()).sum()).isEqualTo(1);
+        assertThat(mesesDaBusca).singleElement().satisfies(m -> {
+            assertThat(m.mes()).isEqualTo(letivo(2).toString().substring(0, 7));
+            assertThat(m.aulas()).isEqualTo(1);
+            assertThat(m.faltas()).isEqualTo(1);
+        });
+    }
+
+    @Test
+    void naoRegistraAulaEmDiaSemAulaDaDisciplinaNaGrade() {
+        LocalDate dia = letivo(1);
+        jdbc.update("DELETE FROM HORARIO_TURMA WHERE ALOCACAO_ID IN (SELECT ID_ALOCACAO FROM ALOCACAO_PROFESSOR "
+                + "WHERE TURMA_ID = ? AND DISCIPLINA_ID = ?) AND DIA_SEMANA = ?", turma, fisica,
+                DiaSemana.de(dia).orElseThrow().name());
+
+        assertThatThrownBy(() -> registrar(fisica, dia, true, true))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Nao ha aula");
+        // A outra disciplina, com aula nesse dia, registra normalmente, e o dia de aula vem na chamada.
+        assertThat(registrar(matematica, dia, true, true).data()).isEqualTo(dia);
+        assertThat(aulaService.chamadaDoDia(turma, fisica, dia).diaDeAula()).isFalse();
+        assertThat(aulaService.chamadaDoDia(turma, matematica, dia).diaDeAula()).isTrue();
+    }
+
+    @Test
     void outraEscolaNaoEnxergaAAula() {
-        AulaResponse registrada = registrar(matematica, LocalDate.now(), true, true);
+        AulaResponse registrada = registrar(matematica, letivo(0), true, true);
 
         UUID outraEscola = dados.escola();
         autenticarComo(dados.usuario(outraEscola, "PROFESSOR", "Outro Professor"), "PROFESSOR", outraEscola);
@@ -142,7 +218,7 @@ class AulaBancoRealTest extends BancoRealTest {
 
     @Test
     void professorSemAlocacaoNaDisciplinaNaoMexeNaAula() {
-        AulaResponse registrada = registrar(matematica, LocalDate.now(), true, true);
+        AulaResponse registrada = registrar(matematica, letivo(0), true, true);
 
         UUID outroUsuario = dados.usuario(escola, "PROFESSOR", "Outra Professora");
         jdbc.update("INSERT INTO PROFESSOR (ESCOLA_ID, PESSOA_ID, USUARIO_ID) "
@@ -151,13 +227,13 @@ class AulaBancoRealTest extends BancoRealTest {
 
         assertThatThrownBy(() -> aulaService.buscar(registrada.id()))
                 .isInstanceOf(RecursoNaoEncontradoException.class);
-        assertThatThrownBy(() -> aulaService.listar(turma, matematica, new Paginacao(0, 20), null))
+        assertThatThrownBy(() -> aulaService.listar(turma, matematica, null, null, null, new Paginacao(0, 20), null))
                 .isInstanceOf(RecursoNaoEncontradoException.class);
     }
 
     @Test
     void aulasSobrevivemADesalocarOProfessor() {
-        AulaResponse registrada = registrar(matematica, LocalDate.now(), true, false);
+        AulaResponse registrada = registrar(matematica, letivo(0), true, false);
 
         jdbc.update("DELETE FROM ALOCACAO_PROFESSOR WHERE TURMA_ID = ? AND DISCIPLINA_ID = ?", turma, matematica);
 
@@ -172,14 +248,14 @@ class AulaBancoRealTest extends BancoRealTest {
         UUID carla = dados.aluno(escola, "Carla Dias");
         dados.matricula(escola, carla, turma, StatusMatricula.ATIVA, LocalDate.now().minusDays(5));
 
-        AulaResponse antiga = registrar(matematica, LocalDate.now().minusDays(10), true, true);
+        AulaResponse antiga = registrar(matematica, letivo(10), true, true);
 
         assertThat(antiga.chamada()).extracting("alunoNome").containsExactly("Ana Souza", "Bruno Alves");
-        assertThatThrownBy(() -> registrar(matematica, LocalDate.now(), true, true))
+        assertThatThrownBy(() -> registrar(matematica, letivo(0), true, true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Chamada incompleta");
         assertThatThrownBy(() -> aulaService.registrar(new AulaRequest(turma, matematica,
-                LocalDate.now().minusDays(10), "Conteudo", List.of(new ChamadaItem(ana, true),
+                letivo(10), "Conteudo", List.of(new ChamadaItem(ana, true),
                         new ChamadaItem(bruno, true), new ChamadaItem(carla, false)))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Aluno sem matricula ativa na turma da aula");
@@ -187,7 +263,7 @@ class AulaBancoRealTest extends BancoRealTest {
 
     @Test
     void bancoBarraFrequenciaRepetidaDoAlunoNaAula() {
-        AulaResponse registrada = registrar(matematica, LocalDate.now(), true, true);
+        AulaResponse registrada = registrar(matematica, letivo(0), true, true);
 
         assertThatThrownBy(() -> jdbc.update("INSERT INTO FREQUENCIA (ESCOLA_ID, AULA_ID, ALUNO_ID, PRESENTE) "
                 + "VALUES (?, ?, ?, false)", escola, registrada.id(), ana))
@@ -196,8 +272,8 @@ class AulaBancoRealTest extends BancoRealTest {
 
     @Test
     void excluirApagaAAulaEAChamadaSemMexerNasOutrasEOBoletimDeixaDeContar() {
-        AulaResponse errada = registrar(matematica, LocalDate.now().minusDays(2), false, false);
-        AulaResponse certa = registrar(matematica, LocalDate.now().minusDays(1), true, true);
+        AulaResponse errada = registrar(matematica, letivo(2), false, false);
+        AulaResponse certa = registrar(matematica, letivo(1), true, true);
 
         aulaService.excluir(errada.id());
 
@@ -215,7 +291,7 @@ class AulaBancoRealTest extends BancoRealTest {
 
     @Test
     void outraEscolaNaoExcluiAAula() {
-        AulaResponse registrada = registrar(matematica, LocalDate.now(), true, true);
+        AulaResponse registrada = registrar(matematica, letivo(0), true, true);
 
         UUID outraEscola = dados.escola();
         autenticarComo(dados.usuario(outraEscola, "PROFESSOR", "Outro Professor"), "PROFESSOR", outraEscola);
@@ -228,7 +304,7 @@ class AulaBancoRealTest extends BancoRealTest {
 
     @Test
     void secretariaNaoTiraDaGradeNemExcluiTurmaComAula() {
-        registrar(matematica, LocalDate.now().minusDays(1), true, true);
+        registrar(matematica, letivo(1), true, true);
         Long periodo = jdbc.queryForObject("SELECT periodo_letivo_id FROM turma WHERE id = ?", Long.class, turma);
         Long curso = jdbc.queryForObject("SELECT curso_id FROM turma WHERE id = ?", Long.class, turma);
         TurmaRequest semMatematica = new TurmaRequest();
@@ -252,10 +328,10 @@ class AulaBancoRealTest extends BancoRealTest {
 
     @Test
     void resumeAulasEFaltasDoAlunoPorDisciplina() {
-        registrar(matematica, LocalDate.now().minusDays(3), true, false);
-        registrar(matematica, LocalDate.now().minusDays(2), false, false);
-        registrar(matematica, LocalDate.now().minusDays(1), true, true);
-        registrar(fisica, LocalDate.now().minusDays(1), false, true);
+        registrar(matematica, letivo(3), true, false);
+        registrar(matematica, letivo(2), false, false);
+        registrar(matematica, letivo(1), true, true);
+        registrar(fisica, letivo(1), false, true);
 
         var deAna = frequenciaRepository.resumirPorDisciplina(escola, ana, turma);
         var deBruno = frequenciaRepository.resumirPorDisciplina(escola, bruno, turma);

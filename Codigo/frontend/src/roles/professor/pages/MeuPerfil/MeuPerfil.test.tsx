@@ -34,6 +34,7 @@ function turma(id: number, disciplinas: number[], aulasPorDisciplina = 0): Turma
     periodoLetivoNome: '2026',
     cursoId: 1,
     cursoNome: 'Ensino Médio',
+    alunosAtivos: 30,
     disciplinas: disciplinas.map((d) => ({
       id: d,
       nome: `Disciplina ${d}`,
