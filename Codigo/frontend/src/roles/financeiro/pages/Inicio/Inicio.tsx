@@ -81,7 +81,7 @@ function Resumo({ dados }: { dados: DashboardFinanceiro }) {
         itens={[
           { rotulo: 'Nova cobrança', icon: 'plus', onClick: () => navigate(paths.financeiro.novaCobranca) },
           { rotulo: 'Ver cobranças em atraso', icon: 'alert', onClick: () => navigate(COBRANCAS_EM_ATRASO) },
-          { rotulo: 'Lançar uma despesa', icon: 'dollarSign', onClick: () => navigate(paths.financeiro.despesas) },
+          { rotulo: 'Lançar uma despesa', icon: 'dollarSign', onClick: () => navigate(`${paths.financeiro.despesas}?nova=1`) },
         ]}
       />
 
