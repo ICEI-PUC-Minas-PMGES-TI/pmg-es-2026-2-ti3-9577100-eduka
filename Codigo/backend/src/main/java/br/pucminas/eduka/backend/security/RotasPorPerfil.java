@@ -70,6 +70,10 @@ public enum RotasPorPerfil {
     PORTAL_ALUNO(List.of("/portal/aluno"),
             ALUNO),
 
+    /** A escola do proprio usuario vista de dentro (ex.: o contato na Ajuda). SUPER_ADMIN nao tem escola. */
+    MINHA_ESCOLA(List.of("/minha-escola"),
+            MASTER, SECRETARIA, FINANCEIRO, PROFESSOR, ALUNO),
+
     /** Aviso de privacidade e aceite (IU29): todo usuario logado, inclusive o SUPER_ADMIN. */
     PRIVACIDADE(List.of("/privacidade"),
             SUPER_ADMIN, MASTER, SECRETARIA, FINANCEIRO, PROFESSOR, ALUNO);

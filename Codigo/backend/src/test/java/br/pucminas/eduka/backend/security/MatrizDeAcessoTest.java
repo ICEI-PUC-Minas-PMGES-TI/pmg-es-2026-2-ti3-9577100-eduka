@@ -261,6 +261,10 @@ class MatrizDeAcessoTest {
                 "POST /portal/aluno/correcoes",
                 "GET /portal/aluno/correcoes/aberta");
 
+        // Contato da propria escola, na Ajuda: todo perfil da escola; o SUPER_ADMIN nao tem escola.
+        libera(matriz, EnumSet.of(MASTER, SECRETARIA, FINANCEIRO, PROFESSOR, ALUNO),
+                "GET /minha-escola/contato");
+
         // Aviso de privacidade (IU29): todo usuario logado le e aceita, inclusive o SUPER_ADMIN.
         libera(matriz, TODOS,
                 "GET /privacidade/aviso",
