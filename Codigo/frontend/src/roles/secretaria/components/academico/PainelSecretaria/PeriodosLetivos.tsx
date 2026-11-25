@@ -98,18 +98,7 @@ export function PeriodosLetivos({
                 )}
               </td>
               <td className={styles.acoes}>
-                {fase === 'andamento' && (
-                  <Button
-                    size="sm"
-                    icon="lock"
-                    onClick={() => {
-                      setSucesso(null)
-                      setEncerrando(p)
-                    }}
-                  >
-                    Encerrar
-                  </Button>
-                )}
+                {/* Abrir as matrículas é o próximo passo do período planejado: fica à vista. */}
                 {fase === 'planejado' && !p.matriculasAbertas && (
                   <Button size="sm" variant="primary" disabled={abrindo === p.id} onClick={() => abrirMatriculas(p)}>
                     {abrindo === p.id ? 'Abrindo…' : 'Abrir matrículas'}
@@ -123,6 +112,22 @@ export function PeriodosLetivos({
                     setSucesso(null)
                     setExcluindo(p)
                   }}
+                  maisAcoes={
+                    fase === 'andamento'
+                      ? [
+                          {
+                            id: 'encerrar',
+                            rotulo: 'Encerrar',
+                            descricao: 'Para de receber matrícula nova; matrículas e notas continuam',
+                            icone: 'lock',
+                            onSelecionar: () => {
+                              setSucesso(null)
+                              setEncerrando(p)
+                            },
+                          },
+                        ]
+                      : undefined
+                  }
                 />
               </td>
             </tr>

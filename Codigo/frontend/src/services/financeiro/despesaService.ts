@@ -11,8 +11,8 @@ import { apiRequest } from '../api'
 
 // O backend já limita despesas e categorias à escola de quem está logado.
 
-/** Intervalo de vencimento, AAAA-MM-DD, com as duas pontas. */
-export type PeriodoDespesas = { vencimentoDe: string; vencimentoAte: string }
+/** Intervalo de vencimento, AAAA-MM-DD; sem as pontas, vêm as despesas de todas as datas. */
+export type PeriodoDespesas = { vencimentoDe?: string; vencimentoAte?: string }
 
 export type ConsultaDespesas = PeriodoDespesas & {
   pagina: number
@@ -22,19 +22,16 @@ export type ConsultaDespesas = PeriodoDespesas & {
 }
 
 /**
- * Uma página das que vencem no período, ordenadas pelo vencimento, com
+ * Uma página das que vencem no período (ou de todas as datas), ordenadas pelo vencimento, com
  * quantidade e soma de cada situação no período (sem o filtro de situação).
  */
 export function listarPaginaDeDespesas(
   consulta: ConsultaDespesas,
   signal?: AbortSignal,
 ): Promise<PaginaComResumo<Despesa, ResumoDespesas>> {
-  const params = new URLSearchParams({
-    pagina: String(consulta.pagina),
-    tamanho: String(consulta.tamanho),
-    vencimentoDe: consulta.vencimentoDe,
-    vencimentoAte: consulta.vencimentoAte,
-  })
+  const params = new URLSearchParams({ pagina: String(consulta.pagina), tamanho: String(consulta.tamanho) })
+  if (consulta.vencimentoDe) params.set('vencimentoDe', consulta.vencimentoDe)
+  if (consulta.vencimentoAte) params.set('vencimentoAte', consulta.vencimentoAte)
   for (const situacao of consulta.situacoes) params.append('situacao', situacao)
   return apiRequest(`/despesas/pagina?${params}`, { signal })
 }

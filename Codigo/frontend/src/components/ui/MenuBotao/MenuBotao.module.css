@@ -82,3 +82,13 @@
   font-size: 13px;
   line-height: 1.35;
 }
+
+/* Ação destrutiva (ex.: excluir): rótulo e ícone em vermelho. */
+.itemPerigo .texto strong {
+  color: var(--color-danger);
+}
+
+.itemPerigo .icone {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}

@@ -108,12 +108,6 @@
   gap: 8px;
 }
 
-/* Mesma largura para "Inativar" e "Reativar", para as colunas não pularem. */
-.alternar {
-  min-width: 112px;
-  justify-content: center;
-}
-
 /* Situação e, se for o caso, o selo de acesso pendente. */
 .situacao {
   display: flex;
@@ -202,9 +196,5 @@
   .acoes {
     flex-wrap: wrap;
     justify-content: flex-start;
-  }
-
-  .alternar {
-    min-width: 0;
   }
 }

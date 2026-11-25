@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Badge } from '../../../../../components/ui/Badge/Badge'
 import { Button } from '../../../../../components/ui/Button/Button'
 import { Icon } from '../../../../../components/ui/Icon/Icon'
+import { MenuBotao } from '../../../../../components/ui/MenuBotao/MenuBotao'
 import { Paginacao } from '../../../../../components/ui/Paginacao/Paginacao'
 import type { OpcaoSelect } from '../../../../../components/formulario/Select/Select'
 import { usePaginacao } from '../../../../../hooks/usePaginacao'
@@ -174,18 +175,34 @@ export function EscolasTable({
                 <Button size="sm" icon="edit" onClick={() => onEditar(escola)}>
                   Editar
                 </Button>
-                <Button size="sm" icon="dollarSign" onClick={() => onFaturas(escola)}>
-                  Faturas
-                </Button>
-                <Button
+                {/* Faturas e suspender ficam no "⋯": o suspender corta o acesso da escola inteira. */}
+                <MenuBotao
+                  somenteIcone
+                  icon="more"
                   size="sm"
-                  className={styles.alternar}
-                  icon={escola.ativo ? 'pause' : 'check'}
                   disabled={alternandoId === escola.id}
-                  onClick={() => onAlternarSituacao(escola)}
+                  itens={[
+                    {
+                      id: 'faturas',
+                      rotulo: 'Faturas',
+                      descricao: 'O que a escola paga ao Eduka',
+                      icone: 'dollarSign',
+                      onSelecionar: () => onFaturas(escola),
+                    },
+                    {
+                      id: 'alternar',
+                      rotulo: escola.ativo ? 'Suspender' : 'Reativar',
+                      descricao: escola.ativo
+                        ? 'Corta o acesso da escola; pede confirmação antes'
+                        : 'Devolve o acesso da escola',
+                      icone: escola.ativo ? 'pause' : 'check',
+                      perigo: escola.ativo,
+                      onSelecionar: () => onAlternarSituacao(escola),
+                    },
+                  ]}
                 >
-                  {escola.ativo ? 'Suspender' : 'Reativar'}
-                </Button>
+                  {`Mais ações para ${escola.nome}`}
+                </MenuBotao>
               </div>
             </li>
           ))}

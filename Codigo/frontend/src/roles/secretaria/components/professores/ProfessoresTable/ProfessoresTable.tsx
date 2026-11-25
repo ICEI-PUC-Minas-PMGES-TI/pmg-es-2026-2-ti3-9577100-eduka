@@ -2,6 +2,7 @@ import type { ReactNode, Ref } from 'react'
 import { Badge } from '../../../../../components/ui/Badge/Badge'
 import { Button } from '../../../../../components/ui/Button/Button'
 import { Dica } from '../../../../../components/ui/Dica/Dica'
+import { MenuBotao, type ItemMenu } from '../../../../../components/ui/MenuBotao/MenuBotao'
 import { Paginacao } from '../../../../../components/ui/Paginacao/Paginacao'
 import type { EstadoPaginacao } from '../../../../../hooks/usePaginacao'
 import { ROTULOS_VINCULO, type Professor } from '../../../../../types/pessoas/professor'
@@ -11,6 +12,47 @@ import styles from './ProfessoresTable.module.css'
 // Disciplinas e turmas ainda não vêm no ProfessorResponse (dependem da alocação);
 // as colunas ficam com um traço até o backend expor esses dados.
 const SEM_DADO = '—'
+
+/**
+ * As ações raras da linha, no menu "⋯": reenviar o acesso (só a quem ainda
+ * não entrou), inativar ou reativar e excluir. Ver e Editar ficam à vista.
+ */
+function maisAcoesDoProfessor(
+  professor: Professor,
+  { onReenviarAcesso, onAlternarSituacao, onExcluir }: Pick<
+    ProfessoresTableProps,
+    'onReenviarAcesso' | 'onAlternarSituacao' | 'onExcluir'
+  >,
+): ItemMenu[] {
+  const itens: ItemMenu[] = []
+  if (professor.ativo && professor.aguardandoPrimeiroAcesso) {
+    itens.push({
+      id: 'reenviar',
+      rotulo: 'Reenviar acesso',
+      descricao: 'Gera uma nova senha provisória e manda o e-mail de novo',
+      icone: 'mail',
+      onSelecionar: () => onReenviarAcesso(professor),
+    })
+  }
+  itens.push(
+    {
+      id: 'alternar',
+      rotulo: professor.ativo ? 'Inativar' : 'Reativar',
+      descricao: professor.ativo ? 'Afastamento temporário, como licença' : 'Encerra o afastamento',
+      icone: professor.ativo ? 'pause' : 'check',
+      onSelecionar: () => onAlternarSituacao(professor),
+    },
+    {
+      id: 'excluir',
+      rotulo: 'Excluir',
+      descricao: 'Quando o professor saiu da escola',
+      icone: 'trash',
+      perigo: true,
+      onSelecionar: () => onExcluir(professor),
+    },
+  )
+  return itens
+}
 
 type ProfessoresTableProps = {
   /** A página de professores; null até a primeira resposta do backend. */
@@ -109,39 +151,16 @@ export function ProfessoresTable({
                         <Button size="sm" icon="edit" onClick={() => onEditar(professor)}>
                           Editar
                         </Button>
-                        {professor.ativo && professor.aguardandoPrimeiroAcesso && (
-                          <Dica texto="Gera uma nova senha provisória e manda o e-mail de novo">
-                            <Button
-                              size="sm"
-                              icon="mail"
-                              disabled={reenviandoId === professor.id}
-                              aria-label={`Reenviar acesso de ${professor.nome}`}
-                              onClick={() => onReenviarAcesso(professor)}
-                            >
-                              {reenviandoId === professor.id ? 'Reenviando…' : 'Reenviar acesso'}
-                            </Button>
-                          </Dica>
-                        )}
-                        <Dica texto={professor.ativo ? 'Afastamento temporário, como licença' : null}>
-                          <Button
-                            size="sm"
-                            className={styles.alternar}
-                            icon={professor.ativo ? 'pause' : 'check'}
-                            disabled={alternandoId === professor.id}
-                            onClick={() => onAlternarSituacao(professor)}
-                          >
-                            {professor.ativo ? 'Inativar' : 'Reativar'}
-                          </Button>
-                        </Dica>
-                        <Dica texto="Excluir (saiu da escola)">
-                          <Button
-                            size="sm"
-                            variant="dangerOutline"
-                            icon="trash"
-                            aria-label={`Excluir ${professor.nome}`}
-                            onClick={() => onExcluir(professor)}
-                          />
-                        </Dica>
+                        <MenuBotao
+                          somenteIcone
+                          icon="more"
+                          size="sm"
+                          itens={maisAcoesDoProfessor(professor, { onReenviarAcesso, onAlternarSituacao, onExcluir })}
+                          // Enquanto reenvia, inativa ou reativa este professor, o menu dele espera.
+                          disabled={reenviandoId === professor.id || alternandoId === professor.id}
+                        >
+                          {`Mais ações para ${professor.nome}`}
+                        </MenuBotao>
                       </div>
                     </td>
                   </tr>

@@ -56,6 +56,20 @@ function consultas(chamadas: ChamadaApi[]) {
   return chamadas.filter((c) => c.caminho.startsWith('/professores/pagina?')).map((c) => parametros(c.caminho))
 }
 
+/** Abre o "⋯" da linha e escolhe a ação. */
+async function escolherNoMenu(linha: HTMLElement, nome: string, acao: RegExp) {
+  await userEvent.click(within(linha).getByRole('button', { name: `Mais ações para ${nome}` }))
+  await userEvent.click(await screen.findByRole('menuitem', { name: acao }))
+}
+
+/** Os rótulos das ações no "⋯" da linha; fecha o menu depois de ler. */
+async function itensDoMenu(linha: HTMLElement, nome: string): Promise<(string | undefined)[]> {
+  await userEvent.click(within(linha).getByRole('button', { name: `Mais ações para ${nome}` }))
+  const rotulos = screen.getAllByRole('menuitem').map((item) => item.querySelector('strong')?.textContent ?? undefined)
+  await userEvent.keyboard('{Escape}')
+  return rotulos
+}
+
 describe('Professores', () => {
   beforeEach(() => {
     Element.prototype.scrollIntoView = vi.fn()
@@ -96,7 +110,7 @@ describe('Professores', () => {
     const resumo = screen.getByRole('region', { name: 'Resumo dos professores' })
     expect(resumo).toHaveTextContent(/Professores ativos\s*2/)
 
-    await userEvent.click(within(linha).getByRole('button', { name: /inativar/i }))
+    await escolherNoMenu(linha, 'Professor 02', /^inativar/i)
 
     await waitFor(() => expect(resumo).toHaveTextContent(/Professores ativos\s*1\s*De 2/))
     expect(screen.getByRole('status')).toHaveTextContent('"Professor 02" foi inativado.')
@@ -107,19 +121,20 @@ describe('Professores', () => {
 
     const pendente = (await screen.findByText('Professor 01')).closest('tr') as HTMLElement
     expect(within(pendente).getByText('Aguardando acesso')).toBeInTheDocument()
-    expect(within(pendente).getByRole('button', { name: 'Reenviar acesso de Professor 01' })).toBeInTheDocument()
+    expect(await itensDoMenu(pendente, 'Professor 01')).toEqual(['Reenviar acesso', 'Inativar', 'Excluir'])
 
     const jaEntrou = screen.getByText('Professor 02').closest('tr') as HTMLElement
-    expect(within(jaEntrou).queryByRole('button', { name: /Reenviar acesso/ })).not.toBeInTheDocument()
+    expect(await itensDoMenu(jaEntrou, 'Professor 02')).toEqual(['Inativar', 'Excluir'])
     // Inativo não recebe acesso: o backend recusaria.
     const inativo = screen.getByText('Professor 03').closest('tr') as HTMLElement
-    expect(within(inativo).queryByRole('button', { name: /Reenviar acesso/ })).not.toBeInTheDocument()
+    expect(await itensDoMenu(inativo, 'Professor 03')).toEqual(['Reativar', 'Excluir'])
   })
 
   it('reenvia o acesso e confirma para qual e-mail foi', async () => {
     const chamadas = abrir([professor(1, true, true)])
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Reenviar acesso de Professor 01' }))
+    const linha = (await screen.findByText('Professor 01')).closest('tr') as HTMLElement
+    await escolherNoMenu(linha, 'Professor 01', /^reenviar acesso/i)
 
     expect(await screen.findByRole('status')).toHaveTextContent(
       'O acesso de "Professor 01" foi reenviado para p1@escola.com, com uma nova senha provisória.',
@@ -130,7 +145,8 @@ describe('Professores', () => {
   it('quem já definiu a senha não recebe reenvio: explica e lê a lista de novo', async () => {
     const chamadas = abrir([professor(1, true, true)], problema(409, 'ACESSO_JA_ATIVADO'))
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Reenviar acesso de Professor 01' }))
+    const linha = (await screen.findByText('Professor 01')).closest('tr') as HTMLElement
+    await escolherNoMenu(linha, 'Professor 01', /^reenviar acesso/i)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('"Professor 01" já definiu a senha')
     await waitFor(() => expect(consultas(chamadas)).toHaveLength(2))
