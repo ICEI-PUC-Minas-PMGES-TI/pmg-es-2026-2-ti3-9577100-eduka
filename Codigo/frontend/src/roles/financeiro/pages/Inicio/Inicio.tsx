@@ -85,7 +85,8 @@ function Resumo({ dados }: { dados: DashboardFinanceiro }) {
           { rotulo: 'Nova cobrança', icon: 'plus', onClick: () => navigate(paths.financeiro.novaCobranca) },
           { rotulo: 'Ver cobranças em atraso', icon: 'alert', onClick: () => navigate(COBRANCAS_EM_ATRASO) },
           { rotulo: 'Ver alunos em atraso', icon: 'users', onClick: () => navigate(ALUNOS_EM_ATRASO) },
-          { rotulo: 'Lançar uma despesa', icon: 'dollarSign', onClick: () => navigate(paths.financeiro.despesas) },
+          { rotulo: 'Lançar uma despesa', icon: 'dollarSign', onClick: () => navigate(`${paths.financeiro.despesas}?nova=1`) },
+
         ]}
       />
 

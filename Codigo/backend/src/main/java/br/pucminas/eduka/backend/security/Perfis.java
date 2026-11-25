@@ -65,6 +65,9 @@ public final class Perfis {
     /** Portal do aluno: os proprios dados e cobrancas. */
     public static final String ALUNO = "hasRole('ALUNO')";
 
+    /** Quem pertence a uma escola, de qualquer perfil: o contato dela na Ajuda. */
+    public static final String DA_ESCOLA = "hasAnyRole('MASTER', 'SECRETARIA', 'FINANCEIRO', 'PROFESSOR', 'ALUNO')";
+
     private Perfis() {
     }
 }

@@ -202,7 +202,7 @@ function AtalhosDaGestao({ comFinanceiro }: { comFinanceiro: boolean }) {
               matricular,
               { rotulo: 'Lançar uma cobrança', icon: 'card', onClick: () => navigate(paths.master.novaCobranca) },
               cadastrarProfessor,
-              { rotulo: 'Lançar uma despesa', icon: 'dollarSign', onClick: () => navigate(paths.master.despesas) },
+              { rotulo: 'Lançar uma despesa', icon: 'dollarSign', onClick: () => navigate(`${paths.master.despesas}?nova=1`) },
             ]
           : [
               matricular,

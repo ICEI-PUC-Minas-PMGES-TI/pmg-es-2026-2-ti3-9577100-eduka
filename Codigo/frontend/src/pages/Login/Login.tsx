@@ -22,6 +22,7 @@ import {
 import { MODULOS_ESCOLA, ROTULOS_MODULO, type ModuloEscola } from '../../types/escola/escola'
 import styles from './Login.module.css'
 import { RecuperarSenha } from './RecuperarSenha'
+import { BotaoAjudaFlutuante } from '../../components/ajuda/BotaoAjudaFlutuante/BotaoAjudaFlutuante'
 
 // Mesmo mínimo do backend (UsuarioService.validarSenha).
 const SENHA_TAMANHO_MINIMO = 8
@@ -377,6 +378,7 @@ export function Login() {
           )}
         </main>
       </div>
+      <BotaoAjudaFlutuante tela="Login" />
     </div>
   )
 }

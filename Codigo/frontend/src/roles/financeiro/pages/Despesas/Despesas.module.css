@@ -1,24 +1,17 @@
-/* Lista do mês à esquerda e lançamento à direita. Vidro, pílulas, tabela e
-   campos com os mesmos tokens das telas de Cobranças e Pagamentos. */
-.conteudoGrid {
-  display: grid;
-  /* minmax(0, ...): sem ele, a tabela larga empurra a coluna (e a página) para além da tela. */
-  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-}
-
-.colunaEsquerda {
+/* Resumo e lista do mês na largura toda; lançar e editar abrem modal. Vidro,
+   pílulas e tabela com os mesmos tokens das telas de Cobranças e Pagamentos. */
+.conteudo {
   display: flex;
   flex-direction: column;
   gap: 20px;
   min-width: 0;
 }
 
-/* O formulário acompanha a rolagem da lista. */
-.colunaDireita {
-  position: sticky;
-  top: 24px;
+/* "Gerenciar categorias" e "Nova despesa", no topo da tela. */
+.acoesTopo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .cartao {
@@ -194,80 +187,7 @@
   text-align: center;
 }
 
-/* ---------- Lançamento ---------- */
-
-.formulario {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.gridDuplo {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-/* Grupo de botões com rótulo, no lugar de um <select> (categoria e situação). */
-.grupo {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-
-/* Mesmo rótulo do Campo. */
-.rotulo {
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.escolhas {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.duasEscolhas {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-/* Mesma borda, raio e foco dos campos (Campo), para o formulário ficar uniforme. */
-.escolha {
-  min-height: 44px;
-  padding: 8px 10px;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.82);
-  color: var(--color-text);
-  font-family: var(--font-display);
-  font-size: 13.5px;
-  font-weight: 800;
-  overflow-wrap: anywhere;
-  cursor: pointer;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-}
-
-.escolha:hover {
-  border-color: var(--color-mauve);
-}
-
-.escolha:focus-visible {
-  border-color: var(--color-primary);
-  outline: 0;
-  box-shadow: 0 0 0 4px rgba(212, 187, 252, 0.5);
-}
-
-.escolhaAtiva,
-.escolhaAtiva:hover {
-  border-color: transparent;
-  background: var(--button-primary-bg);
-  box-shadow: var(--button-primary-shadow);
-  color: var(--color-on-primary);
-}
-
+/* Confirmações e erros acima da lista. */
 .erro,
 .sucesso {
   margin: 0;
@@ -281,36 +201,6 @@
 
 .sucesso {
   color: var(--color-success);
-}
-
-.salvar {
-  width: 100%;
-  justify-content: center;
-}
-
-.linkCategorias {
-  align-self: center;
-  border: none;
-  background: none;
-  color: var(--color-primary-text);
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.linkCategorias:hover {
-  text-decoration: underline;
-}
-
-@media (max-width: 1024px) {
-  .conteudoGrid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .colunaDireita {
-    position: static;
-  }
 }
 
 /* Celular: cada despesa vira um bloco, com o rótulo em cima de cada dado, sem rolagem lateral. */
@@ -400,13 +290,5 @@
   .acoes > button {
     width: 100%;
     justify-content: center;
-  }
-
-  .escolhas {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .gridDuplo {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
