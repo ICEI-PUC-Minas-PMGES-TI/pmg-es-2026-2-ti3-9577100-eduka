@@ -1,6 +1,6 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cortarPagina, problema, simularApi, type ChamadaApi } from '../../../../test/api'
 import { escolherDia } from '../../../../test/calendario'
@@ -41,7 +41,7 @@ function despesa(n: number, situacao: SituacaoDespesa = 'A_PAGAR', valor = 10): 
   return { ...LUZ, id: `desp-${n}`, descricao: `Despesa ${String(n).padStart(2, '0')}`, situacao, valor }
 }
 
-function abrir(despesas: Despesa[]): ChamadaApi[] {
+function abrir(despesas: Despesa[], rota = '/financeiro/despesas'): ChamadaApi[] {
   const chamadas = simularApi(({ metodo, caminho, corpo }) => {
     if (caminho.startsWith('/despesas/pagina?')) return { corpo: paginaDe(despesas, caminho) }
     if (caminho === '/categorias-despesa') return { corpo: [{ id: 'cat-1', nome: 'Contas' }] }
@@ -74,11 +74,18 @@ function abrir(despesas: Despesa[]): ChamadaApi[] {
     return undefined
   })
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[rota]}>
       <Despesas />
+      <Local />
     </MemoryRouter>,
   )
   return chamadas
+}
+
+/** Mostra a URL atual, para conferir o que a tela tira dela. */
+function Local() {
+  const { pathname, search } = useLocation()
+  return <p data-testid="local">{pathname + search}</p>
 }
 
 function consultas(chamadas: ChamadaApi[]) {
@@ -155,31 +162,96 @@ describe('Despesas', () => {
     expect(within(linhaAntiga).getByText('—')).toBeInTheDocument()
   })
 
-  it('lançar exige o responsável e manda o nome sem espaços nas pontas', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] })
-    vi.setSystemTime(new Date('2026-02-15T15:00:00Z'))
-    const chamadas = abrir([])
-    await screen.findByRole('button', { name: 'Contas' })
+  /** Abre o modal "Nova despesa", já com a primeira categoria escolhida. */
+  async function abrirNovaDespesa() {
+    await userEvent.click(await screen.findByRole('button', { name: 'Nova despesa' }))
+    const dialogo = within(screen.getByRole('dialog', { name: 'Nova despesa' }))
+    expect(await dialogo.findByRole('combobox', { name: /Categoria/ })).toHaveTextContent('Contas')
+    return dialogo
+  }
 
-    await userEvent.type(screen.getByLabelText('O que foi pago'), 'Conta de água')
-    await userEvent.type(screen.getByLabelText('Valor'), '120,50')
-    await userEvent.type(screen.getByLabelText('Responsável'), '   ')
-    await userEvent.click(screen.getByRole('button', { name: 'Salvar despesa' }))
+  it('o lançamento abre num modal, sem o formulário ao lado da lista', async () => {
+    abrir([LUZ])
+    await screen.findByText('Conta de luz')
 
-    expect(screen.getByLabelText('Responsável')).toHaveAccessibleDescription('Informe o responsável pela despesa.')
-    expect(screen.getByLabelText('Responsável')).toHaveAttribute('aria-invalid', 'true')
-    expect(screen.getByLabelText('Responsável')).toHaveFocus()
+    expect(screen.queryByRole('region', { name: 'Lançar uma despesa' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/O que foi pago/)).not.toBeInTheDocument()
+
+    const dialogo = await abrirNovaDespesa()
+    expect(dialogo.getByLabelText(/O que foi pago/)).toHaveValue('')
+    expect(dialogo.getByRole('combobox', { name: /Situação/ })).toHaveTextContent('A pagar')
+
+    await userEvent.click(dialogo.getAllByRole('button', { name: /Cancelar|Fechar/ })[0])
+    expect(screen.queryByRole('dialog', { name: 'Nova despesa' })).not.toBeInTheDocument()
+  })
+
+  it('vinda do atalho do Início (?nova=1), já abre o lançamento e tira o parâmetro da URL', async () => {
+    abrir([LUZ], '/financeiro/despesas?nova=1')
+
+    expect(await screen.findByRole('dialog', { name: 'Nova despesa' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('local')).toHaveTextContent(/^\/financeiro\/despesas$/))
+    // Tirar o parâmetro não fecha o modal.
+    expect(screen.getByRole('dialog', { name: 'Nova despesa' })).toBeInTheDocument()
+  })
+
+  it('não lança sem descrição, responsável nem valor e mostra o erro em cada campo', async () => {
+    const chamadas = abrir([LUZ])
+    const dialogo = await abrirNovaDespesa()
+
+    await userEvent.type(dialogo.getByLabelText(/Responsável/), '   ')
+    await userEvent.click(dialogo.getByRole('button', { name: 'Salvar despesa' }))
+
+    expect(dialogo.getByLabelText(/O que foi pago/)).toHaveAccessibleDescription('Informe a descrição do que foi pago.')
+    expect(dialogo.getByLabelText(/Responsável/)).toHaveAccessibleDescription('Informe o responsável pela despesa.')
+    expect(dialogo.getByLabelText(/Valor/)).toHaveAccessibleDescription(/maior que zero/)
     expect(chamadas.some((c) => c.metodo === 'POST')).toBe(false)
 
-    await userEvent.type(screen.getByLabelText('Responsável'), 'Zelador Antônio ')
-    expect(screen.getByLabelText('Responsável')).not.toHaveAccessibleDescription()
-    await userEvent.click(screen.getByRole('button', { name: 'Salvar despesa' }))
+    // Corrigir o campo tira o erro dele.
+    await userEvent.type(dialogo.getByLabelText(/O que foi pago/), 'Conta de água')
+    expect(dialogo.getByLabelText(/O que foi pago/)).not.toHaveAccessibleDescription()
+  })
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Despesa "Conta de água" salva.')
-    const post = chamadas.find((c) => c.metodo === 'POST')
-    expect(post?.corpo).toMatchObject({ descricao: 'Conta de água', responsavel: 'Zelador Antônio', valor: 120.5 })
-    // Fica preenchido para o próximo lançamento, como a categoria e a data.
-    expect(screen.getByLabelText('Responsável')).toHaveValue('   Zelador Antônio ')
+  it('lança pelo modal, já paga e com a data do calendário, e lê a lista de novo', async () => {
+    const chamadas = abrir([LUZ])
+    const dialogo = await abrirNovaDespesa()
+    const hoje = new Date()
+    const primeiroDoMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+
+    await userEvent.type(dialogo.getByLabelText(/O que foi pago/), 'Conta de água')
+    await userEvent.type(dialogo.getByLabelText(/Responsável/), ' Zelador Antônio ')
+    await userEvent.type(dialogo.getByLabelText(/Valor/), '1.250,40')
+    await escolherDia(userEvent.setup(), dialogo.getByLabelText(/^Data/), primeiroDoMes)
+    await userEvent.click(dialogo.getByRole('combobox', { name: /Situação/ }))
+    await userEvent.click(screen.getByRole('option', { name: 'Paga' }))
+    await userEvent.click(dialogo.getByRole('button', { name: 'Salvar despesa' }))
+
+    expect(await screen.findByText('Despesa "Conta de água" salva.')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Nova despesa' })).not.toBeInTheDocument()
+    expect(chamadas.find((c) => c.metodo === 'POST')?.corpo).toEqual({
+      descricao: 'Conta de água',
+      responsavel: 'Zelador Antônio',
+      categoriaId: 'cat-1',
+      valor: 1250.4,
+      dataVencimento: `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`,
+      paga: true,
+    })
+    // A nova entra na lista, que vem de novo do backend.
+    expect(await screen.findByText('Conta de água')).toBeInTheDocument()
+  })
+
+  it('o próximo lançamento já abre com o último responsável usado', async () => {
+    abrir([LUZ])
+    let dialogo = await abrirNovaDespesa()
+
+    await userEvent.type(dialogo.getByLabelText(/O que foi pago/), 'Seguro anual')
+    await userEvent.type(dialogo.getByLabelText(/Responsável/), 'Direção')
+    await userEvent.type(dialogo.getByLabelText(/Valor/), '600')
+    await userEvent.click(dialogo.getByRole('button', { name: 'Salvar despesa' }))
+    expect(await screen.findByText('Despesa "Seguro anual" salva.')).toBeInTheDocument()
+
+    dialogo = await abrirNovaDespesa()
+    expect(dialogo.getByLabelText(/Responsável/)).toHaveValue('Direção')
+    expect(dialogo.getByLabelText(/O que foi pago/)).toHaveValue('')
   })
 
   it('edita a despesa pelo modal, manda tudo menos a situação e lê a lista de novo', async () => {
@@ -252,56 +324,6 @@ describe('Despesas', () => {
     expect(await within(dialogo).findByText('A despesa foi cancelada e não pode mais ser editada.')).toBeInTheDocument()
   })
 
-  /** O formulário "Lançar uma despesa", já com as categorias carregadas. */
-  async function formulario() {
-    const form = within(screen.getByRole('region', { name: 'Lançar uma despesa' }))
-    expect(await form.findByRole('button', { name: 'Contas' })).toHaveAttribute('aria-pressed', 'true')
-    return form
-  }
-
-  it('não lança sem descrição nem valor e mostra o erro em cada campo', async () => {
-    const chamadas = abrir([LUZ])
-    const form = await formulario()
-
-    await userEvent.click(form.getByRole('button', { name: 'Salvar despesa' }))
-
-    expect(form.getByLabelText(/o que foi pago/i)).toHaveAccessibleDescription('Informe a descrição do que foi pago.')
-    expect(form.getByLabelText(/o que foi pago/i)).toHaveFocus()
-    expect(form.getByLabelText(/valor/i)).toHaveAccessibleDescription(/maior que zero/)
-    expect(chamadas.some((c) => c.metodo === 'POST')).toBe(false)
-
-    // Corrigir o campo tira o erro dele.
-    await userEvent.type(form.getByLabelText(/o que foi pago/i), 'Conta de água')
-    expect(form.getByLabelText(/o que foi pago/i)).not.toHaveAccessibleDescription()
-  })
-
-  it('lança a despesa com a data escolhida no calendário', async () => {
-    const chamadas = abrir([LUZ])
-    const form = await formulario()
-    const hoje = new Date()
-    const primeiroDoMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
-
-    await userEvent.type(form.getByLabelText(/o que foi pago/i), 'Conta de água')
-    await userEvent.type(form.getByLabelText(/responsável/i), 'Administração')
-    await userEvent.type(form.getByLabelText(/valor/i), '1.250,40')
-    await escolherDia(userEvent.setup(), form.getByLabelText(/^data/i), primeiroDoMes)
-    expect(form.getByLabelText(/^data/i)).toHaveTextContent(
-      `01/${String(hoje.getMonth() + 1).padStart(2, '0')}/${hoje.getFullYear()}`,
-    )
-    await userEvent.click(form.getByRole('button', { name: 'Paga' }))
-    await userEvent.click(form.getByRole('button', { name: 'Salvar despesa' }))
-
-    expect(await form.findByRole('status')).toHaveTextContent('Despesa "Conta de água" salva.')
-    expect(chamadas.find((c) => c.metodo === 'POST')?.corpo).toEqual({
-      descricao: 'Conta de água',
-      responsavel: 'Administração',
-      categoriaId: 'cat-1',
-      valor: 1250.4,
-      dataVencimento: `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`,
-      paga: true,
-    })
-  })
-
   it('gerencia as categorias: lista, cadastra e a nova já aparece no lançamento', async () => {
     const chamadas = simularApi(({ metodo, caminho, corpo }) => {
       if (caminho.startsWith('/despesas/pagina?')) return { corpo: paginaDe([LUZ], caminho) }
@@ -317,7 +339,7 @@ describe('Despesas', () => {
         <Despesas />
       </MemoryRouter>,
     )
-    await screen.findByRole('button', { name: 'Contas' })
+    await screen.findByText('Conta de luz')
 
     await userEvent.click(screen.getByRole('button', { name: /gerenciar categorias/i }))
     const dialogo = screen.getByRole('dialog')
@@ -334,7 +356,9 @@ describe('Despesas', () => {
     expect(chamadas.filter((c) => c.metodo === 'POST')).toHaveLength(2)
 
     await userEvent.click(within(dialogo).getAllByRole('button', { name: 'Fechar' })[0])
-    expect(screen.getByRole('button', { name: 'Transporte' })).toBeInTheDocument()
+    const novaDespesa = await abrirNovaDespesa()
+    await userEvent.click(novaDespesa.getByRole('combobox', { name: /Categoria/ }))
+    expect(screen.getByRole('option', { name: 'Transporte' })).toBeInTheDocument()
   })
 })
 
