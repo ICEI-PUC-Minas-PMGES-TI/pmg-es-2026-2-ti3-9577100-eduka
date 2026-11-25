@@ -2,6 +2,7 @@ package br.pucminas.eduka.backend.controller.academico;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -12,6 +13,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -43,6 +45,7 @@ import br.pucminas.eduka.backend.repository.academico.AlocacaoProfessorRepositor
 import br.pucminas.eduka.backend.repository.academico.AulaRepository;
 import br.pucminas.eduka.backend.repository.academico.DisciplinaRepository;
 import br.pucminas.eduka.backend.repository.academico.FrequenciaRepository;
+import br.pucminas.eduka.backend.repository.academico.HorarioTurmaRepository;
 import br.pucminas.eduka.backend.repository.academico.MatriculaTurmaRepository;
 import br.pucminas.eduka.backend.repository.academico.TurmaRepository;
 import br.pucminas.eduka.backend.repository.pessoas.PessoaRepository;
@@ -83,6 +86,8 @@ class AulaControllerSecurityTest {
     @MockitoBean
     private AlocacaoProfessorRepository alocacaoRepository;
     @MockitoBean
+    private HorarioTurmaRepository horarioRepository;
+    @MockitoBean
     private TurmaRepository turmaRepository;
     @MockitoBean
     private DisciplinaRepository disciplinaRepository;
@@ -109,8 +114,10 @@ class AulaControllerSecurityTest {
         return "[{\"alunoId\":\"%s\",\"presente\":%s}]".formatted(ALUNO, presente);
     }
 
+    /** O ultimo dia antes de hoje que pode ter aula: domingo nunca tem grade. */
     private static String ontem() {
-        return LocalDate.now().minusDays(1).toString();
+        LocalDate dia = LocalDate.now().minusDays(1);
+        return (dia.getDayOfWeek() == DayOfWeek.SUNDAY ? dia.minusDays(1) : dia).toString();
     }
 
     private Professor professorLogado(UUID usuarioId, boolean alocado) {
@@ -119,6 +126,9 @@ class AulaControllerSecurityTest {
         when(professorRepository.findByUsuarioIdAndEscolaId(usuarioId, ESCOLA)).thenReturn(Optional.of(professor));
         when(alocacaoRepository.existsByEscolaIdAndProfessorIdAndTurmaIdAndDisciplinaId(ESCOLA, professor.getId(),
                 1L, 10L)).thenReturn(alocado);
+        // A grade tem aula da disciplina em todo dia; o teste do dia sem aula troca.
+        when(horarioRepository.existsByEscolaIdAndAlocacao_Turma_IdAndAlocacao_Disciplina_IdAndDiaSemana(eq(ESCOLA),
+                eq(1L), eq(10L), any())).thenReturn(true);
         return professor;
     }
 
@@ -240,6 +250,20 @@ class AulaControllerSecurityTest {
     }
 
     @Test
+    void registroEmDiaSemAulaNaGradeResponde400() throws Exception {
+        UUID usuarioId = UUID.randomUUID();
+        professorLogado(usuarioId, true);
+        when(horarioRepository.existsByEscolaIdAndAlocacao_Turma_IdAndAlocacao_Disciplina_IdAndDiaSemana(eq(ESCOLA),
+                eq(1L), eq(10L), any())).thenReturn(false);
+
+        mockMvc.perform(com(json(post(URL), registro(ontem(), "\"Fracoes\"", chamada(true))),
+                tokenProfessor(usuarioId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Nao ha aula desta disciplina na turma neste dia da semana"));
+        verify(aulaRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
     void registroComChamadaIncompletaResponde400() throws Exception {
         UUID usuarioId = UUID.randomUUID();
         professorLogado(usuarioId, true);
@@ -301,6 +325,45 @@ class AulaControllerSecurityTest {
         mockMvc.perform(com(get(URL).param("turmaId", "1").param("disciplinaId", "10").param("tamanho", "101"),
                 tokenProfessor(usuarioId)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void filtraAListagemPelasDatasEBarraPeriodoInvertido() throws Exception {
+        UUID usuarioId = UUID.randomUUID();
+        professorLogado(usuarioId, true);
+        when(aulaRepository.filtrar(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        mockMvc.perform(com(get(URL).param("turmaId", "1").param("disciplinaId", "10").param("de", "2026-10-01")
+                .param("ate", "2026-10-31"), tokenProfessor(usuarioId)))
+                .andExpect(status().isOk());
+        verify(aulaRepository).filtrar(any(), eq(1L), eq(10L), eq(LocalDate.of(2026, 10, 1)),
+                eq(LocalDate.of(2026, 10, 31)), eq("%"), any());
+
+        mockMvc.perform(com(get(URL).param("turmaId", "1").param("disciplinaId", "10").param("de", "2026-10-31")
+                .param("ate", "2026-10-01"), tokenProfessor(usuarioId)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void mesesDoHistoricoSoParaOProfessorAlocado() throws Exception {
+        UUID usuarioId = UUID.randomUUID();
+        professorLogado(usuarioId, true);
+        when(aulaRepository.contarPorMes(any(), eq(1L), eq(10L), any(), any(), eq("%log%")))
+                .thenReturn(List.of());
+
+        mockMvc.perform(com(get(URL + "/meses").param("turmaId", "1").param("disciplinaId", "10")
+                .param("busca", "Log"), tokenProfessor(usuarioId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
+        mockMvc.perform(get(URL + "/meses").param("turmaId", "1").param("disciplinaId", "10"))
+                .andExpect(status().isUnauthorized());
+
+        UUID outro = UUID.randomUUID();
+        professorLogado(outro, false);
+        mockMvc.perform(com(get(URL + "/meses").param("turmaId", "1").param("disciplinaId", "10"),
+                tokenProfessor(outro)))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -436,6 +499,7 @@ class AulaControllerSecurityTest {
                 .param("data", ontem()), token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").value(ontem()))
+                .andExpect(jsonPath("$.diaDeAula").value(true))
                 .andExpect(jsonPath("$.alunos[0].alunoNome").value("Ana"))
                 .andExpect(jsonPath("$.alunos[0].alunoId").value(ALUNO.toString()))
                 .andExpect(jsonPath("$.aulas").isEmpty());

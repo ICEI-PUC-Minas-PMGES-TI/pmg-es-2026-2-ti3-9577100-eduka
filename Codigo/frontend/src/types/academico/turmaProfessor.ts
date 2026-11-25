@@ -34,6 +34,8 @@ export type TurmaDoProfessor = {
   periodoLetivoNome: string
   cursoId: number
   cursoNome: string
+  /** Alunos com matrícula ativa na turma. */
+  alunosAtivos: number
   disciplinas: DisciplinaDoProfessor[]
 }
 

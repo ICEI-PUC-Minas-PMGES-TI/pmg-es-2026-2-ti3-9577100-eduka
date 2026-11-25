@@ -19,6 +19,12 @@ type CampoDataProps = {
   max?: string
   /** Mês em que o calendário abre quando vazio, em ISO; sem ele, abre no mês de min. */
   mesInicial?: string
+  /**
+   * Dias da semana marcados no calendário (domingo = 0), com a legenda que
+   * explica a marca (ex.: os dias de aula da turma). Sem dias, só a legenda.
+   * Com `somenteEles`, os outros dias da semana ficam desabilitados.
+   */
+  destaque?: { diasDaSemana: number[]; legenda: string; somenteEles?: boolean }
   /** Só exibe a data, sem abrir o calendário (ex.: início da vigência). */
   somenteLeitura?: boolean
   placeholder?: string
@@ -64,6 +70,7 @@ export function CampoData({
   min,
   max,
   mesInicial,
+  destaque,
   somenteLeitura = false,
   placeholder = 'dd/mm/aaaa',
   className,
@@ -171,13 +178,19 @@ export function CampoData({
             autoFocus
             selected={selecionada}
             defaultMonth={selecionada ?? (mesInicial ? paraData(mesInicial) : minima)}
-            disabled={[...(minima ? [{ before: minima }] : []), ...(maxima ? [{ after: maxima }] : [])]}
+            disabled={[
+              ...(minima ? [{ before: minima }] : []),
+              ...(maxima ? [{ after: maxima }] : []),
+              ...(destaque?.somenteEles ? [(dia: Date) => !destaque.diasDaSemana.includes(dia.getDay())] : []),
+            ]}
             captionLayout="dropdown"
             startMonth={primeiroMes}
             endMonth={ultimoMes}
             showOutsideDays
             fixedWeeks
             className={styles.calendario}
+            modifiers={destaque?.diasDaSemana.length ? { destaque: { dayOfWeek: destaque.diasDaSemana } } : undefined}
+            modifiersClassNames={{ destaque: styles.diaDestacado }}
             components={{
               Chevron: ({ orientation }) => (
                 <Icon name={orientation === 'left' ? 'chevronLeft' : 'chevronRight'} size={18} />
@@ -189,6 +202,12 @@ export function CampoData({
               fechar()
             }}
           />
+          {destaque && (
+            <p className={styles.legenda}>
+              {destaque.diasDaSemana.length > 0 && <span className={styles.marca} aria-hidden="true" />}
+              {destaque.legenda}
+            </p>
+          )}
         </div>
       )}
     </>

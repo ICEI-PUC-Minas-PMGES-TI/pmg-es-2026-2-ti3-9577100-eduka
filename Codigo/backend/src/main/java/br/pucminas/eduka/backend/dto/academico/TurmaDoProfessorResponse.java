@@ -23,6 +23,8 @@ public record TurmaDoProfessorResponse(
         String periodoLetivoNome,
         Long cursoId,
         String cursoNome,
+        /** Alunos com matricula ATIVA na turma. */
+        long alunosAtivos,
         List<DisciplinaDoProfessor> disciplinas) {
 
     public record DisciplinaDoProfessor(
@@ -47,9 +49,9 @@ public record TurmaDoProfessorResponse(
         }
     }
 
-    public static TurmaDoProfessorResponse de(Turma turma, List<DisciplinaDoProfessor> disciplinas) {
+    public static TurmaDoProfessorResponse de(Turma turma, long alunosAtivos, List<DisciplinaDoProfessor> disciplinas) {
         return new TurmaDoProfessorResponse(turma.getId(), turma.getNome(), turma.getCodigo(), turma.getTurno(),
                 turma.getAtiva(), turma.getPeriodoLetivo().getId(), turma.getPeriodoLetivo().getNome(),
-                turma.getCurso().getId(), turma.getCurso().getNome(), disciplinas);
+                turma.getCurso().getId(), turma.getCurso().getNome(), alunosAtivos, disciplinas);
     }
 }

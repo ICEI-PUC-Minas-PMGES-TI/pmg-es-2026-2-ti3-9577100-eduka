@@ -5,11 +5,17 @@
 }
 
 /* A aula do dia e o resumo da chamada, lado a lado. */
+/* Um cartão de vidro: a aula à esquerda, um traço, e o resumo da chamada à direita. */
 .cabecalho {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-  gap: 18px;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  padding: 22px 0;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-sm);
+  backdrop-filter: var(--glass-blur);
 }
 
 .aula {
@@ -17,14 +23,104 @@
   flex-direction: column;
   justify-content: center;
   align-items: flex-start;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
-  padding: 18px 22px;
-  border: var(--glass-border);
-  border-radius: var(--radius-xl);
-  background: var(--glass-bg);
-  box-shadow: var(--glass-shadow-sm);
-  backdrop-filter: var(--glass-blur);
+  padding: 0 26px;
+}
+
+.contexto {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aula > span:last-child {
+  margin-top: 4px;
+}
+
+.resumo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 4px 26px;
+  border-left: 1px solid var(--color-border-strong);
+}
+
+.totais {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.presentes {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 16px;
+}
+
+.numeroPresentes {
+  margin-right: 4px;
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 38px;
+  font-weight: 900;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.percentual {
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+/* Barra dividida: verde para os presentes, vermelho para as faltas. */
+.barra {
+  display: flex;
+  gap: 3px;
+  height: 10px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-mist);
+}
+
+.barraPresentes,
+.barraFaltas {
+  flex-basis: 0;
+  border-radius: var(--radius-pill);
+  transition: flex-grow 0.25s ease;
+}
+
+.barraPresentes {
+  background: linear-gradient(90deg, #2f9e63, var(--color-success));
+}
+
+.barraFaltas {
+  background: linear-gradient(90deg, #e0556f, var(--color-danger));
+}
+
+.semFaltas,
+.comFaltas {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.semFaltas {
+  color: var(--color-success);
+}
+
+.comFaltas {
+  color: var(--color-danger);
 }
 
 .titulo {
@@ -174,6 +270,13 @@
 @media (max-width: 860px) {
   .cabecalho {
     grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .resumo {
+    padding-top: 18px;
+    border-top: 1px solid var(--color-border-strong);
+    border-left: 0;
   }
 }
 

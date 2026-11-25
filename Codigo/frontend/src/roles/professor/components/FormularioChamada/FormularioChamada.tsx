@@ -2,11 +2,12 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Badge } from '../../../../components/ui/Badge/Badge'
 import { Button } from '../../../../components/ui/Button/Button'
 import { Campo } from '../../../../components/formulario/Campo/Campo'
-import { StatCard, StatCards } from '../../../../components/ui/StatCard/StatCard'
+import { Icon } from '../../../../components/ui/Icon/Icon'
+import { paraData } from '../../../../components/formulario/CampoData/datas'
 import { ApiError } from '../../../../services/api'
 import type { AlunoDaChamada, Aula, DadosAula } from '../../../../types/academico/aula'
 import { ROTULOS_STATUS_MATRICULA, type StatusMatricula } from '../../../../types/academico/matricula'
-import { hojeIso } from '../../../../utils/formatters'
+import { hojeIso, plural } from '../../../../utils/formatters'
 import { formatarData } from '../../../../utils/formatacao'
 import styles from './FormularioChamada.module.css'
 
@@ -37,6 +38,16 @@ function montarLinhas(alunos: AlunoDaChamada[], aula: Aula | null): Linha[] {
   return [...registradas, ...demais].sort((a, b) => a.alunoNome.localeCompare(b.alunoNome, 'pt-BR'))
 }
 
+const DIA_DA_SEMANA = new Intl.DateTimeFormat('pt-BR', { weekday: 'long' })
+
+/** "2026-11-14" -> "Sexta-feira". */
+function diaDaSemana(data: string): string {
+  const dia = paraData(data)
+  if (!dia) return ''
+  const nome = DIA_DA_SEMANA.format(dia)
+  return nome.charAt(0).toUpperCase() + nome.slice(1)
+}
+
 /** Texto de tela para a recusa do backend; o motivo vem no `detail`, sem acento. */
 function mensagemErro(erro: unknown): string {
   if (!(erro instanceof ApiError)) return 'Erro inesperado. Tente de novo.'
@@ -44,6 +55,7 @@ function mensagemErro(erro: unknown): string {
   if (detalhe.includes('chamada incompleta') || detalhe.includes('sem matricula ativa')) {
     return 'A lista de alunos da turma mudou. Recarregue a página e faça a chamada de novo.'
   }
+  if (detalhe.includes('nao ha aula')) return 'Não há aula desta disciplina na turma neste dia da semana.'
   if (detalhe.includes('futura')) return 'A data da aula não pode ser futura.'
   if (detalhe.includes('nao alocada')) return 'Você não está mais alocado nesta turma/disciplina.'
   if (erro.status === 404) return 'Esta aula não existe mais. Recarregue a página.'
@@ -52,6 +64,9 @@ function mensagemErro(erro: unknown): string {
 
 type FormularioChamadaProps = {
   data: string
+  /** Nomes da turma e da disciplina, para o cabeçalho da aula. */
+  turma: string
+  disciplina: string
   /** Quem entra na chamada deste dia. */
   alunos: AlunoDaChamada[]
   /** Aula aberta para correção; sem ela, a chamada é nova e todos começam presentes. */
@@ -72,6 +87,8 @@ type FormularioChamadaProps = {
  */
 export function FormularioChamada({
   data,
+  turma,
+  disciplina,
   alunos,
   aula,
   onPendente,
@@ -96,6 +113,7 @@ export function FormularioChamada({
   const presentes = linhas.filter((l) => l.presente).length
   const faltas = linhas.length - presentes
   const hoje = data === hojeIso()
+  const percentual = linhas.length === 0 ? 0 : Math.round((presentes / linhas.length) * 100)
 
   function marcar(alunoId: string, presente: boolean) {
     setLinhas((atuais) => atuais.map((l) => (l.alunoId === alunoId ? { ...l, presente } : l)))
@@ -129,17 +147,47 @@ export function FormularioChamada({
 
   return (
     <form className={styles.formulario} onSubmit={enviar} noValidate>
+      {/* Um cartão só: a aula à esquerda e, à direita, o resumo da chamada que vai sendo marcada. */}
       <section className={styles.cabecalho} aria-label="Aula do dia">
         <div className={styles.aula}>
+          <span className={styles.contexto}>
+            {diaDaSemana(data)} · {turma} · {disciplina}
+          </span>
           <h2 className={styles.titulo}>{hoje ? 'Aula de hoje' : `Aula de ${formatarData(data)}`}</h2>
           <span>
-            <Badge tone={aula ? 'success' : 'warning'}>{aula ? 'Chamada registrada' : 'Chamada por registrar'}</Badge>
+            <Badge tone={aula ? 'success' : 'warning'} icon={aula ? 'check' : 'clock'}>
+              {aula ? 'Chamada registrada' : 'Chamada por registrar'}
+            </Badge>
           </span>
         </div>
-        <StatCards rotulo="Resumo da chamada">
-          <StatCard label="Presentes" value={presentes} descricao={`de ${linhas.length} alunos`} destaque />
-          <StatCard label="Faltas" value={faltas} descricao={faltas === 0 ? 'Turma completa' : 'Contam no boletim'} />
-        </StatCards>
+
+        <div className={styles.resumo} role="region" aria-label="Resumo da chamada">
+          <div className={styles.totais}>
+            <p className={styles.presentes}>
+              <strong className={styles.numeroPresentes}>{presentes}</strong> de {linhas.length}{' '}
+              {plural(presentes, 'presente', 'presentes')}
+            </p>
+            <span className={styles.percentual}>{percentual}%</span>
+          </div>
+          <div
+            className={styles.barra}
+            role="img"
+            aria-label={`${presentes} ${plural(presentes, 'presente', 'presentes')} e ${faltas} ${plural(faltas, 'falta', 'faltas')}`}
+          >
+            {presentes > 0 && <span className={styles.barraPresentes} style={{ flexGrow: presentes }} />}
+            {faltas > 0 && <span className={styles.barraFaltas} style={{ flexGrow: faltas }} />}
+          </div>
+          {faltas === 0 ? (
+            <p className={styles.semFaltas}>
+              <Icon name="check" size={15} strokeWidth={2.4} />
+              Turma completa, nenhuma falta
+            </p>
+          ) : (
+            <p className={styles.comFaltas}>
+              {faltas} {plural(faltas, 'falta', 'faltas')}
+            </p>
+          )}
+        </div>
       </section>
 
       <section className={styles.card} aria-label="Chamada dos alunos">

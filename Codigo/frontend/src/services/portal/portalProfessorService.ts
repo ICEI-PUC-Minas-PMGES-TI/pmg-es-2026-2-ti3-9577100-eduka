@@ -1,5 +1,13 @@
 import type { PaginaDoBackend } from '../../hooks/usePaginacao'
-import type { Aula, AulaRequest, AulaResumo, ChamadaDoDia, DadosAula } from '../../types/academico/aula'
+import type {
+  Aula,
+  AulaRequest,
+  AulaResumo,
+  ChamadaDoDia,
+  DadosAula,
+  FiltroDeAulas,
+  MesDeAulas,
+} from '../../types/academico/aula'
 import type {
   AvaliacaoDoProfessor,
   AvaliacaoRequest,
@@ -93,14 +101,39 @@ export function listarAulas(
   pagina: number,
   tamanho: number,
   signal?: AbortSignal,
+  filtro: FiltroDeAulas = {},
 ): Promise<PaginaDoBackend<AulaResumo>> {
   const params = new URLSearchParams({
     turmaId: String(turmaId),
     disciplinaId: String(disciplinaId),
     pagina: String(pagina),
     tamanho: String(tamanho),
+    ...parametrosDoFiltro(filtro),
   })
   return apiRequest<PaginaDoBackend<AulaResumo>>(`${AULAS}?${params}`, { signal })
+}
+
+/** Os meses com aula no histórico, o mais recente primeiro, com os totais de cada um. */
+export function listarMesesDeAulas(
+  turmaId: number,
+  disciplinaId: number,
+  filtro: FiltroDeAulas,
+  signal?: AbortSignal,
+): Promise<MesDeAulas[]> {
+  const params = new URLSearchParams({
+    turmaId: String(turmaId),
+    disciplinaId: String(disciplinaId),
+    ...parametrosDoFiltro(filtro),
+  })
+  return apiRequest<MesDeAulas[]>(`${AULAS}/meses?${params}`, { signal })
+}
+
+function parametrosDoFiltro({ de, ate, busca }: FiltroDeAulas): Record<string, string> {
+  return {
+    ...(de ? { de } : {}),
+    ...(ate ? { ate } : {}),
+    ...(busca?.trim() ? { busca: busca.trim() } : {}),
+  }
 }
 
 export function buscarAula(id: string, signal?: AbortSignal): Promise<Aula> {

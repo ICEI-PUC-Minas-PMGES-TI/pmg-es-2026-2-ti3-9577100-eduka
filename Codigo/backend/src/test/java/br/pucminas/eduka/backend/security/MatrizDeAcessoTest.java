@@ -236,6 +236,7 @@ class MatrizDeAcessoTest {
                 "GET /portal/professor/aulas",
                 "POST /portal/professor/aulas",
                 "GET /portal/professor/aulas/chamada",
+                "GET /portal/professor/aulas/meses",
                 "GET /portal/professor/aulas/{id}",
                 "PUT /portal/professor/aulas/{id}",
                 "DELETE /portal/professor/aulas/{id}",

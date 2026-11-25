@@ -11,6 +11,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import br.pucminas.eduka.backend.domain.academico.Aula;
@@ -22,6 +24,53 @@ public interface AulaRepository extends JpaRepository<Aula, UUID> {
     @EntityGraph(attributePaths = { "turma", "disciplina" })
     Page<Aula> findAllByEscolaIdAndTurmaIdAndDisciplinaId(UUID escolaId, Long turmaId, Long disciplinaId,
             Pageable pagina);
+
+    /**
+     * Pagina das aulas da disciplina na turma entre duas datas (inclusive) e
+     * com o conteudo que casa com {@code padrao} (LIKE em minusculas, com
+     * {@code \\} de escape; "%" casa com tudo), ja com turma e disciplina.
+     */
+    @EntityGraph(attributePaths = { "turma", "disciplina" })
+    @Query("""
+            select a from Aula a
+            where a.escolaId = :escolaId and a.turma.id = :turmaId and a.disciplina.id = :disciplinaId
+              and a.data between :de and :ate
+              and lower(a.conteudo) like :padrao escape '\\'
+            """)
+    Page<Aula> filtrar(@Param("escolaId") UUID escolaId, @Param("turmaId") Long turmaId,
+            @Param("disciplinaId") Long disciplinaId, @Param("de") LocalDate de, @Param("ate") LocalDate ate,
+            @Param("padrao") String padrao, Pageable pagina);
+
+    /**
+     * As mesmas aulas de {@link #filtrar}, contadas por mes (o mais recente
+     * primeiro), com o total de presencas e de faltas das chamadas de cada mes.
+     */
+    @Query("""
+            select year(a.data) as ano, month(a.data) as mes, count(distinct a.id) as aulas,
+                   coalesce(sum(case when f.presente = true then 1 else 0 end), 0) as presentes,
+                   coalesce(sum(case when f.presente = false then 1 else 0 end), 0) as faltas
+            from Aula a left join Frequencia f on f.aula = a
+            where a.escolaId = :escolaId and a.turma.id = :turmaId and a.disciplina.id = :disciplinaId
+              and a.data between :de and :ate
+              and lower(a.conteudo) like :padrao escape '\\'
+            group by year(a.data), month(a.data)
+            order by year(a.data) desc, month(a.data) desc
+            """)
+    List<AulasDoMes> contarPorMes(@Param("escolaId") UUID escolaId, @Param("turmaId") Long turmaId,
+            @Param("disciplinaId") Long disciplinaId, @Param("de") LocalDate de, @Param("ate") LocalDate ate,
+            @Param("padrao") String padrao);
+
+    interface AulasDoMes {
+        int getAno();
+
+        int getMes();
+
+        long getAulas();
+
+        long getPresentes();
+
+        long getFaltas();
+    }
 
     /** As aulas da disciplina na turma num dia, ja com turma e disciplina. */
     @EntityGraph(attributePaths = { "turma", "disciplina" })
