@@ -1,0 +1,138 @@
+.carrossel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 22px 24px;
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+}
+
+.topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.titulo {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--color-text);
+}
+
+.resumo {
+  margin-top: 2px;
+  font-size: 13.5px;
+  color: var(--color-text-muted);
+}
+
+.controles {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.posicao {
+  margin-right: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Trilha rolável com encaixe: cada cartão para alinhado ao início, e um pedaço
+   do próximo aparece na borda para mostrar que há mais itens. */
+.trilha {
+  position: relative;
+  display: flex;
+  gap: 16px;
+  margin: 0;
+  padding: 2px 2px 6px;
+  list-style: none;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+
+.trilha::-webkit-scrollbar {
+  display: none;
+}
+
+.trilha:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
+  border-radius: var(--radius-lg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trilha {
+    scroll-behavior: auto;
+  }
+}
+
+.slide {
+  flex: 0 0 calc(100% - 56px);
+  min-width: 0;
+  scroll-snap-align: start;
+  display: flex;
+}
+
+.trilhaUnica .slide {
+  flex-basis: 100%;
+}
+
+.pontos {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.ponto {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-mauve);
+  cursor: pointer;
+  transition:
+    width 0.2s var(--curva, ease),
+    background-color 0.2s;
+}
+
+.pontoAtivo {
+  width: 22px;
+  background: var(--color-primary);
+}
+
+.vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 12px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.vazio svg {
+  color: var(--color-primary-text);
+}
+
+@media (max-width: 640px) {
+  .carrossel {
+    padding: 18px 16px;
+  }
+
+  .slide {
+    flex-basis: calc(100% - 28px);
+  }
+}

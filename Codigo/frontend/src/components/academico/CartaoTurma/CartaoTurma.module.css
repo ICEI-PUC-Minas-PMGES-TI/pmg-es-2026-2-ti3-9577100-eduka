@@ -1,0 +1,155 @@
+.cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  padding: 18px 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* A turma em andamento ganha o brilho lilás do painel de desempenho. */
+.cartaoAtivo {
+  border-color: var(--color-mauve);
+  background:
+    radial-gradient(120% 90% at 100% 0%, var(--color-primary-soft) 0%, transparent 55%),
+    rgba(255, 255, 255, 0.8);
+}
+
+.cartaoTopo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cartaoTitulo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cartaoPosicao {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+}
+
+.turmaNome {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 900;
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.codigo {
+  font-weight: 600;
+  color: var(--color-text-subtle);
+}
+
+.etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.etiquetas li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-mist);
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.etiquetas svg {
+  flex-shrink: 0;
+  color: var(--color-primary-text);
+}
+
+.gradeResumo {
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: var(--color-text-subtle);
+}
+
+/* Disciplinas em duas colunas para a grade não virar uma lista comprida. */
+.disciplinas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.disciplinasLargas {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+/* Disciplina única (comum no cartão do professor): ocupa a linha em vez de deixar meia vazia. */
+.disciplina:only-child {
+  grid-column: 1 / -1;
+}
+
+.disciplina {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: rgba(247, 244, 253, 0.85);
+  border: 1px solid rgba(235, 217, 252, 0.85);
+}
+
+.disciplinaNome {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.disciplinaDetalhe {
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+}
+
+.disciplinaAcoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.semDisciplinas {
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+  font-size: 13.5px;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 640px) {
+  .cartao {
+    padding: 16px;
+  }
+
+  .disciplinas,
+  .disciplinasLargas {
+    grid-template-columns: 1fr;
+  }
+}
