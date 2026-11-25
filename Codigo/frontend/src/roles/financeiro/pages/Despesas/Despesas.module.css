@@ -42,7 +42,23 @@
   font-weight: 900;
 }
 
-/* ---------- Pílulas de situação ---------- */
+/* ---------- Filtros: data e situação ---------- */
+
+/* Data à esquerda e situação à direita; sem espaço, a situação desce. */
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 20px;
+}
+
+/* Um traço separa a data da situação, para "Todas as datas" e "Todas" não parecerem do mesmo grupo. */
+@media (min-width: 641px) {
+  .filtros > .pilulas + .pilulas {
+    padding-left: 20px;
+    border-left: 1px solid var(--color-border);
+  }
+}
 
 .pilulas {
   display: flex;
@@ -54,6 +70,7 @@
 .pilula {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   min-height: 36px;
   padding: 6px 16px;
   border: var(--glass-border);
@@ -116,20 +133,63 @@
   padding-right: 0;
 }
 
-/* Sem espaço, a etiqueta desce para baixo da descrição em vez de alargar a tabela. */
-.descricaoEBadge {
+/* Situação e, ao lado, o botão que paga ou desfaz: a ação fica onde o estado aparece. */
+.situacao {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 4px 8px;
+  gap: 4px;
+  white-space: nowrap;
 }
 
-/* O Badge é largo (min-width das listas de largura total); aqui, ao lado da
-   descrição numa coluna estreita, fica do tamanho do texto. */
-.descricaoEBadge > :last-child {
+/* O Badge é largo (min-width das listas de largura total); aqui fica do tamanho do texto. */
+.situacao > :first-child {
   min-width: 0;
   padding: 3px 10px;
   font-size: 11.5px;
+}
+
+/* Discreto (texto, sem pílula) para não pesar em toda linha; o fundo aparece no hover. */
+.marcar {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--color-primary-text);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.marcar:hover:not(:disabled) {
+  background: var(--color-primary-soft);
+}
+
+.marcar:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+/* Desfazer o pagamento é raro: fica apagado até o hover. */
+.desfazer {
+  color: var(--color-text-muted);
+}
+
+.marcar:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (pointer: coarse) {
+  .marcar {
+    min-height: 44px;
+  }
 }
 
 .descricao {
@@ -155,13 +215,6 @@
   padding-left: 4px;
   text-align: right;
   white-space: nowrap;
-}
-
-/* Editar e Marcar como paga / Desfazer, lado a lado. */
-.acoes {
-  display: inline-flex;
-  gap: 8px;
-  justify-content: flex-end;
 }
 
 /* Cabeçalho da coluna de ação: só para leitor de tela. */
@@ -263,6 +316,7 @@
   }
 
   .tabela .colPrincipal,
+  .tabela .colSituacao,
   .tabela .acao {
     grid-column: 1 / -1;
   }
@@ -278,17 +332,7 @@
     justify-content: center;
   }
 
-  .descricaoEBadge {
-    flex-wrap: wrap;
-  }
-
-  .acoes {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .acoes > button {
+  .filtros {
     width: 100%;
-    justify-content: center;
   }
 }

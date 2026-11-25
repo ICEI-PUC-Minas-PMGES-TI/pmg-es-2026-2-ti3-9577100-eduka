@@ -34,7 +34,10 @@ type PainelLayoutProps = {
   contexto: string
   titulo: string
   subtitulo?: ReactNode
-  /** Botão principal da tela, ao lado de "Ajuda" e "Sair". */
+  /**
+   * Botões da tela (ex.: "Nova despesa"), logo abaixo de "Ajuda" e "Sair". Eles
+   * ficam à parte para "Ajuda" e "Sair" estarem sempre no topo direito, em toda tela.
+   */
   acao?: ReactNode
   /** Link de volta, exibido no lugar da linha da marca. */
   voltar?: ReactNode
@@ -118,7 +121,7 @@ export function PainelLayout({
 
   return (
     <div className={`${styles.shell} ${temMenu ? styles.comMenu : ''}`}>
-      <header className={styles.header}>
+      <header className={`${styles.header} ${acao ? styles.comAcao : ''}`}>
         <div className={styles.texto}>
           {voltar ?? (
             <div className={styles.brand}>
@@ -131,8 +134,8 @@ export function PainelLayout({
           {subtitulo && <p className={styles.subtitle}>{subtitulo}</p>}
         </div>
 
-        <div className={styles.acoes}>
-          {acao}
+        {/* Quem está logado, "Ajuda" e "Sair": sempre no topo direito. */}
+        <div className={styles.conta}>
           {usuario && (
             <div className={styles.usuario}>
               <span className={styles.avatar} aria-hidden="true">
@@ -155,6 +158,8 @@ export function PainelLayout({
             Sair
           </button>
         </div>
+
+        {acao && <div className={styles.acaoTela}>{acao}</div>}
       </header>
 
       <main className={styles.main}>

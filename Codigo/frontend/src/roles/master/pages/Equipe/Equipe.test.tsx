@@ -108,13 +108,20 @@ describe('Equipe do master', () => {
     })
     const tabela = await screen.findByRole('region', { name: 'Pessoas da equipe' })
 
-    // Patrícia já definiu a senha: não tem o botão.
-    expect(within(tabela).getAllByRole('button', { name: 'Reenviar acesso' })).toHaveLength(1)
-    await userEvent.click(within(tabela).getByRole('button', { name: 'Reenviar acesso' }))
+    // As ações raras ficam no "⋯"; Patrícia já definiu a senha: não tem o reenvio.
+    await userEvent.click(within(tabela).getByRole('button', { name: 'Mais ações para Patrícia Andrade' }))
+    expect(screen.getAllByRole('menuitem').map((item) => item.querySelector('strong')?.textContent)).toEqual([
+      'Inativar',
+    ])
+    await userEvent.keyboard('{Escape}')
+
+    await userEvent.click(within(tabela).getByRole('button', { name: 'Mais ações para Marcos Teixeira' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: /^reenviar acesso/i }))
     expect(await screen.findByRole('status')).toHaveTextContent('O acesso foi reenviado para marcos@escola.com.')
 
     const linhaPatricia = within(tabela).getByText('Patrícia Andrade').closest('tr') as HTMLElement
-    await userEvent.click(within(linhaPatricia).getByRole('button', { name: 'Inativar' }))
+    await userEvent.click(within(linhaPatricia).getByRole('button', { name: 'Mais ações para Patrícia Andrade' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: /^inativar/i }))
     expect(await within(linhaPatricia).findByText('Inativo')).toBeInTheDocument()
     expect(chamadas.map((c) => `${c.metodo} ${c.caminho}`)).toContain('PATCH /usuarios/equipe/sec-1/inativar')
   })

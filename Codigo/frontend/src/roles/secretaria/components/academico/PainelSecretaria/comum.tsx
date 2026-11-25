@@ -2,7 +2,7 @@ import { Children, cloneElement, isValidElement, type ReactNode, type Ref } from
 import { Button } from '../../../../../components/ui/Button/Button'
 import { Paginacao } from '../../../../../components/ui/Paginacao/Paginacao'
 import { usePaginacao, type PaginaDoBackend, type useListaPaginada } from '../../../../../hooks/usePaginacao'
-import { Dica } from '../../../../../components/ui/Dica/Dica'
+import { MenuBotao, type ItemMenu } from '../../../../../components/ui/MenuBotao/MenuBotao'
 import styles from './PainelSecretaria.module.css'
 
 type CabecalhoAbaProps = {
@@ -188,15 +188,20 @@ export function TabelaDoBackend<T>({
 }
 
 type AcoesLinhaProps = {
-  /** Nome do registro, para o rótulo acessível do botão de excluir. */
+  /** Nome do registro, para o rótulo acessível do menu "⋯". */
   nome: string
   onVer: () => void
   onEditar: () => void
   onExcluir: () => void
+  /** Outras ações raras do registro (ex.: encerrar o período), no "⋯" antes do Excluir. */
+  maisAcoes?: ItemMenu[]
 }
 
-/** Botões Ver, Editar e Excluir da linha de uma tabela do painel. */
-export function AcoesLinha({ nome, onVer, onEditar, onExcluir }: AcoesLinhaProps) {
+/**
+ * Ações da linha de uma tabela do painel: Ver e Editar à vista; as raras e o
+ * Excluir no "⋯", para o excluir não ficar a um clique distraído do Editar.
+ */
+export function AcoesLinha({ nome, onVer, onEditar, onExcluir, maisAcoes = [] }: AcoesLinhaProps) {
   return (
     <span className={styles.acoesLinha}>
       <Button size="sm" icon="eye" onClick={onVer}>
@@ -205,9 +210,24 @@ export function AcoesLinha({ nome, onVer, onEditar, onExcluir }: AcoesLinhaProps
       <Button size="sm" icon="edit" onClick={onEditar}>
         Editar
       </Button>
-      <Dica texto="Excluir" descrever={false}>
-        <Button size="sm" icon="trash" variant="dangerOutline" aria-label={`Excluir ${nome}`} onClick={onExcluir} />
-      </Dica>
+      <MenuBotao
+        somenteIcone
+        icon="more"
+        size="sm"
+        itens={[
+          ...maisAcoes,
+          {
+            id: 'excluir',
+            rotulo: 'Excluir',
+            descricao: 'Apaga o cadastro; pede confirmação antes',
+            icone: 'trash',
+            perigo: true,
+            onSelecionar: onExcluir,
+          },
+        ]}
+      >
+        {`Mais ações para ${nome}`}
+      </MenuBotao>
     </span>
   )
 }

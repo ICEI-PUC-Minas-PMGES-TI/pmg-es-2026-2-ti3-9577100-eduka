@@ -42,9 +42,13 @@ describe('PeriodosLetivos', () => {
   it('encerra o período em andamento depois de confirmar', async () => {
     const { onEncerrar } = renderizar([EM_ANDAMENTO, PLANEJADO, ENCERRADO])
 
-    const botoes = screen.getAllByRole('button', { name: 'Encerrar' })
-    expect(botoes).toHaveLength(1)
-    await userEvent.click(botoes[0])
+    // Encerrar fica no "⋯" e só no período em andamento.
+    await userEvent.click(screen.getByRole('button', { name: 'Mais ações para 2026/1' }))
+    expect(screen.queryByRole('menuitem', { name: /^encerrar/i })).not.toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mais ações para 2026/2' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: /^encerrar/i }))
     await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /encerrar período/i }))
 
     expect(onEncerrar).toHaveBeenCalledWith(1)

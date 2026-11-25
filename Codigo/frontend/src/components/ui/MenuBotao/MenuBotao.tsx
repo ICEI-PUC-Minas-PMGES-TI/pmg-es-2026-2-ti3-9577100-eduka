@@ -10,6 +10,8 @@ export type ItemMenu = {
   /** Uma linha curta embaixo do rótulo, dizendo para que serve. */
   descricao?: string
   icone?: IconName
+  /** Ação destrutiva (ex.: excluir): em vermelho, para não ser escolhida por engano. */
+  perigo?: boolean
   onSelecionar: () => void
 }
 
@@ -161,7 +163,9 @@ export function MenuBotao({
               key={item.id}
               id={`${idBase}-item-${indice}`}
               role="menuitem"
-              className={`${styles.item} ${indice === destacado ? styles.itemDestacado : ''}`}
+              className={[styles.item, indice === destacado && styles.itemDestacado, item.perigo && styles.itemPerigo]
+                .filter(Boolean)
+                .join(' ')}
               onMouseEnter={() => setDestacado(indice)}
               // Evita que o menu perca o foco antes do clique.
               onMouseDown={(e) => e.preventDefault()}

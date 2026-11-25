@@ -3,6 +3,7 @@ import { Badge } from '../../../../components/ui/Badge/Badge'
 import { Button } from '../../../../components/ui/Button/Button'
 import { Dica } from '../../../../components/ui/Dica/Dica'
 import { Icon } from '../../../../components/ui/Icon/Icon'
+import { MenuBotao, type ItemMenu } from '../../../../components/ui/MenuBotao/MenuBotao'
 import { Paginacao } from '../../../../components/ui/Paginacao/Paginacao'
 import { Pilulas } from '../../../../components/financeiro/PainelFinanceiro/PainelFinanceiro'
 import { StatCard, StatCards } from '../../../../components/ui/StatCard/StatCard'
@@ -28,6 +29,35 @@ function correspondeBusca(membro: MembroEquipe, busca: string): boolean {
   const termo = busca.trim().toLowerCase()
   if (!termo) return true
   return membro.nome.toLowerCase().includes(termo) || (membro.email ?? '').toLowerCase().includes(termo)
+}
+
+/**
+ * As ações raras da linha, no menu "⋯": reenviar o acesso (só a quem está
+ * ativo e ainda não entrou) e inativar ou reativar. Editar fica à vista.
+ */
+function maisAcoesDoMembro(
+  membro: MembroEquipe,
+  reenviar: (membro: MembroEquipe) => void,
+  alternar: (membro: MembroEquipe) => void,
+): ItemMenu[] {
+  const itens: ItemMenu[] = []
+  if (membro.ativo && membro.aguardandoPrimeiroAcesso) {
+    itens.push({
+      id: 'reenviar',
+      rotulo: 'Reenviar acesso',
+      descricao: 'Gera uma nova senha provisória e manda o e-mail de novo',
+      icone: 'mail',
+      onSelecionar: () => reenviar(membro),
+    })
+  }
+  itens.push({
+    id: 'alternar',
+    rotulo: membro.ativo ? 'Inativar' : 'Reativar',
+    descricao: membro.ativo ? 'O login para de funcionar; o cadastro continua' : 'O login volta a funcionar',
+    icone: membro.ativo ? 'pause' : 'check',
+    onSelecionar: () => alternar(membro),
+  })
+  return itens
 }
 
 /** A edição manda os mesmos campos, menos o perfil, que não muda. */
@@ -200,23 +230,9 @@ export function Equipe() {
                     </td>
                     <td data-rotulo="Acesso">
                       {membro.aguardandoPrimeiroAcesso ? (
-                        <div className={styles.acesso}>
-                          <Dica texto="Ainda não definiu a senha. O acesso vale por alguns dias; depois, reenvie.">
-                            <Badge tone="warning">Aguardando acesso</Badge>
-                          </Dica>
-                          {membro.ativo && (
-                            <Dica texto="Gera uma nova senha provisória e manda o e-mail de novo">
-                              <Button
-                                size="sm"
-                                icon="mail"
-                                disabled={ocupadoId === membro.id}
-                                onClick={() => reenviar(membro)}
-                              >
-                                Reenviar acesso
-                              </Button>
-                            </Dica>
-                          )}
-                        </div>
+                        <Dica texto="Ainda não definiu a senha. O acesso vale por alguns dias; depois, reenvie pelo menu ⋯ da linha.">
+                          <Badge tone="warning">Aguardando acesso</Badge>
+                        </Dica>
                       ) : (
                         <span className={styles.secundario}>Senha definida</span>
                       )}
@@ -236,17 +252,16 @@ export function Equipe() {
                         >
                           Editar
                         </Button>
-                        <Dica texto={membro.ativo ? 'O login para de funcionar; o cadastro continua' : null}>
-                          <Button
-                            size="sm"
-                            className={styles.alternar}
-                            icon={membro.ativo ? 'pause' : 'check'}
-                            disabled={ocupadoId === membro.id}
-                            onClick={() => alternar(membro)}
-                          >
-                            {membro.ativo ? 'Inativar' : 'Reativar'}
-                          </Button>
-                        </Dica>
+                        <MenuBotao
+                          somenteIcone
+                          icon="more"
+                          size="sm"
+                          itens={maisAcoesDoMembro(membro, reenviar, alternar)}
+                          // Enquanto reenvia, inativa ou reativa este membro, o menu dele espera.
+                          disabled={ocupadoId === membro.id}
+                        >
+                          {`Mais ações para ${membro.nome}`}
+                        </MenuBotao>
                       </div>
                     </td>
                   </tr>

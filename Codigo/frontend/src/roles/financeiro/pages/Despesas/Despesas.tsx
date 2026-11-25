@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
+import { rotuloDoPeriodo } from '../../../../components/formulario/CampoData/datas'
+import { CampoPeriodo, type Periodo } from '../../../../components/formulario/CampoPeriodo/CampoPeriodo'
 import { Badge } from '../../../../components/ui/Badge/Badge'
 import { Button } from '../../../../components/ui/Button/Button'
+import { Icon } from '../../../../components/ui/Icon/Icon'
 import { Paginacao } from '../../../../components/ui/Paginacao/Paginacao'
 import { StatCard, StatCards } from '../../../../components/ui/StatCard/StatCard'
 import { useListaPaginada, type PaginaComResumo } from '../../../../hooks/usePaginacao'
@@ -41,6 +44,33 @@ function periodoDoMes(anoMes: string): PeriodoDespesas {
   return { vencimentoDe: `${anoMes}-01`, vencimentoAte: `${anoMes}-${String(ultimoDia).padStart(2, '0')}` }
 }
 
+/** Período da lista: o mês atual (padrão), todas as datas ou um intervalo escolhido no calendário. */
+type PeriodoDaLista = { tipo: 'MES' } | { tipo: 'TODAS' } | { tipo: 'INTERVALO'; periodo: Periodo }
+
+const ATALHOS_DE_PERIODO: { tipo: 'MES' | 'TODAS'; rotulo: string }[] = [
+  { tipo: 'MES', rotulo: 'Este mês' },
+  { tipo: 'TODAS', rotulo: 'Todas as datas' },
+]
+
+/** O intervalo de vencimento que o período pede ao backend; "todas as datas" não manda nenhum. */
+function consultaDoPeriodo(periodo: PeriodoDaLista, mesAtual: string): PeriodoDespesas {
+  if (periodo.tipo === 'MES') return periodoDoMes(mesAtual)
+  if (periodo.tipo === 'TODAS') return {}
+  return { vencimentoDe: periodo.periodo.de, vencimentoAte: periodo.periodo.ate }
+}
+
+/** Nome do período, para os cards: "Novembro de 2026", "Todas as datas" ou "05/10/2026 – 20/10/2026". */
+function rotuloDoPeriodoDaLista(periodo: PeriodoDaLista, mesAtual: string): string {
+  if (periodo.tipo === 'MES') return rotuloDoMes(mesAtual)
+  if (periodo.tipo === 'TODAS') return 'Todas as datas'
+  return rotuloDoPeriodo(periodo.periodo)
+}
+
+/** Até onde o calendário vai: despesas futuras (parcelas, contratos) também são lançadas. */
+function ultimoDiaDoCalendario(hoje: string): string {
+  return `${Number(hoje.slice(0, 4)) + 2}-12-31`
+}
+
 function mensagemDeErro(e: unknown, padrao: string): string {
   return e instanceof ApiError ? (e.detalhe ?? e.message) : padrao
 }
@@ -77,14 +107,17 @@ function plural(quantidade: number, singular: string, varias: string): string {
 type ModalAberto = { tipo: 'nova' } | { tipo: 'editar'; despesa: Despesa }
 
 /**
- * Despesas do financeiro (IU21): as do mês atual, uma página por vez
- * (GET /despesas/pagina), com os totais do mês somados no backend. Lançar e
- * editar abrem o mesmo modal.
+ * Despesas do financeiro (IU21): por padrão as do mês atual, uma página por
+ * vez (GET /despesas/pagina), com os totais do período somados no backend. O
+ * filtro de data troca o período: todas as datas ou um intervalo do
+ * calendário. Lançar e editar abrem o mesmo modal; marcar como paga fica junto
+ * da situação de cada despesa.
  */
 export function Despesas() {
   const [categorias, setCategorias] = useState<CategoriaDespesa[]>([])
   const [erroCategorias, setErroCategorias] = useState<string | null>(null)
   const [filtro, setFiltro] = useState<FiltroSituacaoDespesa>('TODAS')
+  const [periodo, setPeriodo] = useState<PeriodoDaLista>({ tipo: 'MES' })
   const [atualizandoId, setAtualizandoId] = useState<string | null>(null)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -120,16 +153,24 @@ export function Despesas() {
     return () => controller.abort()
   }, [])
 
-  // Mês atual (AAAA-MM), no fuso da escola. A tela é a lista do mês: o histórico fica no backend.
-  const mesAtual = hojeIso().slice(0, 7)
+  // Hoje e o mês atual (AAAA-MM), no fuso da escola. A lista abre no mês atual.
+  const hoje = hojeIso()
+  const mesAtual = hoje.slice(0, 7)
 
+  // Tudo o que sai do período é lido aqui, antes da busca: daqui para baixo só as datas e o rótulo.
+  const { vencimentoDe, vencimentoAte } = consultaDoPeriodo(periodo, mesAtual)
+  const rotuloPeriodo = rotuloDoPeriodoDaLista(periodo, mesAtual)
+  const tipoPeriodo = periodo.tipo
+  const intervalo = periodo.tipo === 'INTERVALO' ? periodo.periodo : null
+
+  // Datas ou situação novas trocam a função, e a lista volta à primeira página.
   const buscarDespesas = useCallback(
     (pagina: number, tamanho: number, signal: AbortSignal) =>
       listarPaginaDeDespesas(
-        { pagina, tamanho, ...periodoDoMes(mesAtual), situacoes: SITUACOES_DO_FILTRO[filtro] },
+        { pagina, tamanho, vencimentoDe, vencimentoAte, situacoes: SITUACOES_DO_FILTRO[filtro] },
         signal,
       ),
-    [mesAtual, filtro],
+    [vencimentoDe, vencimentoAte, filtro],
   )
   const lista = useListaPaginada<PaginaComResumo<Despesa, ResumoDespesas>>(
     buscarDespesas,
@@ -137,9 +178,19 @@ export function Despesas() {
   )
   const { paginacao, topo, carregando, atualizando, erro: erroLista, recarregar } = lista
 
-  // Os cards somam o mês inteiro no backend, sem a pílula escolhida; cancelada não entra.
+  // Os cards somam o período inteiro no backend, sem a pílula de situação; cancelada não entra.
   const pagas = totalDa(lista.dados?.resumo ?? null, 'PAGA')
   const aPagar = totalDa(lista.dados?.resumo ?? null, 'A_PAGAR')
+  // "Já pago no mês", "Já pago no período" ou só "Já pago" (todas as datas).
+  const recorte = tipoPeriodo === 'MES' ? 'mês' : tipoPeriodo === 'INTERVALO' ? 'período' : null
+  const tituloDaLista =
+    tipoPeriodo === 'MES' ? 'Despesas do mês' : tipoPeriodo === 'TODAS' ? 'Todas as despesas' : 'Despesas do período'
+  const mensagemVazia =
+    tipoPeriodo === 'MES'
+      ? `Nenhuma despesa de ${rotuloDoMes(mesAtual).toLowerCase()} nesta situação.`
+      : tipoPeriodo === 'TODAS'
+        ? 'Nenhuma despesa nesta situação.'
+        : 'Nenhuma despesa entre essas datas nesta situação.'
 
   function abrirModal(aberto: ModalAberto) {
     setAvisoLista(null)
@@ -165,7 +216,7 @@ export function Despesas() {
 
   /**
    * Depois de lançar ou editar: confirma e lê a página e os totais de novo. A
-   * lista só mostra o mês atual e a situação filtrada, então avisa quando a
+   * lista só mostra o período e a situação filtrados, então avisa quando a
    * despesa fica de fora, para não parecer que ela sumiu.
    */
   function handleDespesaSalva(despesa: Despesa) {
@@ -173,13 +224,26 @@ export function Despesas() {
     setModal(null)
     if (despesa.responsavel) setUltimoResponsavel(despesa.responsavel)
     const salva = `Despesa "${despesa.descricao}" ${nova ? 'salva' : 'atualizada'}.`
-    if (!despesa.dataVencimento.startsWith(mesAtual)) {
-      const mes = rotuloDoMes(despesa.dataVencimento.slice(0, 7)).toLowerCase()
-      setAvisoLista(
-        nova
-          ? `${salva} Ela é de ${mes}, por isso não aparece na lista deste mês.`
-          : `${salva} Agora ela é de ${mes}, por isso saiu da lista deste mês.`,
-      )
+    // Sem uma das pontas (todas as datas), ela não limita.
+    const foraDoPeriodo =
+      (vencimentoDe !== undefined && despesa.dataVencimento < vencimentoDe) ||
+      (vencimentoAte !== undefined && despesa.dataVencimento > vencimentoAte)
+    if (foraDoPeriodo) {
+      if (tipoPeriodo === 'MES') {
+        const mes = rotuloDoMes(despesa.dataVencimento.slice(0, 7)).toLowerCase()
+        setAvisoLista(
+          nova
+            ? `${salva} Ela é de ${mes}, por isso não aparece na lista deste mês.`
+            : `${salva} Agora ela é de ${mes}, por isso saiu da lista deste mês.`,
+        )
+      } else {
+        const data = formatarData(despesa.dataVencimento)
+        setAvisoLista(
+          nova
+            ? `${salva} Ela vence em ${data}, fora das datas escolhidas, por isso não aparece na lista.`
+            : `${salva} Agora ela vence em ${data}, fora das datas escolhidas, por isso saiu da lista.`,
+        )
+      }
     } else if (!passaNoFiltro(despesa, filtro)) {
       setAvisoLista(`${salva} Ela não aparece com o filtro atual.`)
     } else {
@@ -204,7 +268,7 @@ export function Despesas() {
       <div className={styles.conteudo}>
         <StatCards rotulo="Resumo das despesas">
           <StatCard
-            label="Já pago no mês"
+            label={recorte ? `Já pago no ${recorte}` : 'Já pago'}
             value={formatarMoeda(pagas.valor)}
             descricao={plural(pagas.quantidade, 'despesa quitada', 'despesas quitadas')}
           />
@@ -215,29 +279,54 @@ export function Despesas() {
             destaque
           />
           <StatCard
-            label="Total do mês"
+            label={recorte ? `Total do ${recorte}` : 'Total'}
             value={formatarMoeda(pagas.valor + aPagar.valor)}
-            descricao={rotuloDoMes(mesAtual)}
+            descricao={rotuloPeriodo}
           />
         </StatCards>
 
         <section className={styles.cartao} aria-labelledby="tituloDespesas">
           <header className={styles.cabecalho}>
             <h2 id="tituloDespesas" className={styles.tituloSecao}>
-              Despesas do mês
+              {tituloDaLista}
             </h2>
-            <div className={styles.pilulas} role="group" aria-label="Filtrar despesas por situação">
-              {FILTROS.map((f) => (
-                <button
-                  key={f.valor}
-                  type="button"
-                  aria-pressed={filtro === f.valor}
-                  className={`${styles.pilula} ${filtro === f.valor ? styles.pilulaAtiva : ''}`}
-                  onClick={() => setFiltro(f.valor)}
-                >
-                  {f.rotulo}
-                </button>
-              ))}
+            <div className={styles.filtros}>
+              {/* Data: o mês atual por padrão, todas as datas ou um intervalo do calendário. */}
+              <div className={styles.pilulas} role="group" aria-label="Filtrar despesas por data">
+                {ATALHOS_DE_PERIODO.map((a) => (
+                  <button
+                    key={a.tipo}
+                    type="button"
+                    aria-pressed={tipoPeriodo === a.tipo}
+                    className={`${styles.pilula} ${tipoPeriodo === a.tipo ? styles.pilulaAtiva : ''}`}
+                    onClick={() => setPeriodo({ tipo: a.tipo })}
+                  >
+                    {a.rotulo}
+                  </button>
+                ))}
+                <CampoPeriodo
+                  valor={intervalo}
+                  onChange={(escolhido) => setPeriodo({ tipo: 'INTERVALO', periodo: escolhido })}
+                  placeholder="Escolher datas"
+                  max={ultimoDiaDoCalendario(hoje)}
+                  mesInicial={hoje}
+                  aria-pressed={intervalo !== null}
+                  className={`${styles.pilula} ${intervalo ? styles.pilulaAtiva : ''}`}
+                />
+              </div>
+              <div className={styles.pilulas} role="group" aria-label="Filtrar despesas por situação">
+                {FILTROS.map((f) => (
+                  <button
+                    key={f.valor}
+                    type="button"
+                    aria-pressed={filtro === f.valor}
+                    className={`${styles.pilula} ${filtro === f.valor ? styles.pilulaAtiva : ''}`}
+                    onClick={() => setFiltro(f.valor)}
+                  >
+                    {f.rotulo}
+                  </button>
+                ))}
+              </div>
             </div>
           </header>
 
@@ -271,12 +360,13 @@ export function Despesas() {
                 </Button>
               </div>
             ) : paginacao.total === 0 ? (
-              <p className={styles.vazio}>Nenhuma despesa de {rotuloDoMes(mesAtual).toLowerCase()} nesta situação.</p>
+              <p className={styles.vazio}>{mensagemVazia}</p>
             ) : (
               <table className={styles.tabela}>
                 <thead>
                   <tr>
                     <th scope="col">Descrição</th>
+                    <th scope="col">Situação</th>
                     <th scope="col">Categoria</th>
                     <th scope="col">Responsável</th>
                     <th scope="col">Data</th>
@@ -292,11 +382,32 @@ export function Despesas() {
                   {paginacao.itensDaPagina.map((d) => (
                     <tr key={d.id}>
                       <td className={styles.colPrincipal}>
-                        <div className={styles.descricaoEBadge}>
-                          <span className={styles.descricao}>{d.descricao}</span>
+                        <span className={styles.descricao}>{d.descricao}</span>
+                      </td>
+                      {/* Pagar (ou desfazer) fica onde a situação aparece. */}
+                      <td data-rotulo="Situação" className={styles.colSituacao}>
+                        <div className={styles.situacao}>
                           <Badge tone={d.situacao === 'PAGA' ? 'success' : 'warning'}>
                             {d.situacao === 'PAGA' ? 'Paga' : 'A pagar'}
                           </Badge>
+                          <button
+                            type="button"
+                            className={`${styles.marcar} ${d.situacao === 'PAGA' ? styles.desfazer : ''}`}
+                            aria-label={
+                              d.situacao === 'PAGA'
+                                ? `Desfazer o pagamento de ${d.descricao}`
+                                : `Marcar ${d.descricao} como paga`
+                            }
+                            disabled={atualizandoId !== null}
+                            onClick={() => handleAlternarSituacao(d)}
+                          >
+                            {d.situacao === 'PAGA' ? null : <Icon name="check" size={14} strokeWidth={2.6} />}
+                            {atualizandoId === d.id
+                              ? 'Salvando…'
+                              : d.situacao === 'PAGA'
+                                ? 'Desfazer'
+                                : 'Marcar como paga'}
+                          </button>
                         </div>
                       </td>
                       <td data-rotulo="Categoria" className={styles.secundario}>
@@ -313,30 +424,16 @@ export function Despesas() {
                         {formatarMoeda(d.valor)}
                       </td>
                       <td className={styles.acao}>
-                        <div className={styles.acoes}>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            icon="edit"
-                            aria-label={`Editar ${d.descricao}`}
-                            disabled={atualizandoId !== null}
-                            onClick={() => abrirModal({ tipo: 'editar', despesa: d })}
-                          >
-                            Editar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant={d.situacao === 'PAGA' ? 'outline' : 'primary'}
-                            disabled={atualizandoId !== null}
-                            onClick={() => handleAlternarSituacao(d)}
-                          >
-                            {atualizandoId === d.id
-                              ? 'Salvando…'
-                              : d.situacao === 'PAGA'
-                                ? 'Desfazer'
-                                : 'Marcar como paga'}
-                          </Button>
-                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          icon="edit"
+                          aria-label={`Editar ${d.descricao}`}
+                          disabled={atualizandoId !== null}
+                          onClick={() => abrirModal({ tipo: 'editar', despesa: d })}
+                        >
+                          Editar
+                        </Button>
                       </td>
                     </tr>
                   ))}

@@ -85,7 +85,8 @@ describe('Turmas', () => {
     )
 
     const linha = (await screen.findByText('6º ano A')).closest('tr')!
-    await usuario.click(within(linha).getByRole('button', { name: 'Excluir 6º ano A' }))
+    await usuario.click(within(linha).getByRole('button', { name: 'Mais ações para 6º ano A' }))
+    await usuario.click(screen.getByRole('menuitem', { name: /^excluir/i }))
     await usuario.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' }))
 
     expect(onExcluir).toHaveBeenCalledWith(1)

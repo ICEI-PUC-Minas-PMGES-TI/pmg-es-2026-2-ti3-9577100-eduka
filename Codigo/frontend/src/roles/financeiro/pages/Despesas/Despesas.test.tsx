@@ -140,16 +140,73 @@ describe('Despesas', () => {
     expect(resumo).toHaveTextContent(/Já pago no mês\s*R\$\s*25,50/)
   })
 
-  it('marcar como paga lê a página e os totais de novo', async () => {
-    abrir([despesa(1, 'A_PAGAR', 40)])
+  it('marcar como paga fica junto da situação e lê a página e os totais de novo', async () => {
+    const chamadas = abrir([despesa(1, 'A_PAGAR', 40)])
     const resumo = await screen.findByRole('region', { name: 'Resumo das despesas' })
-    await screen.findByText('Despesa 01')
+    const linha = (await screen.findByText('Despesa 01')).closest('tr') as HTMLElement
+    const situacao = () => within(linha).getByText(/^(A pagar|Paga)$/).closest('td') as HTMLElement
+    // Na coluna de ação fica só o Editar.
+    expect(within(linha).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Marcar Despesa 01 como paga',
+      'Editar Despesa 01',
+    ])
 
-    await userEvent.click(screen.getByRole('button', { name: 'Marcar como paga' }))
+    await userEvent.click(within(situacao()).getByRole('button', { name: 'Marcar Despesa 01 como paga' }))
 
-    expect(await screen.findByRole('button', { name: 'Desfazer' })).toBeInTheDocument()
+    expect(await within(linha).findByRole('button', { name: 'Desfazer o pagamento de Despesa 01' })).toBeInTheDocument()
+    expect(situacao()).toHaveTextContent('Paga')
+    expect(chamadas.find((c) => c.metodo === 'PATCH')).toMatchObject({ caminho: '/despesas/desp-1', corpo: { situacao: 'PAGA' } })
     expect(resumo).toHaveTextContent(/Já pago no mês\s*R\$\s*40,00/)
     expect(resumo).toHaveTextContent(/Ainda falta pagar\s*R\$\s*0,00/)
+  })
+
+  it('o filtro de data abre no mês atual e troca para todas as datas', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-02-15T15:00:00Z'))
+    const chamadas = abrir([LUZ])
+    await screen.findByText('Conta de luz')
+    const resumo = screen.getByRole('region', { name: 'Resumo das despesas' })
+    const data = screen.getByRole('group', { name: 'Filtrar despesas por data' })
+    expect(within(data).getByRole('button', { name: 'Este mês' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('heading', { name: 'Despesas do mês' })).toBeInTheDocument()
+
+    await userEvent.click(within(data).getByRole('button', { name: 'Todas as datas' }))
+
+    await waitFor(() => expect(consultas(chamadas)).toHaveLength(2))
+    const todas = consultas(chamadas)[1]
+    expect(todas.has('vencimentoDe')).toBe(false)
+    expect(todas.has('vencimentoAte')).toBe(false)
+    expect(todas.getAll('situacao')).toEqual(['A_PAGAR', 'PAGA'])
+    expect(screen.getByRole('heading', { name: 'Todas as despesas' })).toBeInTheDocument()
+    expect(resumo).toHaveTextContent(/Já pago\s*R\$/)
+    expect(resumo).toHaveTextContent(/Total\s*R\$\s*90,00\s*Todas as datas/)
+
+    await userEvent.click(within(data).getByRole('button', { name: 'Este mês' }))
+    await waitFor(() => expect(consultas(chamadas).at(-1)?.get('vencimentoDe')).toBe('2026-02-01'))
+    expect(consultas(chamadas).at(-1)?.get('vencimentoAte')).toBe('2026-02-28')
+  })
+
+  it('filtra por um intervalo escolhido no calendário', async () => {
+    // O calendário abre no mês de hoje: fevereiro de 2026.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-02-15T15:00:00Z'))
+    const chamadas = abrir([LUZ])
+    await screen.findByText('Conta de luz')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Escolher datas' }))
+    const calendario = screen.getByRole('dialog', { name: 'Escolher período' })
+    await userEvent.click(within(calendario).getByRole('button', { name: /(?<!\d)10 de fevereiro de 2026/i }))
+    await userEvent.click(within(calendario).getByRole('button', { name: /(?<!\d)25 de fevereiro de 2026/i }))
+    await userEvent.click(within(calendario).getByRole('button', { name: 'Aplicar' }))
+
+    await waitFor(() => expect(consultas(chamadas).at(-1)?.get('vencimentoDe')).toBe('2026-02-10'))
+    expect(consultas(chamadas).at(-1)?.get('vencimentoAte')).toBe('2026-02-25')
+    expect(screen.getByRole('button', { name: /10\/02\/2026 – 25\/02\/2026/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Este mês' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('heading', { name: 'Despesas do período' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Resumo das despesas' })).toHaveTextContent(
+      /Total do período\s*R\$\s*90,00\s*10\/02\/2026 – 25\/02\/2026/,
+    )
   })
 
   it('mostra o responsável de cada despesa, e um traço na antiga que não tem', async () => {

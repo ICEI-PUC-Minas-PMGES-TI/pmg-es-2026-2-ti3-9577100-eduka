@@ -184,11 +184,6 @@
   gap: 8px;
 }
 
-/* Mesma largura para "Suspender" e "Reativar", para o "Editar" não desalinhar entre as linhas. */
-.alternar {
-  min-width: 124px;
-}
-
 .mensagem {
   display: flex;
   flex-direction: column;
@@ -204,20 +199,16 @@
   text-align: center;
 }
 
-/* Celular: os quatro botões não cabem numa linha; ficam dois a dois. */
+/* Celular: Ver e Editar dividem a linha; o "⋯" fica no fim, do tamanho dele. */
 @media (max-width: 640px) {
   .actions {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
     width: 100%;
   }
 
   .actions > button {
     justify-content: center;
-  }
-
-  .alternar {
-    min-width: 0;
   }
 
   /* Os dados ocupam a linha ao lado do avatar; o selo de situação desce para baixo deles. */
