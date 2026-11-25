@@ -17,18 +17,74 @@ export type AlunoResumo = {
  */
 export type SituacaoNaEscola = 'MATRICULADO' | 'TRANCADO' | 'SEM_TURMA' | 'INATIVO' | 'ANONIMIZADO'
 
+/**
+ * Como o aluno está no dinheiro, pelas cobranças não canceladas. Vale a
+ * primeira que se aplica: quem tem cobrança em atraso está EM_ATRASO mesmo
+ * tendo outra a vencer. Espelha o FinanceiroDoAlunoResponse.Situacao do backend.
+ */
+export type SituacaoFinanceira = 'EM_ATRASO' | 'A_VENCER' | 'EM_DIA' | 'SEM_COBRANCA'
+
+export const ROTULOS_SITUACAO_FINANCEIRA: Record<SituacaoFinanceira, string> = {
+  EM_ATRASO: 'Em atraso',
+  A_VENCER: 'A vencer',
+  EM_DIA: 'Em dia',
+  SEM_COBRANCA: 'Sem cobrança',
+}
+
+/** Há quanto tempo venceu a cobrança em atraso mais antiga do aluno. */
+export type FaixaAtraso = 'ATE_30_DIAS' | 'DE_31_A_60_DIAS' | 'MAIS_DE_60_DIAS'
+
+export const ROTULOS_FAIXA_ATRASO: Record<FaixaAtraso, string> = {
+  ATE_30_DIAS: 'Até 30 dias',
+  DE_31_A_60_DIAS: '31 a 60 dias',
+  MAIS_DE_60_DIAS: 'Mais de 60 dias',
+}
+
+// Espelha o FinanceiroDoAlunoResponse do backend. Só vem para o MASTER e o
+// FINANCEIRO, com a gestão financeira contratada.
+export type FinanceiroDoAluno = {
+  situacao: SituacaoFinanceira
+  /** Pendentes e em atraso. */
+  valorEmAberto: number
+  valorEmAtraso: number
+  /** Desde o vencimento da cobrança em atraso mais antiga; nulo sem atraso. */
+  diasDeAtraso: number | null
+  faixaAtraso: FaixaAtraso | null
+  /** ISO (yyyy-MM-dd): a pendente que vence primeiro, de hoje em diante. */
+  proximoVencimento: string | null
+  /** Se a próxima pendente vence de hoje até daqui a 7 dias. */
+  venceEm7Dias: boolean
+  valorVenceEm7Dias: number
+  /** Se há mensalidade com vencimento no mês atual. */
+  mensalidadeNoMes: boolean
+}
+
 // A listagem (GET /alunos) traz, além do resumo, a situação e a turma da
 // matrícula ativa (ou da trancada): as telas não precisam ler as matrículas.
 export type AlunoDaLista = AlunoResumo & {
   situacao: SituacaoNaEscola
   turmaId: number | null
   turmaNome: string | null
+  /** Só em GET /alunos/pagina, para quem vê o financeiro; nulo (ou ausente) para os demais. */
+  financeiro?: FinanceiroDoAluno | null
 }
 
-/** Resumo da escola inteira na página de GET /alunos/pagina, sem a busca nem a situação. */
+/** A situação financeira da escola inteira, para os cards e as pílulas financeiras. */
+export type ResumoFinanceiroAlunos = {
+  porSituacao: Record<SituacaoFinanceira, number>
+  porFaixaAtraso: Record<FaixaAtraso, number>
+  valorEmAtraso: number
+  venceEm7Dias: number
+  valorVenceEm7Dias: number
+  semMensalidadeNoMes: number
+}
+
+/** Resumo da escola inteira na página de GET /alunos/pagina, sem a busca nem os filtros. */
 export type ResumoAlunos = {
   total: number
   porSituacao: Record<SituacaoNaEscola, number>
+  /** Só para quem vê o financeiro (MASTER e FINANCEIRO); nulo (ou ausente) para os demais. */
+  financeiro?: ResumoFinanceiroAlunos | null
 }
 
 export type Endereco = {

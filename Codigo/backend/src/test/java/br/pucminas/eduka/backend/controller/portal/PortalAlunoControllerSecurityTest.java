@@ -60,6 +60,7 @@ import br.pucminas.eduka.backend.security.JwtService;
 import br.pucminas.eduka.backend.service.privacidade.PoliticaRetencao;
 import br.pucminas.eduka.backend.service.acesso.AcessoService;
 import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
+import br.pucminas.eduka.backend.service.financeiro.FinanceiroDosAlunosService;
 import br.pucminas.eduka.backend.service.financeiro.AvisoCobrancaService;
 import br.pucminas.eduka.backend.service.financeiro.CobrancaService;
 import br.pucminas.eduka.backend.service.pessoas.AlunoService;
@@ -86,6 +87,8 @@ class PortalAlunoControllerSecurityTest {
     @Autowired
     private JwtService jwtService;
 
+    @MockitoBean
+    private FinanceiroDosAlunosService financeiroDosAlunos;
     @MockitoBean
     private AlunoRepository alunoRepository;
     @MockitoBean

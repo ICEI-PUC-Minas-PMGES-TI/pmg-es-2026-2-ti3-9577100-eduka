@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { Button } from '../../../../components/ui/Button/Button'
 import { Icon } from '../../../../components/ui/Icon/Icon'
 import type { OpcaoSelect } from '../../../../components/formulario/Select/Select'
-import { StatCard, StatCards } from '../../../../components/ui/StatCard/StatCard'
 import { useCarregamento } from '../../../../hooks/useCarregamento'
 import { useListaPaginada, type PaginaComResumo } from '../../../../hooks/usePaginacao'
 import { useTermoAdiado } from '../../../../hooks/useTermoAdiado'
@@ -19,15 +18,35 @@ import {
 } from '../../../../services/pessoas/alunoService'
 import { ApiError } from '../../../../services/api'
 import { obterUsuarioLogado } from '../../../../services/acesso/authService'
+import { useModulos } from '../../../../services/acesso/modulosSessao'
 import { matricularAluno, mensagemErroMatricula } from '../../../../services/academico/matriculaService'
 import type { TurmaAcademica } from '../../../../types/academico/academico'
-import type { Aluno, AlunoDaLista, ResumoAlunos, SituacaoNaEscola } from '../../../../types/pessoas/aluno'
+import {
+  ROTULOS_FAIXA_ATRASO,
+  ROTULOS_SITUACAO_FINANCEIRA,
+  type Aluno,
+  type AlunoDaLista,
+  type FaixaAtraso,
+  type ResumoAlunos,
+  type SituacaoNaEscola,
+} from '../../../../types/pessoas/aluno'
 import { ROTULOS_TURNO } from '../../../../types/academico/alocacao'
 import { plural } from '../../../../utils/formatters'
 import { AlunoModal } from '../../components/alunos/AlunoModal/AlunoModal'
 import { AlunosTable } from '../../components/alunos/AlunosTable/AlunosTable'
 import { DetalhesAlunoModal } from '../../components/alunos/DetalhesAlunoModal/DetalhesAlunoModal'
+import { ResumoAlunos as CardsDoResumo } from '../../components/alunos/ResumoAlunos/ResumoAlunos'
 import { SecretariaLayout } from '../../layouts/SecretariaLayout'
+import {
+  FAIXAS_ATRASO,
+  SITUACOES_FINANCEIRAS,
+  consultaDosFiltros,
+  gravarFiltros,
+  lerFiltros,
+  proximaOrdem,
+  temFiltro,
+  type FiltrosDaLista,
+} from './filtrosDaLista'
 import styles from './Alunos.module.css'
 
 // Estável: o useCarregamento pede o valor inicial sempre igual.
@@ -89,23 +108,38 @@ function podeCadastrarAlunos(): boolean {
   return perfil === 'MASTER' || perfil === 'SECRETARIA'
 }
 
+/** O financeiro dos alunos é do MASTER e do FINANCEIRO, com a gestão financeira contratada. */
+function perfilVeFinanceiro(): boolean {
+  const perfil = obterUsuarioLogado()?.perfil
+  return perfil === 'MASTER' || perfil === 'FINANCEIRO'
+}
+
 /**
  * Alunos da secretaria (IU07): a lista vem do backend uma página por vez
- * (GET /alunos/pagina), com a busca pelo nome ou matrícula e o filtro de
- * situação feitos lá. Cards e pílulas contam a escola inteira. O FINANCEIRO
- * abre a mesma tela só para consulta (/financeiro/alunos), para chegar à aba
+ * (GET /alunos/pagina), com a busca pelo nome ou matrícula e os filtros
+ * feitos lá. Cards e pílulas contam a escola inteira. O FINANCEIRO abre a
+ * mesma tela só para consulta (/financeiro/alunos), para chegar à aba
  * Financeiro de cada aluno (IU18).
+ *
+ * MASTER e FINANCEIRO veem também o financeiro de cada aluno: a coluna "Em
+ * aberto" (que ordena a lista), as pílulas da situação financeira, a faixa de
+ * atraso e os filtros de vencimento e mensalidade. Os filtros ficam na URL,
+ * para os atalhos do Início chegarem com eles aplicados.
  */
 export function Alunos() {
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const temModulo = useModulos()
   const podeCadastrar = podeCadastrarAlunos()
+  const veFinanceiro = perfilVeFinanceiro() && temModulo('GESTAO_FINANCEIRA')
   // O atalho "Cadastrar um aluno" do Início chega com o modal já aberto.
   const abrirCadastroAoEntrar =
     podeCadastrar && (location.state as EstadoAbrirCadastro | null)?.abrirCadastro === true
   const [busca, setBusca] = useState('')
   const termo = useTermoAdiado(busca)
-  const [filtro, setFiltro] = useState<Filtro>('TODOS')
+  const filtros = useMemo(() => lerFiltros(searchParams, veFinanceiro), [searchParams, veFinanceiro])
+  const filtro: Filtro = filtros.situacao ?? 'TODOS'
   const [modal, setModal] = useState<EstadoModal>(abrirCadastroAoEntrar ? { aberto: true } : { aberto: false })
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
@@ -113,13 +147,11 @@ export function Alunos() {
   const [alternandoId, setAlternandoId] = useState<string | null>(null)
   const [vendo, setVendo] = useState<AlunoDaLista | null>(null)
 
+  // Busca ou filtro novo troca a função, e a lista volta à primeira página.
   const buscarAlunos = useCallback(
     (pagina: number, tamanho: number, signal: AbortSignal) =>
-      listarPaginaDeAlunos(
-        { pagina, tamanho, busca: termo || undefined, situacao: filtro === 'TODOS' ? undefined : filtro },
-        signal,
-      ),
-    [termo, filtro],
+      listarPaginaDeAlunos({ pagina, tamanho, busca: termo || undefined, ...consultaDosFiltros(filtros) }, signal),
+    [termo, filtros],
   )
   const lista = useListaPaginada<PaginaComResumo<AlunoDaLista, ResumoAlunos>, HTMLElement>(
     buscarAlunos,
@@ -134,26 +166,56 @@ export function Alunos() {
     'Não foi possível carregar as turmas.',
   )
 
-  // Descarta o estado já lido, para o modal não reabrir ao recarregar a página.
+  // Descarta o estado já lido, para o modal não reabrir ao recarregar a
+  // página. Os filtros da URL ficam.
   useEffect(() => {
-    if (location.state) navigate(location.pathname, { replace: true, state: null })
-  }, [location.state, location.pathname, navigate])
+    if (location.state) {
+      navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null })
+    }
+  }, [location.state, location.pathname, location.search, navigate])
 
-  // Inativo e anonimizado não estão mais na escola: não contam como alunos
-  // cadastrados, e as pílulas deles só aparecem se houver algum.
-  const anonimizados = resumo?.porSituacao.ANONIMIZADO ?? 0
-  const inativos = resumo?.porSituacao.INATIVO ?? 0
-  const naEscola = (resumo?.total ?? 0) - anonimizados - inativos
-  const semTurma = resumo?.porSituacao.SEM_TURMA ?? 0
-  const filtros = FILTROS.filter(
-    (f) => !SO_COM_ALUNOS.includes(f.valor) || (resumo?.porSituacao[f.valor as SituacaoNaEscola] ?? 0) > 0 || filtro === f.valor,
+  /** Troca os filtros na URL, sem empilhar uma entrada no histórico a cada clique. */
+  function filtrar(mudanca: Partial<FiltrosDaLista>) {
+    setSearchParams((atuais) => gravarFiltros(atuais, { ...lerFiltros(atuais, veFinanceiro), ...mudanca }), {
+      replace: true,
+    })
+  }
+
+  function limparFiltros() {
+    filtrar({ situacao: null, financeiro: null, faixaAtraso: null, venceEm7Dias: false, semMensalidade: false })
+  }
+
+  // As pílulas de inativo e anonimizado só aparecem se houver algum aluno nelas.
+  const pilulasAcademicas = FILTROS.filter(
+    (f) =>
+      !SO_COM_ALUNOS.includes(f.valor) ||
+      (resumo?.porSituacao[f.valor as SituacaoNaEscola] ?? 0) > 0 ||
+      filtro === f.valor,
   )
+  const resumoFinanceiro = resumo?.financeiro ?? null
   const mensagemVazia =
     resumo?.total === 0
       ? 'Nenhum aluno cadastrado ainda.'
       : termo
         ? 'Nenhum aluno encontrado para a busca.'
-        : 'Nenhum aluno nesta situação.'
+        : filtros.financeiro || filtros.venceEm7Dias || filtros.semMensalidade
+          ? 'Nenhum aluno com esses filtros.'
+          : 'Nenhum aluno nesta situação.'
+
+  const pilulasDaSituacao = (
+    <div className={styles.filtros} role="group" aria-label="Filtrar por situação">
+      {pilulasAcademicas.map((f) => (
+        <Pilula
+          key={f.valor}
+          ativa={filtro === f.valor}
+          onClick={() => filtrar({ situacao: f.valor === 'TODOS' ? null : f.valor })}
+          quantidade={resumo ? (f.valor === 'TODOS' ? resumo.total : resumo.porSituacao[f.valor]) : undefined}
+        >
+          {f.rotulo}
+        </Pilula>
+      ))}
+    </div>
+  )
 
   function limparAvisos() {
     setSucesso(null)
@@ -257,21 +319,17 @@ export function Alunos() {
       }
     >
       {resumo && (
-        <StatCards rotulo="Resumo dos alunos">
-          <StatCard
-            label="Alunos cadastrados"
-            value={naEscola}
-            descricao={inativos ? `Na escola · ${inativos} ${plural(inativos, 'inativo', 'inativos')}` : 'Na escola'}
-            destaque
-          />
-          <StatCard label="Com turma" value={resumo.porSituacao.MATRICULADO} descricao="Com matrícula ativa" />
-          <StatCard
-            label="Sem turma"
-            value={semTurma}
-            descricao={semTurma ? (podeCadastrar ? 'Matricule em Matrículas' : 'Sem matrícula ativa') : 'Todos matriculados'}
-            atencao={semTurma > 0}
-          />
-        </StatCards>
+        <CardsDoResumo
+          resumo={resumo}
+          // O FINANCEIRO vê os cards financeiros; o MASTER escolhe entre os da escola e os financeiros.
+          visoes={!veFinanceiro ? 'ESCOLA' : podeCadastrar ? 'AMBOS' : 'FINANCEIRO'}
+          podeMatricular={podeCadastrar}
+          atalhos={{
+            emAtraso: () => filtrar({ financeiro: 'EM_ATRASO', faixaAtraso: null }),
+            venceEm7Dias: () => filtrar({ venceEm7Dias: true }),
+            semCobranca: () => filtrar({ financeiro: 'SEM_COBRANCA', faixaAtraso: null }),
+          }}
+        />
       )}
 
       <div className={styles.toolbar}>
@@ -285,30 +343,93 @@ export function Alunos() {
             onChange={(e) => setBusca(e.target.value)}
           />
         </label>
-        <div className={styles.filtros} role="group" aria-label="Filtrar por situação">
-          {filtros.map((f) => (
-            <button
-              key={f.valor}
-              type="button"
-              aria-pressed={filtro === f.valor}
-              className={`${styles.filtro} ${filtro === f.valor ? styles.filtroAtivo : ''}`}
-              onClick={() => setFiltro(f.valor)}
-            >
-              {f.rotulo}
-              {resumo && (
-                <span className={styles.filtroQuantidade}>
-                  {f.valor === 'TODOS' ? resumo.total : resumo.porSituacao[f.valor]}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+        {/* Sem o financeiro, as pílulas cabem na mesma linha da busca, como sempre foram. */}
+        {!veFinanceiro && pilulasDaSituacao}
         {podeCadastrar && (
           <Button variant="primary" icon="plus" onClick={abrirCadastro}>
             Novo aluno
           </Button>
         )}
       </div>
+
+      {veFinanceiro && (
+        <div className={styles.grupos}>
+          <GrupoDeFiltros rotulo="Na escola">{pilulasDaSituacao}</GrupoDeFiltros>
+
+          <GrupoDeFiltros rotulo="Financeiro">
+            <div className={styles.filtros} role="group" aria-label="Filtrar pela situação financeira">
+              <Pilula
+                ativa={filtros.financeiro === null}
+                onClick={() => filtrar({ financeiro: null, faixaAtraso: null })}
+                quantidade={resumo?.total}
+              >
+                Todos
+              </Pilula>
+              {SITUACOES_FINANCEIRAS.map((s) => (
+                <Pilula
+                  key={s}
+                  ativa={filtros.financeiro === s}
+                  onClick={() => filtrar({ financeiro: s, faixaAtraso: null })}
+                  quantidade={resumoFinanceiro?.porSituacao[s]}
+                  tom={s === 'EM_ATRASO' ? 'alerta' : undefined}
+                >
+                  {ROTULOS_SITUACAO_FINANCEIRA[s]}
+                </Pilula>
+              ))}
+            </div>
+          </GrupoDeFiltros>
+
+          {filtros.financeiro === 'EM_ATRASO' && (
+            <GrupoDeFiltros rotulo="Atrasado há">
+              <div className={styles.filtros} role="group" aria-label="Filtrar pelo tempo de atraso">
+                <Pilula
+                  ativa={filtros.faixaAtraso === null}
+                  onClick={() => filtrar({ faixaAtraso: null })}
+                  quantidade={resumoFinanceiro?.porSituacao.EM_ATRASO}
+                >
+                  Qualquer tempo
+                </Pilula>
+                {FAIXAS_ATRASO.map((faixa: FaixaAtraso) => (
+                  <Pilula
+                    key={faixa}
+                    ativa={filtros.faixaAtraso === faixa}
+                    onClick={() => filtrar({ faixaAtraso: faixa })}
+                    quantidade={resumoFinanceiro?.porFaixaAtraso[faixa]}
+                  >
+                    {ROTULOS_FAIXA_ATRASO[faixa]}
+                  </Pilula>
+                ))}
+              </div>
+            </GrupoDeFiltros>
+          )}
+
+          <GrupoDeFiltros rotulo="Mais filtros">
+            <div className={styles.filtros} role="group" aria-label="Mais filtros financeiros">
+              <Pilula
+                ativa={filtros.venceEm7Dias}
+                marcavel
+                onClick={() => filtrar({ venceEm7Dias: !filtros.venceEm7Dias })}
+                quantidade={resumoFinanceiro?.venceEm7Dias}
+              >
+                Vence nos próximos 7 dias
+              </Pilula>
+              <Pilula
+                ativa={filtros.semMensalidade}
+                marcavel
+                onClick={() => filtrar({ semMensalidade: !filtros.semMensalidade })}
+                quantidade={resumoFinanceiro?.semMensalidadeNoMes}
+              >
+                Sem mensalidade neste mês
+              </Pilula>
+              {temFiltro(filtros) && (
+                <button type="button" className={styles.limpar} onClick={limparFiltros}>
+                  Limpar filtros
+                </button>
+              )}
+            </div>
+          </GrupoDeFiltros>
+        </div>
+      )}
 
       {sucesso && (
         <p className={styles.sucesso} role="status">
@@ -336,6 +457,14 @@ export function Alunos() {
         onEditar={podeCadastrar ? abrirEdicao : undefined}
         onReenviarAcesso={podeCadastrar ? handleReenviarAcesso : undefined}
         onAlternarSituacao={podeCadastrar ? handleAlternarSituacao : undefined}
+        colunaEmAberto={
+          veFinanceiro
+            ? {
+                ordem: filtros.ordem.campo === 'EM_ABERTO' ? filtros.ordem.direcao : null,
+                onOrdenar: () => filtrar({ ordem: proximaOrdem(filtros.ordem) }),
+              }
+            : undefined
+        }
       />
 
       {vendo && (
@@ -359,5 +488,51 @@ export function Alunos() {
         />
       )}
     </SecretariaLayout>
+  )
+}
+
+type PilulaProps = {
+  ativa: boolean
+  onClick: () => void
+  /** Quantos alunos a pílula traz; sem ela (resumo ainda não chegou), não mostra o número. */
+  quantidade?: number
+  /** Número em vermelho quando há algum aluno, para o que pede atenção. */
+  tom?: 'alerta'
+  /** Liga e desliga sozinha (combina com as outras), em vez de escolher uma entre várias. */
+  marcavel?: boolean
+  children: string
+}
+
+function Pilula({ ativa, onClick, quantidade, tom, marcavel = false, children }: PilulaProps) {
+  const alerta = tom === 'alerta' && (quantidade ?? 0) > 0
+  return (
+    <button
+      type="button"
+      aria-pressed={ativa}
+      className={`${styles.filtro} ${ativa ? styles.filtroAtivo : ''}`}
+      onClick={onClick}
+    >
+      {marcavel && (
+        <span className={`${styles.marca} ${ativa ? styles.marcaLigada : ''}`} aria-hidden="true">
+          {ativa && <Icon name="check" size={12} strokeWidth={3} />}
+        </span>
+      )}
+      {children}
+      {quantidade !== undefined && (
+        <span className={`${styles.filtroQuantidade} ${alerta && !ativa ? styles.quantidadeAlerta : ''}`}>
+          {quantidade}
+        </span>
+      )}
+    </button>
+  )
+}
+
+/** Uma linha de pílulas com o rótulo do grupo à esquerda (empilha no celular). */
+function GrupoDeFiltros({ rotulo, children }: { rotulo: string; children: ReactNode }) {
+  return (
+    <div className={styles.grupo}>
+      <span className={styles.grupoRotulo}>{rotulo}</span>
+      {children}
+    </div>
   )
 }

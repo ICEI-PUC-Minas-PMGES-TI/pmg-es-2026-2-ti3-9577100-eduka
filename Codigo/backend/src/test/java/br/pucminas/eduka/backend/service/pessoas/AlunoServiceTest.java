@@ -11,6 +11,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -42,14 +44,22 @@ import br.pucminas.eduka.backend.domain.pessoas.Pessoa;
 import br.pucminas.eduka.backend.domain.pessoas.PessoaPapel;
 import br.pucminas.eduka.backend.domain.pessoas.Responsavel;
 import br.pucminas.eduka.backend.dto.comum.EnderecoRequest;
+import br.pucminas.eduka.backend.dto.comum.Ordenacao;
+import br.pucminas.eduka.backend.dto.comum.PaginaComResumoResponse;
+import br.pucminas.eduka.backend.dto.comum.Paginacao;
+import br.pucminas.eduka.backend.dto.financeiro.FiltroFinanceiroAlunos;
+import br.pucminas.eduka.backend.dto.financeiro.FinanceiroDoAlunoResponse;
+import br.pucminas.eduka.backend.dto.financeiro.ResumoFinanceiroAlunosResponse;
 import br.pucminas.eduka.backend.dto.pessoas.AlunoRequest;
 import br.pucminas.eduka.backend.dto.pessoas.AlunoResponse;
 import br.pucminas.eduka.backend.dto.pessoas.ResponsavelRequest;
+import br.pucminas.eduka.backend.dto.pessoas.ResumoAlunosResponse;
 import br.pucminas.eduka.backend.exception.acesso.AcessoJaAtivadoException;
 import br.pucminas.eduka.backend.exception.comum.RecursoNaoEncontradoException;
 import br.pucminas.eduka.backend.exception.comum.RegistroEmUsoException;
 import br.pucminas.eduka.backend.exception.pessoas.NumeroMatriculaJaCadastradoException;
 import br.pucminas.eduka.backend.repository.academico.MatriculaTurmaRepository;
+import br.pucminas.eduka.backend.repository.escola.EscolaRepository;
 import br.pucminas.eduka.backend.repository.financeiro.CobrancaRepository;
 import br.pucminas.eduka.backend.repository.pessoas.AlunoRepository;
 import br.pucminas.eduka.backend.repository.pessoas.AlunoResponsavelRepository;
@@ -57,9 +67,11 @@ import br.pucminas.eduka.backend.repository.pessoas.PessoaPapelRepository;
 import br.pucminas.eduka.backend.repository.pessoas.PessoaRepository;
 import br.pucminas.eduka.backend.repository.pessoas.ResponsavelRepository;
 import br.pucminas.eduka.backend.security.IsolamentoEscola;
+import br.pucminas.eduka.backend.security.PerfilNaoPermitidoException;
 import br.pucminas.eduka.backend.security.UsuarioAutenticado;
 import br.pucminas.eduka.backend.service.acesso.AcessoService;
 import br.pucminas.eduka.backend.service.auditoria.AuditoriaService;
+import br.pucminas.eduka.backend.service.financeiro.FinanceiroDosAlunosService;
 import br.pucminas.eduka.backend.service.privacidade.PoliticaRetencao;
 
 /**
@@ -92,6 +104,8 @@ class AlunoServiceTest {
     private AcessoService acessoService;
     @Mock
     private MatriculaTurmaRepository matriculaRepository;
+    @Mock
+    private EscolaRepository escolaRepository;
 
     private AlunoService alunoService;
 
@@ -105,7 +119,8 @@ class AlunoServiceTest {
                 cobrancaRepository, isolamentoEscola, auditoriaService);
         alunoService = new AlunoService(alunoRepository, pessoaRepository, pessoaPapelRepository,
                 responsavelService, isolamentoEscola, acessoService, matriculaRepository, RELOGIO, auditoriaService,
-                new PoliticaRetencao(5));
+                new PoliticaRetencao(5),
+                new FinanceiroDosAlunosService(cobrancaRepository, escolaRepository, isolamentoEscola, RELOGIO));
     }
 
     @AfterEach
@@ -797,5 +812,122 @@ class AlunoServiceTest {
 
         assertThat(alunoService.listar(null)).extracting(AlunoResponse::situacao, AlunoResponse::turmaId)
                 .containsExactly(tuple(AlunoResponse.Situacao.INATIVO, null));
+    }
+
+    // ---- Lista paginada com o financeiro (IU07) ----
+
+    private record Totais(UUID getAlunoId, long getEmAtraso, long getPendentesNoPrazo, BigDecimal getValorEmAberto,
+            BigDecimal getValorEmAtraso, LocalDate getVencimentoMaisAntigoEmAtraso, LocalDate getProximoVencimento,
+            BigDecimal getValorVenceAte, long getMensalidadesNoMes) implements CobrancaRepository.FinanceiroPorAluno {
+    }
+
+    /** Ana deve ha 40 dias, Bia tem uma a vencer amanha e Caio nao tem cobranca. */
+    private List<Aluno> escolaComTresAlunos() {
+        Pessoa pessoaAna = pessoa("Ana");
+        Pessoa pessoaBia = pessoa("Bia");
+        Pessoa pessoaCaio = pessoa("Caio");
+        Aluno ana = aluno(ESCOLA_A, pessoaAna.getId());
+        Aluno bia = aluno(ESCOLA_A, pessoaBia.getId());
+        Aluno caio = aluno(ESCOLA_A, pessoaCaio.getId());
+        when(alunoRepository.findAllByEscolaId(ESCOLA_A)).thenReturn(List.of(ana, bia, caio));
+        when(pessoaRepository.findAllByIdInAndEscolaId(any(), eq(ESCOLA_A)))
+                .thenReturn(List.of(pessoaAna, pessoaBia, pessoaCaio));
+        return List.of(ana, bia, caio);
+    }
+
+    private void comCobrancas(List<Aluno> alunos) {
+        when(escolaRepository.modulos(ESCOLA_A)).thenReturn(List.of("GESTAO_FINANCEIRA"));
+        when(cobrancaRepository.financeiroPorAluno(eq(ESCOLA_A), eq(HOJE_NA_ESCOLA), any(), any(), any()))
+                .thenReturn(List.of(
+                        new Totais(alunos.get(0).getId(), 1, 0, new BigDecimal("300.00"), new BigDecimal("300.00"),
+                                HOJE_NA_ESCOLA.minusDays(40), null, null, 1),
+                        new Totais(alunos.get(1).getId(), 0, 1, new BigDecimal("500.00"), null, null,
+                                HOJE_NA_ESCOLA.plusDays(1), new BigDecimal("500.00"), 1)));
+    }
+
+    private static PaginaComResumoResponse<AlunoResponse, ResumoAlunosResponse> pagina(AlunoService service,
+            FiltroFinanceiroAlunos filtro, Ordenacao.Alunos ordem) {
+        return service.listarPaginado(null, null, filtro, new Paginacao(0, 10), ordem, null);
+    }
+
+    @Test
+    void financeiroVeASituacaoDeCadaAlunoEOResumoFinanceiro() {
+        autenticarComo("FINANCEIRO", ESCOLA_A);
+        comCobrancas(escolaComTresAlunos());
+
+        var pagina = pagina(alunoService, FiltroFinanceiroAlunos.NENHUM, Ordenacao.Alunos.NOME);
+
+        assertThat(pagina.conteudo()).extracting(AlunoResponse::nome, a -> a.financeiro().situacao())
+                .containsExactly(tuple("Ana", FinanceiroDoAlunoResponse.Situacao.EM_ATRASO),
+                        tuple("Bia", FinanceiroDoAlunoResponse.Situacao.A_VENCER),
+                        tuple("Caio", FinanceiroDoAlunoResponse.Situacao.SEM_COBRANCA));
+        ResumoFinanceiroAlunosResponse resumo = pagina.resumo().financeiro();
+        assertThat(resumo.porSituacao()).containsEntry(FinanceiroDoAlunoResponse.Situacao.EM_ATRASO, 1L)
+                .containsEntry(FinanceiroDoAlunoResponse.Situacao.SEM_COBRANCA, 1L);
+        assertThat(resumo.valorEmAtraso()).isEqualByComparingTo("300.00");
+        assertThat(resumo.venceEm7Dias()).isEqualTo(1);
+    }
+
+    @Test
+    void filtroFinanceiroCombinaComOAcademicoEOResumoContaAEscolaInteira() {
+        autenticarComo("MASTER", ESCOLA_A);
+        comCobrancas(escolaComTresAlunos());
+
+        var emAtraso = pagina(alunoService, new FiltroFinanceiroAlunos(FinanceiroDoAlunoResponse.Situacao.EM_ATRASO,
+                FinanceiroDoAlunoResponse.FaixaAtraso.DE_31_A_60_DIAS, false, false), Ordenacao.Alunos.NOME);
+        assertThat(emAtraso.conteudo()).extracting(AlunoResponse::nome).containsExactly("Ana");
+        assertThat(emAtraso.resumo().total()).isEqualTo(3);
+
+        // Todos estao sem turma; so a Bia vence nos proximos 7 dias.
+        var venceLogo = alunoService.listarPaginado(null, AlunoResponse.Situacao.SEM_TURMA,
+                new FiltroFinanceiroAlunos(null, null, true, false), new Paginacao(0, 10), Ordenacao.Alunos.NOME,
+                null);
+        assertThat(venceLogo.conteudo()).extracting(AlunoResponse::nome).containsExactly("Bia");
+
+        var semMensalidade = pagina(alunoService, new FiltroFinanceiroAlunos(null, null, false, true),
+                Ordenacao.Alunos.NOME);
+        assertThat(semMensalidade.conteudo()).extracting(AlunoResponse::nome).containsExactly("Caio");
+    }
+
+    @Test
+    void ordenaPeloValorEmAbertoDoMaiorParaOMenorComONomeDesempatando() {
+        autenticarComo("FINANCEIRO", ESCOLA_A);
+        comCobrancas(escolaComTresAlunos());
+
+        assertThat(pagina(alunoService, FiltroFinanceiroAlunos.NENHUM, Ordenacao.Alunos.EM_ABERTO).conteudo())
+                .extracting(AlunoResponse::nome).containsExactly("Bia", "Ana", "Caio");
+        assertThat(alunoService.listarPaginado(null, null, FiltroFinanceiroAlunos.NENHUM, new Paginacao(0, 10),
+                Ordenacao.Alunos.EM_ABERTO, Direction.ASC).conteudo())
+                .extracting(AlunoResponse::nome).containsExactly("Caio", "Ana", "Bia");
+    }
+
+    @Test
+    void secretariaListaSemOFinanceiroENaoPodePedirFiltroNemOrdemFinanceira() {
+        autenticarComo("SECRETARIA", ESCOLA_A);
+        escolaComTresAlunos();
+
+        var pagina = pagina(alunoService, FiltroFinanceiroAlunos.NENHUM, Ordenacao.Alunos.NOME);
+        assertThat(pagina.conteudo()).extracting(AlunoResponse::financeiro).containsOnlyNulls();
+        assertThat(pagina.resumo().financeiro()).isNull();
+
+        FiltroFinanceiroAlunos emAtraso = new FiltroFinanceiroAlunos(FinanceiroDoAlunoResponse.Situacao.EM_ATRASO,
+                null, false, false);
+        assertThatThrownBy(() -> pagina(alunoService, emAtraso, Ordenacao.Alunos.NOME))
+                .isInstanceOf(PerfilNaoPermitidoException.class);
+        assertThatThrownBy(() -> pagina(alunoService, FiltroFinanceiroAlunos.NENHUM, Ordenacao.Alunos.EM_ABERTO))
+                .isInstanceOf(PerfilNaoPermitidoException.class);
+        verify(cobrancaRepository, never()).financeiroPorAluno(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void masterSemAGestaoFinanceiraListaSemOFinanceiro() {
+        autenticarComo("MASTER", ESCOLA_A);
+        escolaComTresAlunos();
+        when(escolaRepository.modulos(ESCOLA_A)).thenReturn(List.of("GESTAO_ACADEMICA"));
+
+        var pagina = pagina(alunoService, FiltroFinanceiroAlunos.NENHUM, Ordenacao.Alunos.NOME);
+
+        assertThat(pagina.resumo().financeiro()).isNull();
+        verify(cobrancaRepository, never()).financeiroPorAluno(any(), any(), any(), any(), any());
     }
 }

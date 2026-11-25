@@ -49,6 +49,65 @@
   background: rgba(242, 235, 251, 0.45);
 }
 
+/* Com a coluna "Em aberto" (MASTER e FINANCEIRO), a tabela precisa de mais largura antes de rolar. */
+.comFinanceiro {
+  min-width: 780px;
+}
+
+/* Título "Em aberto": clicável, ordena a lista pelo valor. */
+.ordenar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.ordenar:hover,
+.ordenar:focus-visible {
+  color: var(--color-primary-text);
+}
+
+.seta {
+  display: inline-flex;
+  transition: transform 0.15s;
+}
+
+.setaParaCima {
+  transform: rotate(180deg);
+}
+
+/* Sem ordem pelo valor, a seta fica só como dica de que o título é clicável. */
+.setaApagada {
+  opacity: 0.35;
+}
+
+.emAberto {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.emAberto strong {
+  font-family: var(--font-display);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.situacaoFinanceira {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
 .colAcoes {
   text-align: right;
 }

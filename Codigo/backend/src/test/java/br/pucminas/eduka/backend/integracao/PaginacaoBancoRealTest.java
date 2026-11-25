@@ -23,6 +23,7 @@ import br.pucminas.eduka.backend.domain.auditoria.EntidadeAuditada;
 import br.pucminas.eduka.backend.domain.auditoria.OperacaoAuditoria;
 import br.pucminas.eduka.backend.domain.financeiro.SituacaoDespesa;
 import br.pucminas.eduka.backend.domain.financeiro.StatusCobranca;
+import br.pucminas.eduka.backend.domain.financeiro.TipoCobranca;
 import br.pucminas.eduka.backend.dto.academico.MatriculaTurmaResponse;
 import br.pucminas.eduka.backend.dto.academico.ResumoMatriculasResponse;
 import br.pucminas.eduka.backend.dto.academico.TurmaResponse;
@@ -33,6 +34,8 @@ import br.pucminas.eduka.backend.dto.comum.PaginaResponse;
 import br.pucminas.eduka.backend.dto.comum.Paginacao;
 import br.pucminas.eduka.backend.dto.escola.FaturaPlataformaResponse;
 import br.pucminas.eduka.backend.dto.financeiro.DespesaResponse;
+import br.pucminas.eduka.backend.dto.financeiro.FiltroFinanceiroAlunos;
+import br.pucminas.eduka.backend.dto.financeiro.FinanceiroDoAlunoResponse;
 import br.pucminas.eduka.backend.dto.financeiro.ResumoDespesasResponse;
 import br.pucminas.eduka.backend.dto.pessoas.AlunoResponse;
 import br.pucminas.eduka.backend.dto.pessoas.ProfessorResponse;
@@ -198,16 +201,16 @@ class PaginacaoBancoRealTest extends BancoRealTest {
         dados.aluno(dados.escola(), "Aaron");
         autenticarComo("SECRETARIA", escola);
 
-        var primeira = alunoService.listarPaginado(null, null, new Paginacao(0, 2),
-                Ordenacao.Alunos.NOME, null);
+        var primeira = alunoService.listarPaginado(null, null, FiltroFinanceiroAlunos.NENHUM,
+                new Paginacao(0, 2), Ordenacao.Alunos.NOME, null);
         assertThat(primeira.conteudo()).extracting(AlunoResponse::nome).containsExactly("alice", "Álvaro");
         assertThat(primeira).extracting(PaginaComResumoResponse::totalElementos,
                 PaginaComResumoResponse::totalPaginas).containsExactly(3L, 2);
-        assertThat(alunoService.listarPaginado(null, null, new Paginacao(1, 2), Ordenacao.Alunos.NOME, null)
-                .conteudo()).extracting(AlunoResponse::nome).containsExactly("Bruna");
+        assertThat(alunoService.listarPaginado(null, null, FiltroFinanceiroAlunos.NENHUM, new Paginacao(1, 2),
+                Ordenacao.Alunos.NOME, null).conteudo()).extracting(AlunoResponse::nome).containsExactly("Bruna");
 
         var semTurmaComA = alunoService.listarPaginado("a", AlunoResponse.Situacao.SEM_TURMA,
-                new Paginacao(0, 10), Ordenacao.Alunos.NOME, Direction.DESC);
+                FiltroFinanceiroAlunos.NENHUM, new Paginacao(0, 10), Ordenacao.Alunos.NOME, Direction.DESC);
         assertThat(semTurmaComA.conteudo()).extracting(AlunoResponse::nome).containsExactly("Bruna", "alice");
         // O resumo e da escola inteira: nem a busca nem a situacao mudam as contas.
         assertThat(semTurmaComA.resumo()).isEqualTo(new ResumoAlunosResponse(3, Map.of(
@@ -215,7 +218,7 @@ class PaginacaoBancoRealTest extends BancoRealTest {
                 AlunoResponse.Situacao.TRANCADO, 0L,
                 AlunoResponse.Situacao.SEM_TURMA, 2L,
                 AlunoResponse.Situacao.INATIVO, 0L,
-                AlunoResponse.Situacao.ANONIMIZADO, 0L)));
+                AlunoResponse.Situacao.ANONIMIZADO, 0L), null));
     }
 
     @Test
@@ -224,12 +227,60 @@ class PaginacaoBancoRealTest extends BancoRealTest {
         dados.aluno(escola, "Carlos");
         dados.aluno(escola, "Daniela");
         autenticarComo("SECRETARIA", escola);
-        AlunoResponse daniela = alunoService.listarPaginado("daniela", null, new Paginacao(0, 10),
-                Ordenacao.Alunos.NOME, null).conteudo().get(0);
+        AlunoResponse daniela = alunoService.listarPaginado("daniela", null, FiltroFinanceiroAlunos.NENHUM,
+                new Paginacao(0, 10), Ordenacao.Alunos.NOME, null).conteudo().get(0);
 
         assertThat(alunoService.listarPaginado(" " + daniela.matricula().toUpperCase() + " ", null,
-                new Paginacao(0, 10), Ordenacao.Alunos.NOME, null).conteudo())
+                FiltroFinanceiroAlunos.NENHUM, new Paginacao(0, 10), Ordenacao.Alunos.NOME, null).conteudo())
                 .extracting(AlunoResponse::nome).containsExactly("Daniela");
+    }
+
+    @Test
+    void alunosTrazemASituacaoFinanceiraSomadaNoBancoEFiltramPorEla() {
+        UUID escola = dados.escola();
+        LocalDate hoje = LocalDate.now(FUSO_ESCOLA);
+        UUID ana = dados.aluno(escola, "Ana");
+        UUID bia = dados.aluno(escola, "Bia");
+        UUID caio = dados.aluno(escola, "Caio");
+        // Ana: uma pendente ja vencida (conta como atraso antes da rotina), uma em atraso e uma a vencer.
+        dados.cobranca(escola, ana, StatusCobranca.PENDENTE, hoje.minusDays(40), new BigDecimal("100.00"));
+        dados.cobranca(escola, ana, StatusCobranca.EM_ATRASO, hoje.minusDays(5), new BigDecimal("50.00"));
+        dados.cobranca(escola, ana, StatusCobranca.PENDENTE, hoje.plusDays(3), new BigDecimal("70.00"));
+        UUID mensalidadePaga = dados.cobrancaPaga(escola, ana, new BigDecimal("300.00"), hoje, Instant.now());
+        dados.classificar(mensalidadePaga, null, TipoCobranca.MENSALIDADE);
+        // Bia: so uma a vencer depois da semana; a cancelada vencida nao conta.
+        dados.cobranca(escola, bia, StatusCobranca.PENDENTE, hoje.plusDays(10), new BigDecimal("200.00"));
+        dados.cancelada(dados.cobranca(escola, bia, StatusCobranca.PENDENTE, hoje.minusDays(30)));
+        // Caio: so cancelada, entao sem cobranca.
+        dados.cancelada(dados.cobranca(escola, caio, StatusCobranca.PENDENTE, hoje.plusDays(1)));
+        // Outra escola nunca entra na conta.
+        UUID outraEscola = dados.escola();
+        dados.cobranca(outraEscola, dados.aluno(outraEscola, "Daniel"), StatusCobranca.EM_ATRASO, hoje.minusDays(90));
+        autenticarComo("FINANCEIRO", escola);
+
+        var todos = alunoService.listarPaginado(null, null, FiltroFinanceiroAlunos.NENHUM, new Paginacao(0, 10),
+                Ordenacao.Alunos.EM_ABERTO, null);
+
+        assertThat(todos.conteudo()).extracting(AlunoResponse::nome).containsExactly("Ana", "Bia", "Caio");
+        FinanceiroDoAlunoResponse daAna = todos.conteudo().get(0).financeiro();
+        assertThat(daAna.situacao()).isEqualTo(FinanceiroDoAlunoResponse.Situacao.EM_ATRASO);
+        assertThat(daAna.valorEmAberto()).isEqualByComparingTo("220.00");
+        assertThat(daAna.valorEmAtraso()).isEqualByComparingTo("150.00");
+        assertThat(daAna.diasDeAtraso()).isEqualTo(40);
+        assertThat(daAna.faixaAtraso()).isEqualTo(FinanceiroDoAlunoResponse.FaixaAtraso.DE_31_A_60_DIAS);
+        assertThat(daAna.proximoVencimento()).isEqualTo(hoje.plusDays(3));
+        assertThat(daAna.venceEm7Dias()).isTrue();
+        assertThat(daAna.valorVenceEm7Dias()).isEqualByComparingTo("70.00");
+        assertThat(daAna.mensalidadeNoMes()).isTrue();
+        assertThat(todos.conteudo()).extracting(a -> a.financeiro().situacao()).containsExactly(
+                FinanceiroDoAlunoResponse.Situacao.EM_ATRASO, FinanceiroDoAlunoResponse.Situacao.A_VENCER,
+                FinanceiroDoAlunoResponse.Situacao.SEM_COBRANCA);
+        assertThat(todos.resumo().financeiro().valorEmAtraso()).isEqualByComparingTo("150.00");
+
+        var emAtraso = alunoService.listarPaginado(null, null, new FiltroFinanceiroAlunos(
+                FinanceiroDoAlunoResponse.Situacao.EM_ATRASO, null, false, false), new Paginacao(0, 10),
+                Ordenacao.Alunos.NOME, null);
+        assertThat(emAtraso.conteudo()).extracting(AlunoResponse::nome).containsExactly("Ana");
     }
 
     @Test

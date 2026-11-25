@@ -1,5 +1,13 @@
 import type { PaginaComResumo } from '../../hooks/usePaginacao'
-import type { Aluno, AlunoDaLista, AlunoRequest, ResumoAlunos, SituacaoNaEscola } from '../../types/pessoas/aluno'
+import type {
+  Aluno,
+  AlunoDaLista,
+  AlunoRequest,
+  FaixaAtraso,
+  ResumoAlunos,
+  SituacaoFinanceira,
+  SituacaoNaEscola,
+} from '../../types/pessoas/aluno'
 import type { HistoricoFinanceiro } from '../../types/financeiro/pagamentoAluno'
 import type { RiscoAtraso } from '../../types/financeiro/riscoAtraso'
 import { apiBaixarArquivo, apiRequest } from '../api'
@@ -13,9 +21,19 @@ export type ConsultaAlunos = {
   /** Parte do nome ou do número de matrícula. */
   busca?: string
   situacao?: SituacaoNaEscola
+  // Filtros e ordem financeiros: só MASTER e FINANCEIRO; os demais recebem 403.
+  situacaoFinanceira?: SituacaoFinanceira
+  faixaAtraso?: FaixaAtraso
+  /** Só quem tem cobrança vencendo de hoje até daqui a 7 dias. */
+  venceEm7Dias?: boolean
+  /** Só quem não tem mensalidade com vencimento no mês atual. */
+  semMensalidadeNoMes?: boolean
+  /** Sem ela, o backend ordena pelo nome. EM_ABERTO começa por quem deve mais. */
+  ordenarPor?: 'NOME' | 'EM_ABERTO'
+  direcao?: 'ASC' | 'DESC'
 }
 
-/** Uma página dos alunos, em ordem de nome, com o resumo da escola inteira. */
+/** Uma página dos alunos, em ordem de nome (ou do valor em aberto), com o resumo da escola inteira. */
 export function listarPaginaDeAlunos(
   consulta: ConsultaAlunos,
   signal?: AbortSignal,
@@ -23,6 +41,12 @@ export function listarPaginaDeAlunos(
   const params = new URLSearchParams({ pagina: String(consulta.pagina), tamanho: String(consulta.tamanho) })
   if (consulta.busca) params.set('busca', consulta.busca)
   if (consulta.situacao) params.set('situacao', consulta.situacao)
+  if (consulta.situacaoFinanceira) params.set('situacaoFinanceira', consulta.situacaoFinanceira)
+  if (consulta.faixaAtraso) params.set('faixaAtraso', consulta.faixaAtraso)
+  if (consulta.venceEm7Dias) params.set('venceEm7Dias', 'true')
+  if (consulta.semMensalidadeNoMes) params.set('semMensalidadeNoMes', 'true')
+  if (consulta.ordenarPor) params.set('ordenarPor', consulta.ordenarPor)
+  if (consulta.direcao) params.set('direcao', consulta.direcao)
   return apiRequest(`/alunos/pagina?${params}`, { signal })
 }
 
