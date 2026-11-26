@@ -8,25 +8,22 @@ abstract: >-
 authors:
   - given-names: Ítalo Eduardo
     family-names: Carneiro da Silva
-    affiliation: PUC Minas
   - given-names: Guilherme Augusto
     family-names: Martins de Carvalho
-    affiliation: PUC Minas
   - given-names: Vinícius
     family-names: Matos Oliveira Rocha
-    affiliation: PUC Minas
   - given-names: João Victor
     family-names: Vial Leite Soares
-    affiliation: PUC Minas
   - given-names: Gabriel
     family-names: Felício Dias
+  - name-suffix: Professor
     affiliation: PUC Minas
-  - given-names: Ian
+    given-names: Ian
     family-names: Guelman
+  - name-suffix: Professor
     affiliation: PUC Minas
-  - given-names: Rafael Henriques
+    given-names: Rafael Henriques
     family-names: Nogueira Diniz
-    affiliation: PUC Minas
 keywords:
   - gestão escolar
   - SaaS
